@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>跨层判别一致性 · 流式 CTC 解码 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2024/Streaming_Keyword_Spotting_Boosted_By_Cross-layer_Discrimination_Consistency.md">深读笔记</a>
+    <a href="/papers/2024/Streaming_Keyword_Spotting_Boosted_By_Cross-layer_Discrimination_Consistency.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2412.12635" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2024 №36</p>
+  <h1>训练准则合适 ≠ 解码策略合适——把搜索锁死在关键词模板上，<br>再让中间层在推理期当一次虚警检测器</h1>
+  <p class="sub">Streaming Keyword Spotting Boosted by Cross-layer Discrimination Consistency（CDC）</p>
+  <p class="meta"><b>作者</b>：Yu Xi*、Haoyu Li*、Xiaoyu Gu、Hao Li、Yidi Jiang、Kai Yu（通讯）—— 上海交大 X-LANCE · 思必驰 · 新加坡国立大学（*共同一作）</p>
+  <p class="meta"><b>发表</b>：arXiv 2412.12635（2024-12）· 声学模型 6 层 DFSMN，一路不改</p>
+  <div class="chips">
+    <span class="chip">任意起点流式解码</span><span class="chip">模板 2U+1 状态 DP</span><span class="chip">ICTC：训练正则 → 推理判别器</span>
+    <span class="chip">滑窗余弦 CDC</span><span class="chip">漏检率相对降 46.3%</span><span class="chip">−5dB 域外仍有 63.4 召回</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>痛点：训练与解码的错配</b>。CTC 免对齐标注 + 非自回归逐帧输出，是流式 KWS 的主流训练准则——但现成解码器是为 ASR「整句转写」设计的：greedy 搜索的预算大量花在与关键词无关的语音上（同一个 CTC 模型平均只有 71.7%）；KWS 专用解码图方向对（75.8%）但要实现 WFST 图 + Token Passing，工程复杂难迭代，且强噪声下 token 难穿图到达终态（−5dB 只有 23.9）。<b>解码算法做错，声学模型再强也兑现不出来。</b></li>
+      <li><b>贡献一：任意起点流式解码（算法 1）</b>：把关键词音素序列插空白符成模板 ỹ（长度 2U+1），只在这个受限模板上做 Viterbi 式 DP——复杂度 O(T·Ũ)；每帧把前两个状态重置为 1，新竞争路径随时入场（关键词无论从哪帧开始都能捕捉，ASR 前缀搜索做不到）；超时 3s 置零 + 路径长度几何平均归一。同一模型平均 71.7→<b>82.1</b>，−5dB 下 22.7→35.5、对图方法 +11.6——<b>纯解码算法的增益，声学模型一分未动</b>。</li>
+      <li><b>贡献二：CDC 跨层判别一致性</b>：关键观察（Fig 2）——正样本的主层 CTC 分数曲线与中间层 ICTC 分数曲线在唤醒点附近<b>稳定且相似</b>；易误触发的高分负样本激活短暂、两曲线<b>分岔</b>。机理：正样本模式一致，容量受限的中间层也学得会；负样本五花八门，浅层难全部刻画，最终层可能过拟合出虚警模式。于是「两层判别是否一致」（滑窗余弦相似度）本身就成了<b>几乎免费的虚警检测器</b>——ICTC 从训练期正则第一次变成推理期判别信号，零新增可学参数。</li>
+      <li><b>结果（Table II，FAR=0.05 次/小时）</b>：A 图解码 85.3 → B 流式解码 89.4（+4.1）→ D +ICTC 91.1（低 SNR 集中，−5dB +5.8）→ E +CDC <b>92.1</b>（−5dB +3.6 到 63.4）。E vs A：平均召回绝对 +6.8，<b>平均漏检率相对降 46.3%</b>（14.7%→7.9%）。</li>
+      <li><b>最有信息量的负结果</b>：纯历史窗 CDC（His=30/Fut=0，零延迟）只有 90.7，<b>比不用 CDC（91.1）还低</b>——两层分数的分岔主要发生在激活之后，唤醒点之前把两段尚未对齐的曲线拉去算余弦，引入的是噪声不是信号。CDC 的判别信息几乎全部来自<b>未来帧</b>：Fut=30（900ms 延迟）92.1 已逼近上界（Fut=∞ 92.1 / 完全离线 92.3）。</li>
+      <li><b>层位消融反向验证机理</b>：ICTC 挂第 2 层只有 89.3（太浅在做特征提取）、第 5 层 91.2（太深与主层同质化失去互补）、第 3/4 层（L/2 附近）92.1/92.3——<b>中间分支的价值恰恰在于它「与最终层不一样」，太像或太不像都不行</b>。</li>
+      <li><b>边界</b>：最优配置引入 900ms 额外延迟（零延迟下 CDC 失效甚至轻微负效——交换相当刚性）；CDC 依赖训练期就带 ICTC 分支（不能免训练套在已训好的普通 CTC 上）；单数据集单唤醒词；融合与度量全手工（余弦 + 简单平均）无敏感性分析；计算开销未量化。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">KWS 的真实决策是「滑动的局部检测」，不是整句转写</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>两类现有解码的具体不足</b>：<br>
+    ① <b>ASR 推理类</b>：流式输出 token 序列再在解码结果里匹配关键词——目标错配：ASR 解码在整个声学空间搜索「最可能的完整假设」，产出完整转写而非为「关键词出现与否」这个二元判断优化。量化差距：同一 CTC 模型 greedy 平均 71.7%、prefix beam=10 也只有 75.5%——<b>更强的通用搜索并没有转化为更好的 KWS</b>；且难以直接控制虚警（论文只能对它们报 FAR=0 下的 accuracy）。<br>
+    ② <b>KWS 专用解码图</b>：图中含关键词路径 + 可选 filler 路径，为 KWS 定制、效果更好（75.8%）——但落地必须实现 WFST 图 + Token Passing，工程复杂难迭代（换关键词要重新构图）；强噪声下解码 token 难以穿图到达终态，低 SNR 准确率崩掉（−5dB 仅 23.9）。<br>
+    <b>两类方法共同的问题</b>：都只消费最终输出层的后验，模型中间层学到的判别信息在推理期被整体丢弃。作者前作 TDT-KWS 已为 Transducer 证明「锁死搜索空间在关键词上」的价值，但这条思路没搬到 CTC，中间层信息也一直没人用。
+  </div>
+
+  <div class="card">
+    <b>三个挑战</b>：为 CTC 设计严格帧同步的流式解码——搜索空间锁死在关键词模板内、支持从音频流任意位置发起搜索、效果超过 ASR 类与图类基线、实现比 WFST 简单得多；把中间层（ICTC）信息在推理期用起来——专门区分「真唤醒的正样本」和「容易被误触发的高分负样本」，前提是先回答「中间层到底学到了什么与最终层不同的东西」；CDC 看唤醒点附近的未来帧必然引入延迟——窗口与延迟的权衡量化清楚。本质是在准 / 快 / 省三角里专攻「准」且拒绝付「省」的代价。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">双分支打分 + 滑窗余弦一致性</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg viewBox="0 0 920 640" role="img">
+  <defs>
+    <marker id="ca" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#47536a"/></marker>
+    <marker id="cg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0e8a66"/></marker>
+  </defs>
+  <text x="30" y="26" font-size="13.5" fill="#47536a" font-weight="600">图 1/2 复绘：同一个 DFSMN 编码器，主 CTC + 第 3 层 ICTC 双分支 → 四阶段逐帧打分流水线</text>
+
+  <!-- encoder -->
+  <rect x="30" y="56" width="520" height="150" rx="11" fill="#f2faf6" stroke="#9ec9b8" stroke-width="1.3"/>
+  <text x="46" y="80" font-size="12.5" font-weight="700" fill="#0a6b4e">声学编码器：6 层 DFSMN（输入 440 维 · 隐层 512 · 投影 320）</text>
+  <text x="46" y="103" font-size="11" fill="#47536a">纯前馈、固定记忆块替代递归，左阶 8 / 右阶 2 —— 整网算法延迟极小</text>
+  <text x="46" y="125" font-size="11" fill="#47536a">特征 40 维 log FBank · 前后各 5 帧拼接 · 3 帧跳帧（每输入帧 30ms）</text>
+  <text x="46" y="150" font-size="11" fill="#0a6b4e">第 3 层（L/2 附近）挂线性投影 → ICTC 分支（中间层 CTC 监督）</text>
+  <text x="46" y="175" font-size="10.5" fill="#8a93a5">训练损失 L = 0.3·L_ICTC + 0.7·L_CTC；LibriSpeech 960h 预训练 + 24k 句微调</text>
+  <text x="46" y="196" font-size="10.5" fill="#8a93a5">（12k 干净 + 12k 混 WHAM! 0–20dB）· 建模单元 70 音素 + 空白符</text>
+
+  <!-- two branches -->
+  <line x1="300" y1="206" x2="180" y2="240" stroke="#47536a" stroke-width="1.5" marker-end="url(#ca)"/>
+  <line x1="300" y1="206" x2="420" y2="240" stroke="#47536a" stroke-width="1.5" marker-end="url(#ca)"/>
+
+  <rect x="60" y="244" width="240" height="66" rx="10" fill="#eaf3fc" stroke="#3d6fa8" stroke-width="1.3"/>
+  <text x="180" y="268" text-anchor="middle" font-size="12" font-weight="700" fill="#2a5580">主 CTC 分支（最终层）</text>
+  <text x="180" y="290" text-anchor="middle" font-size="10.5" fill="#47536a">流式解码（算法 1）→ s(init) 逐帧</text>
+
+  <rect x="320" y="244" width="240" height="66" rx="10" fill="#e6f4ee" stroke="#0e8a66" stroke-width="1.3"/>
+  <text x="440" y="268" text-anchor="middle" font-size="12" font-weight="700" fill="#0a6b4e">ICTC 分支（第 3 层）★</text>
+  <text x="440" y="290" text-anchor="middle" font-size="10.5" fill="#47536a">同一个流式解码 → s(inter) 逐帧</text>
+
+  <line x1="180" y1="310" x2="180" y2="336" stroke="#47536a" stroke-width="1.5" marker-end="url(#ca)"/>
+  <line x1="440" y1="310" x2="440" y2="336" stroke="#47536a" stroke-width="1.5" marker-end="url(#ca)"/>
+
+  <rect x="60" y="340" width="500" height="66" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+  <text x="310" y="364" text-anchor="middle" font-size="12" font-weight="700" fill="#47536a">CDC：滑窗余弦相似度 s(cdc) = cos( s(init) 窗 , s(inter) 窗 )</text>
+  <text x="310" y="388" text-anchor="middle" font-size="10.5" fill="#47536a">窗口 L_His + L_Fut（最优 0 + 30 帧 = 900ms 未来窗）· 零新增可学参数</text>
+
+  <line x1="310" y1="406" x2="310" y2="428" stroke="#47536a" stroke-width="1.5" marker-end="url(#ca)"/>
+
+  <rect x="60" y="432" width="500" height="60" rx="10" fill="#e6f4ee" stroke="#0e8a66" stroke-width="1.5"/>
+  <text x="310" y="456" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0a6b4e">精炼分数 s(refine) = ( s(init) + s(cdc) ) / 2 → 流式输出</text>
+  <text x="310" y="478" text-anchor="middle" font-size="10.5" fill="#47536a">「两层都同意才放行」的软门控，逐帧可算、不破坏流式性</text>
+
+  <!-- Fig 2 inset -->
+  <rect x="600" y="56" width="290" height="436" rx="11" fill="#fff" stroke="#c9c9bd" stroke-width="1.2"/>
+  <text x="745" y="80" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">Fig 2 · CDC 的物理来源</text>
+  <text x="745" y="104" text-anchor="middle" font-size="11" fill="#0a6b4e">正样本（真唤醒）：两层分数稳定且相似</text>
+  <rect x="620" y="116" width="250" height="86" rx="8" fill="#f2faf6" stroke="#9ec9b8" stroke-width="1"/>
+  <path d="M635,186 C690,184 720,138 800,134" fill="none" stroke="#3d6fa8" stroke-width="2.4"/>
+  <path d="M635,192 C690,190 720,146 800,142" fill="none" stroke="#0e8a66" stroke-width="2.4" stroke-dasharray="6 3"/>
+  <line x1="762" y1="120" x2="762" y2="200" stroke="#8a93a5" stroke-width="1" stroke-dasharray="3 3"/>
+  <text x="762" y="214" text-anchor="middle" font-size="9.5" fill="#8a93a5">唤醒点</text>
+  <text x="745" y="228" text-anchor="middle" font-size="10" fill="#8a93a5">两曲线同涨同落 → 余弦 ≈ 1，分数不被削减</text>
+  <text x="745" y="258" text-anchor="middle" font-size="11" fill="#8c3b2e">高分负样本（易误触发）：激活短暂、两曲线分岔</text>
+  <rect x="620" y="270" width="250" height="86" rx="8" fill="#fbf2f0" stroke="#c9a08e" stroke-width="1"/>
+  <path d="M635,346 C665,344 685,300 705,298 C725,296 745,330 865,338" fill="none" stroke="#3d6fa8" stroke-width="2.4"/>
+  <path d="M635,350 C675,348 700,272 715,306 C730,340 760,300 865,344" fill="none" stroke="#0e8a66" stroke-width="2.4" stroke-dasharray="6 3"/>
+  <text x="745" y="374" text-anchor="middle" font-size="10" fill="#8a93a5">分岔 → 余弦低，把 s(init) 的高分拉下来</text>
+  <text x="620" y="404" font-size="10.5" fill="#47536a">机理：正样本（同一唤醒词）模式一致，容量受限的</text>
+  <text x="620" y="422" font-size="10.5" fill="#47536a">中间层也学得会；负样本模式五花八门，浅层难全部</text>
+  <text x="620" y="440" font-size="10.5" fill="#47536a">刻画，最终层可能过拟合出虚警模式，ICTC 反而保持</text>
+  <text x="620" y="458" font-size="10.5" fill="#47536a">正则性——「两层是否一致」= 免费的虚警检测器。</text>
+  <text x="620" y="480" font-size="10" fill="#8a93a5">（经验现象 + 合理推断，换数据集需重验证，见 §05）</text>
+
+  <!-- algorithm box -->
+  <rect x="30" y="516" width="860" height="106" rx="11" fill="#f9faf7" stroke="#e6e6df" stroke-width="1.1"/>
+  <text x="46" y="540" font-size="12" font-weight="700" fill="#47536a">算法 1 · 关键词模板上的 Viterbi 式 DP（复杂度 O(T·Ũ)，Ũ=2U+1）</text>
+  <text x="46" y="564" font-size="11" fill="#47536a">模板 ỹ = [ϕ, y1, ϕ, …, ϕ, yU, ϕ]；每帧 δ(t,1)=δ(t,2)=1 —— 任意起点：新竞争路径每时刻以概率 1 入场；</text>
+  <text x="46" y="584" font-size="11" fill="#47536a">空白态 / 音素态各取 max 前驱（对应 CTC 对齐规则完整展开）；Scores[t] = e³ · max{δ(t,Ũ−1), δ(t,Ũ)}；</text>
+  <text x="46" y="604" font-size="11" fill="#0a6b4e">超时 T_out=3s 置零防误积攒 + 长度归一（几何平均）消长度偏置 —— 只需后验矩阵 + 音素序列 + 两个超参。</text>
+</svg>
+    <p class="cap"><b>图 1/2 复绘</b>：ICTC 在 ASR 文献里纯粹是训练期正则（推理时中间分支整体丢弃），本文第一次把它变成推理期信号源——Fig 2 的实证观察是全部设计的出发点。</p>
+  </div>
+
+  <div class="formula">
+    δ(t,1) = δ(t,2) = 1（每帧）；Scores[t] = e³ · max{ δ(t,Ũ−1), δ(t,Ũ) }，超时置零后 Scores[t] ← Scores[t]<sup>1/ℓ(t)</sup>
+    <div class="why">算法 1 的两个关键：每帧重置前两个状态为 1 ——「任意起点」机制，一条新竞争路径在每个时刻都以概率 1 从模板头开始，这是 ASR 前缀搜索（假设从 utterance 开头累积生长）做不到的流式硬需求；e³≈20 的完成奖励放大命中整词的路径，T_out=3s 砍掉过长路径防误积攒，几何平均消除「概率连乘天然偏向短路径」的长度偏置——不同语速、不同关键词长度下分数才可比。</div>
+  </div>
+
+  <div class="formula">
+    s<sub>t</sub><sup>(cdc)</sup> = cos( s<sup>(init)</sup><sub>[t−L_His : t+L_Fut]</sub> ,&nbsp; s<sup>(inter)</sup><sub>[t−L_His : t+L_Fut]</sub> )；&nbsp; s<sup>(refine)</sup> = ( s<sup>(init)</sup> + s<sup>(cdc)</sup> ) / 2
+    <div class="why">式 5/6 · CDC：正样本两曲线同涨同落 → 余弦 ≈ 1，分数几乎不被削减；负样本激活短暂且两层分岔 → 余弦低，把 s(init) 的高分拉下来——等价于「两层都同意才放行」的软门控，逐帧可算不破坏流式性。L_Fut 是性能与延迟的调节旋钮。融合与度量全是无参数后处理，克制但有效。</div>
+  </div>
+
+  <div class="card">
+    <b>与前作的承接</b>：TDT-KWS（ICASSP 2024，同团队）为 Transducer 设计——把解码出的关键词 token 序列回灌 predictor 限制后验生成；本文把「锁死搜索空间」思想移植到 CTC，并额外利用 CTC 特有的 ICTC 多分支结构做 CDC 增强——这是 Transducer 框架里没有的天然资产。DFSMN 也是 X-LANCE 长期深耕的架构，与前作形成同架构下不同训练准则的对照。
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与消融</p>
+  <h2 class="sec">固定虚警工作点比召回，孤立准确率没有意义</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据与协议</b>：LibriSpeech 960h 预训练（帧级 CE）→ LibriSpeech+Snips 等量采样微调（24k 句 = 12k 干净 + 12k 混 WHAM! 0–20dB）。Hey-Snips：正样本 train/dev/test 5,799/2,484/2,599 句，全部原始负样本汇成 ~97 小时大负样本测试集；鲁棒性把正样本混 {0,5,10,15,20}dB 噪声，另造 −5dB 集（极低且域外 SNR）。指标：固定 FAR 下的召回 + 跨 SNR 宏平均——ASR 基线因难以做虚警解码只报 FAR=0 的 accuracy（作者自认的不得已，两个工作点不同轨不能跨表直比）。增强：速度扰动 {0.9,1.0,1.1} + SpecAugment。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 400" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table I · 同一个 CTC 声学模型，只换解码（FAR=0 下宏平均准确率 %，SNR −5dB~+∞ 七档）</text>
+<line x1="70" y1="298.9" x2="830" y2="298.9" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="302.9" text-anchor="end" font-size="12" fill="#6b7a72">70</text>
+<line x1="70" y1="221.1" x2="830" y2="221.1" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="225.1" text-anchor="end" font-size="12" fill="#6b7a72">75</text>
+<line x1="70" y1="143.3" x2="830" y2="143.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="147.3" text-anchor="end" font-size="12" fill="#6b7a72">80</text>
+<line x1="70" y1="65.6" x2="830" y2="65.6" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="69.6" text-anchor="end" font-size="12" fill="#6b7a72">85</text>
+<line x1="70" y1="330" x2="830" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="108.0" y="272.4" width="64" height="57.6" rx="5" fill="#b9c6bd"/>
+<text x="140.0" y="263.4" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">71.7</text>
+<text x="140.0" y="352.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">greedy 搜索</text>
+<text x="140.0" y="366.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">（ASR 类）</text>
+<text x="140.0" y="394.0" text-anchor="middle" font-size="10" fill="#8a93a5">−5dB: 22.7</text>
+<rect x="318.0" y="213.3" width="64" height="116.7" rx="5" fill="#b9c6bd"/>
+<text x="350.0" y="204.3" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">75.5</text>
+<text x="350.0" y="352.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">prefix beam=10</text>
+<text x="350.0" y="366.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">（ASR 类）</text>
+<text x="350.0" y="394.0" text-anchor="middle" font-size="10" fill="#8a93a5">0dB: 50.7</text>
+<rect x="528.0" y="208.7" width="64" height="121.3" rx="5" fill="#d9c9a8"/>
+<text x="560.0" y="199.7" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">75.8</text>
+<text x="560.0" y="352.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">KWS 解码图</text>
+<text x="560.0" y="366.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">（WFST+Token Passing）</text>
+<text x="560.0" y="394.0" text-anchor="middle" font-size="10" fill="#8a93a5">−5dB: 23.9</text>
+<rect x="738.0" y="110.7" width="64" height="219.3" rx="5" fill="#0e8a66"/>
+<text x="770.0" y="101.7" text-anchor="middle" font-size="14" font-weight="700" fill="#0a6b4e">82.1</text>
+<text x="770.0" y="352.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">本文流式解码 ★</text>
+<text x="770.0" y="380.0" text-anchor="middle" font-size="10" fill="#8a93a5">−5dB: 35.5 / 0dB: 68.0</text>
+<text x="440" y="392" text-anchor="middle" font-size="12" fill="#0a6b4e">相对两个 ASR 基线平均绝对 +10.4 / +6.6 点，相对图基线 +6.3 点；低 SNR 段普遍拿到 ≥10 点绝对增益——纯解码算法的增益，声学模型一分未动</text>
+</svg>
+    <p class="cap"><b>Table I</b>（FAR=0，SNR −5dB~+∞ 七档宏平均）：最强的信息在低 SNR 段——ASR 解码因语音被噪声淹没生成不出正确假设、图方法 token 难穿图，本方法强制逐帧输出激活分数，噪声再强也能继续打分。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 460" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table II · 五配置阶梯（FAR=0.05 次/小时，与图基线同工作点同声学模型，宏平均召回 %）</text>
+<line x1="70" y1="340.0" x2="830" y2="340.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="344.0" text-anchor="end" font-size="12" fill="#6b7a72">82</text>
+<line x1="70" y1="265.0" x2="830" y2="265.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="269.0" text-anchor="end" font-size="12" fill="#6b7a72">85</text>
+<line x1="70" y1="190.0" x2="830" y2="190.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="194.0" text-anchor="end" font-size="12" fill="#6b7a72">88</text>
+<line x1="70" y1="115.0" x2="830" y2="115.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="119.0" text-anchor="end" font-size="12" fill="#6b7a72">91</text>
+<line x1="70" y1="40.0" x2="830" y2="40.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="44.0" text-anchor="end" font-size="12" fill="#6b7a72">94</text>
+<line x1="70" y1="340" x2="830" y2="340" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="100.0" y="257.5" width="60" height="82.5" rx="5" fill="#b9c6bd"/>
+<text x="130.0" y="249.5" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">85.3</text>
+<text x="130.0" y="362.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">A · 图解码</text>
+<text x="130.0" y="376.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">（无 ICTC）</text>
+<text x="130.0" y="406.0" text-anchor="middle" font-size="9.5" fill="#8a93a5">−5dB: 41.6</text>
+<rect x="252.0" y="155.0" width="60" height="185.0" rx="5" fill="#7cc0a2"/>
+<text x="282.0" y="147.0" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">89.4</text>
+<text x="282.0" y="362.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">B · 流式解码</text>
+<text x="282.0" y="376.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">（无 ICTC）</text>
+<text x="282.0" y="406.0" text-anchor="middle" font-size="9.5" fill="#8a93a5">−5dB: 54.0（+12.4）</text>
+<rect x="404.0" y="250.0" width="60" height="90.0" rx="5" fill="#d9c9a8"/>
+<text x="434.0" y="242.0" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">85.6</text>
+<text x="434.0" y="362.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">C · 图 + ICTC</text>
+<text x="434.0" y="392.0" text-anchor="middle" font-size="9.5" fill="#8a93a5">干净列 98.8→98.3 反降</text>
+<rect x="556.0" y="112.5" width="60" height="227.5" rx="5" fill="#5aa88a"/>
+<text x="586.0" y="104.5" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">91.1</text>
+<text x="586.0" y="362.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">D · 流式 + ICTC</text>
+<text x="586.0" y="392.0" text-anchor="middle" font-size="9.5" fill="#8a93a5">−5dB: 59.8（+5.8）</text>
+<rect x="708.0" y="87.5" width="60" height="252.5" rx="5" fill="#0a6b4e"/>
+<text x="738.0" y="79.5" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0a6b4e">92.1</text>
+<text x="738.0" y="362.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">E · D + CDC ★</text>
+<text x="738.0" y="392.0" text-anchor="middle" font-size="9.5" fill="#8a93a5">−5dB: 63.4（+3.6）</text>
+<text x="440" y="428" text-anchor="middle" font-size="12" fill="#0a6b4e">三组读数：B→A +4.1（流式解码本身就比图强）；D→B +1.7 且集中在低 SNR（ICTC 对流式远大于对图 +0.3）；E→D +1.0 最难条件收益最大</text>
+<text x="440" y="450" text-anchor="middle" font-size="12" fill="#0a6b4e">E vs A：平均召回绝对 +6.8，平均漏检率相对降 46.3%（14.7%→7.9%），在每小时 0.05 次的极低虚警下取得</text>
+</svg>
+    <p class="cap"><b>Table II</b>：五配置是三级增益的分解——解码算法（B）、训练正则（D）、推理期 CDC（E）各自贡献多少一目了然；C 对 A 在干净列反降是正则的典型交换曲线。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 430" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table III/IV · 消融：CDC 的判别信息几乎全部来自唤醒点之后的未来帧；中间层放在 L/2 附近</text>
+<text x="240" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">CDC 窗口扫描（总窗 30 帧 · 宏平均召回 %）</text>
+<line x1="70" y1="297.4" x2="470" y2="297.4" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="301.4" text-anchor="end" font-size="11.5" fill="#6b7a72">90.5</text>
+<line x1="70" y1="243.0" x2="470" y2="243.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="247.0" text-anchor="end" font-size="11.5" fill="#6b7a72">91.0</text>
+<line x1="70" y1="188.7" x2="470" y2="188.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="192.7" text-anchor="end" font-size="11.5" fill="#6b7a72">91.5</text>
+<line x1="70" y1="134.3" x2="470" y2="134.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="138.3" text-anchor="end" font-size="11.5" fill="#6b7a72">92.0</text>
+<line x1="70" y1="330" x2="470" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="82.0" y="275.7" width="46" height="54.3" rx="4" fill="#c0563f"/>
+<text x="105.0" y="268.7" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">90.7</text>
+<text x="105.0" y="350.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#8c3b2e">纯历史窗</text>
+<text x="105.0" y="363.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">His=30/Fut=0</text>
+<text x="105.0" y="386.0" text-anchor="middle" font-size="9" fill="#8a93a5">零延迟但 < D 的 91.1</text>
+<text x="105.0" y="398.0" text-anchor="middle" font-size="9" fill="#8a93a5">负收益！</text>
+<rect x="172.0" y="243.0" width="46" height="87.0" rx="4" fill="#d9c9a8"/>
+<text x="195.0" y="236.0" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">91.0</text>
+<text x="195.0" y="350.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">Fut=10</text>
+<text x="195.0" y="386.0" text-anchor="middle" font-size="9" fill="#8a93a5">300ms</text>
+<rect x="262.0" y="210.4" width="46" height="119.6" rx="4" fill="#d9c9a8"/>
+<text x="285.0" y="203.4" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">91.3</text>
+<text x="285.0" y="350.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">Fut=20</text>
+<text x="285.0" y="386.0" text-anchor="middle" font-size="9" fill="#8a93a5">600ms</text>
+<rect x="352.0" y="188.7" width="46" height="141.3" rx="4" fill="#7cc0a2"/>
+<text x="375.0" y="181.7" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">91.5</text>
+<text x="375.0" y="350.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">Fut=25</text>
+<text x="375.0" y="386.0" text-anchor="middle" font-size="9" fill="#8a93a5">750ms</text>
+<rect x="442.0" y="123.5" width="46" height="206.5" rx="4" fill="#0a6b4e"/>
+<text x="465.0" y="116.5" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0a6b4e">92.1</text>
+<text x="465.0" y="350.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#47536a">Fut=30 ★</text>
+<text x="465.0" y="386.0" text-anchor="middle" font-size="9" fill="#8a93a5">900ms</text>
+<text x="270" y="416" text-anchor="middle" font-size="11" fill="#8a93a5">上界：Fut=∞ 92.1 · 完全离线 92.3 —— 不到 1s 延迟已逼近上界；唤醒点之前算余弦引入的是噪声不是信号</text>
+<text x="670" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">ICTC 位置（w=0.3）与权重（第 3 层）</text>
+<line x1="510" y1="316.8" x2="830" y2="316.8" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="320.8" text-anchor="end" font-size="11.5" fill="#6b7a72">89</text>
+<line x1="510" y1="251.1" x2="830" y2="251.1" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="255.1" text-anchor="end" font-size="11.5" fill="#6b7a72">90</text>
+<line x1="510" y1="185.3" x2="830" y2="185.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="189.3" text-anchor="end" font-size="11.5" fill="#6b7a72">91</text>
+<line x1="510" y1="119.5" x2="830" y2="119.5" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="123.5" text-anchor="end" font-size="11.5" fill="#6b7a72">92</text>
+<line x1="510" y1="330" x2="830" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="528.0" y="297.1" width="40" height="32.9" rx="4" fill="#d9c9a8"/>
+<text x="548.0" y="290.1" text-anchor="middle" font-size="11" font-weight="700" fill="#1c2430">89.3</text>
+<text x="548.0" y="348.0" text-anchor="middle" font-size="9.5" fill="#47536a">第2层</text>
+<text x="548.0" y="361.0" text-anchor="middle" font-size="9.5" fill="#47536a">太浅</text>
+<rect x="590.0" y="112.9" width="40" height="217.1" rx="4" fill="#7cc0a2"/>
+<text x="610.0" y="105.9" text-anchor="middle" font-size="11" font-weight="700" fill="#1c2430">92.1</text>
+<text x="610.0" y="348.0" text-anchor="middle" font-size="9.5" fill="#47536a">第3层</text>
+<text x="610.0" y="361.0" text-anchor="middle" font-size="9.5" fill="#47536a">L/2</text>
+<rect x="652.0" y="99.7" width="40" height="230.3" rx="4" fill="#0a6b4e"/>
+<text x="672.0" y="92.7" text-anchor="middle" font-size="11" font-weight="700" fill="#1c2430">92.3</text>
+<text x="672.0" y="348.0" text-anchor="middle" font-size="9.5" fill="#47536a">第4层</text>
+<rect x="714.0" y="172.1" width="40" height="157.9" rx="4" fill="#d9c9a8"/>
+<text x="734.0" y="165.1" text-anchor="middle" font-size="11" font-weight="700" fill="#1c2430">91.2</text>
+<text x="734.0" y="348.0" text-anchor="middle" font-size="9.5" fill="#47536a">第5层</text>
+<text x="734.0" y="361.0" text-anchor="middle" font-size="9.5" fill="#47536a">太深</text>
+<rect x="684.0" y="172.1" width="32" height="157.9" rx="4" fill="#d9c9a8"/>
+<text x="700.0" y="166.1" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">91.2</text>
+<text x="700.0" y="348" text-anchor="middle" font-size="9.5" fill="#47536a">w=0.1</text>
+<rect x="730.0" y="158.9" width="32" height="171.1" rx="4" fill="#d9c9a8"/>
+<text x="746.0" y="152.9" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">91.4</text>
+<text x="746.0" y="348" text-anchor="middle" font-size="9.5" fill="#47536a">w=0.2</text>
+<rect x="776.0" y="112.9" width="32" height="217.1" rx="4" fill="#7cc0a2"/>
+<text x="792.0" y="106.9" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">92.1</text>
+<text x="792.0" y="348" text-anchor="middle" font-size="9.5" fill="#47536a">w=0.3</text>
+<rect x="822.0" y="132.6" width="32" height="197.4" rx="4" fill="#d9c9a8"/>
+<text x="838.0" y="126.6" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">91.8</text>
+<text x="838.0" y="348" text-anchor="middle" font-size="9.5" fill="#47536a">w=0.4</text>
+<text x="586" y="378" text-anchor="middle" font-size="10" fill="#8a93a5">太浅在做特征提取未编码关键词；</text>
+<text x="586" y="392" text-anchor="middle" font-size="10" fill="#8a93a5">太深与主层同质化失去互补性</text>
+<text x="754" y="378" text-anchor="middle" font-size="10" fill="#8a93a5">w 过大稀释主 CTC 目标，</text>
+<text x="754" y="392" text-anchor="middle" font-size="10" fill="#8a93a5">过小中间分支学不到判别力</text>
+<text x="670" y="416" text-anchor="middle" font-size="11" fill="#8a93a5">反向验证机理：中间分支的价值恰恰在于它「与最终层不一样」，太像或太不像都不行</text>
+</svg>
+    <p class="cap"><b>Table III/IV</b>：窗口扫描的负结果（纯历史窗 90.7 &lt; 不用 CDC 的 91.1）与层位扫描的非单调（第 2/5 层都差）是两组最有信息量的消融——分别定位了 CDC 的信号来源与中间分支的存在条件。</p>
+  </div>
+
+  <div class="card">
+    <b>两个藏在表里的细节</b>：① <b>正则的典型交换曲线</b>——ICTC 对图解码（C vs A）在干净列反降（98.8→98.3）、15dB 降（97.5→96.8），只在低 SNR 正贡献：训练目标被中间损失分走权重后，高 SNR 的极致优化受一点伤，换来噪声下的稳健；② w=0.1 时干净列 99.9 略高于 w=0.3 的 99.8——干净条件下 CDC/ICTC 边际收益近饱和，<b>其价值主要体现在噪声与域外条件</b>；部署场景干净时可减小 w 换更稳的主任务优化。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">三条贡献 + 一条可迁移判断</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>面向 CTC 的流式解码算法</b>：关键词模板 2U+1 状态 DP + 每帧概率重置的任意起点 + 超时截断与长度归一——相对 ASR 解码平均 +10.4/+6.6 点、相对图基线 +6.3 点，实现只需后验矩阵 + 音素序列 + 两个超参，换关键词只需换一条音素序列（图方法要重新构图）。</div>
+    <div class="c"><span class="n">2</span><b>CDC 跨层判别一致性</b>：基于正 / 负样本上两层分数行为的实证观察，用滑窗余弦把「两层判别是否一致」变成逐帧分数——把训练期正则第一次变成推理期判别器，零新增可学参数。</div>
+    <div class="c"><span class="n">3</span><b>干净与带噪系统验证</b>：FAR=0.05/h 下平均召回绝对 +6.8、漏检率相对降 46.3%；−5dB 域外条件召回仍有 63.4，各 SNR 档全面领先。</div>
+    <div class="c"><span class="n" style="background:#d97a2b">★</span><b>可迁移判断</b>：同一套后验，<b>解码算法决定系统落在工作点曲线的哪个位置、以及曲线能被推到多好</b>——把「KWS 只关心这一个词」的先验直接写进解码结构（受限模板 DP），比通用搜索更强还更简单；而训练期的辅助分支（正则）不必在推理期丢弃——它的「弱」正是它与主层互补的来源。</div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">900ms 延迟的交换相当刚性</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>延迟代价</b>：最优 CDC 配置引入 900ms 额外延迟——唤醒类产品对响应延迟通常敏感；零延迟配置（Fut=0）下 CDC 几乎失效甚至轻微负效（90.7 对 91.1），延迟与增益的交换刚性，没有中间档可退。</li>
+        <li><b>依赖训练期 ICTC 分支</b>：CDC 需要模型训练时就带中间 CTC 监督——无法直接套在已训好的普通 CTC 模型上免训练获益，迁移必须重新微调。</li>
+        <li><b>融合与度量手工选择</b>：余弦相似度 + 简单平均固定不变，无可学习权重，未探索其他一致性度量，无敏感性分析。</li>
+        <li><b>硬截断与机理假设</b>：T_out=3s 超限路径直接置零——对语速极慢说话人或更长关键词是否安全未讨论；「正样本两层一致、负样本分岔」是 Hey-Snips 上的经验现象，「浅层容量小学得会一致正模式」是合理推断而非理论保证，换数据集换关键词需重验证。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>单一数据集 / 唤醒词</b>：只有 Hey-Snips 英文一个唤醒词；多关键词、多语言、多数据集泛化未报告。</li>
+        <li><b>基线全在 CTC 家族内</b>：greedy / prefix beam / KWS 图——没与 Transducer 系 KWS（含作者自己的 TDT-KWS）或专用小型 KWS 架构正面对比，无法定位在更大方法版图中的位置。</li>
+        <li><b>工作点不同轨</b>：ASR 基线报 FAR=0 accuracy、图与本方法报 FAR=0.05/h recall——Table I 与 Table II 不能直接跨表比较（作者自认不得已）。</li>
+        <li><b>开销与负样本类型</b>：额外跑一遍 ICTC 分支解码 + 逐帧滑窗余弦的 RTF / 内存 / 新增参数完全未量化；负样本只有 Snips 同分布 + WHAM! 混音，缺真实远场、混响、电视漏音等虚警压力主要来源；单次运行无种子方差。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得补的方向</b>：把「锁死搜索空间 + 任意起点」扩展到 Transducer/TDT，与前作统一成跨训练准则的流式 KWS 解码理论；CDC 窗口做成延迟预算自适应，或在流式约束下用<b>因果预测</b>近似未来帧信息消掉 900ms——Table III 显示纯因果窗目前是负收益，这是明确的开放问题；学习式融合（小网络 / 可学权重）与更丰富的一致性度量（相关性、散度）；真实远场、多关键词、多语言上检验 Fig 2 观察的普适性；补齐计算开销与混响 / 电视音频等误触发源下的虚警评测。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2024/Streaming_Keyword_Spotting_Boosted_By_Cross-layer_Discrimination_Consistency.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2024/Streaming_Keyword_Spotting_Boosted_By_Cross-layer_Discrimination_Consistency.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2412.12635" target="_blank">arXiv · 2412.12635</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（Table I–IV、Fig 1/2、算法 1、式 1–6）；错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
