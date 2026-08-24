@@ -1,7 +1,7 @@
 # 可视化精读计划（VIZ_PLAN）
 
 > 逐篇把 305 篇深读笔记重写为 HTML+SVG 可视化页（2026→2018 倒序）。每篇流程：读笔记 → python 算图表坐标 → 手绘机制 SVG → 自包含 HTML → 更新 manifest+plan → commit+push。
-**进度：119 / 305**
+**进度：120 / 305**
 > 进度以本文件为准；`viz_manifest.json` 是机器可读版（站点 viz 按钮按它门控）。
 
 ## 2026（24/24）
@@ -117,7 +117,7 @@
 - [✅] Utilizing TTS Synthesized Data for Efficient Development o…
 - [✅] Wake Word and Speech Recognition Application on Edge Devic…
 
-## 2023（15/41）
+## 2023（16/41）
 
 - [✅] A 3.8μW 10 关键词抗噪关键词检出处理器：对称压缩三值权重神经网络
 - [✅] 少神经元神经形态关键词检测的时间编码器对比：TDE 与双突触 E-I 元件
@@ -134,7 +134,7 @@
 - [✅] iPhonMatchNet：用隐式声学回声消除做零样本自定义关键词检测
 - [✅] Improving Small Footprint Few-shot Keyword Spotting with S…
 - [✅] 流式 Conformer 编码器中的动态模块跳过：让视觉启发式关键词检测又准又省
-- [⬜] Joint Framework of Curriculum Learning and Knowledge Disti…
+- [✅] Joint Framework of Curriculum Learning and Knowledge Disti…
 - [⬜] Keyword Spotting System with Nano 33 BLE Sense Using Embed…
 - [⬜] Keyword Spotting Simplified：用字符计数与 CTC 重打分实现的免分割关键词检索
 - [⬜] LiteFEW：基于自监督语音表征的轻量级唤醒词检测特征编码器
