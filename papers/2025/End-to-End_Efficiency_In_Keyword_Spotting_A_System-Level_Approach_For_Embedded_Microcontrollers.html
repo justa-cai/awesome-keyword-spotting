@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>端到端效率 KWS 基准 · MCU 系统级方法 · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2025/End-to-End_Efficiency_In_Keyword_Spotting_A_System-Level_Approach_For_Embedded_Microcontrollers.md">深读笔记</a>
+    <a href="/papers/2025/End-to-End_Efficiency_In_Keyword_Spotting_A_System-Level_Approach_For_Embedded_Microcontrollers.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2509.07051" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2025 №12</p>
+  <h1>端到端效率基准<br>模型准确率本身，并不决定真实世界的有效性</h1>
+  <p class="sub">End-to-End Efficiency in Keyword Spotting: A System-Level Approach for Embedded Microcontrollers</p>
+  <p class="meta"><b>作者</b>：Pietro Bartoli 等 —— 米兰理工大学 × EssilorLuxottica 智能眼镜实验室</p>
+  <p class="meta"><b>发表</b>：2025.09 · arXiv:2509.07051 · IEEE 会议格式</p>
+  <div class="chips">
+    <span class="chip">MCU 基准测试</span><span class="chip">MFCC 前处理入账</span><span class="chip">能量延迟积 EDP</span>
+    <span class="chip">软硬件协同设计</span><span class="chip">TKWS 倒瓶颈</span><span class="chip">STM32 三档平台</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>被点破的评估缺口：绝大多数 KWS 工作只优化模型推理一段，<b>MFCC 前处理的能耗时延从未入账</b>——而 FFT + 梅尔滤波 + DCT 这条浮点密集的链在几十 MHz 的 MCU 上不是小头。学界习惯只算管线一段，系统整条管线的账没算过。</li>
+      <li>方法：把测量边界扩展到「前处理 + 推理」完整管线，在 STM32 <b>N6（M55+DSP+NPU）/ H7（M7）/ U5（M33）</b>三档平台上做「特征配置 4 × 模型 6 × 平台 3」全因子扫描，指标用能量延迟积 <b>EDP = E × L</b>（惩罚任何一端极端化）。</li>
+      <li>自研 TKWS（MobileNetV2 倒瓶颈搬到 1D MFCC 时间序列）：TKWS-3 以 <b>14.4k 参数达 92.4% F1</b>——比 LicoNet-S 少 17% 参数、比 DS-CNN/TENet6 内存缩 3 倍以上。</li>
+      <li>两个关键实证：<b>时间分辨率是一等变量</b>（32→63 窗全模型一致 +2.3~+5.2 pp，且 N6 上几乎免能量代价）；<b>架构排名随硬件翻转</b>——无 NPU 平台 1D 卷积占优、DS-CNN 垫底，带 NPU 的 N6 上 TENet 因核尺寸超出 NPU 最优域被卸载到 CPU 反而吃亏。</li>
+      <li>诚实的缺口：EDP 绝对值只在热图里、正文一个数字没引用；one-shot 推理与真实流式脱节；峰值 RAM / MACs / 量化方式均未报告。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">只测推理一段的账，不是系统的账</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 290" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">常见评估口径 vs 本文口径：把 MFCC 前处理圈进测量范围</text>
+      <g font-size="11.5">
+        <rect x="30" y="56" width="860" height="70" rx="10" fill="#fdf6f4" stroke="#c9a9a0" stroke-width="1.4"/>
+        <text x="46" y="82" font-weight="700" fill="#8c3b2e">常见做法</text>
+        <rect x="150" y="66" width="180" height="46" rx="8" fill="#ececec" stroke="#c9c9bd"/>
+        <text x="240" y="86" text-anchor="middle" fill="#8a93a5">MFCC 前处理</text>
+        <text x="240" y="103" text-anchor="middle" font-size="10" fill="#8a93a5">（FFT/滤波/DCT，不入账）</text>
+        <rect x="360" y="66" width="200" height="46" rx="8" fill="#fff" stroke="#8c3b2e" stroke-width="1.6"/>
+        <text x="460" y="86" text-anchor="middle" fill="#8c3b2e" font-weight="700">模型推理 ✓ 唯一被测段</text>
+        <text x="460" y="103" text-anchor="middle" font-size="10" fill="#8a93a5">准确率榜单导向</text>
+        <rect x="590" y="66" width="140" height="46" rx="8" fill="#ececec" stroke="#c9c9bd"/>
+        <text x="660" y="86" text-anchor="middle" fill="#8a93a5">后处理</text>
+        <text x="660" y="103" text-anchor="middle" font-size="10" fill="#8a93a5">（可忽略，合理）</text>
+
+        <rect x="30" y="146" width="860" height="70" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.6"/>
+        <text x="46" y="172" font-weight="700" fill="#0a6b4e">本文做法</text>
+        <rect x="150" y="156" width="180" height="46" rx="8" fill="#fff" stroke="#0e8a66" stroke-width="1.6"/>
+        <text x="240" y="176" text-anchor="middle" fill="#0a6b4e" font-weight="700">MFCC 前处理 ✓</text>
+        <text x="240" y="193" text-anchor="middle" font-size="10" fill="#5f8a76">平台自带 DSP 执行，实测 E/L</text>
+        <rect x="360" y="156" width="200" height="46" rx="8" fill="#fff" stroke="#0e8a66" stroke-width="1.6"/>
+        <text x="460" y="176" text-anchor="middle" fill="#0a6b4e" font-weight="700">模型推理 ✓</text>
+        <text x="460" y="193" text-anchor="middle" font-size="10" fill="#5f8a76">统一 8bit 整数量化</text>
+        <rect x="590" y="156" width="140" height="46" rx="8" fill="#f2f9f5" stroke="#7cc7ad"/>
+        <text x="660" y="176" text-anchor="middle" fill="#5f8a76">后处理（排除）</text>
+        <text x="660" y="193" text-anchor="middle" font-size="10" fill="#8a93a5">开销可忽略</text>
+      </g>
+      <text x="30" y="252" font-size="12.5" fill="#47536a">EDP = E × L 由前处理 + 推理两阶段合并计算。背景线索：作者含 EssilorLuxottica 智能眼镜实验室——真实靶场大概率是</text>
+      <text x="30" y="272" font-size="12.5" fill="#47536a">电池极小、又需常开语音唤醒的可穿戴设备（论文未明说，但结论反复强调 TKWS「适合 always-on」与此互证）。</text>
+    </svg>
+  </div>
+
+  <div class="formula">
+    EDP = E × L　（能量 × 时延，单位 mJ·ms）
+    <div class="why">为什么用乘积：单独优化时延会倾向高频高功耗平台（H7），单独优化能量会倾向低频平台但拉长响应（U5）——乘积惩罚任何一端极端化。这个指标恰好揭示 H7 与 U5 在系统级上「殊途同归」的等价性（时延与能耗互为倒数地接近），这是单独看任一指标都得不到的结论。</div>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">4 特征配置 × 6 模型 × 3 平台的全因子扫描</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 320" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">三块 STM32 = 三个计算等级（图 1 管线 + 平台选型动机）</text>
+      <g font-size="11.5">
+        <rect x="30" y="56" width="270" height="120" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.7"/>
+        <text x="165" y="82" text-anchor="middle" font-weight="700" fill="#0a6b4e">STM32 N6 · Cortex-M55</text>
+        <text x="165" y="104" text-anchor="middle" font-size="10.5" fill="#47536a">800 MHz · 先进 DSP + Neural-ART NPU</text>
+        <text x="165" y="128" text-anchor="middle" font-size="10.5" fill="#5f8a76">DSP 快速 MFCC + NPU 低功耗推理</text>
+        <text x="165" y="152" text-anchor="middle" font-size="11" fill="#0a6b4e" font-weight="600">EDP 全面最优</text>
+
+        <rect x="330" y="56" width="270" height="120" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="465" y="82" text-anchor="middle" font-weight="700" fill="#1c2430">STM32 H7 · Cortex-M7</text>
+        <text x="465" y="104" text-anchor="middle" font-size="10.5" fill="#47536a">480 MHz · 低时延路线</text>
+        <text x="465" y="128" text-anchor="middle" font-size="10.5" fill="#47536a">高主频换低时延，能耗更大</text>
+        <text x="465" y="152" text-anchor="middle" font-size="11" fill="#47536a">适合响应速度敏感的实时指令</text>
+
+        <rect x="630" y="56" width="260" height="120" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="760" y="82" text-anchor="middle" font-weight="700" fill="#1c2430">STM32 U5 · Cortex-M33</text>
+        <text x="760" y="104" text-anchor="middle" font-size="10.5" fill="#47536a">160 MHz · 超低功耗路线</text>
+        <text x="760" y="128" text-anchor="middle" font-size="10.5" fill="#47536a">优先能效、牺牲速度</text>
+        <text x="760" y="152" text-anchor="middle" font-size="11" fill="#47536a">适合时延不敏感的常开监听</text>
+      </g>
+      <rect x="30" y="200" width="860" height="100" rx="10" fill="#fbfaf6" stroke="#e6e6df"/>
+      <text x="46" y="226" font-size="12.5" font-weight="700" fill="#1c2430">设计空间：特征配置（4）× 模型（6）× 平台（3），每个格子五类量测</text>
+      <text x="46" y="252" font-size="11.5" fill="#47536a">特征：时间窗 {32, 63}（对齐 1024/512 点 FFT 免零填充）× 梅尔滤波器 {15, 30}（轻量 vs 精细频率分辨率）</text>
+      <text x="46" y="276" font-size="11.5" fill="#47536a">模型：DS-CNN / LicoNet-S（改 one-shot）/ TENet6 / TENet6-N / TKWS-2 / TKWS-3</text>
+      <text x="46" y="296" font-size="11.5" fill="#5f8a76">量测：参数量（flash 硬约束）· 加权 F1（防大类主导）· 时延 · 能耗 · EDP</text>
+    </svg>
+  </div>
+
+  <h3>TKWS：把 MobileNetV2 倒瓶颈搬到 1D MFCC 时间序列</h3>
+  <div class="fig">
+    <svg viewBox="0 0 920 250" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">倒瓶颈残差块：先廉价升维，让 depthwise 在高维做时间建模，再投影回低维压激活内存</text>
+      <g font-size="11.5">
+        <rect x="40" y="70" width="90" height="56" rx="9" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="85" y="94" text-anchor="middle" font-weight="700" fill="#1c2430">输入 C 维</text>
+        <text x="85" y="112" text-anchor="middle" font-size="10" fill="#8a93a5">MFCC 时间序列</text>
+
+        <rect x="156" y="70" width="110" height="56" rx="9" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+        <text x="211" y="92" text-anchor="middle" font-weight="700" fill="#0a6b4e">pointwise 升维</text>
+        <text x="211" y="112" text-anchor="middle" font-size="10" fill="#5f8a76">1×1，C → tC 维</text>
+
+        <rect x="292" y="70" width="130" height="56" rx="9" fill="#0e8a66"/>
+        <text x="357" y="92" text-anchor="middle" font-weight="700" fill="#fff">双重 1D depthwise</text>
+        <text x="357" y="112" text-anchor="middle" font-size="10" fill="#cdebdf">两支各 tC×k，时间感受野</text>
+
+        <rect x="448" y="70" width="110" height="56" rx="9" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+        <text x="503" y="92" text-anchor="middle" font-weight="700" fill="#0a6b4e">pointwise 投影</text>
+        <text x="503" y="112" text-anchor="middle" font-size="10" fill="#5f8a76">tC → C' 维</text>
+
+        <rect x="584" y="70" width="130" height="56" rx="9" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="649" y="92" text-anchor="middle" font-weight="700" fill="#1c2430">GAP + FC + softmax</text>
+        <text x="649" y="112" text-anchor="middle" font-size="10" fill="#8a93a5">时间维平均掉，零额外参数</text>
+
+        <path d="M 40 150 H 700" stroke="#c9ced6" stroke-width="2"/>
+        <path d="M 370 150 V 126" stroke="#c9ced6" stroke-width="2"/><polygon points="370,126 366,132 374,132" fill="#c9ced6"/>
+        <text x="370" y="170" text-anchor="middle" font-size="10.5" fill="#8a93a5">残差捷径（输入输出通道匹配时）</text>
+      </g>
+      <g stroke="#8a93a5" stroke-width="1.5" fill="none">
+        <line x1="130" y1="98" x2="152" y2="98"/><polygon points="152,98 146,95 146,101" fill="#8a93a5"/>
+        <line x1="266" y1="98" x2="288" y2="98"/><polygon points="288,98 282,95 282,101" fill="#8a93a5"/>
+        <line x1="422" y1="98" x2="444" y2="98"/><polygon points="444,98 438,95 438,101" fill="#8a93a5"/>
+        <line x1="558" y1="98" x2="580" y2="98"/><polygon points="580,98 574,95 574,101" fill="#8a93a5"/>
+      </g>
+      <text x="740" y="86" font-size="11.5" fill="#0a6b4e" font-weight="600">三个 MCU 取向的取舍</text>
+      <text x="740" y="108" font-size="11" fill="#47536a">· 全程 1D 卷积（避开 2D 在</text>
+      <text x="740" y="126" font-size="11" fill="#47536a">　 Cortex-M 上的内存访问损失）</text>
+      <text x="740" y="148" font-size="11" fill="#47536a">· 双 depthwise 替代单支大核</text>
+      <text x="740" y="170" font-size="11" fill="#47536a">· 2 块 / 3 块两档配置：</text>
+      <text x="740" y="192" font-size="11" fill="#5f8a76">　TKWS-2 4.6k 极限省内存</text>
+      <text x="740" y="212" font-size="11" fill="#5f8a76">　TKWS-3 14.4k 性价比</text>
+      <text x="30" y="232" font-size="11.5" fill="#8a93a5">对比 DS-CNN 把 MFCC 当时间-频率二维图卷；TKWS 直接在时间轴上做——1D 的能效优势在无 NPU 平台被 EDP 数据证实</text>
+    </svg>
+    <p class="cap"><b>为什么用 GAP 不用展平接大 FC：</b>全局平均池化几乎不引入参数（flash 只有几百 KB 的 MCU 关键约束），且带来时间平移稳定性——关键词出现在 1 秒窗口哪个位置都能聚合出一致判据。</p>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">两个实证：特征分辨率是一等变量；架构排名随硬件翻转</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <h3 style="margin-top:0">设置</h3>
+    <p style="margin:6px 0">GSCD v0.02 十词子集（yes/no/up/down/left/right/on/off/stop/go），训练用自带噪声增强、SNR 从 N(10dB, 5dB) 采样（比固定 SNR 更接近真实多样性）。注意 10 类设定（无 unknown/silence 拒识类）意味着 F1 不能与 12 类/35 类设定的其他论文直接横比，且回避了假唤醒评估——而假唤醒恰是唤醒产品的第一指标。训练细节（优化器/轮数/量化方式）论文未报告。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 320" role="img">
+      <text x="80" y="30" font-size="13.5" fill="#47536a" font-weight="600">参数量 vs 加权 F1（表 1，15 滤波器 × 63 时间窗配置）：TKWS-3 是精度-内存最优点</text>
+      <line x1="100" y1="240.0" x2="840" y2="240.0" stroke="#f0f1f3"/>
+      <text x="94" y="244.0" text-anchor="end" font-size="11" fill="#9ca3af">86</text>
+      <line x1="100" y1="186.7" x2="840" y2="186.7" stroke="#f0f1f3"/>
+      <text x="94" y="190.7" text-anchor="end" font-size="11" fill="#9ca3af">89</text>
+      <line x1="100" y1="133.3" x2="840" y2="133.3" stroke="#f0f1f3"/>
+      <text x="94" y="137.3" text-anchor="end" font-size="11" fill="#9ca3af">92</text>
+      <line x1="100" y1="80.0" x2="840" y2="80.0" stroke="#f0f1f3"/>
+      <text x="94" y="84.0" text-anchor="end" font-size="11" fill="#9ca3af">95</text>
+      <text x="189.0" y="262" text-anchor="middle" font-size="10.5" fill="#9ca3af">5</text>
+      <text x="334.1" y="262" text-anchor="middle" font-size="10.5" fill="#9ca3af">10</text>
+      <text x="479.2" y="262" text-anchor="middle" font-size="10.5" fill="#9ca3af">20</text>
+      <text x="672.6" y="262" text-anchor="middle" font-size="10.5" fill="#9ca3af">50</text>
+      <text x="817.8" y="262" text-anchor="middle" font-size="10.5" fill="#9ca3af">100</text>
+      <text x="470" y="282" text-anchor="middle" font-size="10.5" fill="#9ca3af">参数量（k，对数轴）</text>
+      <circle cx="174.4" cy="190.2" r="10" fill="#7cc7ad"/>
+      <text x="188.4" y="194.2" font-size="11" fill="#0a6b4e" font-weight="700">TKWS-2 · 4.6k · 88.8%</text>
+      <circle cx="413.7" cy="126.2" r="10" fill="#0e8a66"/>
+      <text x="427.7" y="130.2" font-size="11" fill="#0a6b4e" font-weight="700">TKWS-3 · 14.4k · 92.4%</text>
+      <circle cx="453.4" cy="104.9" r="6" fill="#94a3b8"/>
+      <text x="467.4" y="98.9" font-size="11" fill="#8a93a5">LicoNet-S · 17.4k · 93.6%</text>
+      <circle cx="659.5" cy="147.6" r="6" fill="#c9ced6"/>
+      <text x="673.5" y="151.6" font-size="11" fill="#8a93a5">DS-CNN · 46.5k · 91.2%</text>
+      <circle cx="691.6" cy="117.3" r="6" fill="#c9ced6"/>
+      <text x="705.6" y="129.3" font-size="11" fill="#8a93a5">TENet6 · 54.2k · 92.9%</text>
+      <text x="80" y="306" font-size="12.5" fill="#0a6b4e" font-weight="600">TKWS-3 比 LicoNet-S 少 17% 参数、F1 仅低 1.2 pp；比 DS-CNN / TENet6 内存缩 3 倍以上而精度持平或更优</text>
+      <text x="80" y="326" font-size="11.5" fill="#9ca3af">TKWS-2 4.6k 参数换 88.8%（比三倍大的 DS-CNN 低 2.4 pp）——极限省内存档位的代价；TENet6-N 91.8%（参数未报）</text>
+    </svg>
+    <p class="cap"><b>TKWS 内部规模消融：</b>2 块 → 3 块，参数 4.6k → 14.4k（三倍），F1 88.8 → 92.4（+3.6 pp）——两档分别对应「极限省内存」和「性价比」两个部署甜点。⚠ 无多次运行方差：TKWS-3 92.4 对 TENet6-N 91.8 这类 1 pp 内的排名是否显著无从判断。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 330" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">特征提取超参扫描（表 1，加权 F1 %）：时间分辨率是一等变量，频率分辨率收益为负</text>
+      <line x1="90" y1="210.0" x2="430" y2="210.0" stroke="#f0f1f3"/>
+      <text x="84" y="214.0" text-anchor="end" font-size="10.5" fill="#9ca3af">85</text>
+      <line x1="90" y1="160.0" x2="430" y2="160.0" stroke="#f0f1f3"/>
+      <text x="84" y="164.0" text-anchor="end" font-size="10.5" fill="#9ca3af">88</text>
+      <line x1="90" y1="110.0" x2="430" y2="110.0" stroke="#f0f1f3"/>
+      <text x="84" y="114.0" text-anchor="end" font-size="10.5" fill="#9ca3af">91</text>
+      <line x1="90" y1="60.0" x2="430" y2="60.0" stroke="#f0f1f3"/>
+      <text x="84" y="64.0" text-anchor="end" font-size="10.5" fill="#9ca3af">94</text>
+      <rect x="120.0" y="193.3" width="42" height="16.7" rx="4" fill="#c9ced6"/>
+      <text x="141.0" y="188.3" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">86.0</text>
+      <rect x="166.0" y="106.7" width="42" height="103.3" rx="4" fill="#0e8a66"/>
+      <text x="187.0" y="101.7" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">91.2</text>
+      <text x="164.0" y="230" text-anchor="middle" font-size="10.5" fill="#374151">DS-CNN</text>
+      <text x="164.0" y="246" text-anchor="middle" font-size="10" fill="#0a6b4e" font-weight="700">+5.2</text>
+      <rect x="228.0" y="125.0" width="42" height="85.0" rx="4" fill="#c9ced6"/>
+      <text x="249.0" y="120.0" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">90.1</text>
+      <rect x="274.0" y="66.7" width="42" height="143.3" rx="4" fill="#0e8a66"/>
+      <text x="295.0" y="61.7" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">93.6</text>
+      <text x="272.0" y="230" text-anchor="middle" font-size="10.5" fill="#374151">LicoNet-S</text>
+      <text x="272.0" y="246" text-anchor="middle" font-size="10" fill="#0a6b4e" font-weight="700">+3.5</text>
+      <rect x="336.0" y="185.0" width="42" height="25.0" rx="4" fill="#c9ced6"/>
+      <text x="357.0" y="180.0" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">86.5</text>
+      <rect x="382.0" y="146.7" width="42" height="63.3" rx="4" fill="#0e8a66"/>
+      <text x="403.0" y="141.7" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">88.8</text>
+      <text x="380.0" y="230" text-anchor="middle" font-size="10.5" fill="#374151">TKWS-2</text>
+      <text x="380.0" y="246" text-anchor="middle" font-size="10" fill="#0a6b4e" font-weight="700">+2.3</text>
+      <line x1="90" y1="210" x2="430" y2="210" stroke="#9ca3af"/>
+      <rect x="90" y="262" width="12" height="12" rx="3" fill="#c9ced6"/><text x="108" y="273" font-size="10.5" fill="#47536a">32 窗</text>
+      <rect x="160" y="262" width="12" height="12" rx="3" fill="#0e8a66"/><text x="178" y="273" font-size="10.5" fill="#47536a">63 窗</text>
+      <text x="90" y="48" font-size="12" fill="#47536a" font-weight="600">时间窗 32 → 63（15 梅尔）</text>
+      <text x="90" y="296" font-size="11.5" fill="#0a6b4e" font-weight="600">63 窗在所有模型上一致更优（最大 +5.2）</text>
+      <line x1="490" y1="210.0" x2="840" y2="210.0" stroke="#f0f1f3"/>
+      <text x="484" y="214.0" text-anchor="end" font-size="10.5" fill="#9ca3af">87</text>
+      <line x1="490" y1="160.0" x2="840" y2="160.0" stroke="#f0f1f3"/>
+      <text x="484" y="164.0" text-anchor="end" font-size="10.5" fill="#9ca3af">90</text>
+      <line x1="490" y1="110.0" x2="840" y2="110.0" stroke="#f0f1f3"/>
+      <text x="484" y="114.0" text-anchor="end" font-size="10.5" fill="#9ca3af">93</text>
+      <line x1="490" y1="60.0" x2="840" y2="60.0" stroke="#f0f1f3"/>
+      <text x="484" y="64.0" text-anchor="end" font-size="10.5" fill="#9ca3af">96</text>
+      <rect x="512.0" y="100.0" width="26" height="110.0" rx="3" fill="#4fb5a0"/>
+      <rect x="542.0" y="118.3" width="26" height="91.7" rx="3" fill="#c9ced6"/>
+      <text x="538.0" y="230" text-anchor="middle" font-size="9.5" fill="#374151">LicoNet</text>
+      <text x="538.0" y="246" text-anchor="middle" font-size="9.5" fill="#c0392b" font-weight="700">-1.1</text>
+      <rect x="578.0" y="120.0" width="26" height="90.0" rx="3" fill="#4fb5a0"/>
+      <rect x="608.0" y="140.0" width="26" height="70.0" rx="3" fill="#c9ced6"/>
+      <text x="604.0" y="230" text-anchor="middle" font-size="9.5" fill="#374151">TKWS-3</text>
+      <text x="604.0" y="246" text-anchor="middle" font-size="9.5" fill="#c0392b" font-weight="700">-1.2</text>
+      <rect x="644.0" y="180.0" width="26" height="30.0" rx="3" fill="#4fb5a0"/>
+      <rect x="674.0" y="205.0" width="26" height="5.0" rx="3" fill="#c9ced6"/>
+      <text x="670.0" y="230" text-anchor="middle" font-size="9.5" fill="#374151">TKWS-2</text>
+      <text x="670.0" y="246" text-anchor="middle" font-size="9.5" fill="#c0392b" font-weight="700">-1.5</text>
+      <rect x="710.0" y="140.0" width="26" height="70.0" rx="3" fill="#4fb5a0"/>
+      <rect x="740.0" y="143.3" width="26" height="66.7" rx="3" fill="#c9ced6"/>
+      <text x="736.0" y="230" text-anchor="middle" font-size="9.5" fill="#374151">DS-CNN</text>
+      <text x="736.0" y="246" text-anchor="middle" font-size="9.5" fill="#c0392b" font-weight="700">-0.2</text>
+      <rect x="776.0" y="111.7" width="26" height="98.3" rx="3" fill="#4fb5a0"/>
+      <rect x="806.0" y="106.7" width="26" height="103.3" rx="3" fill="#c9ced6"/>
+      <text x="802.0" y="230" text-anchor="middle" font-size="9.5" fill="#374151">TENet6</text>
+      <text x="802.0" y="246" text-anchor="middle" font-size="9.5" fill="#0a6b4e" font-weight="700">+0.3</text>
+      <line x1="490" y1="210" x2="840" y2="210" stroke="#9ca3af"/>
+      <rect x="490" y="262" width="12" height="12" rx="3" fill="#4fb5a0"/><text x="508" y="273" font-size="10.5" fill="#47536a">15 梅尔</text>
+      <rect x="580" y="262" width="12" height="12" rx="3" fill="#c9ced6"/><text x="598" y="273" font-size="10.5" fill="#47536a">30 梅尔</text>
+      <text x="490" y="48" font-size="12" fill="#47536a" font-weight="600">梅尔滤波器 15 → 30（63 窗）</text>
+      <text x="490" y="296" font-size="11.5" fill="#8c3b2e" font-weight="600">多数模型反而掉点——15 个滤波器已够，30 个引入冗余（笔记推断）</text>
+      <text x="70" y="322" font-size="12.5" fill="#47536a">32/63 窗分别对齐 1024/512 点 FFT 避免零填充；TKWS-3 在 15×32 档的数值论文未单独列出</text>
+    </svg>
+    <p class="cap"><b>系统级联動（图 2 结论）：</b>63 窗在 N6 上几乎不付出能量代价（DSP 快 + NPU 推理）——N6 让「提升特征分辨率换精度」变得接近免费，这在 H7/U5 上不成立。资源受限系统的特征配置决策必须与平台一起做。</p>
+  </div>
+
+  <h3>架构 × 硬件交互：排名会翻转</h3>
+  <div class="fig">
+    <svg viewBox="0 0 920 300" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">EDP 相对水平（图 2 热图的定性结论，论文正文未引用绝对数值）</text>
+      <g font-size="12">
+        <rect x="330" y="52" width="180" height="40" rx="7" fill="#fbfaf6" stroke="#c9c9bd"/>
+        <text x="420" y="77" text-anchor="middle" fill="#1c2430" font-weight="700">N6（M55 + DSP + NPU）</text>
+        <rect x="530" y="52" width="150" height="40" rx="7" fill="#fbfaf6" stroke="#c9c9bd"/>
+        <text x="605" y="77" text-anchor="middle" fill="#1c2430" font-weight="700">H7（M7，无 NPU）</text>
+        <rect x="700" y="52" width="150" height="40" rx="7" fill="#fbfaf6" stroke="#c9c9bd"/>
+        <text x="775" y="77" text-anchor="middle" fill="#1c2430" font-weight="700">U5（M33，无 NPU）</text>
+        <text x="200" y="106" text-anchor="end" fill="#47536a">1D 卷积模型<br/><tspan font-size="10.5" fill="#8a93a5">TKWS / LicoNet</tspan></text>
+        <rect x="330" y="88" width="180" height="36" rx="6" fill="#0e8a66"/>
+        <text x="420" y="111" text-anchor="middle" fill="#fff" font-weight="700">优（NPU 加持）</text>
+        <rect x="530" y="88" width="150" height="36" rx="6" fill="#7cc7ad"/>
+        <text x="605" y="111" text-anchor="middle" fill="#0a6b4e" font-weight="700">优</text>
+        <rect x="700" y="88" width="150" height="36" rx="6" fill="#7cc7ad"/>
+        <text x="775" y="111" text-anchor="middle" fill="#0a6b4e" font-weight="700">优</text>
+        <text x="200" y="166" text-anchor="end" fill="#47536a">2D 卷积模型<br/><tspan font-size="10.5" fill="#8a93a5">DS-CNN</tspan></text>
+        <rect x="330" y="148" width="180" height="36" rx="6" fill="#94a3b8"/>
+        <text x="420" y="171" text-anchor="middle" fill="#fff" font-weight="700">中</text>
+        <rect x="530" y="148" width="150" height="36" rx="6" fill="#c0392b" opacity=".85"/>
+        <text x="605" y="171" text-anchor="middle" fill="#fff" font-weight="700">垫底</text>
+        <rect x="700" y="148" width="150" height="36" rx="6" fill="#c0392b" opacity=".85"/>
+        <text x="775" y="171" text-anchor="middle" fill="#fff" font-weight="700">垫底</text>
+        <text x="200" y="226" text-anchor="end" fill="#47536a">多分支大核<br/><tspan font-size="10.5" fill="#8a93a5">TENet 系列</tspan></text>
+        <rect x="330" y="208" width="180" height="36" rx="6" fill="#d97a2b" opacity=".9"/>
+        <text x="420" y="231" text-anchor="middle" fill="#fff" font-weight="700">反而偏高</text>
+        <rect x="530" y="208" width="150" height="36" rx="6" fill="#94a3b8"/>
+        <text x="605" y="231" text-anchor="middle" fill="#fff" font-weight="700">中</text>
+        <rect x="700" y="208" width="150" height="36" rx="6" fill="#94a3b8"/>
+        <text x="775" y="231" text-anchor="middle" fill="#fff" font-weight="700">中</text>
+      </g>
+      <rect x="30" y="256" width="860" height="34" rx="8" fill="#fbfaf6" stroke="#e6e6df"/>
+      <text x="46" y="278" font-size="12.5" fill="#8c3b2e" font-weight="600">TENet 在 N6 上吃亏的机理：卷积核尺寸超出 NPU 最优执行范围 → 算子被卸载到 CPU → 数据搬运开销 + 执行效率下降</text>
+    </svg>
+    <p class="cap"><b>全文最重要的消融性发现：</b>任何「模型 A 优于模型 B」的断言都必须附带硬件前提。最优方案由架构与平台的<b>组合特性</b>决定，不由任何单方面决定——这是「软硬件协同设计」主张的直接证据。⚠ 论文未给出 NPU 最优核尺寸范围，TKWS 自身核尺寸是否落在 NPU 最优域内也未验证。</p>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">五条可转述的判断</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>效率评估口径的扩展</b><br><span style="font-size:14.5px;color:var(--ink-2)">从「模型推理」扩展到「MFCC 前处理 + 推理」端到端管线，首次在三档 STM32 上完成特征 × 模型 × 平台的全因子系统级基准扫描（方法学承自其先前工作 [21]）。</span></div>
+    <div class="c"><span class="n">2</span><b>TKWS 轻量架构</b><br><span style="font-size:14.5px;color:var(--ink-2)">MobileNetV2 倒瓶颈的一维残差移植：TKWS-3 14.4k 参数 92.4% F1（比 LicoNet-S 少 17% 参数、比 DS-CNN/TENet6 内存缩 3 倍+）；TKWS-2 4.6k 的极限紧凑档。</span></div>
+    <div class="c"><span class="n">3</span><b>特征参数的系统级定价</b><br><span style="font-size:14.5px;color:var(--ink-2)">63 窗一致优于 32 窗（+2.3~+5.2 pp），且 N6 上高时间分辨率几乎免能量代价；15 梅尔滤波器对十词任务已够——特征配置是显式设计变量，不是预处理默认值。</span></div>
+    <div class="c"><span class="n">4</span><b>架构-硬件交互的实证</b><br><span style="font-size:14.5px;color:var(--ink-2)">无 NPU 平台 1D 系统性占优（DS-CNN 垫底）；N6 上 TENet 核尺寸错配被卸载反而吃亏——模型排名随硬件翻转，「准确率榜单」不能预测端上表现。</span></div>
+    <div class="c" style="grid-column:1/-1"><span class="n">5</span><b>平台选型指南</b><br><span style="font-size:14.5px;color:var(--ink-2)">N6 综合最优（高分辨率特征 + 低时延低能耗并存）；H7 适合时延敏感；U5 适合时延不敏感的超低功耗常开。EDP 指标揭示了 H7/U5「殊途同归」的系统级等价性。核心论断——<b>模型准确率本身不决定真实世界有效性</b>——对端侧 AI 部署有普适警示价值。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">基准论文最伤的缺口：基准数据本身不可复用</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法的技术局限</h4>
+      <ul>
+        <li><b>TKWS 精度非无损</b>：TKWS-3 距 LicoNet-S 差 1.2 pp；TKWS-2 差 3~5 pp——「最小精度损失」的说法在 TKWS-2 档相当勉强。</li>
+        <li><b>架构对特征分辨率敏感</b>：TKWS 在 63 窗下梅尔 15→30 反而掉 1.2 pp——倒瓶颈在高维输入下的容量/正则没调优，模型与特征配置不是独立可组合的。</li>
+        <li><b>NPU 收益非自动获得</b>：未给 NPU 最优核尺寸范围；TKWS 自身是否落在 NPU 最优域内未验证——TENet 式隐性失败可能同样发生在自家架构上。</li>
+        <li><b>one-shot 与真实流式脱节</b>：LiCoNet 甚至为此放弃原生流式设计；滑窗流水的状态维护与流水线重叠在测量框架里没有体现。</li>
+        <li><b>关键工程量缺失</b>：峰值 RAM（激活内存）、MACs、量化方式与精度损失均未报——「参数量 = 内存占用」只覆盖静态一半。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>基准数值不可复用</b>：图 2 热图的时延/能耗/EDP 绝对值正文一个没引用、无配套数值表——只能目测，削弱基准论文的核心价值。</li>
+        <li><b>数据覆盖有限</b>：十词子集、GSCD 自带噪声；无远场/混响/设备自噪（眼镜骨导、风噪）；10 类无拒识设定回避了假唤醒率——唤醒产品的第一指标。</li>
+        <li><b>无统计稳健性</b>：无方差/置信区间，1 pp 内的排名无从判断显著性。</li>
+        <li><b>训练细节不透明</b>：优化器/学习率/轮数/量化是否感知训练未报——架构对比可能混入训练配方差异。</li>
+        <li><b>平台配置单一</b>：三块 MCU 都钉在最高主频（800/480/160 MHz），未扫 DVFS 频点——「U5 省 H7 快」是在非对称频率设定下得出的，调频后 EDP 排名是否保持未知。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">下一步方向（论文展望 + 笔者延伸）</h3>
+    <p style="margin:6px 0"><b>① NPU 算子约束入架构搜索</b>：把目标加速器的最优核尺寸、算子集合作为硬约束，避免「被卸载到 CPU」的隐性失败；TKWS 补核尺寸敏感性验证。<br>
+    <b>② 流式与全双工评估</b>：扩展到滑窗流式，纳入状态维护内存与流水线重叠；引入每秒假唤醒数、词起点到触发的检测时延等产品级指标。<br>
+    <b>③ 特征提取进一步压缩</b>：DCT 保留系数个数、8bit 梅尔、乃至绕过 MFCC 的 sinc 卷积/可学习前端，与本文框架对比。<br>
+    <b>④ 与压缩技术正交叠加</b>：8bit 基础上叠剪枝/蒸馏（如 LicoNet-S 蒸馏 TKWS-3）/更低比特。<br>
+    <b>⑤ 真实可穿戴验证</b>：结合智能眼镜背景，真实远场加噪数据 + VAD 两级唤醒流水线的系统级对比——从基准研究走向产品落地的关键一步。</p>
+  </div>
+</section>
+
+<footer>
+  <p><b>论文精读 · 可视化版</b> · 2025 №12 · 端到端效率 KWS 基准（米兰理工 × EssilorLuxottica，arXiv 2025）</p>
+  <p>数据来源：论文表 1、图 1–2 结论（经由本库深读笔记核对；图 2 绝对数值原文未引用，本页仅作定性呈现）。图表坐标由脚本从论文原表计算生成。</p>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2025/End-to-End_Efficiency_In_Keyword_Spotting_A_System-Level_Approach_For_Embedded_Microcontrollers.md">📄 深读笔记</a>
+    <a class="pill" href="/papers/2025/End-to-End_Efficiency_In_Keyword_Spotting_A_System-Level_Approach_For_Embedded_Microcontrollers.pdf">📕 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2509.07051" target="_blank">🔗 arXiv:2509.07051</a>
+    <a class="pill" href="/">← 返回论文库</a>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>
