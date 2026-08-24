@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TTS 合成数据高效开发 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2024/Utilizing_TTS_Synthesized_Data_For_Efficient_Development_Of_Keyword_Spotting_Model.md">深读笔记</a>
+    <a href="/papers/2024/Utilizing_TTS_Synthesized_Data_For_Efficient_Development_Of_Keyword_Spotting_Model.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2407.18879" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2024 №41</p>
+  <h1>380 万句专属录音压到 2 千句——代价是错误率 3 倍，<br>而且这 2 千句必须按说话人均衡着花</h1>
+  <p class="sub">Utilizing TTS Synthesized Data for Efficient Development of Keyword Spotting Model</p>
+  <p class="meta"><b>作者</b>：Hyun Jin Park、Dhruuv Agarwal、Neng Chen、Rentao Sun、Kurt Partridge 等 13 人 —— Google LLC</p>
+  <p class="meta"><b>发表</b>：arXiv 2407.18879（2024-07）· Hey/OK Google 生产任务 · 320K 流式 SVDF 模型</p>
+  <div class="chips">
+    <span class="chip">模型不动、数据重构</span><span class="chip">标点 = 韵律控制符</span><span class="chip">Virtuoso + AudioLM 双引擎</span>
+    <span class="chip">真实负样本是最大杠杆</span><span class="chip">说话人多样性 &gt; 每人句数</span><span class="chip">3.8M→2k 句（~1900×）</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>痛点在数据侧不在模型侧</b>：生产级 KWS 永远在线（严格因果低延迟 + 小 footprint，基线仅 320K 参数），必须覆盖人群 / 口音 / 发音方式 / 声学环境的巨大多样性——真实正样本 380 万句、负样本 1410 万句（Table 3）。每换唤醒词、每加语言、每上新品类就要重新凑百万句级目标词录音——<b>产品迭代速度和开发预算的直接瓶颈</b>。</li>
+      <li><b>ASR 的 TTS 增强结论搬不过来</b>：ASR 能利用远比标注音频丰富的纯文本；KWS 的正样本是「关键词 + 查询」短语结构、负样本是任意不含关键词语音、正负极不平衡（14.1M 对 3.8M），且对<b>韵律变化极敏感</b>——拖长、停顿、升调、喊叫这些系统性变体在通用 TTS 增强流程里没被显式建模，缺了它们上线就表现为误拒。</li>
+      <li><b>方法三板斧</b>：① <b>韵律控制文本生成器</b>——Virtuoso 实验特性「标点控制韵律」：text 默认 / (text) 慢说 / text: 停顿 / text? 升调 / text! 大声，在 prefix 与 key_name 上<b>独立施加</b>，「同一句话的多种说法」变成可枚举可采样的操作；② <b>双引擎</b>——Virtuoso 给广度（726 声音 × 139 语言，英文短语 + 不同语言目标 = 免费注入口音多样性），AudioLM 变体给深度（保留输入音频说话人特征的任意声音克隆）；③ <b>混合策略</b>当实验对象。</li>
+      <li><b>纯合成不可行（Table 4）</b>：最好纯 TTS 配置 FRR 46.47%，是纯真实基线 3.17% 的近 <b>15 倍</b>——分布失配的代价直接可见；约 11M 真实负样本把它拉到 17.94%（相对改善近六成）——<b>真实负样本是性价比最高的单一投入</b>：不含关键词即可、来源几乎不限、采集成本远低于专属正样本。</li>
+      <li><b>最重要的可操作结论（Table 5）</b>：<b>说话人多样性优先于每人句数</b>——说话人数 1→100 陡峭改善（15.28→9.78），固定 100 人加句数 2→12 句几乎不动（10.99→10.71）；100 说话人即进入基线 3 倍错误率区间。</li>
+      <li><b>跨节对比最有杀伤力</b>：随机采样 100k 句真实正样本 FRR 9.94%，按说话人均衡采样只要 <b>2k 句</b>（100 人 × 20 句）就到 9.47%——<b>同量级精度少用约 50 倍数据</b>；随机大语料集中于少数说话人，多样性增量有限。真实正样本从 3.8M 压到 2k（~1900×），代价是 FRR 从 3.17% 到 9.47%（3 倍以内）。</li>
+      <li><b>TTS 的第二重身份</b>：TTS + 全量真实 = 2.46%，<b>优于</b>纯真实的 3.17%——合成数据在真实数据充足时仍是 0.71 点的增强增益；TTS 不只替代采集，也是传统意义上的数据增强。</li>
+      <li><b>边界</b>：分布失配只被混合稀释、未被根治（无域对抗 / 一致性损失 / 伪影过滤）；韵律控制绑定 Virtuoso 实验特性（换引擎要重建控制通道）；三种多样性手段（韵律 / 口音 / 克隆）无单独消融；只有 Hey/OK Google 一个任务——最有想象空间的自定义唤醒词冷启动场景没验证；TTS 生成 12.6M 句的计算成本与采集成本模型全未报告；9.47% FRR（约十分之一唤醒被拒）对常驻产品是否可用、适用哪些产品线，无边界讨论。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">3 倍错误率换三个数量级数据削减：目标设定本身就是工程判断</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>为什么创新全放数据侧</b>：320K 参数的流式 SVDF 编解码结构是大规模生产验证过的配置，动模型的风险收益比很差；数据侧结论与模型架构<b>正交</b>——无论底层换成什么流式网络，「多少真实数据、什么结构」的配方都成立；要解决的瓶颈明确在采集成本与开发周期。结构细节：编码器输出 N 维（封装对关键词识别至关重要的音素类声音单元）、解码器输出 2 维（关键词有无），拼接 logit 让音素级证据与整词判决同时接受监督。
+  </div>
+
+  <div class="card">
+    <b>此前工作的缺口</b>：Lin 等的「真实数据预训练 embedding + 少量数据微调分类头」只是把大规模真实依赖<b>前移</b>到一次预训练，没有消除；Werchniak 等停在「真实与 TTS 混合最好」的定性结论——本文把它量化并系统化：沿真实总量、说话人数、每人句数三轴 sweep，给出可复用配方与明确阈值。TTS 固有缺陷被正面列出：合成数据可能带真实录音中不存在的伪影、可能生成不出真实语音的全部变化——对策不是修 TTS 而是混真实数据补偿。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">文本生成器 + 双引擎 + 混合策略</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg viewBox="0 0 920 640" role="img">
+  <defs>
+    <marker id="wa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#47536a"/></marker>
+  </defs>
+  <text x="30" y="26" font-size="13.5" fill="#47536a" font-weight="600">图 2 复绘：模型不动（320K 流式 SVDF），数据重构——文本生成器 → 双 TTS 引擎 → 真实/合成混合</text>
+
+  <!-- text generator -->
+  <rect x="30" y="56" width="280" height="240" rx="11" fill="#fdf7f0" stroke="#e0bc94" stroke-width="1.3"/>
+  <text x="46" y="80" font-size="12.5" font-weight="700" fill="#a35c14">① 韵律控制的 KWS 定制文本生成器</text>
+  <text x="46" y="104" font-size="11" fill="#47536a">keyword := (prefix, key_name)，如 Hey · Google</text>
+  <text x="46" y="124" font-size="11" fill="#47536a">正样本短语 = 前缀 + 关键词 + 随机查询文本</text>
+  <text x="46" y="148" font-size="11" font-weight="700" fill="#a35c14">Table 1 · 标点 = 韵律控制符（Virtuoso 实验特性）</text>
+  <text x="46" y="170" font-size="10.5" fill="#47536a">text（默认）· (text)（慢说）· text:（停顿）</text>
+  <text x="46" y="188" font-size="10.5" fill="#47536a">text?（升调）· text!（大声）</text>
+  <text x="46" y="212" font-size="11" fill="#0a6b4e">在 prefix 与 key_name 上独立施加符号——</text>
+  <text x="46" y="232" font-size="11" fill="#0a6b4e">「同一句话的多种说法」变成可枚举可采样的操作</text>
+  <text x="46" y="258" font-size="10.5" fill="#8a93a5">真实变体：拖长音、停顿、疑问升调、隔房喊——</text>
+  <text x="46" y="276" font-size="10.5" fill="#8a93a5">训练分布缺了它们，上线就表现为误拒</text>
+  <text x="46" y="296" font-size="10" fill="#8a93a5">负样本模板 = 纯查询文本（天然不含关键词）</text>
+
+  <line x1="310" y1="176" x2="336" y2="176" stroke="#47536a" stroke-width="1.5" marker-end="url(#wa)"/>
+
+  <!-- dual engines -->
+  <rect x="340" y="56" width="270" height="240" rx="11" fill="#e6f4ee" stroke="#0e8a66" stroke-width="1.3"/>
+  <text x="356" y="80" font-size="12.5" font-weight="700" fill="#0a6b4e">② 双 TTS 引擎（多样性互补）</text>
+  <text x="356" y="106" font-size="11" font-weight="700" fill="#47536a">Virtuoso = 广度</text>
+  <text x="356" y="126" font-size="10.5" fill="#47536a">726 预置说话人 × 139 种语言目标</text>
+  <text x="356" y="146" font-size="10.5" fill="#47536a">多语言技巧：英文短语 + 不同语言生成目标</text>
+  <text x="356" y="166" font-size="10.5" fill="#0a6b4e">→ 输出带口音的英语（口音多样性免费注入）</text>
+  <text x="356" y="192" font-size="11" font-weight="700" fill="#47536a">AudioLM 变体 = 深度</text>
+  <text x="356" y="212" font-size="10.5" fill="#47536a">文本 + 音频双条件，保留输入音频的说话人</text>
+  <text x="356" y="232" font-size="10.5" fill="#47536a">特征与韵律——任意真实声音的关键词克隆</text>
+  <text x="356" y="256" font-size="10.5" fill="#0a6b4e">→ 说话人分布贴着真实人群走，不被限制在</text>
+  <text x="356" y="276" font-size="10.5" fill="#0a6b4e">厂商挑选的几百个档案里</text>
+  <text x="356" y="296" font-size="10" fill="#8a93a5">合成规模（Table 3）：正 7.5M + 负 5.1M 句</text>
+
+  <line x1="610" y1="176" x2="636" y2="176" stroke="#47536a" stroke-width="1.5" marker-end="url(#wa)"/>
+
+  <!-- mixing -->
+  <rect x="640" y="56" width="250" height="240" rx="11" fill="#eaf3fc" stroke="#3d6fa8" stroke-width="1.3"/>
+  <text x="656" y="80" font-size="12.5" font-weight="700" fill="#2a5580">③ 混合策略（sweep 对象）</text>
+  <text x="656" y="106" font-size="11" fill="#47536a">真实负样本打底（~11M，base）——</text>
+  <text x="656" y="126" font-size="11" fill="#2a5580">负样本不含关键词即可、来源几乎不限，</text>
+  <text x="656" y="146" font-size="11" fill="#2a5580">采集成本远低于专属正样本</text>
+  <text x="656" y="172" font-size="11" fill="#47536a">四组 sweep：数据集组合基线；</text>
+  <text x="656" y="192" font-size="11" fill="#47536a">TTS + 渐增真实正样本（0→100k）；</text>
+  <text x="656" y="212" font-size="11" fill="#47536a">TTS + 渐增说话人数（每人 10 句）；</text>
+  <text x="656" y="232" font-size="11" fill="#47536a">TTS + 渐增每人句数（固定 100 人）</text>
+  <text x="656" y="262" font-size="10.5" fill="#0a6b4e">「多样性轴 vs 数量轴」对照实验</text>
+  <text x="656" y="286" font-size="10" fill="#8a93a5">失配对策不是修 TTS，而是混真实数据补偿</text>
+
+  <!-- baseline model -->
+  <rect x="30" y="316" width="420" height="150" rx="11" fill="#f2faf6" stroke="#9ec9b8" stroke-width="1.3"/>
+  <text x="46" y="340" font-size="12.5" font-weight="700" fill="#0a6b4e">基线模型（结构完全不动，~320K 参数）</text>
+  <text x="46" y="364" font-size="11" fill="#47536a">7 层 SVDF 因式分解卷积 + 3 层瓶颈投影</text>
+  <text x="46" y="384" font-size="11" fill="#47536a">编码器 → N 维（音素类声音单元）</text>
+  <text x="46" y="404" font-size="11" fill="#47536a">解码器 → 2 维（关键词有无）</text>
+  <text x="46" y="424" font-size="11" fill="#47536a">logit = [Y_E, Y_D] 拼接——音素证据与整词判决同时受监督</text>
+  <text x="46" y="448" font-size="10.5" fill="#8a93a5">严格因果低延迟 + 小 footprint（永远在线的能耗约束）；40 维 fbank · 3 帧堆叠跨步</text>
+
+  <!-- loss -->
+  <rect x="470" y="316" width="420" height="150" rx="11" fill="#f9faf7" stroke="#e6e6df" stroke-width="1.1"/>
+  <text x="486" y="340" font-size="12.5" font-weight="700" fill="#47536a">监督目标（式 1）</text>
+  <text x="486" y="366" font-size="12.5" font-family="Georgia,serif" fill="#1c2430">L = Σ (1−α)·L_CE + α·L_MP</text>
+  <text x="486" y="392" font-size="11" fill="#47536a">逐帧 CE：密集帧级监督；max-pool 损失：只在关键词</text>
+  <text x="486" y="412" font-size="11" fill="#47536a">结束位置对池化 logit 监督——恰好对齐「听到完整</text>
+  <text x="486" y="432" font-size="11" fill="#47536a">关键词」的整词判决语义，两者互补</text>
+  <text x="486" y="454" font-size="10.5" fill="#8a93a5">α 取值未报告；训练施加房间模拟器多风格增强</text>
+
+  <!-- goal -->
+  <rect x="30" y="486" width="860" height="130" rx="11" fill="#fbf2f0" stroke="#c9a08e" stroke-width="1.2"/>
+  <text x="46" y="512" font-size="12.5" font-weight="700" fill="#8c3b2e">工程目标的设定本身就有判断味道</text>
+  <text x="46" y="538" font-size="11.5" fill="#47536a">不追平基线——用约三个数量级的真实数据削减（3.8M → 2k 句，~1900×），换取错误率控制在全量基线 3 倍以内，</text>
+  <text x="46" y="560" font-size="11.5" fill="#47536a">为新品类、新语言的快速冷启动留操作空间。数据侧结论与模型架构正交：无论底层换成什么流式网络，</text>
+  <text x="46" y="582" font-size="11.5" fill="#0a6b4e">「多少真实数据、什么结构」的配方都成立——真实数据账本（Table 3）：正 3.8M / 负 14.1M（生产量级的投入规模）</text>
+  <text x="46" y="606" font-size="10.5" fill="#8a93a5">注意：正文 sweep 用 ~11M 负样本与 Table 3 的 14.1M 对不上且无解释（推测留出评测或子集）；评测协议 FRR @ FA ≤ 0.133 次/小时</text>
+</svg>
+    <p class="cap"><b>图 2 复绘</b>：三个组件各自负责多样性的一个维度——韵律变体（文本层）、说话人广度 + 口音（Virtuoso）、任意声音深度（AudioLM）；混合策略把分布失配的补偿做成实验对象。</p>
+  </div>
+
+  <div class="formula">
+    L<sub>sup</sub> = Σ<sub>t</sub> [ (1−α)·L<sub>CE</sub>(Y(X<sub>t</sub>, θ), c<sub>t</sub>) + α·L<sub>MP</sub>(Y(X<sub>t</sub>, θ), ω<sub>end</sub>) ]
+    <div class="why">式 1 · 监督目标：逐帧 CE 提供密集的帧级监督但不直接对应「听到了完整关键词」这一事件；max-pool 损失只在关键词结束位置对池化 logit 施加监督——恰好对齐 KWS 的整词判决语义，两者互补（α 取值未报告）。训练前施加房间模拟器实现的多风格增强。</div>
+  </div>
+
+  <div class="card">
+    <b>为什么需要两个引擎而不是一个</b>：Virtuoso 提供广度——726 预置声音乘 139 种语言目标的组合空间；AudioLM 提供深度——对预置档案之外任意声音的克隆能力，让合成数据的说话人分布<b>贴着真实人群走</b>而不是被限制在引擎厂商挑选的几百个档案里。多语言技巧尤其巧妙：用固定英文短语配合不同语言生成目标，输出带口音的英语——把 139 种语言的说话人先验免费变换成英语口音空间，正是 KWS 面向全球用户最关键的覆盖维度。
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与发现</p>
+  <h2 class="sec">固定误唤醒预算比误拒：FRR @ FA ≤ 0.133 次/小时</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>任务与协议</b>：Hey/OK Google 检测（双前缀双关键词）；真实数据按 Google 隐私原则收集的匿名化语句；合成数据 7.5M 正 + 5.1M 负（两引擎合计、占比未报）。主指标 FRR，阈值在每小时最大误接受 0.133 次约束下选优（典型运行工况——误唤醒是用户可感知的硬约束，设备随机被唤醒的体验灾难远大于偶尔再说一遍）。评测集自身规模与构成未报告；Fig 3 用 medium sized model 与 Table 4/5 的规格关系未说明，跨表比较要谨慎。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 420" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 4 · 简单混合选项（固定 FA 下 FRR%，越低越好）：纯合成不可行，真实负样本是最大杠杆</text>
+<rect x="180" y="58" width="617.9" height="24" rx="5" fill="#d9c9a8"/>
+<text x="172" y="75" text-anchor="end" font-size="12" font-weight="600" fill="#47536a">仅 Virtuoso</text>
+<text x="805.9" y="75" font-size="12.5" font-weight="700" fill="#1c2430">53.10%</text>
+<rect x="180" y="101" width="541.1" height="24" rx="5" fill="#d9c9a8"/>
+<text x="172" y="118" text-anchor="end" font-size="12" font-weight="600" fill="#47536a">仅 AudioLM</text>
+<text x="729.1" y="118" font-size="12.5" font-weight="700" fill="#1c2430">46.50%</text>
+<rect x="180" y="144" width="540.7" height="24" rx="5" fill="#d9c9a8"/>
+<text x="172" y="161" text-anchor="end" font-size="12" font-weight="600" fill="#47536a">TTS 合计（双引擎）</text>
+<text x="728.7" y="161" font-size="12.5" font-weight="700" fill="#1c2430">46.47%</text>
+<text x="728.7" y="151" font-size="10.5" fill="#8a93a5">纯合成的最好成绩</text>
+<rect x="180" y="187" width="36.9" height="24" rx="5" fill="#b9c6bd"/>
+<text x="172" y="204" text-anchor="end" font-size="12" font-weight="600" fill="#47536a">仅真实数据（3.8M 正）</text>
+<text x="224.9" y="204" font-size="12.5" font-weight="700" fill="#0a6b4e">3.17%</text>
+<text x="224.9" y="194" font-size="10.5" fill="#8a93a5">基线</text>
+<rect x="180" y="230" width="206.5" height="24" rx="5" fill="#7cc0a2"/>
+<text x="172" y="247" text-anchor="end" font-size="12" font-weight="600" fill="#47536a">Virtuoso + base 真实负</text>
+<text x="394.5" y="247" font-size="12.5" font-weight="700" fill="#1c2430">17.75%</text>
+<rect x="180" y="273" width="193.0" height="24" rx="5" fill="#0e8a66"/>
+<text x="172" y="290" text-anchor="end" font-size="12" font-weight="600" fill="#47536a">AudioLM + base 真实负</text>
+<text x="381.0" y="290" font-size="12.5" font-weight="700" fill="#1c2430">16.59%</text>
+<text x="381.0" y="280" font-size="10.5" fill="#8a93a5">反直觉：略优于双引擎混合</text>
+<rect x="180" y="316" width="208.8" height="24" rx="5" fill="#5aa88a"/>
+<text x="172" y="333" text-anchor="end" font-size="12" font-weight="600" fill="#47536a">TTS + base 真实负</text>
+<text x="396.8" y="333" font-size="12.5" font-weight="700" fill="#1c2430">17.94%</text>
+<text x="396.8" y="323" font-size="10.5" fill="#8a93a5">~11M 负样本拉低近六成</text>
+<rect x="180" y="359" width="28.6" height="24" rx="5" fill="#0a6b4e"/>
+<text x="172" y="376" text-anchor="end" font-size="12" font-weight="600" fill="#47536a">TTS + 全量真实</text>
+<text x="216.6" y="376" font-size="12.5" font-weight="700" fill="#0a6b4e">2.46%</text>
+<text x="216.6" y="366" font-size="10.5" fill="#8a93a5">反向增强：优于纯真实 0.71 点</text>
+<line x1="180" y1="52" x2="180" y2="390" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="440" y="414" text-anchor="middle" font-size="12" fill="#0a6b4e">关键读数：纯 TTS 46.47% ≈ 纯真实 3.17% 的近 15 倍（分布失配直接可见）；真实负样本是性价比最高的投入——不需要含关键词、来源几乎不限</text>
+</svg>
+    <p class="cap"><b>Table 4</b>：四组关键读数——纯合成不可行（15 倍差距）、双引擎互补、真实负样本最大杠杆、TTS 反向增强全量真实。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 420" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 5 · 多样性轴 vs 数量轴（全部含全量 TTS + base 真实负样本 · FRR%）</text>
+<text x="240" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">轴一 · 说话人数（每人固定 10 句）</text>
+<line x1="70" y1="302.0" x2="470" y2="302.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="306.0" text-anchor="end" font-size="11.5" fill="#6b7a72">8</text>
+<line x1="70" y1="246.0" x2="470" y2="246.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="250.0" text-anchor="end" font-size="11.5" fill="#6b7a72">10</text>
+<line x1="70" y1="190.0" x2="470" y2="190.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="194.0" text-anchor="end" font-size="11.5" fill="#6b7a72">12</text>
+<line x1="70" y1="134.0" x2="470" y2="134.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="138.0" text-anchor="end" font-size="11.5" fill="#6b7a72">14</text>
+<line x1="70" y1="78.0" x2="470" y2="78.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="82.0" text-anchor="end" font-size="11.5" fill="#6b7a72">16</text>
+<line x1="70" y1="330" x2="470" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="86.0" y="98.2" width="48" height="231.8" rx="4" fill="#7cc0a2"/>
+<text x="110.0" y="91.2" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">15.28</text>
+<text x="110.0" y="352" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">1 人</text>
+<text x="110.0" y="368" text-anchor="middle" font-size="9.5" fill="#8a93a5">10 句</text>
+<rect x="174.0" y="107.7" width="48" height="222.3" rx="4" fill="#7cc0a2"/>
+<text x="198.0" y="100.7" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">14.94</text>
+<text x="198.0" y="352" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">10 人</text>
+<text x="198.0" y="368" text-anchor="middle" font-size="9.5" fill="#8a93a5">100 句</text>
+<rect x="262.0" y="252.2" width="48" height="77.8" rx="4" fill="#0e8a66"/>
+<text x="286.0" y="245.2" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">9.78</text>
+<text x="286.0" y="352" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">100 人</text>
+<text x="286.0" y="368" text-anchor="middle" font-size="9.5" fill="#8a93a5">1k 句</text>
+<rect x="350.0" y="248.8" width="48" height="81.2" rx="4" fill="#7cc0a2"/>
+<text x="374.0" y="241.8" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">9.90</text>
+<text x="374.0" y="352" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">200 人</text>
+<text x="374.0" y="368" text-anchor="middle" font-size="9.5" fill="#8a93a5">2k 句</text>
+<rect x="438.0" y="312.4" width="48" height="17.6" rx="4" fill="#0e8a66"/>
+<text x="462.0" y="305.4" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">7.63</text>
+<text x="462.0" y="352" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">500 人</text>
+<text x="462.0" y="368" text-anchor="middle" font-size="9.5" fill="#8a93a5">5k 句</text>
+<text x="270" y="396" text-anchor="middle" font-size="10.5" fill="#8c3b2e">1→100 陡峭改善；100→200 平台期甚至回弹（噪声）；★100 说话人即进入基线 3 倍区间</text>
+<text x="670" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">轴二 · 每人句数（固定 100 说话人）</text>
+<line x1="510" y1="302.0" x2="830" y2="302.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="306.0" text-anchor="end" font-size="11.5" fill="#6b7a72">8</text>
+<line x1="510" y1="246.0" x2="830" y2="246.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="250.0" text-anchor="end" font-size="11.5" fill="#6b7a72">10</text>
+<line x1="510" y1="190.0" x2="830" y2="190.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="194.0" text-anchor="end" font-size="11.5" fill="#6b7a72">12</text>
+<line x1="510" y1="134.0" x2="830" y2="134.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="138.0" text-anchor="end" font-size="11.5" fill="#6b7a72">14</text>
+<line x1="510" y1="78.0" x2="830" y2="78.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="82.0" text-anchor="end" font-size="11.5" fill="#6b7a72">16</text>
+<line x1="510" y1="330" x2="830" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="528.0" y="218.3" width="44" height="111.7" rx="4" fill="#d9c9a8"/>
+<text x="550.0" y="211.3" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">10.99</text>
+<text x="550.0" y="352" text-anchor="middle" font-size="11" font-weight="600" fill="#47536a">2 句/人</text>
+<text x="550.0" y="368" text-anchor="middle" font-size="9.5" fill="#8a93a5">200 句</text>
+<rect x="598.0" y="219.4" width="44" height="110.6" rx="4" fill="#d9c9a8"/>
+<text x="620.0" y="212.4" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">10.95</text>
+<text x="620.0" y="352" text-anchor="middle" font-size="11" font-weight="600" fill="#47536a">6 句/人</text>
+<text x="620.0" y="368" text-anchor="middle" font-size="9.5" fill="#8a93a5">600 句</text>
+<rect x="668.0" y="226.1" width="44" height="103.9" rx="4" fill="#d9c9a8"/>
+<text x="690.0" y="219.1" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">10.71</text>
+<text x="690.0" y="352" text-anchor="middle" font-size="11" font-weight="600" fill="#47536a">12 句/人</text>
+<text x="690.0" y="368" text-anchor="middle" font-size="9.5" fill="#8a93a5">1.2k 句</text>
+<rect x="738.0" y="260.8" width="44" height="69.2" rx="4" fill="#0a6b4e"/>
+<text x="760.0" y="253.8" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0a6b4e">9.47</text>
+<text x="760.0" y="352" text-anchor="middle" font-size="11" font-weight="600" fill="#47536a">20 句/人</text>
+<text x="760.0" y="368" text-anchor="middle" font-size="9.5" fill="#8a93a5">2k 句</text>
+<rect x="808.0" y="302.3" width="44" height="27.7" rx="4" fill="#d9c9a8"/>
+<text x="830.0" y="295.3" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">7.99</text>
+<text x="830.0" y="352" text-anchor="middle" font-size="11" font-weight="600" fill="#47536a">200 句/人</text>
+<text x="830.0" y="368" text-anchor="middle" font-size="9.5" fill="#8a93a5">20k 句</text>
+<text x="670" y="396" text-anchor="middle" font-size="10.5" fill="#8c3b2e">2→12 句改善极慢（10.99→10.71）；★20 句/人 = 摘要的「100 说话人 · 2k 句」配方（FRR 9.47%）</text>
+<text x="440" y="414" text-anchor="middle" font-size="12" fill="#0a6b4e">结论：固定说话人数下加句数改善缓慢——增加说话人多样性的影响大于增加每人句数</text>
+</svg>
+    <p class="cap"><b>Table 5</b>：左右两轴斜率对比就是结论——多样性轴陡峭、数量轴平缓；「100 说话人」是实用阈值。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 400" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">真实正样本预算 vs FRR（对数轴）：均衡采样 2k 句 打赢 随机采样 100k 句</text>
+<line x1="120" y1="288.6" x2="810" y2="288.6" stroke="#e8ece9" stroke-width="1"/>
+<text x="112" y="292.6" text-anchor="end" font-size="12" fill="#6b7a72">4%</text>
+<line x1="120" y1="205.7" x2="810" y2="205.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="112" y="209.7" text-anchor="end" font-size="12" fill="#6b7a72">8%</text>
+<line x1="120" y1="122.9" x2="810" y2="122.9" stroke="#e8ece9" stroke-width="1"/>
+<text x="112" y="126.9" text-anchor="end" font-size="12" fill="#6b7a72">12%</text>
+<line x1="120" y1="40.0" x2="810" y2="40.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="112" y="44.0" text-anchor="end" font-size="12" fill="#6b7a72">16%</text>
+<line x1="120" y1="330" x2="810" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<line x1="139.1" y1="330" x2="139.1" y2="336" stroke="#9aa79e" stroke-width="1.2"/>
+<text x="139.1" y="352" text-anchor="middle" font-size="11.5" fill="#6b7a72">200</text>
+<line x1="291.6" y1="330" x2="291.6" y2="336" stroke="#9aa79e" stroke-width="1.2"/>
+<text x="291.6" y="352" text-anchor="middle" font-size="11.5" fill="#6b7a72">2k</text>
+<line x1="444.2" y1="330" x2="444.2" y2="336" stroke="#9aa79e" stroke-width="1.2"/>
+<text x="444.2" y="352" text-anchor="middle" font-size="11.5" fill="#6b7a72">20k</text>
+<line x1="550.8" y1="330" x2="550.8" y2="336" stroke="#9aa79e" stroke-width="1.2"/>
+<text x="550.8" y="352" text-anchor="middle" font-size="11.5" fill="#6b7a72">100k</text>
+<line x1="791.8" y1="330" x2="791.8" y2="336" stroke="#9aa79e" stroke-width="1.2"/>
+<text x="791.8" y="352" text-anchor="middle" font-size="11.5" fill="#6b7a72">3.8M</text>
+<text x="465" y="376" text-anchor="middle" font-size="13" fill="#47536a">真实正样本句数（对数轴）</text>
+<line x1="120" y1="174.4" x2="810" y2="174.4" stroke="#c0563f" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="806" y="168.4" text-anchor="end" font-size="11" font-weight="700" fill="#8c3b2e">3× 基线 = 9.51%（工程目标线）</text>
+<path d="M 139.1 143.8 139.1 143.8 L 211.8 144.6 L 245.7 168.8 L 257.8 149.6 L 291.6 175.3 L 352.3 213.4 L 444.2 205.9" fill="none" stroke="#0e8a66" stroke-width="2.4"/>
+<circle cx="139.1" cy="143.8" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="211.8" cy="144.6" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="245.7" cy="168.8" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="257.8" cy="149.6" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="291.6" cy="175.3" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="352.3" cy="213.4" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="444.2" cy="205.9" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="291.6" cy="175.3" r="7" fill="#0e8a66" opacity="0.16"/>
+<text x="297.6" y="161.3" text-anchor="middle" font-size="11" font-weight="700" fill="#0a6b4e">2k 均衡采样 9.47 ★</text>
+<circle cx="550.8" cy="165.5" r="5.5" fill="#d97a2b" stroke="#fff" stroke-width="1.3"/>
+<text x="540.8" y="185.5" font-size="11" font-weight="700" fill="#a35c14">100k 随机采样 9.94</text>
+<circle cx="791.8" cy="305.8" r="5.5" fill="#b9c6bd" stroke="#fff" stroke-width="1.3"/>
+<text x="761.8" y="293.8" font-size="11" font-weight="600" fill="#47536a">全量真实 3.17</text>
+<circle cx="791.8" cy="320.5" r="5.5" fill="#0a6b4e" stroke="#fff" stroke-width="1.3"/>
+<text x="751.8" y="340.5" font-size="11" font-weight="700" fill="#0a6b4e">TTS+全量 2.46</text>
+<rect x="90" y="40" width="13" height="13" rx="3" fill="#0e8a66"/><text x="108" y="51" font-size="11" fill="#47536a">按说话人均衡采样（Table 5）</text>
+<rect x="300" y="40" width="13" height="13" rx="3" fill="#d97a2b"/><text x="318" y="51" font-size="11" fill="#47536a">随机采样（第 6.2 节）</text>
+<text x="440" y="396" text-anchor="middle" font-size="12" fill="#0a6b4e">同量级精度下均衡采样比随机采样少用约 50 倍数据——真实数据的价值主要在说话人多样性而非语句数量；真实正样本需求从 3.8M 压到 2k（~1900×）</text>
+</svg>
+    <p class="cap"><b>跨节对比（第 6.2 节 + Table 5）</b>：同量级精度下均衡采样比随机采样少用约 50 倍数据——绿色为按说话人均衡采样的完整权衡曲线，橙色是随机采样对照点。</p>
+  </div>
+
+  <div class="card">
+    <b>消融即数据配方的五条发现</b>：① 真实负样本打底是必要配置（此后所有 sweep 固定使用）；② 正负真实数据作用不对称但都显著——负样本 46.7→17.94、全量正样本再 17.94→2.46；③ <b>说话人多样性优先于每人句数</b>（全文最重要可操作结论）；④ 100 说话人是实用阈值（200 人 9.90% 甚至略差于 100 人 9.78%，提示实验噪声）；⑤ <b>多样性手段的单独贡献未拆开</b>——韵律控制、跨语言口音、声音克隆只作为组合方案呈现，无单项消融（实验设计缺口）。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">四条贡献</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>训练配方</b>：大规模合成 + 最小量真实达到与基线可比精度——100 说话人 2k 句对基线 3.8M 句（~1900× 压缩），错误率在 3 倍以内。</div>
+    <div class="c"><span class="n">2</span><b>权衡曲线</b>：真实总量 / 说话人数 / 每人句数三轴 sweep 的 trade-off——给出「先扩说话人、再补句数」的采集策略依据。</div>
+    <div class="c"><span class="n">3</span><b>韵律控制文本生成器</b>：利用 TTS 实验性标点-韵律映射、以多样性最大化为目标的 KWS 定制文本生成。</div>
+    <div class="c"><span class="n" style="background:#d97a2b">★</span><b>两条可迁移工程判断</b>：真实负样本（来源几乎不限）是性价比最高的真实投入；TTS 不仅能替代采集，也能反向增强全量真实数据（2.46% 对 3.17%）。</div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">失配被稀释而非根治，冷启动场景反而没验证</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>分布失配未根治</b>：纯 TTS 46.47% 说明合成数据独立支撑训练远不可行——所有可用配置都必须混真实数据；域对抗、一致性损失、合成伪影过滤等显式缩小域差距的手段一项没试。</li>
+        <li><b>真实数据充足时收益收窄</b>：全量真实 + TTS 只差 0.71 点——对已坐拥大规模真实数据的产品增量有限；主战场应是新词 / 新语言冷启动，<b>恰恰是实验没覆盖的场景</b>。</li>
+        <li><b>韵律控制绑定引擎</b>：标点-韵律映射是 Virtuoso 实验性功能，换引擎要重建控制通道；只有 5 种符号且靠随机模板采样，没搜索「哪些韵律变体对 FRR 贡献最大」。</li>
+        <li><b>多样性手段未拆解</b>：跨语言口音与声音克隆各自的贡献量未消融——726 声音 × 139 语言组合空间里哪些子集最有价值无从判断；混合方式是最简单拼接，未探索课程学习 / 按域加权采样 / 质量过滤。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>单一关键词组</b>：只有 Hey/OK Google——「任意自定义唤醒词零 / 低采集开发」这个最大想象空间没有实验证据，「最小化开发成本和时间」的摘要主张缺最相关场景。</li>
+        <li><b>评测细节缺失</b>：评测集规模、构成、与训练真实数据的说话人是否重叠全未报告；FRR 方差与重复次数未报——100 人（9.78）对 200 人（9.90）的非单调暗示噪声不可忽略，而结论正建立在这些细分数字上。</li>
+        <li><b>效率论证缺数据</b>：标题是「高效开发」，但 TTS 生成 12.6M 句的计算成本、真实采集成本模型、两条路线训练成本对比全未报告——效率主张停在「真实句数变少」一层。</li>
+        <li><b>数字一致性 + 反直觉未分析</b>：Table 3 的 14.1M 负样本对正文 ~11M 对不上无解释；加负样本后 AudioLM 单引擎（16.59）优于双引擎混合（17.94），对「引擎互补」叙事不利，论文未讨论。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得补的方向</b>：域适配与合成数据清洗（一致性 / 对比类预训练目标——论文自引的 TTS4pretrain 2.0 就是现成路径，争取把 46% / 16% 区间继续往下压）；韵律空间自动搜索（从随机采样改成按验证集 FRR 反向选择生成哪些变体——从「多样性最大化」升级「信息量最大化」）；冷启动关键词开发流程端到端验证（新自定义唤醒词的开发周期 / 真实预算 / 精度关系——补上最有价值的场景证据）；主动学习式采集（按模型不确定性或 embedding 覆盖度选下一个要录的说话人和语句，进一步压 2k 预算）；与量化 / 蒸馏正交组合成完整低成本开发栈。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2024/Utilizing_TTS_Synthesized_Data_For_Efficient_Development_Of_Keyword_Spotting_Model.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2024/Utilizing_TTS_Synthesized_Data_For_Efficient_Development_Of_Keyword_Spotting_Model.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2407.18879" target="_blank">arXiv · 2407.18879</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（Table 1–5、Fig 2/3、式 1）；错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
