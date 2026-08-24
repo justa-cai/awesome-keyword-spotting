@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MFA-KWS · 多头帧异步解码 · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2025/MFA-KWS_Effective_Keyword_Spotting_With_Multi-head_Frame-asynchronous_Decoding.md">深读笔记</a>
+    <a href="/papers/2025/MFA-KWS_Effective_Keyword_Spotting_With_Multi-head_Frame-asynchronous_Decoding.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2505.19577" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2025 №25</p>
+  <h1>MFA-KWS<br>CTC 对冲 Transducer 的误差累积，两支都跳帧，再按趋势一致性融合</h1>
+  <p class="sub">MFA-KWS: Effective Keyword Spotting with Multi-head Frame-asynchronous Decoding</p>
+  <p class="meta"><b>作者</b>：Yu Xi 等 —— 上海交通大学 X-LANCE × 新加坡国立大学（TDT-KWS 的期刊扩展）</p>
+  <p class="meta"><b>发表</b>：2025.05（v3 2025.06）· arXiv:2505.19577 · 解码代码开源</p>
+  <div class="chips">
+    <span class="chip">流式解码</span><span class="chip">CTC-Transducer 联训</span><span class="chip">TDT 跳帧</span>
+    <span class="chip">PSD 跳帧</span><span class="chip">CDC 融合</span><span class="chip">3.3M / 1.5× 加速</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>病灶与药方：单支 Transducer 的后验依赖已预测历史——<b>误差沿解码逐步累积</b>，噪声与困难负样本下退化。药方是 CTC：沿时间轴条件独立、无历史依赖，联合训练当正则 + 推理时双支互为校验。</li>
+      <li>双异步：Transducer 头换 <b>TDT</b>（token 级跳帧——预测「这个 token 持续多少帧」，一次前进 d 帧）；CTC 头换 <b>PSD</b>（阈值跳帧——利用 CTC 尖峰性，空白概率 ≥λ 的帧近似丢弃，甜点 35% 跳帧）。</li>
+      <li>核心难题「何时融合」：两支跳帧位置不同步——引入占位符 PH；五种融合策略中 <b>CDC-Last</b> 胜出（滑窗余弦相似度做权重 + PH 用最近非占位值填充——被跳帧状态延续而非归零）。</li>
+      <li>结果：三场景全面 SOTA——Snips FAR=0.02 miss 率相对降 72%、Mobvoi 中文 miss 降 27.66%/68%、LibriKWS-20 任意词平均 83.50 第一；<b>解码比帧同步快 47–63%</b> 且 miss 率同时降 23%——帧异步是双赢不是交换。</li>
+      <li>反直觉证据：CTC 前缀束搜索（57.60）大幅差于贪心（77.16）——通用 ASR 解码不适配 KWS 的直接实证；流式专用解码 &gt; 一切通用解码。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">ASR 路线四不足与两个必须回答的问题</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 330" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">ASR 路线内部四不足 + 本文的四连挑战</text>
+      <g font-size="11.5">
+        <rect x="30" y="50" width="205" height="130" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="132" y="74" text-anchor="middle" font-weight="700" fill="#1c2430">WFST 解码图</text>
+        <text x="44" y="100" fill="#8c3b2e">✕ 实现维护复杂</text>
+        <text x="44" y="122" fill="#8c3b2e">　 工程门槛大</text>
+        <text x="44" y="150" fill="#8a93a5">本文：解码格只围绕</text>
+        <text x="44" y="168" fill="#8a93a5">　 关键词音子序列展开</text>
+        <rect x="253" y="50" width="205" height="130" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="355" y="74" text-anchor="middle" font-weight="700" fill="#1c2430">通用 ASR 解码</text>
+        <text x="267" y="100" fill="#8c3b2e">✕ 在完整搜索空间展开</text>
+        <text x="267" y="122" fill="#8c3b2e">　 转写假设，不为关键词设优先级</text>
+        <text x="267" y="150" fill="#8a93a5">本文：关键词专用流式解码 +</text>
+        <text x="267" y="168" fill="#8a93a5">　 任意起点 + bonus 锐化 + 超时过滤</text>
+        <rect x="476" y="50" width="205" height="130" rx="10" fill="#fdf6f4" stroke="#c9a9a0" stroke-width="1.4"/>
+        <text x="578" y="74" text-anchor="middle" font-weight="700" fill="#8c3b2e">单支 Transducer 误差累积</text>
+        <text x="490" y="100" fill="#8c3b2e">✕ 当前帧后验依赖已预测历史</text>
+        <text x="490" y="122" fill="#8c3b2e">　 错误逐步累积——TDT-KWS 遗留短板</text>
+        <text x="490" y="150" fill="#0a6b4e">本文：CTC-Transducer 联训对冲</text>
+        <text x="490" y="168" fill="#0a6b4e">　 （条件独立 vs 语言上下文互补）</text>
+        <rect x="699" y="50" width="191" height="130" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="794" y="74" text-anchor="middle" font-weight="700" fill="#1c2430">CTC-AED 联训</text>
+        <text x="713" y="100" fill="#8c3b2e">✕ 注意力开销大、token 级</text>
+        <text x="713" y="122" fill="#8c3b2e">　 推理时延显著——不适配 KWS</text>
+        <text x="713" y="150" fill="#8a93a5">本文：保留联训+多头思想，</text>
+        <text x="713" y="168" fill="#8a93a5">　 彻底避开注意力</text>
+      </g>
+      <rect x="30" y="198" width="860" height="80" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="46" y="224" font-size="12.5" font-weight="700" fill="#0a6b4e">双异步带来的两个新问题（II-D 节原文提出）</text>
+      <text x="46" y="248" font-size="11.5" fill="#47536a">「怎么融合」（fusion method，决定有效性）：CTC-Dom / Trans-Dom / 等权 / CDC-Zero / CDC-Last 五种策略</text>
+      <text x="46" y="270" font-size="11.5" fill="#47536a">「何时融合」（fusion timing，决定效率）：两支跳帧位置不同步 → 占位符 PH 语义约定</text>
+      <text x="30" y="310" font-size="11.5" fill="#8a93a5">路线背景：端到端分类路线（段级分类）噪声敏感、与训练词耦合不支持任意词；ASR 两阶段路线声学模型解耦关键词、天然支持任意词——难点全落在解码算法设计</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">共享编码器 + 双解码头 + 帧异步融合</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 400" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">架构与解码（图 1）：一个共享编码器、两个解码头、一个帧异步融合解码器</text>
+      <g font-size="11.5">
+        <rect x="30" y="60" width="150" height="70" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="105" y="84" text-anchor="middle" font-weight="700" fill="#1c2430">40 维 FBank</text>
+        <text x="105" y="106" text-anchor="middle" font-size="10" fill="#8a93a5">25/10ms · 左右拼 5 帧</text>
+
+        <rect x="206" y="60" width="180" height="70" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+        <text x="296" y="84" text-anchor="middle" font-weight="700" fill="#0a6b4e">共享编码器 ❄</text>
+        <text x="296" y="106" text-anchor="middle" font-size="10" fill="#5f8a76">6 层 DFSMN · 512/320</text>
+
+        <rect x="412" y="42" width="230" height="66" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+        <text x="527" y="66" text-anchor="middle" font-weight="700" fill="#0a6b4e">CTC 头：+2 层 DFSMN + 投影</text>
+        <text x="527" y="88" text-anchor="middle" font-size="10" fill="#5f8a76">尖峰分布 → PSD 阈值跳帧（甜点 35%）</text>
+
+        <rect x="412" y="122" width="230" height="66" rx="10" fill="#0e8a66"/>
+        <text x="527" y="146" text-anchor="middle" font-weight="700" fill="#fff">Transducer 头</text>
+        <text x="527" y="168" text-anchor="middle" font-size="10" fill="#cdebdf">stateless predictor + TDT 时长头（D_max=4）</text>
+
+        <rect x="672" y="72" width="218" height="86" rx="10" fill="#1c2430"/>
+        <text x="781" y="98" text-anchor="middle" font-weight="700" fill="#fff">帧异步融合解码器</text>
+        <text x="686" y="122" font-size="10.5" fill="#c9ced6">双 lattice 并行 + PH 占位符</text>
+        <text x="686" y="144" font-size="10.5" fill="#cdebdf">CDC-Last 滑窗一致性加权（ℓ_win=20）</text>
+      </g>
+      <g stroke="#8a93a5" stroke-width="1.5" fill="none">
+        <line x1="180" y1="95" x2="202" y2="95"/><polygon points="202,95 196,92 196,98" fill="#8a93a5"/>
+        <line x1="386" y1="80" x2="408" y2="75"/><polygon points="408,75 402,72 402,78" fill="#8a93a5"/>
+        <line x1="386" y1="110" x2="408" y2="152"/><polygon points="408,152 402,146 402,154" fill="#8a93a5"/>
+        <line x1="642" y1="75" x2="668" y2="100"/><polygon points="668,100 662,95 662,102" fill="#8a93a5"/>
+        <line x1="642" y1="155" x2="668" y2="130"/><polygon points="668,130 662,128 663,135" fill="#8a93a5"/>
+      </g>
+      <rect x="30" y="186" width="424" height="110" rx="10" fill="#fbfaf6" stroke="#e6e6df"/>
+      <text x="46" y="210" font-size="12" font-weight="700" fill="#1c2430">联合训练损失（式 8）</text>
+      <text x="46" y="234" font-size="11" fill="#47536a">L = L_TDT + 0.3·L_CTC——三条理由：CTC 条件独立对冲误差累积</text>
+      <text x="46" y="256" font-size="11" fill="#47536a">（抑制误报、防关键词过拟合）；CTC 当声学正则改善收敛；</text>
+      <text x="46" y="278" font-size="11" fill="#47536a">推理期双支互为校验，融合出比任何单支更稳的置信度</text>
+      <rect x="474" y="186" width="416" height="110" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.4"/>
+      <text x="490" y="210" font-size="12" font-weight="700" fill="#0a6b4e">五种融合策略（表 4 消融选出 CDC-Last）</text>
+      <text x="490" y="234" font-size="10.5" fill="#47536a">单帧类：CTC-Dom / Trans-Dom / 等权——简单但不考虑历史激活</text>
+      <text x="490" y="256" font-size="10.5" fill="#47536a">时序类：CDC-Zero（PH 补 0）/ CDC-Last（PH 用最近非占位值）</text>
+      <text x="490" y="280" font-size="10.5" fill="#0a6b4e" font-weight="600">CDC-Last 胜出：被跳帧状态延续最近解码状态而非归零——归零制造分数断层破坏滑窗余弦估计</text>
+      <rect x="30" y="310" width="860" height="72" rx="10" fill="#fbfaf6" stroke="#e6e6df"/>
+      <text x="46" y="334" font-size="12" font-weight="700" fill="#1c2430">关键词约束流式解码（全套工作的地基）</text>
+      <text x="46" y="358" font-size="11" fill="#47536a">只把关键词 token 序列喂给预测器（训练 teacher forcing 的推理版）；δ(t,0)=1 允许关键词从任意时刻开始；S[t]=δ(t,U)·φ(t,U)</text>
+      <text x="46" y="378" font fontsize="11" font-size="11" fill="#8a93a5">+ bonus 边界锐化 + 超时置零 + 长度归一（把得分压进 [0,1]——两支分数才有统一量纲，融合才成立）</text>
+      </g>
+    </svg>
+    <p class="cap"><b>参数账本：</b>中英文统一约 3.3M 参数，TDT 时长头新增 &lt;0.1%——效率提升来自解码算法而非更大模型。建模单元英文 70 单音子 / 中文 200 音节——音素/音节级小词表既支持任意词（用户词展开成声学单元序列）又让解码格规模可控。</p>
+  </div>
+
+  <div class="formula">
+    S<sub>t</sub><sup>Fused</sup> = (S<sub>t</sub><sup>Trans</sup> + w<sub>t</sub><sup>CDC</sup>·S<sub>t</sub><sup>CTC</sup>) / (1 + w<sub>t</sub><sup>CDC</sup>)，其中 w<sub>t</sub><sup>CDC</sup> = cos(S<sup>Trans</sup><sub>[t−20:t]</sub>, S<sup>CTC</sup><sub>[t−20:t]</sub>)
+    <div class="why">为什么用趋势一致性做权重：单帧孤立高分很可能是误报；两个结构完全不同的分支（一个有语言上下文、一个条件独立）在窗口内走势高度一致 = 真实声学事件，此时才给 CTC 更高权重；一致性低时自动退化为 Transducer 主导。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">三场景 SOTA + 双赢的效率账本</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 320" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">表 3 联合训练 + 多头解码的增益（Snips，recall%）：miss 率相对降低 72% / 83%</text>
+      <line x1="90" y1="230.0" x2="850" y2="230.0" stroke="#f0f1f3"/>
+      <text x="84" y="234.0" text-anchor="end" font-size="11" fill="#9ca3af">97.5</text>
+      <line x1="90" y1="170.7" x2="850" y2="170.7" stroke="#f0f1f3"/>
+      <text x="84" y="174.7" text-anchor="end" font-size="11" fill="#9ca3af">98.5</text>
+      <line x1="90" y1="111.5" x2="850" y2="111.5" stroke="#f0f1f3"/>
+      <text x="84" y="115.5" text-anchor="end" font-size="11" fill="#9ca3af">99.5</text>
+      <line x1="90" y1="70.0" x2="850" y2="70.0" stroke="#f0f1f3"/>
+      <text x="84" y="74.0" text-anchor="end" font-size="11" fill="#9ca3af">100</text>
+      <rect x="340.0" y="156.7" width="120" height="73.3" rx="5" fill="#c9ced6" opacity=".6"/>
+      <text x="470" y="164.7" font-size="11.5" font-weight="700" fill="#374151">98.08</text>
+      <rect x="550.0" y="144.4" width="120" height="85.6" rx="5" fill="#c9ced6"/>
+      <text x="680" y="152.4" font-size="11.5" font-weight="700" fill="#374151">98.30</text>
+      <rect x="340.0" y="129.3" width="120" height="100.7" rx="5" fill="#94a3b8" opacity=".6"/>
+      <text x="470" y="137.3" font-size="11.5" font-weight="700" fill="#374151">98.56</text>
+      <rect x="550.0" y="112.4" width="120" height="117.6" rx="5" fill="#94a3b8"/>
+      <text x="680" y="120.4" font-size="11.5" font-weight="700" fill="#374151">98.85</text>
+      <rect x="340.0" y="80.9" width="120" height="149.1" rx="5" fill="#4fb5a0" opacity=".6"/>
+      <text x="470" y="88.9" font-size="11.5" font-weight="700" fill="#374151">99.57</text>
+      <rect x="550.0" y="74.8" width="120" height="155.2" rx="5" fill="#4fb5a0"/>
+      <text x="680" y="82.8" font-size="11.5" font-weight="700" fill="#374151">99.68</text>
+      <rect x="340.0" y="79.1" width="120" height="150.9" rx="5" fill="#0e8a66" opacity=".6"/>
+      <text x="470" y="87.1" font-size="11.5" font-weight="700" fill="#374151">99.60</text>
+      <rect x="550.0" y="71.1" width="120" height="158.9" rx="5" fill="#0e8a66"/>
+      <text x="680" y="79.1" font-size="11.5" font-weight="700" fill="#374151">99.80</text>
+      <text x="330" y="79.0" text-anchor="end" font-size="11" fill="#47536a">RNN-T 单支训练</text>
+      <text x="330" y="123.0" text-anchor="end" font-size="11" fill="#47536a">TDT 单支训练</text>
+      <text x="330" y="167.0" text-anchor="end" font-size="11" fill="#47536a">联合训练 · Transducer 头</text>
+      <text x="330" y="211.0" text-anchor="end" font-size="11" fill="#0a6b4e" font-weight="700">联合训练 + MFA 多头</text>
+      <text x="400" y="252" text-anchor="middle" font-size="10.5" fill="#9ca3af">FAR=0.02（严苛）</text>
+      <text x="610" y="252" text-anchor="middle" font-size="10.5" fill="#9ca3af">FAR=0.05</text>
+      <text x="70" y="282" font-size="12.5" fill="#0a6b4e" font-weight="600">联合训练收益双向：训练期 CTC 当正则（每个单支头都超单支训练基线）；推理期双支互为校验（MFA 头再抬一档）</text>
+      <text x="70" y="304" font-size="12" fill="#47536a">对 TDT 单支：FAR=0.02 miss 率相对降 72.22%（98.56→99.60）；FAR=0.05 相对降 82.61%（98.85→99.80）</text>
+    </svg>
+    <p class="cap"><b>对端到端分类系统（表 6）：</b>FAR=0.05 下 MFA-KWS 领先重训 MDTC 超过 10 个百分点——分类系统在低误报预算下崩得快，ASR 式系统从容。<b>中文固定词（表 7）：</b>MobvoiHotwords 平均 99.79（Xiaowen 99.66 / Wenwen 99.92），相对两词各自最强基线 miss 率降 27.66%/68%——框架跨语言跨建模单元（音节 vs 音子）泛化。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 360" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">表 8 任意关键词（LibriKWS-20，macro-accuracy@FAR=0，平均%）：通用解码不适配 KWS 的两个证据</text>
+      <text x="288" y="69.0" text-anchor="end" font-size="11" fill="#47536a">MFA-KWS（联合 + 流式）</text>
+      <rect x="296" y="54.0" width="368.5" height="24" rx="4" fill="#0e8a66"/>
+      <text x="672.5" y="71.0" font-size="11.5" font-weight="700" fill="#374151">83.50</text>
+      <text x="288" y="105.0" text-anchor="end" font-size="11" fill="#47536a">CTC 流式解码</text>
+      <rect x="296" y="90.0" width="356.7" height="24" rx="4" fill="#7cc7ad"/>
+      <text x="660.7" y="107.0" font-size="11.5" font-weight="700" fill="#374151">82.43</text>
+      <text x="288" y="141.0" text-anchor="end" font-size="11" fill="#47536a">Transducer 流式解码</text>
+      <rect x="296" y="126.0" width="346.0" height="24" rx="4" fill="#7cc7ad"/>
+      <text x="650.0" y="143.0" font-size="11.5" font-weight="700" fill="#374151">81.45</text>
+      <text x="288" y="177.0" text-anchor="end" font-size="11" fill="#47536a">CTC 贪心</text>
+      <rect x="296" y="162.0" width="298.8" height="24" rx="4" fill="#94a3b8"/>
+      <text x="602.8" y="179.0" font-size="11.5" font-weight="700" fill="#374151">77.16</text>
+      <text x="288" y="213.0" text-anchor="end" font-size="11" fill="#47536a">Transducer 束搜索 beam=10</text>
+      <rect x="296" y="198.0" width="226.3" height="24" rx="4" fill="#c9ced6"/>
+      <text x="530.3" y="215.0" font-size="11.5" font-weight="700" fill="#374151">70.57</text>
+      <text x="288" y="249.0" text-anchor="end" font-size="11" fill="#47536a">Transducer 贪心</text>
+      <rect x="296" y="234.0" width="193.3" height="24" rx="4" fill="#94a3b8"/>
+      <text x="497.3" y="251.0" font-size="11.5" font-weight="700" fill="#374151">67.57</text>
+      <text x="288" y="285.0" text-anchor="end" font-size="11" fill="#8c3b2e">CTC 前缀束搜索 beam=10</text>
+      <rect x="296" y="270.0" width="83.6" height="24" rx="4" fill="#c0392b"/>
+      <text x="387.6" y="287.0" font-size="11.5" font-weight="700" fill="#374151">57.60</text>
+      <text x="540" y="80" font-size="11" fill="#c0392b" font-weight="600">反直觉：CTC 前缀束搜索（57.60）</text>
+      <text x="540" y="100" font-size="11" fill="#c0392b">大幅差于贪心（77.16）——</text>
+      <text x="540" y="120" font-size="11" fill="#c0392b">通用 ASR 解码不适配 KWS 的直接证据</text>
+      <text x="540" y="156" font-size="11" fill="#0a6b4e" font-weight="600">证据二：流式专用解码 &gt; 一切通用解码</text>
+      <text x="540" y="176" font-size="11" fill="#5f8a76">（CTC 93.86&gt;89.68，Trans 93.18&gt;86.30）</text>
+      <text x="540" y="192" font-size="11" fill="#5f8a76">关键词专用搜索空间的价值独立于模型结构</text>
+      <text x="70" y="326" font-size="12.5" fill="#47536a">test-clean / test-other 拆分：MFA 94.25 / 72.75 双子集全部第一；CTC 流式与 Transducer 流式互补而非冗余（82.43 vs 81.45）</text>
+      <text x="70" y="348" font-size="11.5" fill="#9ca3af">误报评估音频每子集仅 3 小时——低 FAR 档位误报计数样本量小，指标方差风险高</text>
+    </svg>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 330" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">效率-精度账本：跳帧甜点在 35%（表 2），MFA 加速 1.47–1.63×（表 10）</text>
+      <text x="80" y="56" font-size="12" fill="#47536a" font-weight="600">① PSD 跳帧比例 vs recall（Snips，FAR=0.02）</text>
+      <line x1="90" y1="210.0" x2="430" y2="210.0" stroke="#f0f1f3"/>
+      <text x="84" y="213.0" text-anchor="end" font-size="10.5" fill="#9ca3af">88</text>
+      <line x1="90" y1="170.0" x2="430" y2="170.0" stroke="#f0f1f3"/>
+      <text x="84" y="173.0" text-anchor="end" font-size="10.5" fill="#9ca3af">92</text>
+      <line x1="90" y1="130.0" x2="430" y2="130.0" stroke="#f0f1f3"/>
+      <text x="84" y="133.0" text-anchor="end" font-size="10.5" fill="#9ca3af">96</text>
+      <line x1="90" y1="90.0" x2="430" y2="90.0" stroke="#f0f1f3"/>
+      <text x="84" y="93.0" text-anchor="end" font-size="10.5" fill="#9ca3af">100</text>
+      <rect x="115.0" y="96.1" width="32" height="113.9" rx="4" fill="#c9ced6"/>
+      <text x="131.0" y="92.1" text-anchor="middle" font-size="9" font-weight="700" fill="#374151">98.9</text>
+      <text x="131.0" y="224" text-anchor="middle" font-size="9.5" fill="#374151">0%</text>
+      <rect x="163.0" y="99.7" width="32" height="110.3" rx="4" fill="#7cc7ad"/>
+      <text x="179.0" y="224" text-anchor="middle" font-size="9.5" fill="#374151">20%</text>
+      <rect x="211.0" y="100.5" width="32" height="109.5" rx="4" fill="#7cc7ad"/>
+      <text x="227.0" y="224" text-anchor="middle" font-size="9.5" fill="#374151">30%</text>
+      <rect x="259.0" y="104.2" width="32" height="105.8" rx="4" fill="#0e8a66"/>
+      <text x="275.0" y="100.2" text-anchor="middle" font-size="9" font-weight="700" fill="#374151">98.1</text>
+      <text x="275.0" y="224" text-anchor="middle" font-size="9.5" fill="#374151">35%</text>
+      <rect x="307.0" y="110.2" width="32" height="99.8" rx="4" fill="#94a3b8"/>
+      <text x="323.0" y="224" text-anchor="middle" font-size="9.5" fill="#374151">40%</text>
+      <rect x="355.0" y="143.0" width="32" height="67.0" rx="4" fill="#d97a2b"/>
+      <text x="371.0" y="139.0" text-anchor="middle" font-size="9" font-weight="700" fill="#374151">94.4</text>
+      <text x="371.0" y="224" text-anchor="middle" font-size="9.5" fill="#374151">45%</text>
+      <rect x="403.0" y="179.9" width="32" height="30.1" rx="4" fill="#c0392b"/>
+      <text x="419.0" y="175.9" text-anchor="middle" font-size="9" font-weight="700" fill="#374151">88.4</text>
+      <text x="419.0" y="224" text-anchor="middle" font-size="9.5" fill="#374151">50%</text>
+      <line x1="90" y1="210" x2="430" y2="210" stroke="#9ca3af"/>
+      <text x="90" y="246" font-size="10.5" fill="#0a6b4e" font-weight="600">0→35% 仅缓降 0.79 pp；越过 35% 衰退转急（50% 崩到 88.41）</text>
+      <text x="90" y="264" font-size="10" fill="#8a93a5">甜点选定 35%（λφ 按各数据集开发集搜索）——CTC 尖峰分布：真正带语音内容的帧只占少数</text>
+      <text x="500" y="56" font-size="12" fill="#47536a" font-weight="600">② 解码加速（相对 MFS 帧同步 = 1.0×）</text>
+      <text x="492" y="90.0" text-anchor="end" font-size="10.5" fill="#47536a">CTC-PSD 单支</text>
+      <rect x="500" y="76.0" width="125.3" height="24" rx="4" fill="#7cc7ad"/>
+      <text x="633.3" y="93.0" font-size="11" font-weight="700" fill="#374151">1.94×</text>
+      <text x="492" y="130.0" text-anchor="end" font-size="10.5" fill="#47536a">TDT-4 单支</text>
+      <rect x="500" y="116.0" width="80.0" height="24" rx="4" fill="#94a3b8"/>
+      <text x="588.0" y="133.0" font-size="11" font-weight="700" fill="#374151">1.60×</text>
+      <text x="492" y="170.0" text-anchor="end" font-size="10.5" fill="#0a6b4e" font-weight="700">MFA-KWS（本文）</text>
+      <rect x="500" y="156.0" width="71.7" height="24" rx="4" fill="#0e8a66"/>
+      <text x="579.7" y="173.0" font-size="11" font-weight="700" fill="#374151">1.54×</text>
+      <text x="492" y="210.0" text-anchor="end" font-size="10.5" fill="#47536a">RNN-T 单支</text>
+      <rect x="500" y="196.0" width="29.3" height="24" rx="4" fill="#c9ced6"/>
+      <text x="537.3" y="213.0" font-size="11" font-weight="700" fill="#374151">1.22×</text>
+      <text x="500" y="246" font-size="10.5" fill="#0a6b4e" font-weight="600">MFA（五集 1.47–1.63×）：比 RNN-T 快、与 TDT-4 相当、慢于纯 CTC-PSD</text>
+      <text x="500" y="264" font-size="10" fill="#8a93a5">但检出精度全面高于所有单支——速度-精度同向改善的位置</text>
+      <text x="70" y="296" font-size="12.5" fill="#0a6b4e" font-weight="600">总账：MFA 相对 MFS 平均 miss 率相对降 23.0%（2.55% vs 3.31%）且更快——帧异步不是精度换速度、而是双赢</text>
+      <text x="70" y="318" font-size="11.5" fill="#8a93a5">模型约 3.3M 参数、TDT 时长头开销 &lt;0.1%——效率提升来自解码算法而非更大模型</text>
+    </svg>
+    <p class="cap"><b>噪声鲁棒性（表 9，FA=2，五档 SNR 平均）：</b>Snips MFA 94.22 / MFS 93.06 / TDT 86.50 / CTC-FSD 86.44；test-other MFA 75.15 仍最高。三个发现：Transducer 解码在连续语音上比 CTC 稳；<b>噪声下跳帧反而涨点</b>（跳帧滤掉被噪声污染的无关节帧、聚焦关键语音帧）；多头解码各 SNR 档稳定有效。</p>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">五条可转述的判断</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>MFS-KWS</b><br><span style="font-size:14.5px;color:var(--ink-2)">CTC-Transducer 联训 + 多头帧同步解码——条件独立性对冲误差累积、互为正则、互为校验；仅联训即降 miss 至多 72%。</span></div>
+    <div class="c"><span class="n">2</span><b>MFA-KWS + CDC-Last</b><br><span style="font-size:14.5px;color:var(--ink-2)">双头帧异步（TDT + PSD）+ 占位符 PH + 滑窗一致性融合——五种策略系统探索，CDC-Last 全面胜出。</span></div>
+    <div class="c"><span class="n">3</span><b>三场景全面 SOTA</b><br><span style="font-size:14.5px;color:var(--ink-2)">英文固定词（Snips）/ 中文固定词（Mobvoi）/ 任意关键词（LibriKWS-20）全超 ASR 式与端到端式基线；多 SNR 噪声下双头显著优于单支。</span></div>
+    <div class="c"><span class="n">4</span><b>双赢的效率账本</b><br><span style="font-size:14.5px;color:var(--ink-2)">加速 47–63% 同时 miss 降 23%、模型 3.3M、时长头 &lt;0.1%——帧异步不是精度换速度；解码代码全开源（KWS 解码研究开源稀缺）。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">双解码格状态成本未量化，跳帧安全边际窄</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法的技术局限</h4>
+      <ul>
+        <li><b>双分支状态成本</b>：同时维护两套解码格 + CDC 滑窗计算——实现复杂度与内存高于任何单支；只报了相对加速比，无内存占用与状态维护成本。</li>
+        <li><b>超参全局固定</b>：α=0.3 / ℓ_win=20 / 35% / D_max=4 全局常数不自适应——表 2 显示安全边际窄（35% 时 98.10、50% 崩到 88.41），分布偏移下固定阈值有失效风险。</li>
+        <li><b>CDC 滑窗响应滞后</b>：20 帧窗（约 0.6s，笔记推导）对突发短事件有天然滞后；融合权重纯手工规则无可学习参数。</li>
+        <li><b>CTC 条件独立是双刃剑</b>：CTC 头缺语言上下文需 Transducer 兜底；联训后 CTC 头 0.05 档 99.05 仍低于单支 CDC-KWS 的 99.80——联训并非对所有头单调增益。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>效率指标不完整</b>：无绝对 RTF / 时延 / 内存峰值 / 真机（ARM/DSP/NPU）实测；3.3M 对应 FLOPs 与 CTC 辅助 2 层的开销拆分未报。</li>
+        <li><b>关键超参缺消融</b>：α、ℓ_win、S_Bonus、T_out 无敏感性分析。</li>
+        <li><b>噪声覆盖不均</b>：Mobvoi 排除在混噪实验外（自带噪声无法控 SNR）——中文侧无受控噪声数据；融合策略消融只在英文做。</li>
+        <li><b>误报统计置信度受限</b>：每子集误报音频仅 3 小时、关键词 20 个——低 FAR 档计数样本量小。</li>
+        <li><b>对比面留白</b>：无 WFST 正面对比、束宽固定 10 未扫、与 U2-KWS 类两遍方法未同场。</li>
+        <li><b>训练成本未披露</b>：双任务双头的训练时间/显存增量。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">下一步方向（论文展望 + 笔者补充）</h3>
+    <p style="margin:6px 0"><b>① 可学习融合</b>：CDC 余弦权重换成轻量可训练门控（两支滑窗特征为输入）——「怎么融合、何时融合」由数据端到端学出。<br>
+    <b>② 自适应跳帧</b>：在线 SNR 估计或分支置信度动态调 λφ 与 D_max——替代全局固定 35%，换取窄裕度下的部署安全。<br>
+    <b>③ 双头蒸馏回单头</b>：保联训收益砍推理期双解码开销。<br>
+    <b>④ 真机基准</b>：ARM/DSP 实测时延功耗，验证 3.3M + 1.5× 在真实唤醒链路的收益。<br>
+    <b>⑤ 任务扩展</b>：更大关键词集、多语言统一模型、多说话人重叠、与关键词偏置结合支持运行时动态注册。<br>
+    <b>⑥ 评估补全</b>：中文混噪、更长误报语料、超参消融、WFST 与两遍流式 ASR 同场对比。</p>
+  </div>
+</section>
+
+<footer>
+  <p><b>论文精读 · 可视化版</b> · 2025 №25 · MFA-KWS 多头帧异步解码（上海交大 X-LANCE × NUS，arXiv 2025）</p>
+  <p>数据来源：论文表 I–X、图 1–3、算法 1–2（经由本库深读笔记核对）。图表坐标由脚本从论文原表计算生成。</p>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2025/MFA-KWS_Effective_Keyword_Spotting_With_Multi-head_Frame-asynchronous_Decoding.md">📄 深读笔记</a>
+    <a class="pill" href="/papers/2025/MFA-KWS_Effective_Keyword_Spotting_With_Multi-head_Frame-asynchronous_Decoding.pdf">📕 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2505.19577" target="_blank">🔗 arXiv:2505.19577</a>
+    <a class="pill" href="https://github.com/X-LANCE/KWStreamingSearch" target="_blank">💻 GitHub</a>
+    <a class="pill" href="/">← 返回论文库</a>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>
