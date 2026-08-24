@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FCA-Net · 频率通道注意力抗噪 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2024/Frequency_Channel_Attention_Network_For_Small_Footprint_Noisy_Spoken_Keyword_Spotting.md">深读笔记</a>
+    <a href="/papers/2024/Frequency_Channel_Attention_Network_For_Small_Footprint_Noisy_Spoken_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2407.19834" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2024 №14</p>
+  <h1>雷声在低频、DTMF 是窄带——噪声是频率选择性的，<br>注意力也该做到频点粒度</h1>
+  <p class="sub">Frequency &amp; Channel Attention Network for Small Footprint Noisy Spoken Keyword Spotting（FCA-Net）</p>
+  <p class="meta"><b>作者</b>：Yuanxi Lin、Yuriy E. Gapanyuk —— 鲍曼莫斯科国立技术大学</p>
+  <p class="meta"><b>发表</b>：APSIPA ASC 2024 · arXiv:2407.19834</p>
+  <div class="chips">
+    <span class="chip">C2D 通道×频点注意力</span><span class="chip">ConvMixer 骨干 119K</span><span class="chip">+0.45% MACs</span>
+    <span class="chip">课程式多条件训练</span><span class="chip">0dB 92.65%</span><span class="chip">反超 45 倍大的 Transformer</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>核心张力</b>：常驻 KWS 要小（119K 级）+ 抗噪（真实场景嘈杂）；而小网络容量小、直接学高噪声样本「学不动」。社区在「准」和「快」上卷了多年，抗噪被系统性忽略。</li>
+      <li><b>被忽视的物理事实</b>：SE/ECA 都是<b>纯通道注意力</b>——一个通道一个标量权重，而加性噪声在物理上是<b>频率选择性</b>的（雷声集中低频、DTMF 窄带、喇叭有基频簇）——粒度与噪声分布不匹配。</li>
+      <li><b>方案（C2D）</b>：特征图先沿时间维全局平均池化 → 得 C×F 通道-频率平面 → 两个 2D 卷积生成权重 → sigmoid 门控后逐元素乘回原特征（时间维广播）。<b>「先池化后卷积」</b>把注意力分支从三维降到二维——粒度只损失时间维（恰对噪声不敏感），频率维完整保留，开销仅 +0.45% MACs。</li>
+      <li><b>位置消融的意外发现</b>：C2D 单点插入（前/后卷积段）<b>反而劣化</b>（0dB 89.08/89.02 对骨干 90.62）——只有逐残差块插入（all）才有效（92.65）；SE 在所有位置都不如不加。注意力不是万能药，插错位置是毒药。</li>
+      <li><b>结果</b>：119K / 22.3M MACs，GSC V2-12 干净 98.25%（小模型最高）；0dB 92.65%（超 BC-ResNet-6 5.17 点）；<b>噪声下反超 45 倍参数的 KWT-3 达 8.68 点</b>——自注意力对扰动的敏感在强噪下暴露，卷积局部偏置 + 频率粒度注意力更稳。</li>
+      <li><b>成色缺口</b>：注意力静态（整句共享一组权重，非平稳噪声有天花板）；闭集分类无误触发指标；只有加性噪声无混响（「远场」声称不完整）；单次训练无方差；正文两个总结性数字（2-3%、7.4%）与 Table I 对不上。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">「粒度-开销-位置」三重约束下的设计搜索</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>三条线索的缺口</b>：① 主流小脚印架构（DNN→ResNet→TC-ResNet→BC-ResNet→MatchboxNet）的优化目标几乎都是干净集准确率 + 计算效率——抗噪被系统性忽略；② 噪声混合训练 + 课程学习（逐步加噪）有改善但高噪下仍不够；③ 轻量注意力与噪声鲁棒 KWS 的结合仍是空白——直接前身 ConvMixer 的 mixer 提供全局通道交互，<b>缺廉价的局部选择机制</b>。笔记补充的隐含批评：SE/ECA 每通道一个标量，不管哪个频段被污染都整体下调——与噪声的频率选择性物理分布不匹配。<b>三重约束</b>：粒度细到「哪个通道的哪个频段可信」；开销小到不撑爆 119K 模型；插入位置与 ConvMixer 残差块兼容。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">全局 mixer 管组织，局部细粒度注意力管选择</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 440" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">Fig.1 复绘：ConvMixer 骨干 + C2D 机制 + 四个插入位置变体</text>
+      <rect x="30" y="56" width="140" height="56" rx="9" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="100" y="78" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">MFCC 特征</text>
+      <text x="100" y="98" text-anchor="middle" font-size="10.5" fill="#8a93a5">40 系数 · 1s 窗</text>
+      <line x1="170" y1="84" x2="204" y2="84" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="204,84 196,79 196,89" fill="#5f8a76"/>
+      <rect x="206" y="56" width="150" height="56" rx="9" fill="#f4f0e6" stroke="#d97a2b" stroke-width="1.4"/>
+      <text x="281" y="78" text-anchor="middle" font-size="11.5" font-weight="600" fill="#b45f1c">前卷积段 ×3（核 5/7/1）</text>
+      <text x="281" y="98" text-anchor="middle" font-size="10.5" fill="#b45f1c">pre 位置 ◆</text>
+      <line x1="356" y1="84" x2="390" y2="84" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="390,84 382,79 382,89" fill="#5f8a76"/>
+      <rect x="392" y="56" width="240" height="56" rx="9" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.6"/>
+      <text x="512" y="78" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0a6b4e">ConvMixer 块 ×4（时间核 9→15，滤波器 64→8）</text>
+      <text x="512" y="98" text-anchor="middle" font-size="10.5" fill="#0a6b4e">每块后插 C2D ★ all 位置 · 漏斗设计</text>
+      <line x1="632" y1="84" x2="666" y2="84" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="666,84 658,79 658,89" fill="#5f8a76"/>
+      <rect x="668" y="56" width="150" height="56" rx="9" fill="#f4f0e6" stroke="#d97a2b" stroke-width="1.4"/>
+      <text x="743" y="78" text-anchor="middle" font-size="11.5" font-weight="600" fill="#b45f1c">后卷积段 ×3（核 17/19/1）</text>
+      <text x="743" y="98" text-anchor="middle" font-size="10.5" fill="#b45f1c">post 位置 ◆ → Linear+Sigmoid 12 类</text>
+
+      <rect x="30" y="140" width="420" height="150" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="48" y="166" font-size="12.5" font-weight="700" fill="#47536a">C2D 的三步（式 5-7）</text>
+      <text x="48" y="192" font-size="11.5" fill="#47536a">① 时间维全局平均池化：z(c,f) = (1/T)Σ X(c,f,t)</text>
+      <text x="48" y="212" font-size="11.5" fill="#47536a">　 → C×F 通道-频率平面（「这句里该通道该频段的平均能量」）</text>
+      <text x="48" y="238" font-size="11.5" fill="#47536a">② 平面过两个 2D 卷积 + BN/ReLU → sigmoid → ω（C×F）</text>
+      <text x="48" y="264" font-size="11.5" fill="#47536a">③ X′ = ω ⊙ X，ω 沿时间维广播——整句共享一组权重</text>
+      <rect x="470" y="140" width="420" height="150" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="488" y="166" font-size="12.5" font-weight="700" fill="#0a6b4e">两个精妙的设计选择</text>
+      <text x="488" y="192" font-size="11.5" fill="#47536a">· 为什么只沿时间池化？SE/ECA 把整个图压成 C 维向量（频率也平均掉）；</text>
+      <text x="488" y="212" font-size="11.5" fill="#47536a">　 C2D 保留频率维 = 保留噪声定位能力；池化换来平移不变性</text>
+      <text x="488" y="238" font-size="11.5" fill="#47536a">· 为什么 2D 卷积生成权重？C×F 平面上相邻通道/频点强局部相关</text>
+      <text x="488" y="258" font-size="11.5" fill="#47536a">　 （梅尔滤波器本身重叠）——卷积参数只与核大小相关，</text>
+      <text x="488" y="278" font-size="11.5" fill="#47536a">　 与 (C×F)² 的全连接完全不同量级</text>
+      <rect x="30" y="306" width="860" height="118" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+      <text x="48" y="332" font-size="12.5" font-weight="700" fill="#47536a">课程式多条件训练（沿用 Ng 等）：四阶段逐步加难</text>
+      <text x="48" y="358" font-size="11.5" fill="#47536a">· [clean] → [clean, 0] → [clean, 0, −5] → [clean, 0, −5, −10]，各条件均匀分布、clean 每阶段都保留（防遗忘干净性能——V2-12 拿 98.25% 的原因之一）</text>
+      <text x="48" y="384" font-size="11.5" fill="#47536a">· 为什么小网络需要课程：一上来 −10dB 混合训练，损失曲面被噪声扰得崎岖——小模型易收敛到「区分信噪比」而非「区分词」的捷径解；先建干净表征锚点再围绕它微调</text>
+      <text x="48" y="408" font-size="11.5" fill="#5f8a76">· 配套增强：±100ms 平移、时/频掩码（宽 25）、0/−5/−10dB 加噪、mixup 0.2、Adam + 阶梯衰减与余弦退火热重启并行（论文未解释如何叠加）</text>
+    </svg>
+    <p class="cap"><b>图 A</b>·骨干的漏斗设计：浅层多通道窄感受野（64 滤波器 / 时间核 9）编码局部频谱模式，深层少通道宽上下文（8 滤波器 / 核 15）组装语义词级证据。式 4 的三路求和（x + y₁ + f₃(y₂)）是渐进式残差——任何一路学不好都不阻断梯度，对小网络尤其重要：注意力保持「增益」而非「替换」性质。消融发现 pre/post 单点插入劣化的机理（笔记推断）：纯卷积流水线上单点插入造成特征分布突发重整，破坏后续层适配；而残差节点上的注意力被结构「缓冲」。</p>
+  </div>
+
+  <div class="formula">
+    z(c,f) = (1/T) Σ<sub>t</sub> X(c,f,t)；　ω = σ(Conv2(ReLU(BN(Conv1(z)))))；　X′ = ω ⊙ X（时间维广播）
+    <div class="why"><b>人话</b>：能表达「第 37 个通道在 500-800Hz 不可信、但在 2-4kHz 可信」——雷声污染低频段时只压低频段，不像通道标量把整个通道连没被污染的频段一起下调。开销低的关键：注意力分支先在 T 维压缩，后续卷积都在 C×F 小平面上——与主干在 C×F×T 大立方体上的卷积相比九牛一毛。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">噪声越强增益越大——机制起作用的证据</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据与协议</b>：GSC V2（105K 条 / 35 词 / 1s）12 类（10 命令词 + silence + unknown 吞 25 词）；MUSAN 噪声 930 文件 ≈ 6h（DTMF / 雷声 / 喇叭）加噪至 20 / 0 / −5 / −10 dB。九个对比模型全部用官方源码在同一环境重训。<b>缺口</b>：MUSAN 的 train/test 噪声文件是否不相交未报告（若重叠则噪声泛化被高估）；无误触发率 / DET / 真机延迟功耗（闭集准确率代理了开集检测）。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 430" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table I · 准确率随噪声等级变化：噪声越强，小模型的频率粒度注意力越值钱</text>
+<line x1="90" y1="320.0" x2="460" y2="320.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="82" y="324.0" text-anchor="end" font-size="12" fill="#6b7a72">50</text>
+<line x1="90" y1="268.0" x2="460" y2="268.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="82" y="272.0" text-anchor="end" font-size="12" fill="#6b7a72">60</text>
+<line x1="90" y1="216.0" x2="460" y2="216.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="82" y="220.0" text-anchor="end" font-size="12" fill="#6b7a72">70</text>
+<line x1="90" y1="164.0" x2="460" y2="164.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="82" y="168.0" text-anchor="end" font-size="12" fill="#6b7a72">80</text>
+<line x1="90" y1="112.0" x2="460" y2="112.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="82" y="116.0" text-anchor="end" font-size="12" fill="#6b7a72">90</text>
+<line x1="90" y1="60.0" x2="460" y2="60.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="82" y="64.0" text-anchor="end" font-size="12" fill="#6b7a72">100</text>
+<line x1="90" y1="320" x2="460" y2="320" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="130.0" y="340" text-anchor="middle" font-size="12" fill="#6b7a72">Clean</text>
+<text x="210.0" y="340" text-anchor="middle" font-size="12" fill="#6b7a72">20dB</text>
+<text x="290.0" y="340" text-anchor="middle" font-size="12" fill="#6b7a72">0dB</text>
+<text x="370.0" y="340" text-anchor="middle" font-size="12" fill="#6b7a72">-5dB</text>
+<text x="450.0" y="340" text-anchor="middle" font-size="12" fill="#6b7a72">-10dB</text>
+<polyline points="130.0,170.1 210.0,193.9 290.0,257.7 370.0,289.5 450.0,314.9" fill="none" stroke="#b9c6bd" stroke-width="2.2"/>
+<circle cx="130.0" cy="170.1" r="3.2" fill="#b9c6bd" stroke="#fff" stroke-width="1.4"/>
+<circle cx="210.0" cy="193.9" r="3.2" fill="#b9c6bd" stroke="#fff" stroke-width="1.4"/>
+<circle cx="290.0" cy="257.7" r="3.2" fill="#b9c6bd" stroke="#fff" stroke-width="1.4"/>
+<circle cx="370.0" cy="289.5" r="3.2" fill="#b9c6bd" stroke="#fff" stroke-width="1.4"/>
+<circle cx="450.0" cy="314.9" r="3.2" fill="#b9c6bd" stroke="#fff" stroke-width="1.4"/>
+<polyline points="130.0,94.0 210.0,106.4 290.0,143.4 370.0,172.1 450.0,210.4" fill="none" stroke="#d97a2b" stroke-width="2.2"/>
+<circle cx="130.0" cy="94.0" r="3.2" fill="#d97a2b" stroke="#fff" stroke-width="1.4"/>
+<circle cx="210.0" cy="106.4" r="3.2" fill="#d97a2b" stroke="#fff" stroke-width="1.4"/>
+<circle cx="290.0" cy="143.4" r="3.2" fill="#d97a2b" stroke="#fff" stroke-width="1.4"/>
+<circle cx="370.0" cy="172.1" r="3.2" fill="#d97a2b" stroke="#fff" stroke-width="1.4"/>
+<circle cx="450.0" cy="210.4" r="3.2" fill="#d97a2b" stroke="#fff" stroke-width="1.4"/>
+<polyline points="130.0,106.7 210.0,123.9 290.0,146.8 370.0,169.5 450.0,203.9" fill="none" stroke="#d9c9a8" stroke-width="2.2"/>
+<circle cx="130.0" cy="106.7" r="3.2" fill="#d9c9a8" stroke="#fff" stroke-width="1.4"/>
+<circle cx="210.0" cy="123.9" r="3.2" fill="#d9c9a8" stroke="#fff" stroke-width="1.4"/>
+<circle cx="290.0" cy="146.8" r="3.2" fill="#d9c9a8" stroke="#fff" stroke-width="1.4"/>
+<circle cx="370.0" cy="169.5" r="3.2" fill="#d9c9a8" stroke="#fff" stroke-width="1.4"/>
+<circle cx="450.0" cy="203.9" r="3.2" fill="#d9c9a8" stroke="#fff" stroke-width="1.4"/>
+<polyline points="130.0,92.9 210.0,94.8 290.0,125.1 370.0,148.1 450.0,167.1" fill="none" stroke="#8a93a5" stroke-width="2.2"/>
+<circle cx="130.0" cy="92.9" r="3.2" fill="#8a93a5" stroke="#fff" stroke-width="1.4"/>
+<circle cx="210.0" cy="94.8" r="3.2" fill="#8a93a5" stroke="#fff" stroke-width="1.4"/>
+<circle cx="290.0" cy="125.1" r="3.2" fill="#8a93a5" stroke="#fff" stroke-width="1.4"/>
+<circle cx="370.0" cy="148.1" r="3.2" fill="#8a93a5" stroke="#fff" stroke-width="1.4"/>
+<circle cx="450.0" cy="167.1" r="3.2" fill="#8a93a5" stroke="#fff" stroke-width="1.4"/>
+<polyline points="130.0,79.1 210.0,83.3 290.0,108.8 370.0,130.9 450.0,177.2" fill="none" stroke="#7cc0a2" stroke-width="2.2"/>
+<circle cx="130.0" cy="79.1" r="3.2" fill="#7cc0a2" stroke="#fff" stroke-width="1.4"/>
+<circle cx="210.0" cy="83.3" r="3.2" fill="#7cc0a2" stroke="#fff" stroke-width="1.4"/>
+<circle cx="290.0" cy="108.8" r="3.2" fill="#7cc0a2" stroke="#fff" stroke-width="1.4"/>
+<circle cx="370.0" cy="130.9" r="3.2" fill="#7cc0a2" stroke="#fff" stroke-width="1.4"/>
+<circle cx="450.0" cy="177.2" r="3.2" fill="#7cc0a2" stroke="#fff" stroke-width="1.4"/>
+<polyline points="130.0,75.8 210.0,80.9 290.0,98.2 370.0,122.6 450.0,161.9" fill="none" stroke="#0e8a66" stroke-width="3.5"/>
+<circle cx="130.0" cy="75.8" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.4"/>
+<circle cx="210.0" cy="80.9" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.4"/>
+<circle cx="290.0" cy="98.2" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.4"/>
+<circle cx="370.0" cy="122.6" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.4"/>
+<circle cx="450.0" cy="161.9" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.4"/>
+<line x1="500" y1="60" x2="522" y2="60" stroke="#b9c6bd" stroke-width="3"/>
+<text x="528" y="64" font-size="11.5" font-weight="500" fill="#77837b">MHAtt-RNN 784K</text>
+<line x1="500" y1="84" x2="522" y2="84" stroke="#d97a2b" stroke-width="3"/>
+<text x="528" y="88" font-size="11.5" font-weight="500" fill="#77837b">KWT-3 5,361K</text>
+<line x1="500" y1="108" x2="522" y2="108" stroke="#d9c9a8" stroke-width="3"/>
+<text x="528" y="112" font-size="11.5" font-weight="500" fill="#77837b">AST-Tiny 5,805K</text>
+<line x1="500" y1="132" x2="522" y2="132" stroke="#8a93a5" stroke-width="3"/>
+<text x="528" y="136" font-size="11.5" font-weight="500" fill="#77837b">BC-ResNet-6 202K</text>
+<line x1="500" y1="156" x2="522" y2="156" stroke="#7cc0a2" stroke-width="3"/>
+<text x="528" y="160" font-size="11.5" font-weight="500" fill="#77837b">ConvMixer 119K</text>
+<line x1="500" y1="180" x2="522" y2="180" stroke="#0e8a66" stroke-width="3"/>
+<text x="528" y="184" font-size="11.5" font-weight="700" fill="#0a6b4e">FCA-Net 119K ★</text>
+<text x="530" y="226" font-size="11.5" fill="#8a93a5">（同名模型在左侧曲线对应色）</text>
+<text x="530" y="258" font-size="12" font-weight="700" fill="#0a6b4e">三组关键读数</text>
+<text x="530" y="284" font-size="11.5" fill="#47536a">· 小模型组内全胜：119K 干净 98.25%（V2-12）</text>
+<text x="530" y="304" font-size="11.5" fill="#47536a">　最高；0dB 超 BC-ResNet-6 5.17 点</text>
+<text x="530" y="330" font-size="11.5" fill="#47536a">· 交叉反超：KWT-3 参数 45 倍、干净更高，</text>
+<text x="530" y="350" font-size="11.5" fill="#47536a">　 但 0dB 落后 FCA-Net 8.68 点</text>
+<text x="530" y="376" font-size="11.5" fill="#47536a">· MHAtt-RNN 衰减 27.85 点 vs FCA-Net 16.56</text>
+<text x="530" y="396" font-size="11.5" fill="#47536a">　 —— 曲线整体被压平</text>
+<text x="440" y="422" text-anchor="middle" font-size="12" fill="#8a93a5">开销：FCA-Net 119K 参数 / 22.3M MACs（骨干 22.2M，注意力仅 +0.45%）；KWT-3 526.3M、AST-Tiny 782.2M、ResNet-15 961.2M</text>
+</svg>
+    <p class="cap"><b>表 I 复绘</b>·九模型在同一数据环境用官方源码重训。未入图的三个：KWT-1（607K，介于 MHAtt 与 KWT-3 之间）、ResNet-15（238K/961.2M MACs，−10dB 66.73%）、MatchboxNet（140K，−10dB 62.35%）。V2-12 官方测试集：FCA-Net 98.25 / KWT-3 98.54 / BC-ResNet 98.20。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 400" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table II · 注意力类型 × 插入位置 全交叉消融（0 dB 与 −10 dB 准确率 %）</text>
+<line x1="70" y1="288.0" x2="830" y2="288.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="292.0" text-anchor="end" font-size="12" fill="#6b7a72">75</text>
+<line x1="70" y1="228.0" x2="830" y2="228.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="232.0" text-anchor="end" font-size="12" fill="#6b7a72">80</text>
+<line x1="70" y1="168.0" x2="830" y2="168.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="172.0" text-anchor="end" font-size="12" fill="#6b7a72">85</text>
+<line x1="70" y1="108.0" x2="830" y2="108.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="112.0" text-anchor="end" font-size="12" fill="#6b7a72">90</text>
+<line x1="70" y1="100.6" x2="830" y2="100.6" stroke="#8a93a5" stroke-width="1.6" stroke-dasharray="7 4"/>
+<text x="826" y="94.6" text-anchor="end" font-size="12" font-weight="700" fill="#8a93a5">骨干（无注意力）0dB = 90.62</text>
+<line x1="70" y1="300" x2="830" y2="300" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="106.0" y="115.6" width="34" height="184.4" rx="3" fill="#7cc0a2"/>
+<text x="123.0" y="110.6" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">89.4</text>
+<text x="123.0" y="322" text-anchor="middle" font-size="11" fill="#8a93a5">ECA 77.0</text>
+<rect x="148.0" y="111.6" width="34" height="188.4" rx="3" fill="#d97a2b"/>
+<text x="165.0" y="106.6" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">89.7</text>
+<text x="165.0" y="322" text-anchor="middle" font-size="11" fill="#8a93a5">SE 75.2</text>
+<rect x="190.0" y="119.0" width="34" height="181.0" rx="3" fill="#0e8a66"/>
+<text x="207.0" y="114.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">89.1</text>
+<text x="207.0" y="322" text-anchor="middle" font-size="11" fill="#8a93a5">C2D 75.9</text>
+<text x="165.0" y="344" text-anchor="middle" font-size="12.5" font-weight="600" fill="#47536a">pre（前卷积段）</text>
+<rect x="286.0" y="99.0" width="34" height="201.0" rx="3" fill="#7cc0a2"/>
+<text x="303.0" y="94.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">90.8</text>
+<text x="303.0" y="322" text-anchor="middle" font-size="11" fill="#8a93a5">ECA 78.1</text>
+<rect x="328.0" y="112.3" width="34" height="187.7" rx="3" fill="#d97a2b"/>
+<text x="345.0" y="107.3" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">89.6</text>
+<text x="345.0" y="322" text-anchor="middle" font-size="11" fill="#8a93a5">SE 76.8</text>
+<rect x="370.0" y="119.8" width="34" height="180.2" rx="3" fill="#0e8a66"/>
+<text x="387.0" y="114.8" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">89.0</text>
+<text x="387.0" y="322" text-anchor="middle" font-size="11" fill="#8a93a5">C2D 75.6</text>
+<text x="345.0" y="344" text-anchor="middle" font-size="12.5" font-weight="600" fill="#47536a">post（后卷积段）</text>
+<rect x="466.0" y="85.7" width="34" height="214.3" rx="3" fill="#7cc0a2"/>
+<text x="483.0" y="80.7" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">91.9</text>
+<text x="483.0" y="322" text-anchor="middle" font-size="11" fill="#8a93a5">ECA 80.0</text>
+<rect x="508.0" y="110.2" width="34" height="189.8" rx="3" fill="#d97a2b"/>
+<text x="525.0" y="105.2" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">89.8</text>
+<text x="525.0" y="322" text-anchor="middle" font-size="11" fill="#8a93a5">SE 76.4</text>
+<rect x="550.0" y="76.2" width="34" height="223.8" rx="3" fill="#0e8a66"/>
+<text x="567.0" y="71.2" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">92.7</text>
+<text x="567.0" y="322" text-anchor="middle" font-size="11" fill="#8a93a5">C2D 80.4</text>
+<text x="525.0" y="344" text-anchor="middle" font-size="12.5" font-weight="600" fill="#0a6b4e">all（逐块插入）★</text>
+<rect x="646.0" y="94.3" width="34" height="205.7" rx="3" fill="#7cc0a2"/>
+<text x="663.0" y="89.3" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">91.1</text>
+<text x="663.0" y="322" text-anchor="middle" font-size="11" fill="#8a93a5">ECA 78.3</text>
+<rect x="688.0" y="108.4" width="34" height="191.6" rx="3" fill="#d97a2b"/>
+<text x="705.0" y="103.4" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">90.0</text>
+<text x="705.0" y="322" text-anchor="middle" font-size="11" fill="#8a93a5">SE 76.8</text>
+<rect x="730.0" y="93.8" width="34" height="206.2" rx="3" fill="#0e8a66"/>
+<text x="747.0" y="88.8" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">91.2</text>
+<text x="747.0" y="322" text-anchor="middle" font-size="11" fill="#8a93a5">C2D 78.4</text>
+<text x="705.0" y="344" text-anchor="middle" font-size="12.5" font-weight="600" fill="#47536a">final（分类层前）</text>
+<rect x="150" y="360" width="13" height="13" rx="3" fill="#7cc0a2"/><text x="167" y="371" font-size="12" fill="#47536a">ECA（免降维 1D 卷积）</text>
+<rect x="380" y="360" width="13" height="13" rx="3" fill="#d97a2b"/><text x="397" y="371" font-size="12" fill="#47536a">SE（通道标量）</text>
+<rect x="610" y="360" width="13" height="13" rx="3" fill="#0e8a66"/><text x="627" y="371" font-size="12" fill="#47536a">C2D（通道×频点）★</text>
+<text x="440" y="394" text-anchor="middle" font-size="12" fill="#8a93a5">柱 = 0dB 准确率；柱下灰字 = −10dB。三个发现：SE 所有位置都不如不加；C2D 单点插入（pre/post）反而劣化——只有与残差块逐级耦合（all）才有效；噪声越强增益越大 = 注意力学到了频率选择性抑制</text>
+</svg>
+    <p class="cap"><b>表 II 复绘</b>·骨干 = 无注意力 ConvMixer（119K）。SE 在所有位置都不如不加——它的降维瓶颈（C→C/r→C 的 FC）既引入参数又把频率信息全部池化掉，等于用开销买负收益：通用涨点模块迁移到小脚印 KWS 不能照抄。ECA-final 在 20dB 轻噪下小胜 all 位置（96.09 对 95.99）——噪声环境明确时可按噪声水平选插入策略的工程旋钮。</p>
+  </div>
+
+  <div class="card">
+    <b>两处正文-表格对不上（以 Table I 为准）</b>：正文称「相对其他小模型提升约 2-3%」——干净 V2-12 实际只 +0.05 点，2-3 点差距出现在噪声档（0dB +2.03 / −10dB +2.93 对 ConvMixer）；「与内存相近模型相比最多提升 7.4%」逐格核对无法复现（最接近的 7.46 是跨信噪比比较，不合理）。<b>错误率视角</b>（笔记推算）：0dB 下 FCA-Net 错误率 7.35% 对 ConvMixer 9.38%（相对降 21.6%）、对 BC-ResNet-6 12.52%（相对降 41.3%）。C2D-all 相对骨干增益 Clean +0.64 / 0dB +2.03 / −10dB +2.93——<b>噪声越强增益越大</b>的单调趋势直接支持「注意力学到了频率选择性抑制」（若是普通特征重标定，增益应与噪声等级无关）。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">可转述的三个判断（笔记总评：小而准的工程论文）</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>粒度要么不做，要做就做到频率维</b><br><span style="color:#47536a;font-size:14.5px">通道级标量注意力（SE）在 119K 小模型上所有位置都负收益；C2D 用 2D 卷积把权重做到 C×F，+0.45% MACs 换频率特异性重标定。</span></div>
+    <div class="c"><span class="n">2</span><b>注意力必须与残差结构逐级耦合</b><br><span style="color:#47536a;font-size:14.5px">插在纯卷积流水线单点会破坏特征分布适配；逐块插入获得级联噪声过滤效应——3×4 位置消融是多数注意力论文欠的那一课。</span></div>
+    <div class="c"><span class="n">3</span><b>噪声收益要按 SNR 分档报告</b><br><span style="color:#47536a;font-size:14.5px">增益随噪声增强而放大才是机制层面起作用的证据——若只是普通重标定，增益应与噪声等级无关。</span></div>
+    <div class="c"><span class="n">4</span><b>小模型反超大模型的条件</b><br><span style="color:#47536a;font-size:14.5px">119K 卷积 + 频率粒度注意力在 0dB 反超 45 倍参数的 KWT-3 达 8.68 点——自注意力对输入扰动的敏感在强噪下暴露，局部归纳偏置更稳。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">静态注意力对非平稳噪声有天花板；「远场」没做混响</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>方法局限</h4>
+      <ul>
+        <li><b>注意力静态</b>：整句共享一组 C×F 权重——突发敲击、人声干扰、间歇机械噪声等<b>非平稳噪声</b>下有明确天花板；时间维换开销的设计只在平稳噪声下够用。</li>
+        <li><b>闭集与真实部署有距离</b>：12 类里 unknown 吞 25 词，只需区分 unknown 与 10 命令词；真实唤醒词面对任意开集音频，虚警指标全文未报。</li>
+        <li><b>输出层 Linear+Sigmoid</b> 处理 12 类单标签非常规——sigmoid 不归一化、与交叉熵的配合未讨论。</li>
+        <li><b>只有加性噪声</b>：真实远场的主导退化是卷积性混响（RIR），与加噪机理不同——零混响实验，「远场」声称支撑不完整。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>单一数据集</b>：全在 GSC V2（英语 / 1s / 35 词），无跨数据集与多语言验证。</li>
+        <li><b>噪声划分未说明</b>：MUSAN 930 文件既用于训练又（推测）用于测试加噪——若重叠，噪声泛化被高估。</li>
+        <li><b>无统计显著性</b>：单次训练无方差——0.3-0.6 点级差异（如 ECA-final 与 ECA-post 20dB 的 95.85 对 95.83）可能落在随机波动内。</li>
+        <li><b>两个总结数字对不上表</b>（2-3% / 7.4%）。</li>
+        <li><b>课程学习未单独消融</b>：其独立贡献只能回溯 Ng 等原文。</li>
+        <li><b>细节缺失</b>：C2D 卷积核大小 / 通道数、SE 降维比 r、ECA 核函数 Ψ 均未报告；22.3M MACs 停在纸面，无真机延迟 / 内存 / 功耗。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得追的方向</b>：① <b>时间维动态注意力</b>——把全局平均池化换轻量时间建模（1D 卷积 / 分组池化），ω 变 C×F×T′ 分帧权重专攻非平稳噪声，开销可借 ECA 自适应核思想；② <b>混响联合仿真</b>——MUSAN 加噪之上叠 RIR 卷积做实「远场」，课程从 SNR 单轴扩到 SNR×混响时间双轴；③ 开集评估（每小时误触发 / DET / 嵌入距离拒识）对齐产品指标；④ 量化（int8/低比特）+ 剪枝 + 流式推理的真机 always-on 验证与实测功耗；⑤ C2D 迁移到 BC-ResNet / MatchboxNet 等骨干检验「逐残差块插入细粒度注意力」是否普遍规律，扩展到麦克风阵列的通道选择；⑥ 课程学习独立消融 + 动态课程（数据参数法）与 C2D 的组合上限。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2024/Frequency_Channel_Attention_Network_For_Small_Footprint_Noisy_Spoken_Keyword_Spotting.md">深读笔记</a>
+    <a class="pill" href="/papers/2024/Frequency_Channel_Attention_Network_For_Small_Footprint_Noisy_Spoken_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2407.19834" target="_blank">arXiv</a>
+    <a class="pill" href="/">返回总目录</a>
+  </div>
+  <p>深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table I-II / Fig. 1、4 / 式 1-7）；「笔记推断 / 推算」标注处为笔记给出的分析与核对。</p>
+</footer>
+
+</div>
+</body>
+</html>
