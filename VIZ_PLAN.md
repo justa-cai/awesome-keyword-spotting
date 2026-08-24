@@ -1,7 +1,7 @@
 # 可视化精读计划（VIZ_PLAN）
 
 > 逐篇把 305 篇深读笔记重写为 HTML+SVG 可视化页（2026→2018 倒序）。每篇流程：读笔记 → python 算图表坐标 → 手绘机制 SVG → 自包含 HTML → 更新 manifest+plan → commit+push。
-**进度：67 / 305**
+**进度：68 / 305**
 > 进度以本文件为准；`viz_manifest.json` 是机器可读版（站点 viz 按钮按它门控）。
 
 ## 2026（24/24）
@@ -70,7 +70,7 @@
 - [✅] TsetlinKWS：65nm 工艺下 16.58µW、0.63mm² 的状态驱动卷积 Tsetlin Machin…
 - [✅] Vocal Tract Length Warped Features for Spoken Keyword Spot…
 
-## 2024（7/44）
+## 2024（8/44）
 
 - [✅] KWS-Whisper：用开放词表关键词检测增强 Whisper 的多任务训练方法
 - [✅] 对抗训练最小化关键词检测中的TTS数据过拟合
@@ -79,7 +79,7 @@
 - [✅] Contrastive Augmentation：面向关键词检测的对比增强无监督学习方法
 - [✅] Contrastive Learning with Audio Discrimination for Customi…
 - [✅] Dark Experience for Incremental Keyword Spotting：把"暗经验"引入关…
-- [⬜] DeltaKWS：65nm 36nJ/决策、仿生时间稀疏感知的数字关键词检测芯片
+- [✅] DeltaKWS：65nm 36nJ/决策、仿生时间稀疏感知的数字关键词检测芯片
 - [⬜] Disentangled Training with Adversarial Examples for Robust…
 - [⬜] ED-sKWS：面向快速与低能耗关键词检测的早决策脉冲神经网络
 - [⬜] Effective Integration of KAN for Keyword Spotting

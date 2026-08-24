@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DeltaKWS · ΔRNN 时间稀疏 KWS 芯片 · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2024/DeltaKWS_A_65nm_36nJDecision_Bio-inspired_Temporal-Sparsity-Aware_Digital_Keyword_Spotting_IC_With_06V_Near-Threshold_SRAM.md">深读笔记</a>
+    <a href="/papers/2024/DeltaKWS_A_65nm_36nJDecision_Bio-inspired_Temporal-Sparsity-Aware_Digital_Keyword_Spotting_IC_With_06V_Near-Threshold_SRAM.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2405.03905" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2024 №8</p>
+  <h1>帧与帧之间大多数神经元根本没变——<br>只为「变化」付费的 36nJ 关键词芯片</h1>
+  <p class="sub">DeltaKWS: A 65nm 36nJ/Decision Bio-inspired Temporal-Sparsity-Aware Digital Keyword Spotting IC with 0.6V Near-Threshold SRAM</p>
+  <p class="meta"><b>作者</b>：Qinyu Chen、Kwantae Kim、Chang Gao（共同一作）等 7 人 —— 苏黎世大学 / ETH INI × 代尔夫特理工</p>
+  <p class="meta"><b>发表</b>：2024.05 · IEEE TCASAI 接收 · arXiv:2405.03905</p>
+  <div class="chips">
+    <span class="chip">ΔRNN 时间稀疏</span><span class="chip">87% 稀疏 / −0.6 点精度</span><span class="chip">IIR BPF 特征提取</span>
+    <span class="chip">0.6V 近阈值 SRAM</span><span class="chip">36nJ/决策 · 0.78mm²</span><span class="chip">65nm 成熟工艺</span><span class="chip">GSCD 12 类 89.5%</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>两条领域事实</b>：① 已报导 KWS 芯片中权重 SRAM 一项占整芯片功耗 40-60%——模型想变大先被存储功耗卡死；② 片外 DRAM 读 6.2 kB ≈ 1 µJ，而本文整芯片一次决策只要 36 nJ（差近两个数量级）——权重必须片上，且片上存储本身要做省。</li>
+      <li><b>没人挖过的稀疏维度</b>：已有芯片用激活稀疏（≤70%）、权重位稀疏、整帧跳过（76%，粗粒度）——<b>没有任何工作把「激活值的变化量」当能效来源</b>。语音相邻帧高度相关：循环网络隐状态绝大多数分量不变，计算冗余不在「值是多少」而在「值变了没有」。</li>
+      <li><b>方案</b>：ΔRNN——每个神经元算时间差分 Δx/Δh，只有 |Δ| 超过阈值 ΔTH 才更新（零阶保持预测器，生物启发：皮层神经元只在变化超阈值时发放）；GRU 门控数学不动，只改「什么时候需要算」。配套硬件：ΔEncoder 筛事件 → ΔFIFO 广播 → 8 MAC + State Assembler 保证状态一致性。</li>
+      <li><b>设计点 ΔTH=0.2</b>：87% 时间稀疏，精度只掉 &lt;0.6 点（12 类 89.5%），能量 121.2→36.11 nJ（3.4×）、时延 16.4→6.9 ms（2.4×）；能量降幅大于时延——省下的正是被跳过的权重 SRAM 读取。</li>
+      <li><b>另两个电路杠杆</b>：IIR BPF 特征提取器三连优化（混合精度 12b/8b + 系数对称性换乘位 + 10 通道）功耗 5.7×↓ 面积 4.7×↓；0.6V 近阈值全定制 SRAM 读功耗 6.6×↓，存储占比 40-60%→18%（代价面积 ×2——always-on 场景里漏电是每秒支付的持续成本，面积是一次性成本）。</li>
+      <li><b>边界</b>：65nm 上 36 nJ 不是绝对 SOTA（28nm 的 Tan ISSCC24 做到 1.73 nJ）——价值主张是「成熟工艺 + 12 类全标签任务」；麦克风前端 / ADC / 时钟 / 电源管理均未集成；只测了 GSCD 干净条件。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">常开芯片的三重硬约束：微瓦功耗、小面积、精度不塌</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 300" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">已挖的稀疏维度 vs 本文新开的维度（粒度更细且与前者正交可叠加）</text>
+      <g font-size="11.5">
+        <rect x="30" y="52" width="200" height="170" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="130" y="78" text-anchor="middle" font-weight="700" fill="#1c2430">激活值稀疏</text>
+        <text x="46" y="108" fill="#8c3b2e">存内计算 KWS（引文[3]）</text>
+        <text x="46" y="132" fill="#8c3b2e">7 类 GSCD 上限 70%</text>
+        <text x="46" y="162" fill="#5f8a76">✓ 值为零则不算</text>
+        <text x="46" y="186" fill="#8a93a5">粒度：单个激活值</text>
+
+        <rect x="244" y="52" width="200" height="170" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="344" y="78" text-anchor="middle" font-weight="700" fill="#1c2430">权重位稀疏</text>
+        <text x="260" y="108" fill="#8c3b2e">开关电容 CNN（引文[6]）</text>
+        <text x="260" y="132" fill="#8c3b2e">11 类 90.9%</text>
+        <text x="260" y="162" fill="#5f8a76">✓ 位为零则不读</text>
+        <text x="260" y="186" fill="#8a93a5">粒度：单个位</text>
+
+        <rect x="458" y="52" width="200" height="170" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="558" y="78" text-anchor="middle" font-weight="700" fill="#1c2430">整帧跳过</text>
+        <text x="474" y="108" fill="#8c3b2e">skip-RNN SoC（引文[8]）</text>
+        <text x="474" y="132" fill="#8c3b2e">76% 粗粒度时间稀疏，7 类</text>
+        <text x="474" y="162" fill="#5f8a76">✓ 整帧一起跳</text>
+        <text x="474" y="186" fill="#8a93a5">粒度：一帧（太粗）</text>
+
+        <rect x="672" y="52" width="218" height="170" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.8"/>
+        <text x="781" y="78" text-anchor="middle" font-weight="700" fill="#0a6b4e">激活变化量稀疏 ★本文</text>
+        <text x="688" y="108" fill="#0a6b4e">Δ = x_t − x_{t−1} 超阈值才算</text>
+        <text x="688" y="132" fill="#0a6b4e">87% 稀疏 · 12 类全标签 89.5%</text>
+        <text x="688" y="162" fill="#5f8a76">✓ 值没变就不算、不读权重</text>
+        <text x="688" y="186" fill="#8a93a5">粒度：单神经元 × 单帧</text>
+      </g>
+      <rect x="30" y="236" width="860" height="52" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+      <text x="46" y="258" font-size="12" fill="#47536a">为什么值得做：语音帧间高度相关，隐状态绝大多数分量基本不变——稠密 RNN 仍每帧全量矩阵向量乘、全量读权重；</text>
+      <text x="46" y="278" font-size="12" fill="#47536a">特征提取侧的账：FFT 芯片 510 nW 但 64 ms 时延且只 2 类；模拟时域 23 µW 全 12 类仅 ~86%；单网络一体化 16 层 DNN 10 词只 88%——且多依赖 16b ADC</text>
+    </svg>
+    <p class="cap"><b>图 A</b>·三个设计难题对应三个核心模块：ΔRNN 落成数字电路（状态一致性、跨时钟域握手）；IIR 定点化的位数-稳定性平衡；0.6V SRAM 读容限恶化要电平移位 / 字线提升兜底。</p>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">一个算法杠杆 + 两个电路杠杆，收益相乘</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 430" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">Fig.1/3 复绘：双时钟域芯片架构与 ΔRNN 加速器微架构</text>
+      <rect x="30" y="56" width="140" height="64" rx="9" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="100" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#1c2430">SPI 数字音频入</text>
+      <text x="100" y="100" text-anchor="middle" font-size="10.5" fill="#8a93a5">12b · 8 kHz 降采样</text>
+      <line x1="170" y1="88" x2="206" y2="88" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="206,88 198,83 198,93" fill="#5f8a76"/>
+      <rect x="208" y="56" width="240" height="64" rx="9" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.6"/>
+      <text x="328" y="78" text-anchor="middle" font-size="12" font-weight="700" fill="#0a6b4e">串行 IIR BPF 特征提取（CLKIIR）</text>
+      <text x="328" y="98" text-anchor="middle" font-size="10.5" fill="#5f8a76">2×SOS 四阶 · 10 通道 · 12b 特征</text>
+      <text x="328" y="114" text-anchor="middle" font-size="10.5" fill="#5f8a76">功耗 1.22 µW（占整芯片 25%）</text>
+      <line x1="448" y1="88" x2="484" y2="88" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="484,88 476,83 476,93" fill="#5f8a76"/>
+      <rect x="466" y="126" width="90" height="30" rx="6" fill="#fff" stroke="#c9c9bd" stroke-width="1.3" transform="rotate(0)"/>
+      <text x="511" y="146" text-anchor="middle" font-size="10.5" fill="#47536a">异步 FIFO</text>
+      <line x1="511" y1="88" x2="511" y2="126" stroke="#5f8a76" stroke-width="1.8"/>
+      <text x="530" y="112" font-size="10.5" fill="#8a93a5">跨时钟域</text>
+      <line x1="556" y1="141" x2="596" y2="141" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="596,141 588,136 588,146" fill="#5f8a76"/>
+      <rect x="598" y="56" width="292" height="100" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.8"/>
+      <text x="744" y="80" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0a6b4e">ΔRNN 加速器（CLKRNN 125 kHz，占功耗 57%）</text>
+      <rect x="612" y="92" width="86" height="26" rx="5" fill="#fff" stroke="#0e8a66" stroke-width="1.2"/>
+      <text x="655" y="109" text-anchor="middle" font-size="10" font-weight="700" fill="#0a6b4e">ΔEncoder</text>
+      <rect x="704" y="92" width="86" height="26" rx="5" fill="#fff" stroke="#0e8a66" stroke-width="1.2"/>
+      <text x="747" y="109" text-anchor="middle" font-size="10" font-weight="700" fill="#0a6b4e">ΔFIFO 广播</text>
+      <rect x="796" y="92" width="82" height="26" rx="5" fill="#fff" stroke="#0e8a66" stroke-width="1.2"/>
+      <text x="837" y="109" text-anchor="middle" font-size="10" font-weight="700" fill="#0a6b4e">8× MAC</text>
+      <rect x="612" y="122" width="266" height="26" rx="5" fill="#0e8a66"/>
+      <text x="745" y="139" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">State Assembler：跳过的用旧值、更新的写新值（正确性守门）</text>
+
+      <rect x="30" y="188" width="430" height="110" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="48" y="214" font-size="12.5" font-weight="700" fill="#47536a">Δ 编码 = 零阶保持预测器 + 阈值门控</text>
+      <text x="48" y="240" font-size="11.5" fill="#47536a">Δx = x_t − x_{t−1}，Δh = h_t − h_{t−1}</text>
+      <text x="48" y="262" font-size="11.5" fill="#47536a">|Δ| &gt; ΔTH → 发射事件并更新；否则状态保持（x_t = x_{t−1} + Δx）</text>
+      <text x="48" y="286" font-size="11" fill="#5f8a76">生物启发：皮层神经元有发放阈值、时间上离散发放——ΔRNN 把「只在变化超阈值时动作」搬进人工 RNN</text>
+      <rect x="478" y="188" width="412" height="110" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="496" y="214" font-size="12.5" font-weight="700" fill="#47536a">网络与存储</text>
+      <text x="496" y="240" font-size="11.5" fill="#47536a">10 通道输入 → ΔGRU（64 隐神经元）→ FC → 12 类 GSCD</text>
+      <text x="496" y="262" font-size="11.5" fill="#47536a">权重 8b，两枚一个 16b 字；24 kB 全片上 ≈ 两万多个 8b 权重</text>
+      <text x="496" y="286" font-size="11" fill="#5f8a76">SRAM：12 × 2 kB bank · 6T bitcell（高 VTH 压漏电）· 字线 0.6→1.2V 提升</text>
+      <rect x="30" y="316" width="860" height="94" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.4"/>
+      <text x="48" y="342" font-size="12.5" font-weight="700" fill="#0a6b4e">为什么能量降幅（3.4×）大于时延降幅（2.4×）</text>
+      <text x="48" y="366" font-size="11.5" fill="#47536a">广播结构按需触发对应权重行的读取和乘加——被跳过的神经元<b>既不算乘加、也不触发权重 SRAM 读取</b>；</text>
+      <text x="48" y="388" font-size="11.5" fill="#47536a">多出来的那部分能量收益正是省下的存储访问功耗。ΔFIFO 排队动态事件：事件多时 8 个 MAC 排干队列、少时提前收工——稀疏度随内容自适应（静音帧约省 40% 时延，Fig. 11）</text>
+    </svg>
+    <p class="cap"><b>图 B</b>·GRU 门控数学完全不动，改的只是「什么时候需要算」——ΔTH 是唯一精度-能耗旋钮，且是<b>训练后仍可调的运行时旋钮</b>（区别于剪枝 / 量化那种部署时一次性定死的压缩）。双时钟域：SPI 接口快时钟、片内滤波与网络慢时钟各用独立分频器。</p>
+  </div>
+
+  <div class="formula">
+    Δx = x<sub>t</sub> − x<sub>t−1</sub>；　仅当 |Δ| &gt; Δ<sub>TH</sub> 才更新该神经元；　x<sub>t</sub> = x<sub>t−1</sub> + Δx<sub>t</sub>
+    <div class="why"><b>人话</b>：每个神经元配一个零阶保持预测器——预测值就是上一帧值，只有预测误差超过 Δ<sub>TH</sub> 才「发射事件」执行更新。事件发生率 = 时间稀疏度，直接决定被跳过的乘加数量与权重读取次数。Δ<sub>TH</sub>=0 退化为稠密 GRU；0.2 时 87% 稀疏、精度只掉不到 0.6 点。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">65nm + 12 类全标签语境下的 36nJ；三组扫描构成完整消融链</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>设置与测量</b>：GSCD 12 类全标签（Silence/Unknown + 10 命令词），同时按文献惯例报 11 类（去 Unknown）。测试板 MiniZed（Zynq 7007S FPGA）初始化并喂入；ΔRNN 125 kHz。<b>指标自洽校验</b>：5.22 µW × 6.9 ms ≈ 36 nJ ✓（ΔTH=0：7.36 µW × 16.4 ms ≈ 121 nJ ✓）。训练细节（增强 / 轮数 / 量化感知）论文未报告——回溯团队前作（FEx 为 ISCAS 2023）。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 400" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table II · 六款 KWS 芯片：每决策能量（nJ，对数轴）——绝对排名被工艺代差混杂</text>
+<rect x="330" y="62.0" width="555.0" height="30" rx="5" fill="#b9c6bd"/>
+<text x="322" y="82.0" text-anchor="end" font-size="12" font-weight="600" fill="#47536a">Kim ISSCC22 · 65nm · 12 类</text>
+<text x="895.0" y="83.0" font-size="13" font-weight="700" fill="#b9c6bd">285.20 nJ</text>
+<text x="828" y="83.0" text-anchor="end" font-size="11.5" fill="#8a93a5">精度 86.03%</text>
+<rect x="330" y="110.0" width="511.7" height="30" rx="5" fill="#b9c6bd"/>
+<text x="322" y="130.0" text-anchor="end" font-size="12" font-weight="600" fill="#47536a">Kosuge VLSI23 · 40nm · 10 类</text>
+<text x="851.7" y="131.0" font-size="13" font-weight="700" fill="#b9c6bd">183.40 nJ</text>
+<text x="828" y="131.0" text-anchor="end" font-size="11.5" fill="#8a93a5">精度 88.0%</text>
+<rect x="330" y="158.0" width="367.0" height="30" rx="5" fill="#b9c6bd"/>
+<text x="322" y="178.0" text-anchor="end" font-size="12" font-weight="600" fill="#47536a">Frenkel ISSCC22 · 28nm · 2 类(SHD)</text>
+<text x="707.0" y="179.0" font-size="13" font-weight="700" fill="#b9c6bd">42.00 nJ</text>
+<text x="828" y="179.0" text-anchor="end" font-size="11.5" fill="#8a93a5">精度 单关键词</text>
+<rect x="330" y="206.0" width="310.7" height="30" rx="5" fill="#b9c6bd"/>
+<text x="322" y="226.0" text-anchor="end" font-size="12" font-weight="600" fill="#47536a">Seol ISSCC23 · 28nm · 7 类</text>
+<text x="650.7" y="227.0" font-size="13" font-weight="700" fill="#b9c6bd">23.68 nJ</text>
+<text x="828" y="227.0" text-anchor="end" font-size="11.5" fill="#8a93a5">精度 92.8%</text>
+<rect x="330" y="254.0" width="53.8" height="30" rx="5" fill="#d97a2b"/>
+<text x="322" y="274.0" text-anchor="end" font-size="12" font-weight="600" fill="#47536a">Tan ISSCC24 · 28nm · 10 类</text>
+<text x="393.8" y="275.0" font-size="13" font-weight="700" fill="#d97a2b">1.73 nJ</text>
+<text x="828" y="275.0" text-anchor="end" font-size="11.5" fill="#8a93a5">精度 91.8%</text>
+<rect x="330" y="302.0" width="352.1" height="30" rx="5" fill="#0e8a66"/>
+<text x="322" y="322.0" text-anchor="end" font-size="12" font-weight="700" fill="#0a6b4e">DeltaKWS · 65nm · 12 类全标签</text>
+<text x="692.1" y="323.0" font-size="13" font-weight="700" fill="#0e8a66">36.11 nJ</text>
+<text x="828" y="323.0" text-anchor="end" font-size="11.5" fill="#8a93a5">精度 89.5%</text>
+<line x1="330.0" y1="52" x2="330.0" y2="348" stroke="#e8ece9" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="330.0" y="364" text-anchor="middle" font-size="11.5" fill="#6b7a72">1</text>
+<line x1="556.1" y1="52" x2="556.1" y2="348" stroke="#e8ece9" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="556.1" y="364" text-anchor="middle" font-size="11.5" fill="#6b7a72">10</text>
+<line x1="782.1" y1="52" x2="782.1" y2="348" stroke="#e8ece9" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="782.1" y="364" text-anchor="middle" font-size="11.5" fill="#6b7a72">100</text>
+<text x="440" y="388" text-anchor="middle" font-size="12" fill="#8a93a5">同工艺同任务最同口径的完胜：对 Kim（65nm/12 类）功率 4.4×、能量 7.9×、精度 +3.4 点；Tan 的 1.73 nJ 建立在 28nm + 10 类上——工艺可及性与任务难度是必备上下文</text>
+</svg>
+    <p class="cap"><b>表 II 复绘</b>·对数轴按能量降序。Frenkel 的 ReckOn 是通用脉冲 RNN 处理器（Spiking Heidelberg Digits 2 类单关键词任务）；Seol 的 76% 稀疏是帧级跳过的粗粒度方案。跨工艺能量排名需谨慎——本文的价值主张是成熟工艺 + 最难任务设定下的 36 nJ。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 340" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Fig.12 / Table II 设计点：ΔTH 0 → 0.2（87% 时间稀疏）四个指标联动</text>
+<rect x="104.0" y="60.0" width="52" height="210.0" rx="4" fill="#b9c6bd"/>
+<text x="130.0" y="53.0" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">121.2</text>
+<rect x="164.0" y="207.4" width="52" height="62.6" rx="4" fill="#0e8a66"/>
+<text x="190.0" y="200.4" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">36.11</text>
+<text x="160.0" y="292" text-anchor="middle" font-size="12.5" font-weight="600" fill="#47536a">每决策能量 (nJ)</text>
+<text x="160.0" y="312" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0a6b4e">3.4×↓</text>
+<rect x="294.0" y="60.0" width="52" height="210.0" rx="4" fill="#b9c6bd"/>
+<text x="320.0" y="53.0" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">16.4</text>
+<rect x="354.0" y="181.6" width="52" height="88.4" rx="4" fill="#0e8a66"/>
+<text x="380.0" y="174.6" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">6.9</text>
+<text x="350.0" y="292" text-anchor="middle" font-size="12.5" font-weight="600" fill="#47536a">计算时延 (ms)</text>
+<text x="350.0" y="312" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0a6b4e">2.4×↓</text>
+<rect x="484.0" y="60.0" width="52" height="210.0" rx="4" fill="#b9c6bd"/>
+<text x="510.0" y="53.0" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">7.36</text>
+<rect x="544.0" y="121.1" width="52" height="148.9" rx="4" fill="#0e8a66"/>
+<text x="570.0" y="114.1" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">5.22</text>
+<text x="540.0" y="292" text-anchor="middle" font-size="12.5" font-weight="600" fill="#47536a">整芯片功率 (µW)</text>
+<text x="540.0" y="312" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0a6b4e">1.4×↓</text>
+<rect x="674.0" y="80.8" width="52" height="189.2" rx="4" fill="#b9c6bd"/>
+<text x="700.0" y="73.8" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">90.1</text>
+<rect x="734.0" y="82.0" width="52" height="188.0" rx="4" fill="#0e8a66"/>
+<text x="760.0" y="75.0" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">89.5</text>
+<text x="730.0" y="292" text-anchor="middle" font-size="12.5" font-weight="600" fill="#47536a">12 类精度 (%)</text>
+<text x="730.0" y="312" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0a6b4e">−0.6 点</text>
+<rect x="120" y="322" width="13" height="13" rx="3" fill="#b9c6bd"/><text x="138" y="333" font-size="12" fill="#47536a">ΔTH=0（稠密 GRU 基线）</text>
+<rect x="350" y="322" width="13" height="13" rx="3" fill="#0e8a66"/><text x="368" y="333" font-size="12" fill="#47536a">ΔTH=0.2（选定设计点，87% 稀疏）</text>
+</svg>
+    <p class="cap"><b>设计点联动复绘</b>·四指标各自归一化（柱高按各指标自身量程）。87% 稀疏换来能量 3.4× / 时延 2.4× / 功率 1.4× 下降，精度只掉 0.6 点——能量降幅大于时延，差额正是被跳过的权重 SRAM 读取功耗。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 330" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">三个互相独立、收益相乘的杠杆（「一个算法杠杆 + 两个电路杠杆」）</text>
+<rect x="330" y="66.0" width="204.0" height="34" rx="6" fill="#0e8a66"/>
+<text x="322" y="88.0" text-anchor="end" font-size="12.5" font-weight="700" fill="#1c2430">ΔRNN 时间稀疏（算法）</text>
+<text x="544.0" y="90.0" font-size="14" font-weight="700" fill="#0e8a66">3.4×</text>
+<text x="322" y="110.0" text-anchor="end" font-size="10.5" fill="#8a93a5">整芯片每决策能量 3.4× ↓（87% 稀疏只掉 <0.6 点精度）</text>
+<rect x="330" y="142.0" width="342.0" height="34" rx="6" fill="#7cc0a2"/>
+<text x="322" y="164.0" text-anchor="end" font-size="12.5" font-weight="700" fill="#1c2430">IIR BPF FEx 三连优化（电路）</text>
+<text x="682.0" y="166.0" font-size="14" font-weight="700" fill="#7cc0a2">5.7×</text>
+<text x="322" y="186.0" text-anchor="end" font-size="10.5" fill="#8a93a5">FEx 功耗 5.7× ↓、面积 4.7× ↓（混合精度 2.4× · 移位换乘 1.8× · 10 通道再省 30%）</text>
+<rect x="330" y="218.0" width="396.0" height="34" rx="6" fill="#5aa88a"/>
+<text x="322" y="240.0" text-anchor="end" font-size="12.5" font-weight="700" fill="#1c2430">0.6V 近阈值全定制 SRAM（电路）</text>
+<text x="736.0" y="242.0" font-size="14" font-weight="700" fill="#5aa88a">6.6×</text>
+<text x="322" y="262.0" text-anchor="end" font-size="10.5" fill="#8a93a5">读功耗 6.6× ↓（0.93 µW）——存储功耗占比 40~60% → 18%；代价：面积 ×2</text>
+<text x="440" y="316" text-anchor="middle" font-size="12" fill="#8a93a5">整芯片结果：65nm · 0.78 mm² · 5.22 µW · 36.11 nJ/决策 · GSCD 12 类 89.5%（自洽校验：5.22 µW × 6.9 ms ≈ 36 nJ ✓）</text>
+</svg>
+    <p class="cap"><b>三杠杆图</b>·独立收益相乘。近阈值 SRAM 的面积代价（×2）在 always-on 场景是划算交易：漏电与读能量是每秒支付的持续成本，面积是一次性成本。</p>
+  </div>
+
+  <div class="card">
+    <b>消融三连（每一步边际贡献单独标定）</b>：① FEx 通道扫描（Fig. 6 仿真）：12 类精度拐点在 10 通道之后——10 通道（516 Hz–4.22 kHz）是精度无损的最省配置，砍 6 通道换 30% FEx 功耗（保留 16 通道重构能力留扩展）；② FEx 优化分解（Fig. 7）：混合精度系数（b 12b / a 8b——统一位宽是浪费，各滤波器动态范围不同）2.4× 功耗 / 2.6× 面积，系数对称性换乘位再 1.8× / 1.8×，合计 5.7× / 4.7×；③ ΔTH 扫描（Fig. 12 实测）：精度 / 能量 / 稀疏 / 时延四条曲线联动，0.2 是甜点、部署者可按产品需求重选工作点。<b>模块拆解交叉验证</b>：功耗 FEx 25% / ΔRNN 57% / SRAM 18%；面积 11% / 41% / 48%（0.084 / 0.319 / 0.381 mm²）——正文把两句都写成「功耗占比」，按数值交叉验证第一句实为面积（原文小笔误）。<b>FEx 横向</b>（Table I）：65nm 0.084 mm² 只比 28nm FFT 方案大 1.5 倍，特征 12b/12b 为四方案最高（对手 16b/8b、10b/8b、16b/8b），数据存储仅 200 字节（FFT 方案 256/512），16 ms 帧窗比对手 32 ms 更细，且只需 12b ADC（对手多要 16b）。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">可转述的四个判断</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>新开一条稀疏轴线</b><br><span style="color:#47536a;font-size:14.5px">首个把 ΔRNN 细粒度时间稀疏落成 KWS 集成电路——「激活变化稀疏」此前无人挖掘，与激活 / 权重位 / 整帧稀疏正交、原则上可叠加。</span></div>
+    <div class="c"><span class="n">2</span><b>87% 稀疏只付 &lt;0.6 点精度</b><br><span style="color:#47536a;font-size:14.5px">ΔTH 是训练后仍可调的运行时旋钮，整条精度-稀疏-能量-时延曲线可选——不同于剪枝 / 量化的一次性定死。</span></div>
+    <div class="c"><span class="n">3</span><b>正面拆掉存储瓶颈</b><br><span style="color:#47536a;font-size:14.5px">近阈值全定制 SRAM + 字线电平移位 + 片上 booster：读功耗 6.6×↓，存储占比 40-60%→18%——「用 2 倍面积换 6.6 倍读功耗」的系统账本示范。</span></div>
+    <div class="c"><span class="n">4</span><b>算法-架构-电路三层协同</b><br><span style="color:#47536a;font-size:14.5px">Δ 编码（算法）+ FIFO 广播与状态拼装（架构）+ 近阈值存储（电路）：证明生物启发稀疏计算可以不牺牲精度地映射到数字 VLSI。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">绝对能效不是 SOTA；系统完整性缺麦克风/ADC/时钟/电源</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>方法局限</h4>
+      <ul>
+        <li><b>工艺代差封顶</b>：65nm 的 36 nJ 对 28nm Tan 的 1.73 nJ——绝对数字非 SOTA，价值主张必须放回「成熟廉价工艺 + 12 类全标签」语境。</li>
+        <li><b>SRAM 面积 ×2</b> + 双电源 0.6V/0.65V 妥协（I/O 电平移位器单向性质）；单电源方案论文自己指出但本芯片未实现。</li>
+        <li><b>ΔTH 静态配置</b>：运行中不能变，而稀疏度本身内容相关（静音帧自动省 40%）——最坏情况设计仍按活跃语音负载算，运行时策略潜力未释放。</li>
+        <li><b>精度交换非零成本</b>：更高 ΔTH 区间的精度崩塌点只在 Fig.12 曲线中，未给数值。</li>
+        <li><b>FEx 是固定设计</b>：非可学习前端，特征天花板由设计期网格搜索决定。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>只测 GSCD 干净条件</b>：无远场混响 / 加噪 / 多说话人 / 真实唤醒词——而 always-on 设备恰在嘈杂远场工作。</li>
+        <li><b>训练与模型细节缺失</b>：增强 / 轮数 / 量化感知 / 精确参数量未报告（24 kB 8b 反推约两万多权重）。</li>
+        <li><b>跨工艺对比公平性</b>：Table II 混合 65/40/28nm 三代工艺，能量数字脱离工艺语境直接排名不严谨，无工艺归一化。</li>
+        <li><b>系统口径</b>：输入是 SPI 数字音频流——麦克风前端、ADC、片上时钟（来自 FPGA 分频）、电源管理未集成；Seol 的功率含 AFE 而本文不含，对比需留意；6.9 ms 时延也非最低（Kosuge 1.2 / Tan 2 ms）。</li>
+        <li><b>文档瑕疵</b>：功耗/面积拆解两句均标 total power（交叉验证第一句应为面积）；Table I 128k 与 Table II 125k 不一致；无 PVT / 良率数据。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>最可迁移的判断（笔记结语）</b>：在常开边缘计算里，「挖掘信号在时间上的不变量、只对变化付费」是一条与压缩 / 剪枝 / 量化正交且可叠加的节能轴线；代价是架构复杂度（状态一致性、跨时钟域、事件调度），本文用 0.78 mm² 原型证明这笔交换在 65nm 上划算。<b>后续方向</b>：单电源近阈值 SRAM；内容自适应 ΔTH（运行时按语音活动度调稀疏-精度旋钮，静音激进稀疏 / 语音回退稠密）；迁 28nm 冲亚 nJ；Δ 化推广到注意力 / TCN 等端侧负载；滤波器组与网络联合训练变可学习前端；集成 ADC / 麦克风前端 / 片上时钟 / 电源管理走向可部署器件。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2024/DeltaKWS_A_65nm_36nJDecision_Bio-inspired_Temporal-Sparsity-Aware_Digital_Keyword_Spotting_IC_With_06V_Near-Threshold_SRAM.md">深读笔记</a>
+    <a class="pill" href="/papers/2024/DeltaKWS_A_65nm_36nJDecision_Bio-inspired_Temporal-Sparsity-Aware_Digital_Keyword_Spotting_IC_With_06V_Near-Threshold_SRAM.pdf">PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2405.03905" target="_blank">arXiv</a>
+    <a class="pill" href="/">返回总目录</a>
+  </div>
+  <p>深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table I-II / Fig. 1-13）；「自洽校验 / 交叉验证 / 笔误」标注处为笔记给出的核对结论。</p>
+</footer>
+
+</div>
+</body>
+</html>
