@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GLSC-SNN · 全局-局部脉冲卷积 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2024/Global-Local_Convolution_With_Spiking_Neural_Networks_For_Energy-efficient_Keyword_Spotting.md">深读笔记</a>
+    <a href="/papers/2024/Global-Local_Convolution_With_Spiking_Neural_Networks_For_Energy-efficient_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2406.13179" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2024 №16</p>
+  <h1>ANN 里双支卷积直接相加会「特征消失」，<br>脉冲神经元的膜电位把它救了回来</h1>
+  <p class="sub">Global-Local Convolution with Spiking Neural Networks for Energy-efficient Keyword Spotting（GLSC-SNN）</p>
+  <p class="meta"><b>作者</b>：Shuai Wang、Dehao Zhang 等 7 人 —— 电子科技大学 × 香港理工大学</p>
+  <p class="meta"><b>发表</b>：2024.06 · arXiv:2406.13179（Interspeech 风格短文）</p>
+  <div class="chips">
+    <span class="chip">端到端吃原始波形</span><span class="chip">GLSC 全局-局部双支</span><span class="chip">PLIF 可学习时间常数</span>
+    <span class="chip">Bottleneck 脉冲分类头</span><span class="chip">70.1K / 93.0%</span><span class="chip">发放率 8.3%</span><span class="chip">~1% ANN 能耗</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>自相矛盾的现状</b>：很多 SNN-KWS 前面挂着 FFT / MFCC 手工前端——前端本身就是计算密集操作，「用 SNN 换能效」省下的电又被前端吃回去。要贯彻到输入端就得<b>直接吃原始波形端到端卷积</b>。</li>
+      <li><b>端到端卷积的两难</b>（Fig. 1）：普通 Conv1d 参数随感受野增长；空洞卷积 stride=1（WaveSense 路线）相邻窗口大量重叠、序列压不短；stride≠1 感受野指数增长但采样出空洞、<b>局部信息丢失</b>——当时没有卷积能同时解决两样。</li>
+      <li><b>方案（GLSC）</b>：双支分工——D-Conv1d 支（stride≠1）抓全局依赖 + 逐层压缩序列长度；Conv1d 支（小核密集采样）守局部细节；两支各自过 BN 后<b>相加发生在膜电位层面</b>，融合之后才做阈值判决。</li>
+      <li><b>核心洞察</b>：ANN 里双支直接相加是线性混合——显著特征被动态范围淹没（Fig. 3「特征消失」）；而脉冲神经元携带 t−1 时刻衰减残留的膜电位：跨时间步累积给特征「第二累加轴」（被稀释的成分后续步继续累积）+ 阈值门控让无关特征连累积资格都没有——<b>融合防消失的任务交给神经元动力学，不用注意力</b>（Branchformer 靠注意力兜底，代价更大）。</li>
+      <li><b>结果</b>：4×GLSC + 2×Bottleneck-PLIF，GSC V1 12 类 <b>70.1K 参数 / 93.0%</b>（比残差 SNN 省 19% 参数反超 0.8 点）；V2 35 类 80.2K / 92.9%（对比组最高精度 + 最小参数）；全网平均发放率 8.3%（T=8），式(8) 能耗 ≈ 同结构 ANN 的 1%。</li>
+      <li><b>成色缺口</b>：能耗是理论估算非芯片实测；Table 1 全是 SNN 内部对比——<b>没有 ANN 基线</b>，「换能效付出多少精度代价」无法从论文评估；消融只有曲线无数值表无方差；GLSC 超参（核宽 / 通道 / stride）只在结构图里。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">选了 SNN ≠ 省了电：前端、卷积、神经元三处都会漏电</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>硬件依据</b>：累加（AC）远比乘加（MAC）省能——一次 MAC 的能耗约为一次 AC 的 71 倍（Horowitz ISSCC 2014）——SNN 以二值脉冲传递、事件驱动，计算主体是 AC。<b>四层失效机制</b>：① 手工前端（FFT/MFCC）计算密集，违背 SNN 初衷；② 端到端卷积两难（Fig. 1）；③ 已有端到端 SNN 用<b>无衰减的 IF 神经元</b>——发放频繁，每个多余脉冲触发下游一整排突触计算，事件驱动优势被频繁发放吃掉；④ ANN 的全局-局部融合经验（Branchformer）依赖注意力，直接相加则特征消失（Fig. 3）。SNN 侧已有模型偏重：ST-Attention-SNN 2170K、SRNN+ALIF 222.1K、Speech2Spikes 410K。<b>四条挑战</b>：逐层压长度不丢局部；融合不消失；神经元自带衰减压发放；百 K 参数以下保九成三精度。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">结构移植 + 神经元动力学兜底</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 440" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">Fig.1-3 复绘：卷积两难 → GLSC 双支 → 为什么 SNN 相加不会特征消失</text>
+      <rect x="30" y="52" width="420" height="170" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="48" y="78" font-size="12.5" font-weight="700" fill="#47536a">空洞卷积的两种失效（Fig.1）</text>
+      <text x="48" y="104" font-size="11" fill="#8c3b2e">· stride=1（WaveSense 路线）：相邻窗口大量重叠 → 隐层特征高度冗余</text>
+      <text x="48" y="124" font-size="11" fill="#8c3b2e">　（灰块），序列压不短 → 后续每层计算量省不下来</text>
+      <text x="48" y="150" font-size="11" fill="#8c3b2e">· stride≠1：感受野随空洞率指数增长 → 采样空洞（白块）局部信息丢</text>
+      <text x="48" y="182" font-size="11" fill="#5f8a76">→ GLSC：D-Conv 支（stride≠1）压长度抓全局 + Conv1d 支（小核密集）补局部</text>
+      <text x="48" y="204" font-size="11" fill="#5f8a76">　 两难同时解除（Fig.1(c)(d)）</text>
+      <rect x="470" y="52" width="420" height="170" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.6"/>
+      <text x="488" y="78" font-size="12.5" font-weight="700" fill="#0a6b4e">GLSC 模块（式 5）×4 + Bottleneck-PLIF（式 7）×2</text>
+      <text x="488" y="106" font-size="11" fill="#47536a">outputs = H( bn(g₁∗f) + bn(g₂∗f) ) —— 两支融合发生在膜电位层面，</text>
+      <text x="488" y="126" font-size="11" fill="#47536a">　 融合之后才做阈值判决（H = 脉冲发放函数）</text>
+      <text x="488" y="152" font-size="11" fill="#47536a">分类段：1×1 降维 → 3×3 计算 → 残差直连，PLIF 嵌在每个间隙——</text>
+      <text x="488" y="172" font-size="11" fill="#47536a">　 ResNet Bottleneck 的脉冲化</text>
+      <text x="488" y="198" font-size="11" fill="#5f8a76">训练：STBP 直接训练（非 ANN 转换），T=8 小时间步端到端联合优化</text>
+      <rect x="30" y="240" width="420" height="186" rx="11" fill="#fdf3ef" stroke="#c0563f" stroke-width="1.4"/>
+      <text x="48" y="266" font-size="12.5" font-weight="700" fill="#8c3b2e">ANN：双支相加 = 特征消失（Fig.3 左）</text>
+      <text x="48" y="292" font-size="11" fill="#47536a">两支连续值输出逐元素相加是<b>线性混合</b>——</text>
+      <text x="48" y="312" font-size="11" fill="#47536a">橙色块的显著细节在求和后被动态范围淹没变得不可分辨</text>
+      <text x="48" y="342" font-size="11" fill="#8c3b2e">Branchformer 的解法：加注意力机制兜底 → 参数与计算负担</text>
+      <text x="48" y="370" font-size="11" fill="#8c3b2e">在几十 K 预算内不成立</text>
+      <rect x="470" y="240" width="420" height="186" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.6"/>
+      <text x="488" y="266" font-size="12.5" font-weight="700" fill="#0a6b4e">SNN：膜电位累积救回特征（Fig.3 右）</text>
+      <text x="488" y="292" font-size="11" fill="#47536a">① t 时刻输出不止当前求和，还携带 t−1 时刻衰减残留的膜电位——</text>
+      <text x="488" y="312" font-size="11" fill="#47536a">　 当前被加法稀释的成分可在后续时间步继续累积（第二累加轴）</text>
+      <text x="488" y="338" font-size="11" fill="#47536a">② 求和 + 残留膜电位 &gt; V_th 才发放——无关特征连累积资格都没有</text>
+      <text x="488" y="362" font-size="11" fill="#5f8a76">→ 阈值门控替网络做免费的硬特征选择，输出天然更稀疏</text>
+      <text x="488" y="398" font-size="11" fill="#5f8a76">消融闭环：GLC-ANN（换成连续激活）vs GLSC——特征消失回来了</text>
+    </svg>
+    <p class="cap"><b>图 A</b>·PLIF 神经元（式 6）：常数漏电因子 τ 换成可学习的 k(a)——把「时间尺度」从超参数升格为参数；不同神经元学到不同 τ（Fig. 4），像一组多尺度自适应时间滤波器——瞬态辅音是毫秒级事件、长元音共振持续上百毫秒，统一 τ 等于给全网规定单一「记忆时长」。这也是对 IF 频繁发放的正面回应。</p>
+  </div>
+
+  <div class="formula">
+    LIF：U<sub>i</sub><sup>t+1</sup> = τ·U<sub>i</sub><sup>t</sup> + Σ w·O；　PLIF：U<sup>t+1</sup> = (1−k(a))·U<sup>t</sup> + k(a)·I<sup>t+1</sup>；　GLSC：outputs = H( bn(g₁∗f) + bn(g₂∗f) )
+    <div class="why"><b>人话</b>：g₁ 是小核 Conv1d（局部支）、g₂ 是 D-Conv1d（全局支），共享输入各自过 BN 后相加——相加的瞬间还没有判决，脉冲神经元的膜电位先累积、再过阈值才发放。「防特征消失」由动力学兜底，不需要注意力。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">三组任务全是「尺寸数量级领先、精度不掉队」的帕累托位</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据</b>：GSC V1（30 词 / 1881 人，56588/7743/7835 切分）与 V2（35 词 / 2618 人，92843/11003/12005）；12 类任务 = 10 命令词 + 静音（噪声拼接生成，约 10%）+ unknown（吞其余 20/25 词）。<b>指标三件套</b>：准确率（精度底线）、参数量（边缘预算）、能耗比（式 8 把能耗与发放率直接挂钩——神经元设计是否压低发放变成可量化监督的量）。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 380" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 1 · 参数量-精度散点（三组任务）：尺寸数量级领先、精度不掉队</text>
+<line x1="60" y1="245.6" x2="310" y2="245.6" stroke="#e8ece9" stroke-width="1"/>
+<text x="54" y="248.6" text-anchor="end" font-size="10.5" fill="#6b7a72">88</text>
+<line x1="60" y1="178.9" x2="310" y2="178.9" stroke="#e8ece9" stroke-width="1"/>
+<text x="54" y="181.9" text-anchor="end" font-size="10.5" fill="#6b7a72">91</text>
+<line x1="60" y1="112.2" x2="310" y2="112.2" stroke="#e8ece9" stroke-width="1"/>
+<text x="54" y="115.2" text-anchor="end" font-size="10.5" fill="#6b7a72">94</text>
+<line x1="60" y1="290" x2="310" y2="290" stroke="#9aa79e" stroke-width="1.3"/>
+<text x="185" y="46" text-anchor="middle" font-size="12" font-weight="700" fill="#47536a">GSC-V1 · 12 类</text>
+<circle cx="258.5" cy="247.8" r="5" fill="#b9c6bd" stroke="#fff" stroke-width="2" opacity="1"/>
+<text x="258.5" y="247.8" text-anchor="middle" font-size="10" font-weight="500" fill="#77837b">NLIF SNN 220K</text>
+<circle cx="133.4" cy="152.2" r="5" fill="#b9c6bd" stroke="#fff" stroke-width="2" opacity="1"/>
+<text x="133.4" y="138.2" text-anchor="middle" font-size="10" font-weight="500" fill="#77837b">端到端残差SNN 86.5K</text>
+<circle cx="105.3" cy="134.4" r="7" fill="#0e8a66" stroke="#fff" stroke-width="2" opacity="1"/>
+<text x="105.3" y="150.4" text-anchor="middle" font-size="10" font-weight="700" fill="#0a6b4e">本文 70.1K ★</text>
+<text x="185" y="312" text-anchor="middle" font-size="10.5" fill="#8a93a5">参数量 K（对数轴）</text>
+<line x1="335" y1="223.3" x2="585" y2="223.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="329" y="226.3" text-anchor="end" font-size="10.5" fill="#6b7a72">92</text>
+<line x1="335" y1="123.3" x2="585" y2="123.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="329" y="126.3" text-anchor="end" font-size="10.5" fill="#6b7a72">95</text>
+<line x1="335" y1="123.3" x2="585" y2="123.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="329" y="126.3" text-anchor="end" font-size="10.5" fill="#6b7a72">95</text>
+<line x1="335" y1="290" x2="585" y2="290" stroke="#9aa79e" stroke-width="1.3"/>
+<text x="460" y="46" text-anchor="middle" font-size="12" font-weight="700" fill="#47536a">GSC-V2 · 12 类</text>
+<circle cx="566.3" cy="120.0" r="5" fill="#b9c6bd" stroke="#fff" stroke-width="2" opacity="1"/>
+<text x="546.3" y="130.0" text-anchor="middle" font-size="10" font-weight="500" fill="#77837b">ST-Attn-SNN 2170K</text>
+<circle cx="383.9" cy="126.7" r="5" fill="#b9c6bd" stroke="#fff" stroke-width="2" opacity="1"/>
+<text x="383.9" y="138.7" text-anchor="middle" font-size="10" font-weight="500" fill="#77837b">SpikGRU 111K</text>
+<circle cx="440.7" cy="243.3" r="5" fill="#b9c6bd" stroke="#fff" stroke-width="2" opacity="1"/>
+<text x="440.7" y="255.3" text-anchor="middle" font-size="10" font-weight="500" fill="#77837b">SLAYER 280K</text>
+<circle cx="355.7" cy="143.3" r="7" fill="#0e8a66" stroke="#fff" stroke-width="2" opacity="1"/>
+<text x="355.7" y="129.3" text-anchor="middle" font-size="10" font-weight="700" fill="#0a6b4e">本文 70.1K ★</text>
+<text x="460" y="312" text-anchor="middle" font-size="10.5" fill="#8a93a5">参数量 K（对数轴）</text>
+<line x1="610" y1="223.3" x2="860" y2="223.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="604" y="226.3" text-anchor="end" font-size="10.5" fill="#6b7a72">90</text>
+<line x1="610" y1="123.3" x2="860" y2="123.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="604" y="126.3" text-anchor="end" font-size="10.5" fill="#6b7a72">93</text>
+<line x1="610" y1="123.3" x2="860" y2="123.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="604" y="126.3" text-anchor="end" font-size="10.5" fill="#6b7a72">93</text>
+<line x1="610" y1="290" x2="860" y2="290" stroke="#9aa79e" stroke-width="1.3"/>
+<text x="735" y="46" text-anchor="middle" font-size="12" font-weight="700" fill="#47536a">GSC-V2 · 35 类</text>
+<circle cx="765.4" cy="140.0" r="5" fill="#b9c6bd" stroke="#fff" stroke-width="2" opacity="1"/>
+<text x="765.4" y="152.0" text-anchor="middle" font-size="10" font-weight="500" fill="#77837b">SRNN+ALIF 222K</text>
+<circle cx="829.3" cy="240.0" r="5" fill="#b9c6bd" stroke="#fff" stroke-width="2" opacity="1"/>
+<text x="829.3" y="252.0" text-anchor="middle" font-size="10" font-weight="500" fill="#77837b">Speech2Spikes 410K</text>
+<circle cx="682.2" cy="173.3" r="5" fill="#e6e6df" stroke="#0e8a66" stroke-width="1.2" opacity="0.9"/>
+<text x="682.2" y="185.3" text-anchor="middle" font-size="10" font-weight="500" fill="#77837b">LSTMs-SNN（尺寸N/A）</text>
+<circle cx="659.2" cy="126.7" r="7" fill="#0e8a66" stroke="#fff" stroke-width="2" opacity="1"/>
+<text x="659.2" y="110.7" text-anchor="middle" font-size="10" font-weight="700" fill="#0a6b4e">本文 80.2K ★</text>
+<text x="735" y="312" text-anchor="middle" font-size="10.5" fill="#8a93a5">参数量 K（对数轴）</text>
+<text x="440" y="342" text-anchor="middle" font-size="12" fill="#0a6b4e">V1 12 类：比残差 SNN 省 19% 参数精度反超 0.8 点；V2 35 类：对比组最高精度 + 最小参数；V2 12 类：精度略让 0.5-0.7 点、尺寸小最多 31 倍</text>
+<text x="440" y="364" text-anchor="middle" font-size="12" fill="#8a93a5">LSTMs-SNN 与 WaveSense（35 类 79.5%，尺寸未报）以空心圈示意定位；35 类模型 80.2K 比 12 类 70.1K 大 10.1K（差异来源论文未说明）</text>
+</svg>
+    <p class="cap"><b>表 1 复绘</b>·三组任务各自按量程归一。空心圈 = 尺寸未报告的模型（LSTMs-SNN 以 100K 示意定位）；WaveSense（35 类 79.5%）远低于图下限未入图。V2 12 类组 ST-Attention-SNN 的 95.1% 是 SNN 系最高精度——本文以小 31 倍的模型换 0.7 点差距。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 250" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">式(8) 能耗比估算：约为同结构 ANN 的 1%（保守声明「10 倍以上」）</text>
+<rect x="330" y="60" width="420" height="36" rx="6" fill="#b9c6bd"/>
+<text x="322" y="84" text-anchor="end" font-size="13" font-weight="600" fill="#47536a">同结构 ANN（连续激活）</text>
+<text x="760" y="84" font-size="13" font-weight="700" fill="#47536a">1.00</text>
+<rect x="330" y="120" width="5.0" height="36" rx="3" fill="#0e8a66"/>
+<text x="322" y="144" text-anchor="end" font-size="13" font-weight="700" fill="#0a6b4e">GLSC-SNN</text>
+<text x="343.0" y="144" font-size="13" font-weight="700" fill="#0a6b4e">0.0094</text>
+<text x="440" y="200" text-anchor="middle" font-size="12.5" fill="#47536a">Energy = (AC/MAC) × SpikingRate × TimeSteps = (1/71) × 0.083 × 8 ≈ 0.0094</text>
+<text x="440" y="224" text-anchor="middle" font-size="12" fill="#8a93a5">理论估算非芯片实测：未计脉冲路由 / 稀疏读出 / 膜电位更新开销；发放率 8.3% 为全网平均（Fig.5，T=8，GSC-V1）</text>
+</svg>
+    <p class="cap"><b>能耗比复绘（式 8）</b>·论文保守声明「10 倍以上」而估算值实际到 ~100 倍——保守口径的措辞值得肯定。注意 TimeSteps=8 是乘性因子：同一卷积要在 8 个时间步上各算一遍，公式把这笔放大计入，但硬件兑现程度未验证。</p>
+  </div>
+
+  <div class="card">
+    <b>消融三发现（Fig. 6，全部只有曲线无数值表——呈现薄弱点）</b>：① 同参数量下 GLSC 一致优于单卷积对照——双支分工不是参数浪费；② <b>GLSC vs GLC-ANN（把脉冲神经元换连续激活）——特征消失回来了</b>：全文因果链最干净的一组消融，证明「双支相加」这个结构本身不够，必须配「跨时间步膜电位累积 + 阈值门控」；③ 参数收紧时 Bottleneck-PLIF 优势放大——&lt;100K 仍达 93%，通道降维 + 残差在小参数域保信息能力强于常规分类头。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">可转述的四个判断</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>端到端贯彻到输入端</b><br><span style="color:#47536a;font-size:14.5px">砍掉 FFT/MFCC 前端直接吃波形——「用 SNN 换能效」不再被前端吃回去；GLSC 双支同时解除「序列压不短」与「局部信息丢」两难。</span></div>
+    <div class="c"><span class="n">2</span><b>神经元动力学兜底融合</b><br><span style="color:#47536a;font-size:14.5px">ANN 里会翻车的双支直接相加，在 SNN 里由膜电位累积 + 阈值门控修复——比 Branchformer 的注意力方案代价更小、机制更朴素，几十 K 预算内成立。</span></div>
+    <div class="c"><span class="n">3</span><b>可学习时间常数 = 多尺度时间滤波器组</b><br><span style="color:#47536a;font-size:14.5px">PLIF 把 τ 从超参升格为参数——异质时间尺度对齐语音事件的天然异质性（毫秒级辅音 vs 上百毫秒元音），同时压低发放保住能效。</span></div>
+    <div class="c"><span class="n">4</span><b>帕累托位而非精度王</b><br><span style="color:#47536a;font-size:14.5px">三组任务：V1 12 类全面占优、V2 35 类对比组最高精度 + 最小参数、V2 12 类精度略让 0.5-0.7 点换尺寸领先最多 31 倍——边缘场景的正确取舍。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">没有 ANN 基线——「换能效付出多少精度」无法从论文评估</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>方法局限</h4>
+      <ul>
+        <li><b>能耗是理论估算非实测</b>：式(8) 只统计 AC/MAC 与发放率——脉冲路由、稀疏读出、膜电位更新开销未计；T=8 意味着同一卷积算 8 遍，真实神经形态硬件能否把稀疏性兑现成比例节能取决于事件驱动实现质量。</li>
+        <li><b>双支宽度开销</b>：特征提取段卷积宽度是单支两倍；对内存访问模式的影响未报告。</li>
+        <li><b>超参只在结构图里</b>：两支的核宽 / 通道 / stride 具体配置正文未给——复现要找代码。</li>
+        <li><b>时间步细节缺失</b>：波形如何映射到 T=8、T 的精度-能耗敏感性未报告——T 是能效公式的乘性因子，这维缺失使权衡曲线不完整。</li>
+        <li><b>神经元层简化</b>：异质性粒度（每层还是每神经元一个 k）、学到的 k 分布、逐层发放率差异均未报告。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>对比只在 SNN 内部</b>：无 DS-CNN / MatchboxNet 等 ANN 基线或量化 ANN——「相对 ANN 节能 10 倍」只有公式层支撑，缺「精度上与 ANN 差多少」的拼图。</li>
+        <li><b>消融无数值无方差</b>：Fig. 6 全部曲线呈现，「&lt;100K 仍 93%」这类关键结论只有图读数。</li>
+        <li><b>任务单一</b>：只有 GSC 闭集分类——自定义唤醒词、远场混响、加噪、流式低延迟（RTF / 延迟）全未覆盖；拼接静音与真实静音的分布差异未讨论。</li>
+        <li><b>模型差异未解释</b>：35 类 80.2K vs 12 类 70.1K 的 10.1K 差异来源未说明。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得追的方向</b>：① 神经形态芯片真实实现（论文自指）验证理论能耗；② 可学习时间常数粒度做细（神经元级、随输入自适应）逼近「多尺度时间滤波器组」直觉；③ 补全 T 的精度-能耗帕累托曲线 + 变长时间步推理——脉冲范式天然支持「无脉冲则无计算」的早停（ANN 没有的自由度）；④ ANN 教师蒸馏弥补 0.5-0.7 点精度差；⑤ 「膜电位累积防特征消失」推广到其他多支融合脉冲结构（多尺度 / 多分支骨干）检验普适性；⑥ 流式、自定义唤醒词、远场场景重估 + 部署视角证据链。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2024/Global-Local_Convolution_With_Spiking_Neural_Networks_For_Energy-efficient_Keyword_Spotting.md">深读笔记</a>
+    <a class="pill" href="/papers/2024/Global-Local_Convolution_With_Spiking_Neural_Networks_For_Energy-efficient_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2406.13179" target="_blank">arXiv</a>
+    <a class="pill" href="/">返回总目录</a>
+  </div>
+  <p>深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table 1 / Fig. 1-6 / 式 1-8）；「笔记推算」标注处为笔记给出的核对结论。</p>
+</footer>
+
+</div>
+</body>
+</html>
