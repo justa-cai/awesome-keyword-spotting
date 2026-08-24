@@ -1,7 +1,7 @@
 # 可视化精读计划（VIZ_PLAN）
 
 > 逐篇把 305 篇深读笔记重写为 HTML+SVG 可视化页（2026→2018 倒序）。每篇流程：读笔记 → python 算图表坐标 → 手绘机制 SVG → 自包含 HTML → 更新 manifest+plan → commit+push。
-**进度：74 / 305**
+**进度：75 / 305**
 > 进度以本文件为准；`viz_manifest.json` 是机器可读版（站点 viz 按钮按它门控）。
 
 ## 2026（24/24）
@@ -70,7 +70,7 @@
 - [✅] TsetlinKWS：65nm 工艺下 16.58µW、0.63mm² 的状态驱动卷积 Tsetlin Machin…
 - [✅] Vocal Tract Length Warped Features for Spoken Keyword Spot…
 
-## 2024（14/44）
+## 2024（15/44）
 
 - [✅] KWS-Whisper：用开放词表关键词检测增强 Whisper 的多任务训练方法
 - [✅] 对抗训练最小化关键词检测中的TTS数据过拟合
@@ -86,7 +86,7 @@
 - [✅] Efficient Real-Time Smart Keyword Spotting Using Spectrogr…
 - [✅] 端到端用户自定义关键词检测：用移位差分系数注入长时时域信息
 - [✅] FCA-Net：面向小脚印噪声环境语音关键词检测的频率与通道注意力网络
-- [⬜] GE2E-KWS：广义端到端训练与评估实现零样本自定义关键词检测
+- [✅] GE2E-KWS：广义端到端训练与评估实现零样本自定义关键词检测
 - [⬜] GLSC-SNN：面向能效关键词检测的全局-局部脉冲卷积神经网络
 - [⬜] KWT-Tiny: RISC-V 加速的嵌入式关键词检测 Transformer
 - [⬜] MM-KWS: Multi-modal Prompts for Multilingual User-defined …
