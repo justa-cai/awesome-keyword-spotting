@@ -1,7 +1,7 @@
 # 可视化精读计划（VIZ_PLAN）
 
 > 逐篇把 305 篇深读笔记重写为 HTML+SVG 可视化页（2026→2018 倒序）。每篇流程：读笔记 → python 算图表坐标 → 手绘机制 SVG → 自包含 HTML → 更新 manifest+plan → commit+push。
-**进度：32 / 305**
+**进度：33 / 305**
 > 进度以本文件为准；`viz_manifest.json` 是机器可读版（站点 viz 按钮按它门控）。
 
 ## 2026（24/24）
@@ -31,7 +31,7 @@
 - [✅] ProKWS: Personalized Keyword Spotting via Collaborative Le…
 - [✅] Scalable Keyword Spotting via Modular Network Expansion：冻结…
 
-## 2025（8/36）
+## 2025（9/36）
 
 - [✅] ASAP-FE：面向边缘处理器多通道关键词检出的节能特征提取前端
 - [✅] 免乘法器 MFCC 特征提取器的低功耗关键词检测芯片
@@ -41,7 +41,7 @@
 - [✅] ADML：用模态对抗深度度量学习打通开放词表关键词检测的音文跨模态对齐
 - [✅] AnalyticKWS：面向小尺寸关键词检测的无回放样本解析式类增量学习
 - [✅] 语音神经网络表征的各向异性影响评估：以关键词检索为案例
-- [⬜] Data Aware Differentiable NAS：面向微型关键词检测的数据感知可微架构搜索
+- [✅] Data Aware Differentiable NAS：面向微型关键词检测的数据感知可微架构搜索
 - [⬜] DS-KWS：双重数据扩展驱动的鲁棒两阶段用户自定义关键词检测
 - [⬜] Efficient Continual Learning in Keyword Spotting using Bin…
 - [⬜] 端到端效率的关键词检测：面向嵌入式微控制器的系统级方法
