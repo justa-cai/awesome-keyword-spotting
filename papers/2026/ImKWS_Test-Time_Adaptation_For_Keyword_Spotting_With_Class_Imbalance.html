@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ImKWS · 不平衡流的测试时自适应 · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15.5px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .grid2{grid-template-columns:1fr;} }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2026/ImKWS_Test-Time_Adaptation_For_Keyword_Spotting_With_Class_Imbalance.md">深读笔记</a>
+    <a href="/papers/2026/ImKWS_Test-Time_Adaptation_For_Keyword_Spotting_With_Class_Imbalance.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2603.05821" target="_blank">arXiv</a>
+    <a href="https://github.com/dhyzy123/ImKWS" target="_blank">代码</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2026 №11</p>
+  <h1>ImKWS<br>在类别不平衡的测试流上做测试时自适应</h1>
+  <p class="sub">ImKWS: Test-Time Adaptation for Keyword Spotting with Class Imbalance</p>
+  <p class="meta"><b>作者</b>：Hanyu Ding, Yang Xiao, Jiaheng Dong, Ting Dang —— 江苏大学 / 墨尔本大学（前两位同等贡献）</p>
+  <p class="meta"><b>发表</b>：2026.03（v2 2026-06）· arXiv:2603.05821 · 代码开源</p>
+  <div class="chips">
+    <span class="chip">测试时自适应 TTA</span><span class="chip">类别不平衡</span><span class="chip">解耦熵最小化</span>
+    <span class="chip">多视角一致性</span><span class="chip">macro F1</span><span class="chip">BC-ResNet</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>场景：无源数据、无标签、单遍流式 TTA——但 KWS 连续语音流里关键词是<b>稀有事件</b>，背景占绝对多数。</li>
+      <li>被忽视的失效模式：标准熵最小化的更新量被背景样本主导——模型越适应越确信「一切都是背景」，决策边界持续漂向多数类。</li>
+      <li>方案：<b>解耦熵最小化</b>——把熵精确拆成奖励支（抬高自信类）+ 惩罚支（压低整体 logit），给惩罚支乘 α=0.8：梯度里出现 (1−α) 余量，多数类 logit 爆炸在均衡点刹车，<b>不需要知道类身份</b>。</li>
+      <li>结果：15 个测试条件全最优；对最强基线 AdaKWS 的 macro F1 优势随不平衡加剧从 +0.67 扩大到 <b>+2.64</b>，且 macro/micro 同涨——精度-召回跷跷板被真正打破。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">熵最小化在 imbalance 流上的崩塌机制</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 250" role="img">
+      <!-- 测试流 -->
+      <rect x="20" y="30" width="880" height="70" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="60" y="58" font-size="13" font-weight="700" fill="#1c2430">连续测试流</text>
+      <g fill="#b9c2d0">
+        <rect x="160" y="42" width="34" height="18" rx="4"/><rect x="200" y="42" width="34" height="18" rx="4"/>
+        <rect x="240" y="42" width="34" height="18" rx="4"/><rect x="280" y="42" width="34" height="18" rx="4"/>
+        <rect x="320" y="42" width="34" height="18" rx="4"/><rect x="360" y="42" width="34" height="18" rx="4"/>
+        <rect x="440" y="42" width="34" height="18" rx="4"/><rect x="480" y="42" width="34" height="18" rx="4"/>
+        <rect x="520" y="42" width="34" height="18" rx="4"/><rect x="560" y="42" width="34" height="18" rx="4"/>
+        <rect x="600" y="42" width="34" height="18" rx="4"/><rect x="640" y="42" width="34" height="18" rx="4"/>
+        <rect x="720" y="42" width="34" height="18" rx="4"/><rect x="760" y="42" width="34" height="18" rx="4"/>
+        <rect x="800" y="42" width="34" height="18" rx="4"/><rect x="840" y="42" width="34" height="18" rx="4"/>
+      </g>
+      <g fill="#0e8a66">
+        <rect x="400" y="42" width="34" height="18" rx="4"/>
+        <rect x="680" y="42" width="34" height="18" rx="4"/>
+      </g>
+      <text x="460" y="86" text-anchor="middle" font-size="11.5" fill="#8a93a5">背景段占 90%+（灰）· 关键词是稀有事件（绿）——1:4 ~ 1:8 实验设置，真实唤醒流更极端</text>
+
+      <!-- EM 失效链条 -->
+      <rect x="20" y="124" width="880" height="106" rx="12" fill="#fbf3ec" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="460" y="150" text-anchor="middle" font-size="13.5" font-weight="700" fill="#b0631d">标准熵最小化（Tent/SAR/ETA）在这个流上的因果链</text>
+      <g font-size="12.5" fill="#47536a">
+        <text x="50" y="178">① 损失对所有类对称 → 90% 更新由背景样本驱动　② 「让模型自信」被执行成「确信一切皆背景」</text>
+        <text x="50" y="204">③ 背景类 logit 持续膨胀、竞争类被反复压制　④ 稀有关键词越来越难检出——macro F1 被背景类拖垮</text>
+      </g>
+      <text x="700" y="178" font-size="11.5" fill="#c0392b">监督式药方（按类重加权/重采样）全部失效：</text>
+      <text x="700" y="204" font-size="11.5" fill="#c0392b">TTA 没有标签，无法统计类频率</text>
+    </svg>
+    <p class="cap"><b>修问题的层面必须换</b>：不能在样本权重上动手（没有标签），要在<b>损失函数的几何形状</b>上动手。</p>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">拆开熵损失：奖励一支，惩罚一支</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 330" role="img">
+      <text x="30" y="26" font-size="13.5" fill="#47536a" font-weight="600">熵的精确分解（式 1）：两项的梯度语义完全不同</text>
+      <rect x="30" y="42" width="400" height="64" rx="12" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="230" y="68" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0a6b4e">T(z) = −Σ pᵢzᵢ　奖励支</text>
+      <text x="230" y="92" text-anchor="middle" font-size="12" fill="#47536a">最小化 = 抬高模型已相信的类 → 产生「自信」</text>
+      <rect x="490" y="42" width="400" height="64" rx="12" fill="#f3ede2" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="690" y="68" text-anchor="middle" font-size="14.5" font-weight="700" fill="#b0631d">Q(z) = log Σ e^{zᵢ}　惩罚支</text>
+      <text x="690" y="92" text-anchor="middle" font-size="12" fill="#47536a">对每个 logit 的梯度恰是 pⱼ → 最小化 = 压低所有 logit</text>
+      <text x="460" y="82" text-anchor="middle" font-size="18" fill="#1c2430" font-weight="700">+</text>
+
+      <text x="30" y="140" font-size="13.5" fill="#47536a" font-weight="600">关键改造（式 4）：给惩罚支乘 α &lt; 1，梯度出现「余量」——非目标 logit 的下行有了均衡点</text>
+      <!-- logit 轨迹示意 -->
+      <line x1="80" y1="272" x2="880" y2="272" stroke="#9ca3af"/>
+      <text x="70" y="276" text-anchor="end" font-size="11.5" fill="#9ca3af">logit z_j</text>
+      <text x="480" y="296" text-anchor="middle" font-size="11.5" fill="#9ca3af">适应步数（不平衡流上反复更新）</text>
+      <!-- 均衡点线 -->
+      <line x1="80" y1="196" x2="880" y2="196" stroke="#0e8a66" stroke-width="2" stroke-dasharray="6 4"/>
+      <text x="872" y="188" text-anchor="end" font-size="11.5" fill="#0a6b4e" font-weight="700">均衡点：差距收窄到 (1−α) 余量以内 → 梯度变号、压低停止</text>
+      <!-- α=1 轨迹：一路下坠 -->
+      <path d="M 80,222 C 220,238 380,252 560,262 C 680,268 780,270 880,271" fill="none" stroke="#c0392b" stroke-width="3.5"/>
+      <text x="380" y="250" font-size="12.5" fill="#c0392b" font-weight="700">标准 EM（α=1.0）：一路推向 −∞（多数类病态自信）</text>
+      <!-- α=0.8 轨迹：到均衡点刹车 -->
+      <path d="M 80,222 C 180,232 280,200 400,196 L 880,196" fill="none" stroke="#0e8a66" stroke-width="3.5"/>
+      <text x="230" y="188" font-size="12.5" fill="#0a6b4e" font-weight="700">DEM（α=0.8）：到余量处刹车</text>
+      <!-- gradient formula -->
+      <text x="480" y="322" text-anchor="middle" font-size="13" font-family="Georgia, serif" font-style="italic" fill="#1c2430">∂L_dem/∂z_j = p_j · ( Σ pᵢzᵢ − z_j − (1−α) )</text>
+    </svg>
+    <p class="cap"><b>为什么这是类无关却定向的</b>：余量 (1−α) 对所有类一视同仁，但失衡本身是<b>数量驱动</b>的累积效应——背景样本靠数量反复触发压制，DEM 的余量恰好作用在这条累积通路上。<b>诚实的细节</b>：网格搜索最终 τ=1.0、α=0.8——温度旋钮实际未激活，起作用的是惩罚支余量；τ/α 敏感性曲线论文未报告。</p>
+  </div>
+
+  <h3>完整管线：筛选 → 加权 → 一致性兜底</h3>
+  <div class="fig">
+    <svg viewBox="0 0 920 300" role="img">
+      <rect x="20" y="30" width="130" height="90" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="85" y="66" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">测试流样本</text>
+      <text x="85" y="90" text-anchor="middle" font-size="11" fill="#8a93a5">BC-ResNet-3 · 40 维 MFCC</text>
+
+      <line x1="150" y1="75" x2="176" y2="75" stroke="#0e8a66" stroke-width="2.5"/><polygon points="176,75 168,70 168,80" fill="#0e8a66"/>
+      <rect x="180" y="30" width="260" height="90" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="310" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="#0a6b4e">两阶段样本筛选（式 7）</text>
+      <text x="310" y="78" text-anchor="middle" font-size="11.5" fill="#47536a">闸一：解耦熵 L_dem &lt; 0.4（模型有把握）</text>
+      <text x="310" y="98" text-anchor="middle" font-size="11.5" fill="#47536a">闸二：L_pkc &gt; 0.05（伪标签变换前后稳定）</text>
+
+      <line x1="440" y1="75" x2="466" y2="75" stroke="#0e8a66" stroke-width="2.5"/><polygon points="466,75 458,70 458,80" fill="#0e8a66"/>
+      <rect x="470" y="30" width="200" height="90" rx="10" fill="#f3ede2" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="570" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="#b0631d">双增强视图</text>
+      <text x="570" y="78" text-anchor="middle" font-size="11.5" fill="#47536a">时间掩码×2 + 频率掩码×2</text>
+      <text x="570" y="98" text-anchor="middle" font-size="11.5" fill="#8a93a5">（SpecAugment 风格）</text>
+
+      <line x1="670" y1="75" x2="696" y2="75" stroke="#0e8a66" stroke-width="2.5"/><polygon points="696,75 688,70 688,80" fill="#0e8a66"/>
+      <rect x="700" y="30" width="200" height="90" rx="10" fill="#0e8a66"/>
+      <text x="800" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">总损失（式 8）</text>
+      <text x="800" y="80" text-anchor="middle" font-size="11.5" fill="#e6f4ee">L = w(x)·L_dem + λ·L_consist</text>
+      <text x="800" y="102" text-anchor="middle" font-size="11" fill="#cdeede">w = 双指数闸门连续加权</text>
+
+      <rect x="20" y="160" width="880" height="120" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="460" y="188" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">分工与兜底</text>
+      <g font-size="12.5" fill="#47536a">
+        <text x="45" y="216">· <tspan font-weight="700" fill="#0a6b4e">DEM</tspan>：主机制——防多数类 logit 爆炸（解释相对 AdaKWS 增益的约六成）；</text>
+        <text x="45" y="242">· <tspan font-weight="700" fill="#0a6b4e">多视角一致性（SCE 对称交叉熵）</tspan>：DEM 放松惩罚后噪声样本话语权放大、梯度出尖峰——一致性当空间正则子压平上尾（Fig.3 箱线图直接验证）；</text>
+        <text x="45" y="268">· <tspan font-weight="700" fill="#0a6b4e">只更新 BN 仿射参数</tspan>（lr 1e-4 · batch 128 · 单遍）：适应锁在安全低维子空间，不存任何源数据。</text>
+      </g>
+    </svg>
+    <p class="cap"><b>骨架继承关系（诚实标注）</b>：两阶段筛选策略「基于 AdaKWS」，非本文原创；ImKWS 的改造是——第一道闸换成解耦熵（与主损失同源）、选择之外加连续加权（软重采样）、接入一致性损失。</p>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">十五个条件全最优，且宏微观同涨</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>设置</b>：GSC v2 → 4 分类（yes/up/stop 为关键词，其余九类合并为非关键词）；测试集重采样构造 1:4→1:8 不平衡；ESC-50 多源噪声 + MS-SNSD 五种真实噪声 × −10/0/10 dB。主指标 macro F1（防多数类掩盖少数类），micro F1 监控「召回提升是否靠背景误报换来」。
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 310" role="img">
+      <text x="60" y="32" font-size="13.5" fill="#47536a" font-weight="600">1:8 不平衡 · ESC-50 噪声 · macro F1（表 1）</text>
+      <line x1="60" y1="215" x2="860" y2="215" stroke="#f0f1f3"/><text x="52" y="219" text-anchor="end" font-size="12" fill="#9ca3af">60</text>
+      <line x1="60" y1="188" x2="860" y2="188" stroke="#f0f1f3"/><text x="52" y="192" text-anchor="end" font-size="12" fill="#9ca3af">62</text>
+      <line x1="60" y1="162" x2="860" y2="162" stroke="#f0f1f3"/><text x="52" y="166" text-anchor="end" font-size="12" fill="#9ca3af">64</text>
+      <line x1="60" y1="135" x2="860" y2="135" stroke="#f0f1f3"/><text x="52" y="139" text-anchor="end" font-size="12" fill="#9ca3af">66</text>
+      <line x1="60" y1="108" x2="860" y2="108" stroke="#f0f1f3"/><text x="52" y="112" text-anchor="end" font-size="12" fill="#9ca3af">68</text>
+      <line x1="60" y1="82" x2="860" y2="82" stroke="#f0f1f3"/><text x="52" y="86" text-anchor="end" font-size="12" fill="#9ca3af">70</text>
+      <line x1="60" y1="55" x2="860" y2="55" stroke="#f0f1f3"/><text x="52" y="59" text-anchor="end" font-size="12" fill="#9ca3af">72</text>
+      <rect x="80" y="190" width="76" height="25" rx="5" fill="#c0392b"/><text x="118" y="184" text-anchor="middle" font-size="12.5" font-weight="700" fill="#374151">61.87</text>
+      <text x="118" y="238" text-anchor="middle" font-size="11.5" fill="#374151">Unadapted</text>
+      <rect x="192" y="93" width="76" height="122" rx="5" fill="#c9ced6"/><text x="230" y="87" text-anchor="middle" font-size="12.5" font-weight="700" fill="#374151">69.14</text>
+      <text x="230" y="238" text-anchor="middle" font-size="11.5" fill="#374151">TBN</text>
+      <rect x="304" y="95" width="76" height="120" rx="5" fill="#94a3b8"/><text x="342" y="89" text-anchor="middle" font-size="12.5" font-weight="700" fill="#374151">68.99</text>
+      <text x="342" y="238" text-anchor="middle" font-size="11.5" fill="#374151">Tent</text>
+      <rect x="416" y="90" width="76" height="125" rx="5" fill="#94a3b8"/><text x="454" y="84" text-anchor="middle" font-size="12.5" font-weight="700" fill="#374151">69.35</text>
+      <text x="454" y="238" text-anchor="middle" font-size="11.5" fill="#374151">SAR</text>
+      <rect x="528" y="91" width="76" height="124" rx="5" fill="#94a3b8"/><text x="566" y="85" text-anchor="middle" font-size="12.5" font-weight="700" fill="#374151">69.29</text>
+      <text x="566" y="238" text-anchor="middle" font-size="11.5" fill="#374151">ETA</text>
+      <rect x="640" y="86" width="76" height="129" rx="5" fill="#7cc7ad"/><text x="678" y="80" text-anchor="middle" font-size="12.5" font-weight="700" fill="#374151">69.68</text>
+      <text x="678" y="238" text-anchor="middle" font-size="11.5" fill="#374151">AdaKWS</text>
+      <rect x="752" y="70" width="76" height="145" rx="5" fill="#0e8a66"/><text x="790" y="64" text-anchor="middle" font-size="12.5" font-weight="700" fill="#374151">70.91</text>
+      <text x="790" y="238" text-anchor="middle" font-size="11.5" fill="#374151">ImKWS</text>
+      <line x1="60" y1="215" x2="860" y2="215" stroke="#9ca3af"/>
+      <text x="60" y="264" font-size="12.5" fill="#0a6b4e" font-weight="600">−10 dB：比 AdaKWS 高 +1.23（macro）；micro 同涨 +0.95 —— 跷跷板被打破</text>
+      <text x="60" y="288" font-size="12.5" fill="#9ca3af">MS-SNSD 同条件：69.91 vs 66.95（+2.96，噪声越狠增益越大）；micro 反直觉证据：不平衡 1:4→1:8 时未自适应模型 micro 从 85.97 升到 91.32——多数类占比越高 micro 越好看，而检测实际没变好</text>
+    </svg>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 300" role="img">
+      <text x="80" y="32" font-size="13.5" fill="#47536a" font-weight="600">核心证据：增益随不平衡加剧扩大</text>
+      <line x1="80" y1="220" x2="840" y2="220" stroke="#f0f1f3"/><text x="72" y="224" text-anchor="end" font-size="12" fill="#9ca3af">66</text>
+      <line x1="80" y1="192" x2="840" y2="192" stroke="#f0f1f3"/><text x="72" y="196" text-anchor="end" font-size="12" fill="#9ca3af">67</text>
+      <line x1="80" y1="165" x2="840" y2="165" stroke="#f0f1f3"/><text x="72" y="169" text-anchor="end" font-size="12" fill="#9ca3af">68</text>
+      <line x1="80" y1="138" x2="840" y2="138" stroke="#f0f1f3"/><text x="72" y="142" text-anchor="end" font-size="12" fill="#9ca3af">69</text>
+      <line x1="80" y1="110" x2="840" y2="110" stroke="#f0f1f3"/><text x="72" y="114" text-anchor="end" font-size="12" fill="#9ca3af">70</text>
+      <line x1="80" y1="82" x2="840" y2="82" stroke="#f0f1f3"/><text x="72" y="86" text-anchor="end" font-size="12" fill="#9ca3af">71</text>
+      <line x1="80" y1="55" x2="840" y2="55" stroke="#f0f1f3"/><text x="72" y="59" text-anchor="end" font-size="12" fill="#9ca3af">72</text>
+      <text x="80" y="242" text-anchor="middle" font-size="12.5" fill="#9ca3af">1:4</text>
+      <text x="270" y="242" text-anchor="middle" font-size="12.5" fill="#9ca3af">1:5</text>
+      <text x="460" y="242" text-anchor="middle" font-size="12.5" fill="#9ca3af">1:6</text>
+      <text x="650" y="242" text-anchor="middle" font-size="12.5" fill="#9ca3af">1:7</text>
+      <text x="840" y="242" text-anchor="middle" font-size="12.5" fill="#9ca3af">1:8</text>
+      <polyline points="80,73 270,75 460,75 650,114 840,117" fill="none" stroke="#0e8a66" stroke-width="3.5"/>
+      <polyline points="80,92 270,119 460,138 650,158 840,190" fill="none" stroke="#7cc7ad" stroke-width="3" stroke-dasharray="7 4"/>
+      <circle cx="80" cy="73" r="5.5" fill="#0e8a66"/><circle cx="270" cy="75" r="5.5" fill="#0e8a66"/><circle cx="460" cy="75" r="5.5" fill="#0e8a66"/><circle cx="650" cy="114" r="5.5" fill="#0e8a66"/><circle cx="840" cy="117" r="5.5" fill="#0e8a66"/>
+      <circle cx="80" cy="92" r="5" fill="#7cc7ad"/><circle cx="270" cy="119" r="5" fill="#7cc7ad"/><circle cx="460" cy="138" r="5" fill="#7cc7ad"/><circle cx="650" cy="158" r="5" fill="#7cc7ad"/><circle cx="840" cy="190" r="5" fill="#7cc7ad"/>
+      <line x1="96" y1="73" x2="96" y2="92" stroke="#c0392b" stroke-width="2" stroke-dasharray="3 3"/>
+      <text x="104" y="87" font-size="13" fill="#c0392b" font-weight="700">+0.67</text>
+      <line x1="800" y1="117" x2="800" y2="190" stroke="#c0392b" stroke-width="2" stroke-dasharray="3 3"/>
+      <text x="700" y="158" font-size="13" fill="#c0392b" font-weight="700">+2.64</text>
+      <text x="460" y="268" text-anchor="middle" font-size="13" fill="#6b7280">关键词 : 非关键词 比例（MS-SNSD · −10 dB · macro F1，表 2 多次运行均值）</text>
+      <line x1="560" y1="40" x2="586" y2="40" stroke="#0e8a66" stroke-width="4"/><text x="594" y="44" font-size="12.5" fill="#374151">ImKWS</text>
+      <line x1="560" y1="60" x2="586" y2="60" stroke="#7cc7ad" stroke-width="4" stroke-dasharray="7 4"/><text x="594" y="64" font-size="12.5" fill="#374151">AdaKWS（最强基线）</text>
+      <text x="80" y="292" font-size="12.5" fill="#0a6b4e" font-weight="600">不平衡越极端，标准 EM 的梯度偏置累积越严重，领先幅度越大</text>
+    </svg>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 290" role="img">
+      <text x="70" y="32" font-size="13.5" fill="#47536a" font-weight="600">三组件消融：都正向，但谁是第一瓶颈取决于噪声</text>
+      <line x1="70" y1="191" x2="860" y2="191" stroke="#f0f1f3"/><text x="62" y="195" text-anchor="end" font-size="12" fill="#9ca3af">68</text>
+      <line x1="70" y1="154" x2="860" y2="154" stroke="#f0f1f3"/><text x="62" y="158" text-anchor="end" font-size="12" fill="#9ca3af">69</text>
+      <line x1="70" y1="116" x2="860" y2="116" stroke="#f0f1f3"/><text x="62" y="120" text-anchor="end" font-size="12" fill="#9ca3af">70</text>
+      <line x1="70" y1="79" x2="860" y2="79" stroke="#f0f1f3"/><text x="62" y="83" text-anchor="end" font-size="12" fill="#9ca3af">71</text>
+      <rect x="90" y="82" width="44" height="128" rx="4" fill="#0e8a66"/><text x="112" y="77" text-anchor="middle" font-size="11" fill="#374151">70.91</text>
+      <rect x="144" y="120" width="44" height="90" rx="4" fill="#7cc7ad"/><text x="166" y="115" text-anchor="middle" font-size="11" fill="#374151">69.91</text>
+      <text x="139" y="234" text-anchor="middle" font-size="11.5" fill="#374151">满配 ImKWS</text>
+      <rect x="286" y="107" width="44" height="103" rx="4" fill="#94a3b8"/><text x="308" y="102" text-anchor="middle" font-size="11" fill="#374151">70.24</text>
+      <rect x="340" y="177" width="44" height="33" rx="4" fill="#c9ced6"/><text x="362" y="172" text-anchor="middle" font-size="11" fill="#374151">68.39</text>
+      <text x="335" y="234" text-anchor="middle" font-size="11.5" fill="#374151">w/o DEM（退回标准 EM）</text>
+      <rect x="482" y="118" width="44" height="92" rx="4" fill="#94a3b8"/><text x="504" y="113" text-anchor="middle" font-size="11" fill="#374151">69.96</text>
+      <rect x="536" y="151" width="44" height="59" rx="4" fill="#c9ced6"/><text x="558" y="146" text-anchor="middle" font-size="11" fill="#374151">69.06</text>
+      <text x="531" y="234" text-anchor="middle" font-size="11.5" fill="#374151">w/o 一致性损失</text>
+      <rect x="678" y="109" width="44" height="101" rx="4" fill="#94a3b8"/><text x="700" y="104" text-anchor="middle" font-size="11" fill="#374151">70.19</text>
+      <rect x="732" y="191" width="44" height="19" rx="4" fill="#c9ced6"/><text x="754" y="186" text-anchor="middle" font-size="11" fill="#374151">68.00</text>
+      <text x="727" y="234" text-anchor="middle" font-size="11.5" fill="#374151">w/o 样本选择</text>
+      <line x1="70" y1="210" x2="860" y2="210" stroke="#9ca3af"/>
+      <rect x="640" y="40" width="13" height="13" rx="3" fill="#0e8a66"/><text x="659" y="51" font-size="12" fill="#374151">ESC-50 多源噪声</text>
+      <rect x="640" y="60" width="13" height="13" rx="3" fill="#7cc7ad"/><text x="659" y="71" font-size="12" fill="#374151">MS-SNSD 单源真实噪声</text>
+      <text x="70" y="262" font-size="13" fill="#47536a" font-weight="600">组件收益依噪声类型排序不同：多源噪声下一致性最重要（−0.95）；真实单源噪声下样本选择最要命（−1.91）</text>
+      <text x="70" y="284" font-size="12.5" fill="#9ca3af">DEM 解释了相对 AdaKWS 增益的约六成；1:8 · −10 dB · macro F1（表 3）</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">四条可以带走的东西</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>问题定义层面</b><br><span style="color:var(--ink-2)">第一个把「类别不平衡」纳入 KWS 测试时自适应问题空间，指出并实证标准 EM 的多数类崩塌失效模式。</span></div>
+    <div class="c"><span class="n">2</span><b>解耦熵最小化</b><br><span style="color:var(--ink-2)">熵精确拆为奖励/惩罚两支，梯度余量 (1−α) 在无任何类标签前提下阻止多数类 logit 失控——可复用的解法。</span></div>
+    <div class="c"><span class="n">3</span><b>多视角一致性</b><br><span style="color:var(--ink-2)">SCE 对称交叉熵补偿 DEM 放松惩罚后的梯度波动，用梯度范数分布直接验证机制而非只看指标。</span></div>
+    <div class="c"><span class="n">4</span><b>实证完整性</b><br><span style="color:var(--ink-2)">15 个条件全最优；优势随不平衡加剧扩大（+0.67→+2.64）；macro/micro 同涨证明跷跷板被打破；代码开源。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与展望</p>
+  <h2 class="sec">1:8 离真实唤醒流还很远</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法本身的技术局限</h4>
+      <ul>
+        <li><b>余量是全局标量</b>：不区分类别，「定向保护」依赖失衡的数量驱动动力学；极端不平衡下固定余量是否够用无分析无上界。</li>
+        <li><b>温度机制实际未启用</b>：τ=1.0 使奖励支退化为标准形式——式(2)设计空间一半是死代码；无 τ/α 敏感性曲线。</li>
+        <li><b>计算开销未报告</b>：每步约四次前向（原始 + 双增强 + PKC 变换）+ 一致性反传——端侧可行性恰恰取决于此。</li>
+        <li><b>batch 128 与真流式冲突</b>：BN 统计依赖批规模，真实逐帧到达的单流从何而来未讨论。</li>
+        <li><b>六个超参靠网格搜索</b>：且依赖带标签验证环境选——已触碰 TTA「无标签」设定的边界。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>数据面单一</b>：一个数据集、三个关键词、一个骨干；「流」是对测试集重采样模拟的，不是真连续音频流。</li>
+        <li><b>不平衡上限太温和</b>：实验最极端 1:8，真实唤醒流可达数百倍——1:100 是否还成立恰是主张的试金石。</li>
+        <li><b>缺 KWS 行业指标</b>：无 FAR/FRR、DET、分关键词 F1 拆解（三词平均可能掩盖单词失效）。</li>
+        <li><b>细节存疑</b>：原文「160 ms hop」疑为 10 ms 笔误；表 1/2 满配数值有未解释出入；重复次数未报告；筛选通过率未报告。</li>
+        <li><b>基线缺 SUTA</b>：引言讨论了它，实验未纳入也未说明取舍。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:18px">
+    <b>值得跟进的方向</b>：① 自适应余量调度 α_t（按伪标签频率滑动估计做软先验，逼近类感知重加权）；② 1:50/1:100 量级 + 连续流 FAR@定召回检验；③ 小 batch / 单样本设定（GroupNorm 替代 BN）使方法真正可部署；④ 开销-收益 Pareto（「多视角一致性买来的稳定性值多少毫瓦」）；⑤ 与个性化 KWS/enrollment 结合——用户自定义唤醒词的样本更稀有，背景主导问题只会更尖锐。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2026/ImKWS_Test-Time_Adaptation_For_Keyword_Spotting_With_Class_Imbalance.md">📝 深读笔记（Markdown）</a>
+    <a class="pill" href="/papers/2026/ImKWS_Test-Time_Adaptation_For_Keyword_Spotting_With_Class_Imbalance.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2603.05821" target="_blank">🔗 arXiv:2603.05821</a>
+    <a class="pill" href="https://github.com/dhyzy123/ImKWS" target="_blank">💻 开源代码</a>
+  </div>
+  本页数字均出自论文表 1–3 与图 2–3；梯度公式的验证与「DEM 解释约六成增益」的估算为笔记分析（正文已标注）。深读笔记与可视化页同源生成，转载请注明出处。
+</footer>
+
+</div>
+</body>
+</html>
