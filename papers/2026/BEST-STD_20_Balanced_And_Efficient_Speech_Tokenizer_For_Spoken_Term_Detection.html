@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BEST-STD 2.0 · 均衡高效语音分词器 · 论文精读可视化</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink-2: #47536a; --ink-3: #8a93a5;
+    --accent: #0e8a66; --accent-soft: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font: 16px/1.75 -apple-system, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px 80px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .topbar { position: sticky; top: 0; z-index: 10; background: rgba(246,246,242,.92);
+    backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+  .topbar .in { max-width: 980px; margin: 0 auto; padding: 10px 24px;
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .topbar .site { font-weight: 700; color: var(--ink); }
+  .topbar .links { margin-left: auto; display: flex; gap: 16px; font-size: 14px; }
+  .kicker { color: var(--accent); font-size: 13px; font-weight: 700;
+    letter-spacing: .18em; text-transform: uppercase; margin: 0 0 6px; }
+  .hero h1 { font-size: 30px; line-height: 1.35; margin: 6px 0 4px; }
+  .hero .sub { font-size: 16px; color: var(--ink-2); margin: 0 0 14px; }
+  .meta { font-size: 14px; color: var(--ink-2); margin: 10px 0; }
+  .meta b { color: var(--ink); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+  .chip { background: var(--accent-soft); color: #0a6b4e; border-radius: 13px; padding: 2px 12px; font-size: 13px; }
+  .tldr { background: linear-gradient(135deg, #0e8a66 0%, #0b6e52 100%);
+    color: #fff; border-radius: 14px; padding: 20px 26px; margin: 26px 0 8px; }
+  .tldr h2 { margin: 0 0 8px; font-size: 16px; letter-spacing: .06em; }
+  .tldr li { margin: 4px 0; }
+  section { margin-top: 56px; }
+  h2.sec { font-size: 24px; margin: 0 0 4px; }
+  .sec-line { width: 44px; height: 4px; background: var(--accent); border-radius: 2px; margin: 10px 0 18px; }
+  h3 { font-size: 18px; margin: 26px 0 10px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 24px; margin: 16px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px 12px; margin: 18px 0; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  .fig .cap { font-size: 13.5px; color: var(--ink-3); margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 8px; }
+  .fig .cap b { color: var(--ink-2); }
+  .formula { background: #f9faf7; border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0;
+    padding: 12px 20px; margin: 14px 0; font-family: Georgia, "Times New Roman", serif; font-size: 17px; }
+  .formula .why { font-size: 14px; color: var(--ink-2); margin-top: 6px;
+    font-family: -apple-system, "Noto Sans SC", sans-serif; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+  table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.tbl th { text-align: left; color: var(--ink-2); font-weight: 600; border-bottom: 2px solid var(--line); padding: 8px 10px; }
+  table.tbl td { border-bottom: 1px solid var(--line); padding: 8px 10px; vertical-align: top; }
+  table.tbl td:first-child { white-space: nowrap; font-weight: 600; color: var(--ink); }
+  .contrib { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .contrib { grid-template-columns: 1fr; } }
+  .contrib .c { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .contrib .n { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: var(--accent);
+    color: #fff; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; margin-right: 8px; }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .lim { grid-template-columns: 1fr; } }
+  .lim .col { background: #fbfaf6; border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .lim h4 { margin: 0 0 8px; font-size: 15px; color: var(--warn); }
+  .lim ul { margin: 0; padding-left: 18px; }
+  .lim li { margin: 6px 0; font-size: 14.5px; color: var(--ink-2); }
+  footer { margin-top: 60px; border-top: 1px solid var(--line); padding-top: 18px; font-size: 13.5px; color: var(--ink-3); }
+  .pill-btns { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+  .pill { border: 1.5px solid var(--accent); color: var(--accent); border-radius: 18px; padding: 5px 16px; font-size: 14px; font-weight: 600; }
+  .pill:hover { background: var(--accent-soft); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2026/BEST-STD_20_Balanced_And_Efficient_Speech_Tokenizer_For_Spoken_Term_Detection.md">深读笔记</a>
+    <a href="/papers/2026/BEST-STD_20_Balanced_And_Efficient_Speech_Tokenizer_For_Spoken_Term_Detection.pdf">PDF 原稿</a>
+    <a href="https://doi.org/10.1109/icassp55912.2026.11462743" target="_blank">DOI</a>
+    <a href="https://github.com/anupsingh15/BEST-STD2.0" target="_blank">代码</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2026 №2</p>
+  <h1>BEST-STD 2.0<br>面向口语词检索的均衡高效语音分词器</h1>
+  <p class="sub">BEST-STD 2.0: Balanced and Efficient Speech Tokenizer for Spoken Term Detection</p>
+  <p class="meta"><b>作者</b>：Anup Singh, Kris Demuynck（根特大学 IDLab）；Vipul Arora（鲁汶大学 ESAT-PSI）</p>
+  <p class="meta"><b>发表</b>：ICASSP 2026 · 2026.04 · arXiv:2512.16395</p>
+  <div class="chips">
+    <span class="chip">语音分词器</span><span class="chip">QbE-STD 口语词检索</span>
+    <span class="chip">双向 Mamba</span><span class="chip">最优传输 OT</span>
+    <span class="chip">码本坍缩</span><span class="chip">TF-IDF 检索</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>任务：给一段<b>口语查询音频</b>（不转写），在大的音频库里检索包含该词的片段——开放词表，查询词可以是训练时从未见过的（OOV）。</li>
+      <li>路线：把语音离散化成「类子词」token 序列，<b>让语音检索直接复用文本检索的整套技术</b>（TF-IDF + 倒排索引 + 三级过滤）。</li>
+      <li>两个致命遗留问题的解法：token 怕噪声（一代 -5dB 一致性 0.21）→ <b>非对称增强 + 分布级一致性损失</b>，-5dB 下仍有 0.72；码本坍缩（KL 正则救不回）→ <b>最优传输边际约束</b>，4096 码字熵 0.96。</li>
+      <li>结果：-5dB 噪声 MTWV 从一代 0.27 提到 0.58（OOV 0.22→0.51），检索快约 3 倍（3.4s→1.2s）。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">把语音当文本搜：路线对，但 token 两个致命伤</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 210" role="img">
+      <!-- 查询 -->
+      <rect x="20" y="52" width="150" height="86" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <polyline points="35,95 48,88 56,102 66,84 76,100 84,86 94,104 102,82 112,98 122,88 132,102 142,90 158,94"
+        fill="none" stroke="#47536a" stroke-width="1.8"/>
+      <text x="95" y="124" text-anchor="middle" font-size="12.5" fill="#47536a">口语查询音频（无转写）</text>
+      <text x="95" y="30" text-anchor="middle" font-size="13" fill="#8a93a5">可能是训练时没见过的词（OOV）</text>
+      <line x1="170" y1="95" x2="205" y2="95" stroke="#0e8a66" stroke-width="2.5"/>
+      <polygon points="205,95 197,90 197,100" fill="#0e8a66"/>
+      <!-- 库 -->
+      <rect x="210" y="34" width="330" height="122" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="375" y="62" text-anchor="middle" font-size="15" font-weight="700" fill="#0a6b4e">语音档案库（约 100 小时）</text>
+      <g fill="#0e8a66">
+        <rect x="238" y="80" width="60" height="10" rx="3" opacity=".7"/><rect x="238" y="96" width="60" height="10" rx="3" opacity=".35"/>
+        <rect x="238" y="112" width="60" height="10" rx="3" opacity=".5"/><rect x="238" y="128" width="60" height="10" rx="3" opacity=".25"/>
+        <rect x="345" y="80" width="60" height="10" rx="3" opacity=".3"/><rect x="345" y="96" width="60" height="10" rx="3" opacity=".8"/>
+        <rect x="345" y="112" width="60" height="10" rx="3" opacity=".4"/><rect x="345" y="128" width="60" height="10" rx="3" opacity=".55"/>
+        <rect x="452" y="80" width="60" height="10" rx="3" opacity=".6"/><rect x="452" y="96" width="60" height="10" rx="3" opacity=".3"/>
+        <rect x="452" y="112" width="60" height="10" rx="3" opacity=".75"/><rect x="452" y="128" width="60" height="10" rx="3" opacity=".35"/>
+      </g>
+      <rect x="333" y="74" width="84" height="64" rx="6" fill="none" stroke="#c0392b" stroke-width="2.5" stroke-dasharray="6 4"/>
+      <line x1="540" y1="95" x2="575" y2="95" stroke="#0e8a66" stroke-width="2.5"/>
+      <polygon points="575,95 567,90 567,100" fill="#0e8a66"/>
+      <!-- 结果 -->
+      <rect x="580" y="52" width="150" height="86" rx="10" fill="#0e8a66"/>
+      <text x="655" y="90" text-anchor="middle" font-size="14.5" font-weight="700" fill="#fff">所有包含该词</text>
+      <text x="655" y="112" text-anchor="middle" font-size="14.5" font-weight="700" fill="#fff">的音频片段</text>
+      <text x="770" y="80" font-size="13" fill="#47536a">应用：语音搜索 · 海量播客/会议</text>
+      <text x="770" y="102" font-size="13" fill="#47536a">录音检索 · 媒体监测</text>
+      <text x="770" y="124" font-size="13" fill="#8a93a5">与 KWS 不同：开放词表</text>
+    </svg>
+    <p class="cap"><b>QbE-STD（以例检索式口语词检测）</b>：不经过文本转写，直接用音频查音频。查询通常又短又缺上下文——恰恰是 ASR 最容易识别错误的输入。</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h3 style="margin-top:0">三条现有路线的痛点</h3>
+      <ul>
+        <li><b>ASR 子词格</b>：级联误差——短查询转写错误直接传导进检索；HuBERT 后验在噪声+混响 -5dB 下 MTWV 仅 0.02。</li>
+        <li><b>音频模板匹配（SDTW）</b>：逐对 DTW 比较代价随库规模线性增长，无法扩展。</li>
+        <li><b>声学词嵌入</b>：训练和推理都需要精确词边界标注——真实场景里要么不存在要么代价极高。</li>
+      </ul>
+    </div>
+    <div class="card"><h3 style="margin-top:0">一代 BEST-STD 的两个致命遗留</h3>
+      <ul>
+        <li><b>token 怕噪声</b>：干净条件 Jaccard 一致性 0.72，-5dB 噪声崩到 0.21，噪声+混响崩到 0.19——基本不可用。</li>
+        <li><b>码本不均衡</b>：后置 KMeans 的归一化熵随码本增大恶化（1024→0.76，4096→0.43），token 缺乏多样性直接推高误检率。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="formula">
+    二代要同时压住四个互相牵制的目标：<b>token 噪声/混响鲁棒且说话人无关 · 码本到 4096 不坍缩 · 检索效率支撑大规模库 · OOV 与分布外噪声可泛化</b>。
+    <div class="why">牵制关系：噪声增强让嵌入空间更难学；强制码本均衡的约束可能损害与检索语义的对齐；离散化误差又会在级联检索里放大。</div>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">三段管线 + 一个自监督训练框架</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 330" role="img">
+      <!-- 段落标签 -->
+      <text x="150" y="24" text-anchor="middle" font-size="13.5" fill="#8a93a5" font-weight="600">① 前端特征</text>
+      <text x="470" y="24" text-anchor="middle" font-size="13.5" fill="#8a93a5" font-weight="600">② 编码 + 量化</text>
+      <text x="790" y="24" text-anchor="middle" font-size="13.5" fill="#8a93a5" font-weight="600">③ 索引 + 检索</text>
+
+      <!-- MFCC -->
+      <rect x="30" y="46" width="150" height="96" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="105" y="80" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">MFCC ×16</text>
+      <text x="105" y="102" text-anchor="middle" font-size="12" fill="#47536a">+ 一阶/二阶差分</text>
+      <text x="105" y="122" text-anchor="middle" font-size="11.5" fill="#8a93a5">25ms 窗 · 10ms 帧移</text>
+
+      <line x1="180" y1="94" x2="215" y2="94" stroke="#0e8a66" stroke-width="2.5"/>
+      <polygon points="215,94 207,89 207,99" fill="#0e8a66"/>
+
+      <!-- BiMamba -->
+      <rect x="220" y="46" width="170" height="96" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="305" y="76" text-anchor="middle" font-size="14" font-weight="700" fill="#0a6b4e">8 层 BiMamba</text>
+      <text x="305" y="98" text-anchor="middle" font-size="12" fill="#47536a">双向状态空间模型</text>
+      <text x="305" y="118" text-anchor="middle" font-size="11.5" fill="#5f8a76">8.1M 参数 · 线性复杂度</text>
+
+      <line x1="390" y1="94" x2="425" y2="94" stroke="#0e8a66" stroke-width="2.5"/>
+      <polygon points="425,94 417,89 417,99" fill="#0e8a66"/>
+
+      <!-- 投影 -->
+      <rect x="430" y="46" width="130" height="96" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="495" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">128 维嵌入</text>
+      <text x="495" y="100" text-anchor="middle" font-size="12" fill="#47536a">L2 归一化</text>
+      <text x="495" y="120" text-anchor="middle" font-size="11.5" fill="#8a93a5">点积 = 余弦相似度</text>
+
+      <line x1="560" y1="94" x2="595" y2="94" stroke="#0e8a66" stroke-width="2.5"/>
+      <polygon points="595,94 587,89 587,99" fill="#0e8a66"/>
+
+      <!-- VQ -->
+      <rect x="600" y="40" width="180" height="108" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="690" y="70" text-anchor="middle" font-size="14" font-weight="700" fill="#0a6b4e">VQ 向量量化</text>
+      <text x="690" y="92" text-anchor="middle" font-size="12" fill="#47536a">余弦最近邻 → 码字</text>
+      <rect x="622" y="104" width="136" height="26" rx="13" fill="#0e8a66"/>
+      <text x="690" y="121" text-anchor="middle" font-size="12" fill="#fff" font-weight="600">OT 正则 · 不坍缩码本</text>
+
+      <line x1="780" y1="94" x2="815" y2="94" stroke="#0e8a66" stroke-width="2.5"/>
+      <polygon points="815,94 807,89 807,99" fill="#0e8a66"/>
+
+      <!-- token -->
+      <rect x="820" y="56" width="84" height="76" rx="10" fill="#0e8a66"/>
+      <text x="862" y="88" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">token</text>
+      <text x="862" y="110" text-anchor="middle" font-size="12" fill="#cdeede">序列</text>
+
+      <!-- 检索层 -->
+      <rect x="600" y="186" width="304" height="118" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="752" y="212" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">当文本搜：TF-IDF + IVF-PQ 索引</text>
+      <g font-size="12.5">
+        <rect x="620" y="226" width="80" height="26" rx="13" fill="#eaf6f0" stroke="#0e8a66"/><text x="660" y="243" text-anchor="middle" fill="#0a6b4e">P1 索引召回</text>
+        <text x="708" y="243" fill="#8a93a5">→</text>
+        <rect x="722" y="226" width="76" height="26" rx="13" fill="#eaf6f0" stroke="#0e8a66"/><text x="760" y="243" text-anchor="middle" fill="#0a6b4e">P2 Jaccard</text>
+        <text x="806" y="243" fill="#8a93a5">→</text>
+        <rect x="818" y="226" width="72" height="26" rx="13" fill="#eaf6f0" stroke="#0e8a66"/><text x="854" y="243" text-anchor="middle" fill="#0a6b4e">P3 编辑距</text>
+      </g>
+      <text x="752" y="282" text-anchor="middle" font-size="11.5" fill="#8a93a5">Jaccard 快但丢时序；编辑距离补回时序，放候选集最小的最后一级</text>
+      <path d="M 862 132 L 862 186" fill="none" stroke="#0e8a66" stroke-width="2.5"/>
+      <polygon points="862,186 857,178 867,178" fill="#0e8a66"/>
+
+      <!-- 底部：训练标注 -->
+      <rect x="30" y="186" width="530" height="118" rx="12" fill="#f3ede2" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="295" y="214" text-anchor="middle" font-size="14" font-weight="700" fill="#b0631d">自监督训练（无需任何边界/噪声标注）</text>
+      <text x="50" y="240" font-size="12.5" fill="#47536a">· 同词两个说话人的发音 (u, ũ) —— 监督信号从配对里自己长出来</text>
+      <text x="50" y="262" font-size="12.5" fill="#47536a">· DTW 在干净-干净对上做帧对齐 → 帧级 anchor-positive 对</text>
+      <text x="50" y="284" font-size="12.5" fill="#47536a">· 三个损失：InfoNCE 对比 + OT 均衡量化 + 分布级鲁棒一致性</text>
+    </svg>
+    <p class="cap"><b>整体架构（论文 Fig.1）</b>：检索沿用作者 Interspeech 2025 的三级渐进过滤；库中每条音频切成 1 秒滑窗段，各自编码量化成 token 序列建索引。</p>
+  </div>
+
+  <h3>训练框架：非对称增强 + DTW 免费监督</h3>
+  <div class="fig">
+    <svg viewBox="0 0 920 300" role="img">
+      <!-- 上行：两条音频 -->
+      <rect x="30" y="30" width="200" height="66" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <polyline points="45,63 60,55 72,70 84,52 96,72 108,58 120,68 132,50 144,70 156,58 168,66 180,54 220,62"
+        fill="none" stroke="#0e8a66" stroke-width="2"/>
+      <text x="130" y="86" text-anchor="middle" font-size="12.5" fill="#0a6b4e">说话人 A 读词 w（干净，anchor）</text>
+
+      <rect x="30" y="118" width="200" height="66" rx="10" fill="#fbf3ec" stroke="#d97a2b" stroke-width="1.5"/>
+      <polyline points="45,151 60,143 72,158 84,140 96,160 108,146 120,156 132,138 144,158 156,146 168,154 180,142 220,150"
+        fill="none" stroke="#d97a2b" stroke-width="2" stroke-dasharray="5 3"/>
+      <text x="130" y="174" text-anchor="middle" font-size="12.5" fill="#b0631d">说话人 B 读词 w（更长）</text>
+
+      <line x1="230" y1="63" x2="275" y2="63" stroke="#47536a" stroke-width="2"/>
+      <polygon points="275,63 267,58 267,68" fill="#47536a"/>
+      <text x="253" y="50" text-anchor="middle" font-size="11.5" fill="#8a93a5">MFCC + Δ</text>
+
+      <!-- 噪声混响注入 -->
+      <rect x="250" y="118" width="86" height="66" rx="10" fill="#c0392b"/>
+      <text x="293" y="145" text-anchor="middle" font-size="12.5" fill="#fff" font-weight="600">加噪声 0-10dB</text>
+      <text x="293" y="165" text-anchor="middle" font-size="12.5" fill="#fff" font-weight="600">+ 混响 RIR</text>
+      <line x1="230" y1="151" x2="250" y2="151" stroke="#c0392b" stroke-width="2"/>
+      <polygon points="250,151 242,146 242,156" fill="#c0392b"/>
+      <line x1="336" y1="151" x2="376" y2="151" stroke="#c0392b" stroke-width="2"/>
+      <polygon points="376,151 368,146 368,156" fill="#c0392b"/>
+
+      <rect x="380" y="118" width="180" height="66" rx="10" fill="#fbf3ec" stroke="#d97a2b" stroke-width="1.5"/>
+      <polyline points="395,151 410,145 422,157 434,142 446,158 458,148 470,155 482,140 494,156 506,148 518,154 530,144 552,150"
+        fill="none" stroke="#c0392b" stroke-width="2" stroke-dasharray="2 2"/>
+      <text x="470" y="174" text-anchor="middle" font-size="12.5" fill="#b0631d">失真版本 ũn（positive）</text>
+
+      <!-- DTW -->
+      <rect x="300" y="26" width="260" height="66" rx="10" fill="#f3ede2" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="430" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#b0631d">DTW 干净-干净帧对齐</text>
+      <text x="430" y="74" text-anchor="middle" font-size="11.5" fill="#8a93a5">对齐集合 A → 帧级对应 (t, t̃)</text>
+      <line x1="275" y1="63" x2="300" y2="59" stroke="#47536a" stroke-width="2"/>
+      <line x1="470" y1="118" x2="440" y2="92" stroke="#d97a2b" stroke-width="2" stroke-dasharray="4 3"/>
+
+      <!-- 编码器 -->
+      <g>
+        <rect x="610" y="26" width="130" height="66" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+        <text x="675" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#0a6b4e">BiMamba</text>
+        <text x="675" y="74" text-anchor="middle" font-size="11.5" fill="#5f8a76">→ z（干净嵌入）</text>
+        <rect x="610" y="118" width="130" height="66" rx="10" fill="#fbf3ec" stroke="#c0392b" stroke-width="1.5"/>
+        <text x="675" y="144" text-anchor="middle" font-size="13" font-weight="700" fill="#a93226">BiMamba</text>
+        <text x="675" y="166" text-anchor="middle" font-size="11.5" fill="#c05b4d">→ z̃n（失真嵌入）</text>
+      </g>
+      <line x1="560" y1="59" x2="610" y2="59" stroke="#47536a" stroke-width="2"/>
+      <line x1="560" y1="151" x2="610" y2="151" stroke="#c0392b" stroke-width="2"/>
+
+      <!-- 损失 -->
+      <rect x="770" y="26" width="134" height="158" rx="12" fill="#0e8a66"/>
+      <text x="837" y="56" text-anchor="middle" font-size="13.5" font-weight="700" fill="#fff">三个损失</text>
+      <g font-size="11.8" fill="#e6f4ee">
+        <text x="786" y="84">① InfoNCE 对比</text>
+        <text x="786" y="106">　 (拉近同词 / 推开异词)</text>
+        <text x="786" y="130">② OT 均衡量化</text>
+        <text x="786" y="152">　 (码字均匀使用)</text>
+        <text x="786" y="176">③ 分布级一致性</text>
+        <text x="786" y="196">　 (干净=失真分配)</text>
+      </g>
+      <line x1="740" y1="59" x2="770" y2="80" stroke="#0e8a66" stroke-width="2"/>
+      <line x1="740" y1="151" x2="770" y2="130" stroke="#0e8a66" stroke-width="2"/>
+
+      <text x="30" y="228" font-size="13" fill="#47536a" font-weight="600">三个精心设计的「为什么」：</text>
+      <text x="30" y="252" font-size="12.5" fill="#47536a">· 只给 positive 加噪/混响 —— 失真侧被迫向干净侧对齐（显式优化失真不变性），anchor 干净避免监督信号本身被污染；</text>
+      <text x="30" y="274" font-size="12.5" fill="#47536a">· DTW 对齐在干净域做 —— 失真音频上的对齐本身有误差，干净对齐再映射，监督质量更高；训练无需任何边界标注。</text>
+    </svg>
+  </div>
+
+  <h3>数学核心：最优传输怎么「治」码本坍缩</h3>
+  <div class="formula">
+    均衡聚类目标：max<sub>{c<sub>k</sub>}</sub> Σ<sub>k</sub> E<sub>z</sub><sup>p</sup>[ p(z|c<sub>k</sub>) · s<sub>k</sub>(z) ]　　s.t.　E<sub>z</sub>[p(z|c<sub>k</sub>)] = 1/K ∀k　（s<sub>k</sub>(z) = 余弦相似度）
+    <div class="why">把样本→码字的分配看作传输问题，代价取 −s<sub>k</sub>(z)，用 Sinkhorn-Knopp 近似线性时间求解。<b>为什么 OT 能治坍缩而 KL 不能</b>：KL 正则是「软」惩罚——梯度可以被高相似度分配的收益抵消；OT 的边际约束是<b>硬约束</b>，解必须在「每个码字恰好分到 1/K 帧」的传输多面体里，码字想躺平不用，数学上直接不可行。</div>
+  </div>
+  <div class="formula">
+    鲁棒一致性损失：以干净侧 OT 软分配分布 p(z<sub>t</sub>|c<sub>k</sub>) 为「目标标签」，失真侧相似度经温度 τ′ 软化成分布做<b>双向交叉熵</b>（Eq. 6/7）。
+    <div class="why">对齐层级的选择有讲究：不对齐连续嵌入（太远），也不对齐硬 token 下标（梯度太跳），而是对齐<b>软分配分布</b>——既有码字间的相似度结构可传递梯度，又贴近检索真正使用的离散量。总损失 L = 对比 + λ₁·鲁棒 + λ₂·承诺（λ₁=1，λ₂=10，batch 96）。</div>
+  </div>
+
+  <h3>码本均衡：三方案对比（Table 3）</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 300" role="img">
+      <line x1="60" y1="235" x2="850" y2="235" stroke="#f0f1f3"/><text x="52" y="239" text-anchor="end" font-size="12" fill="#9ca3af">0.0</text>
+      <line x1="60" y1="197" x2="850" y2="197" stroke="#f0f1f3"/><text x="52" y="201" text-anchor="end" font-size="12" fill="#9ca3af">0.2</text>
+      <line x1="60" y1="159" x2="850" y2="159" stroke="#f0f1f3"/><text x="52" y="163" text-anchor="end" font-size="12" fill="#9ca3af">0.4</text>
+      <line x1="60" y1="122" x2="850" y2="122" stroke="#f0f1f3"/><text x="52" y="126" text-anchor="end" font-size="12" fill="#9ca3af">0.6</text>
+      <line x1="60" y1="84" x2="850" y2="84" stroke="#f0f1f3"/><text x="52" y="88" text-anchor="end" font-size="12" fill="#9ca3af">0.8</text>
+      <line x1="60" y1="46" x2="850" y2="46" stroke="#f0f1f3"/><text x="52" y="50" text-anchor="end" font-size="12" fill="#9ca3af">1.0</text>
+      <rect x="125" y="91" width="42" height="144" rx="4" fill="#94a3b8"/><text x="146" y="85" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">0.76</text>
+      <rect x="181" y="116" width="42" height="119" rx="4" fill="#c0392b"/><text x="202" y="110" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">0.63</text>
+      <rect x="237" y="50" width="42" height="185" rx="4" fill="#0e8a66"/><text x="258" y="44" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">0.98</text>
+      <text x="237" y="258" text-anchor="middle" font-size="14" fill="#374151" font-weight="600">1024 码字</text>
+      <rect x="345" y="112" width="42" height="123" rx="4" fill="#94a3b8"/><text x="366" y="106" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">0.65</text>
+      <rect x="401" y="140" width="42" height="94" rx="4" fill="#c0392b"/><text x="422" y="134" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">0.50</text>
+      <rect x="457" y="52" width="42" height="183" rx="4" fill="#0e8a66"/><text x="478" y="46" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">0.97</text>
+      <text x="457" y="258" text-anchor="middle" font-size="14" fill="#374151" font-weight="600">2048 码字</text>
+      <rect x="565" y="154" width="42" height="81" rx="4" fill="#94a3b8"/><text x="586" y="148" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">0.43</text>
+      <rect x="621" y="163" width="42" height="72" rx="4" fill="#c0392b"/><text x="642" y="157" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">0.38</text>
+      <rect x="677" y="54" width="42" height="181" rx="4" fill="#0e8a66"/><text x="698" y="48" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">0.96</text>
+      <text x="677" y="258" text-anchor="middle" font-size="14" fill="#374151" font-weight="600">4096 码字</text>
+      <line x1="60" y1="235" x2="850" y2="235" stroke="#9ca3af"/>
+      <rect x="150" y="20" width="13" height="13" rx="3" fill="#94a3b8"/><text x="169" y="31" font-size="12.5" fill="#374151">一代 KMeans（后置聚类）</text>
+      <rect x="380" y="20" width="13" height="13" rx="3" fill="#c0392b"/><text x="399" y="31" font-size="12.5" fill="#374151">KL 正则可学习码本（实际坍缩）</text>
+      <rect x="630" y="20" width="13" height="13" rx="3" fill="#0e8a66"/><text x="649" y="31" font-size="12.5" fill="#374151">OT 正则（本文）</text>
+      <text x="30" y="288" font-size="13" fill="#6b7280">归一化熵（Eq.10，越接近 1 越均衡）：OT 版 4096 码字仅从 0.98 掉到 0.96——几乎不随码本规模衰减</text>
+    </svg>
+    <p class="cap"><b>KL 救不回来、OT 站得稳</b>：wav2vec 2.0 式 KL 正则码本「做了大量优化努力」仍坍缩（红条），码字越多越狠；OT 硬边际约束下熵稳定在 0.96+，支撑「可学习大码本」的主张。</p>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">把干净条件的性能搬到 −5dB 噪声下</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>设置</b>：训练 LibriSpeech train-clean-360；检索库 train-clean-100 约 100 小时（评测说话人未在训练出现）。噪声/RIR：训练用 MUSAN，评测用 ETSI 噪声库 + 亚琛 RIR——<b>训练与评测的噪声源完全不同</b>，避免同源污染。训练混噪 0-10dB 采样；评测下探 −5dB（分布外）。查询集 IV / OOV 各 100 个唯一术语。
+  </div>
+
+  <h3>Token 一致性：同一个词，谁说、什么环境，token 都得稳（Table 1）</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 330" role="img">
+      <text x="30" y="24" font-size="13.5" fill="#47536a" font-weight="600">同词跨说话人 token 的 Jaccard 一致性（5000 对，越高越好）</text>
+      <line x1="80" y1="255" x2="860" y2="255" stroke="#f0f1f3"/><text x="72" y="259" text-anchor="end" font-size="12" fill="#9ca3af">0.0</text>
+      <line x1="80" y1="213" x2="860" y2="213" stroke="#f0f1f3"/><text x="72" y="217" text-anchor="end" font-size="12" fill="#9ca3af">0.2</text>
+      <line x1="80" y1="171" x2="860" y2="171" stroke="#f0f1f3"/><text x="72" y="175" text-anchor="end" font-size="12" fill="#9ca3af">0.4</text>
+      <line x1="80" y1="130" x2="860" y2="130" stroke="#f0f1f3"/><text x="72" y="134" text-anchor="end" font-size="12" fill="#9ca3af">0.6</text>
+      <line x1="80" y1="88" x2="860" y2="88" stroke="#f0f1f3"/><text x="72" y="92" text-anchor="end" font-size="12" fill="#9ca3af">0.8</text>
+      <line x1="80" y1="46" x2="860" y2="46" stroke="#f0f1f3"/><text x="72" y="50" text-anchor="end" font-size="12" fill="#9ca3af">1.0</text>
+      <text x="260" y="48" text-anchor="middle" font-size="14.5" font-weight="700" fill="#111827">干净条件</text>
+      <rect x="130" y="75" width="40" height="180" rx="4" fill="#0e8a66"/><text x="150" y="69" text-anchor="middle" font-size="12" font-weight="600" fill="#374151">0.86</text>
+      <rect x="182" y="105" width="40" height="150" rx="4" fill="#94a3b8"/><text x="202" y="99" text-anchor="middle" font-size="12" font-weight="600" fill="#374151">0.72</text>
+      <rect x="234" y="105" width="40" height="150" rx="4" fill="#d97a2b"/><text x="254" y="99" text-anchor="middle" font-size="12" font-weight="600" fill="#374151">0.72</text>
+      <rect x="286" y="102" width="40" height="153" rx="4" fill="#e8a87c"/><text x="306" y="96" text-anchor="middle" font-size="12" font-weight="600" fill="#374151">0.73</text>
+      <rect x="338" y="161" width="40" height="94" rx="4" fill="#c0392b"/><text x="358" y="155" text-anchor="middle" font-size="12" font-weight="600" fill="#374151">0.45</text>
+      <text x="640" y="48" text-anchor="middle" font-size="14.5" font-weight="700" fill="#111827">噪声 + 混响 −5dB</text>
+      <rect x="510" y="128" width="40" height="127" rx="4" fill="#0e8a66"/><text x="530" y="122" text-anchor="middle" font-size="12" font-weight="600" fill="#374151">0.61</text>
+      <rect x="562" y="215" width="40" height="40" rx="4" fill="#94a3b8"/><text x="582" y="209" text-anchor="middle" font-size="12" font-weight="600" fill="#374151">0.19</text>
+      <rect x="614" y="146" width="40" height="109" rx="4" fill="#d97a2b"/><text x="634" y="140" text-anchor="middle" font-size="12" font-weight="600" fill="#374151">0.52</text>
+      <rect x="666" y="205" width="40" height="50" rx="4" fill="#e8a87c"/><text x="686" y="199" text-anchor="middle" font-size="12" font-weight="600" fill="#374151">0.24</text>
+      <rect x="718" y="249" width="40" height="6" rx="4" fill="#c0392b"/><text x="738" y="243" text-anchor="middle" font-size="12" font-weight="600" fill="#374151">0.03</text>
+      <line x1="80" y1="255" x2="860" y2="255" stroke="#9ca3af"/>
+      <rect x="110" y="292" width="13" height="13" rx="3" fill="#0e8a66"/><text x="129" y="303" font-size="12.5" fill="#374151">BEST-STD 2.0</text>
+      <rect x="270" y="292" width="13" height="13" rx="3" fill="#94a3b8"/><text x="289" y="303" font-size="12.5" fill="#374151">一代</text>
+      <rect x="360" y="292" width="13" height="13" rx="3" fill="#d97a2b"/><text x="379" y="303" font-size="12.5" fill="#374151">WavLM 后验</text>
+      <rect x="500" y="292" width="13" height="13" rx="3" fill="#e8a87c"/><text x="519" y="303" font-size="12.5" fill="#374151">HuBERT 后验</text>
+      <rect x="640" y="292" width="13" height="13" rx="3" fill="#c0392b"/><text x="659" y="303" font-size="12.5" fill="#374151">SpeechTokenizer</text>
+      <text x="30" y="325" font-size="12.5" fill="#9ca3af">参照单点：二代噪声 −5dB（无混响）0.72 —— 恰好等于一代干净条件的 0.72；纯噪声 −5→15dB 全谱：0.72 / 0.78 / 0.81 / 0.83 / 0.84</text>
+    </svg>
+    <p class="cap"><b>读法</b>：二代在噪声+混响 −5dB 的 0.61 是全场最高；更关键的是纯噪声 −5dB 的 0.72 = 一代干净水平——<b>等于把一代的干净性能原样搬到 −5dB</b>。二代 token 甚至超过用超大数据做过噪声鲁棒训练的 WavLM 后验。</p>
+  </div>
+
+  <h3>检索性能：MTWV 曲线（Table 2）</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 340" role="img">
+      <text x="80" y="34" font-size="13.5" fill="#47536a" font-weight="600">LibriSpeech 词内（IV）检索 MTWV（圆点 = 二代，方块 = 一代）</text>
+      <line x1="80" y1="265" x2="840" y2="265" stroke="#f0f1f3"/><text x="72" y="269" text-anchor="end" font-size="12" fill="#9ca3af">0.0</text>
+      <line x1="80" y1="222" x2="840" y2="222" stroke="#f0f1f3"/><text x="72" y="226" text-anchor="end" font-size="12" fill="#9ca3af">0.2</text>
+      <line x1="80" y1="179" x2="840" y2="179" stroke="#f0f1f3"/><text x="72" y="183" text-anchor="end" font-size="12" fill="#9ca3af">0.4</text>
+      <line x1="80" y1="136" x2="840" y2="136" stroke="#f0f1f3"/><text x="72" y="140" text-anchor="end" font-size="12" fill="#9ca3af">0.6</text>
+      <line x1="80" y1="93" x2="840" y2="93" stroke="#f0f1f3"/><text x="72" y="97" text-anchor="end" font-size="12" fill="#9ca3af">0.8</text>
+      <text x="80" y="288" text-anchor="middle" font-size="12.5" fill="#9ca3af">−5 dB</text>
+      <text x="232" y="288" text-anchor="middle" font-size="12.5" fill="#9ca3af">0 dB</text>
+      <text x="384" y="288" text-anchor="middle" font-size="12.5" fill="#9ca3af">5 dB</text>
+      <text x="536" y="288" text-anchor="middle" font-size="12.5" fill="#9ca3af">10 dB</text>
+      <text x="688" y="288" text-anchor="middle" font-size="12.5" fill="#9ca3af">15 dB</text>
+      <text x="840" y="288" text-anchor="middle" font-size="12.5" fill="#9ca3af">20 dB</text>
+      <text x="460" y="312" text-anchor="middle" font-size="13" fill="#6b7280">评测信噪比（训练只在 0–10dB 采样；−5dB 是分布外泛化）</text>
+      <polyline points="80,140 232,127 384,110 536,104 688,99 840,99" fill="none" stroke="#0e8a66" stroke-width="3"/>
+      <circle cx="80" cy="140" r="5.5" fill="#0e8a66"/><circle cx="232" cy="127" r="5.5" fill="#0e8a66"/><circle cx="384" cy="110" r="5.5" fill="#0e8a66"/><circle cx="536" cy="104" r="5.5" fill="#0e8a66"/><circle cx="688" cy="99" r="5.5" fill="#0e8a66"/><circle cx="840" cy="99" r="5.5" fill="#0e8a66"/>
+      <polyline points="80,168 232,151 384,134 536,121 688,119 840,119" fill="none" stroke="#7cc7ad" stroke-width="3"/>
+      <circle cx="80" cy="168" r="5.5" fill="#7cc7ad"/><circle cx="232" cy="151" r="5.5" fill="#7cc7ad"/><circle cx="384" cy="134" r="5.5" fill="#7cc7ad"/><circle cx="536" cy="121" r="5.5" fill="#7cc7ad"/><circle cx="688" cy="119" r="5.5" fill="#7cc7ad"/><circle cx="840" cy="119" r="5.5" fill="#7cc7ad"/>
+      <polyline points="80,207 232,190 384,173 536,158 688,142 840,132" fill="none" stroke="#94a3b8" stroke-width="3"/>
+      <rect x="75" y="202" width="10" height="10" fill="#94a3b8" rx="2"/><rect x="227" y="185" width="10" height="10" fill="#94a3b8" rx="2"/><rect x="379" y="168" width="10" height="10" fill="#94a3b8" rx="2"/><rect x="531" y="152" width="10" height="10" fill="#94a3b8" rx="2"/><rect x="683" y="137" width="10" height="10" fill="#94a3b8" rx="2"/><rect x="835" y="127" width="10" height="10" fill="#94a3b8" rx="2"/>
+      <polyline points="80,226 232,209 384,192 536,179 688,166 840,155" fill="none" stroke="#c9ced6" stroke-width="3"/>
+      <rect x="75" y="221" width="10" height="10" fill="#c9ced6" rx="2"/><rect x="227" y="204" width="10" height="10" fill="#c9ced6" rx="2"/><rect x="379" y="187" width="10" height="10" fill="#c9ced6" rx="2"/><rect x="531" y="174" width="10" height="10" fill="#c9ced6" rx="2"/><rect x="683" y="161" width="10" height="10" fill="#c9ced6" rx="2"/><rect x="835" y="150" width="10" height="10" fill="#c9ced6" rx="2"/>
+      <line x1="170" y1="207" x2="94" y2="207" stroke="#c0392b" stroke-dasharray="4 3"/>
+      <text x="176" y="197" font-size="13" fill="#c0392b" font-weight="700">−5dB：0.27 → 0.58</text>
+      <text x="176" y="215" font-size="12" fill="#c0392b">OOV 同条件 0.22 → 0.51</text>
+      <line x1="560" y1="62" x2="586" y2="62" stroke="#0e8a66" stroke-width="4"/><text x="594" y="66" font-size="12.5" fill="#374151">2.0 · 噪声</text>
+      <line x1="560" y1="84" x2="586" y2="84" stroke="#7cc7ad" stroke-width="4"/><text x="594" y="88" font-size="12.5" fill="#374151">2.0 · 噪声+混响</text>
+      <line x1="560" y1="106" x2="586" y2="106" stroke="#94a3b8" stroke-width="4"/><text x="594" y="110" font-size="12.5" fill="#374151">一代 · 噪声</text>
+      <line x1="560" y1="128" x2="586" y2="128" stroke="#c9ced6" stroke-width="4"/><text x="594" y="132" font-size="12.5" fill="#374151">一代 · 噪声+混响</text>
+    </svg>
+    <p class="cap"><b>关键读数</b>：−5dB 噪声 IV 从 0.27 → 0.58（翻倍有余）；混响 −5dB 从 0.18 → 0.45。基线在混响下的崩溃更直观：HuBERT 后验 0.02、SpeechTokenizer 0.03、WavLM 后验 0.11，本文 0.45。TIMIT 跨库同趋势（IV −5dB 0.60 vs 一代 0.29）。OOV 的强势被用来论证 token 的<b>组合性</b>：未见过的词由已学到的类子词单元组合出来。</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h3 style="margin-top:0">效率：约 3 倍加速</h3>
+      <p>Xeon Platinum 8268 内存检索，top-10 平均耗时：<b style="color:var(--accent)">1.2 秒</b>（TF-IDF + IVF-PQ 三级过滤）vs 一代 <b style="color:var(--warn)">3.4 秒</b>（倒排索引）——精度不降。</p>
+    </div>
+    <div class="card"><h3 style="margin-top:0">编码器消融（内嵌对照）</h3>
+      <p>同框架同规模的 Transformer 全面落后 BiMamba（干净 0.78 vs 0.86，混响 −5dB 0.57 vs 0.61；MTWV 混响 IV −5dB 0.41 vs 0.45）——但 Transformer 版也远强于一代（0.41 vs 0.18），说明<b>收益不全来自架构</b>。作者归因：旋转位置编码捕捉了不必要的时间变化，BiMamba 线性处理时序更有效。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">五条可以带走的东西</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>噪声混响增强的自监督训练框架</b><br><span style="color:var(--ink-2)">DTW 帧对齐当免费监督 + 非对称增强（anchor 干净 / positive 失真），无任何标注产出说话人无关、噪声鲁棒的 token：-5dB 一致性 0.21 → 0.72。</span></div>
+    <div class="c"><span class="n">2</span><b>最优传输治码本坍缩</b><br><span style="color:var(--ink-2)">token 学习重构为带均匀边际约束的均衡聚类，Sinkhorn-Knopp 求解；熵 0.98/0.97/0.96（1024→4096 码字），在 KL 失败的地方站稳。</span></div>
+    <div class="c"><span class="n">3</span><b>分布级噪声鲁棒损失</b><br><span style="color:var(--ink-2)">以 OT 软分配为目标分布的双向交叉熵——「失真帧与干净帧落同一码字」成为显式优化目标，与 InfoNCE 分工互补。</span></div>
+    <div class="c"><span class="n">4</span><b>TF-IDF 三级渐进检索</b><br><span style="color:var(--ink-2)">索引召回 → Jaccard → 编辑距离的级联过滤 + IVF-PQ，top-10 检索 3.4s → 1.2s（≈3×），全条件 MTWV 超越基线。</span></div>
+    <div class="c"><span class="n">5</span><b>范式主张：token 化语音表示</b><br><span style="color:var(--ink-2)">让口语内容检索直接复用文本检索的索引与搜索技术，弥合语音检索与 NLP 的方法论鸿沟。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与展望</p>
+  <h2 class="sec">审稿人视角的攻击面</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法本身的技术局限</h4>
+      <ul>
+        <li><b>训练噪声范围有限</b>：只 0-10dB 采样，-10dB 级未验证；混响只评 t60=0.7s 一档。</li>
+        <li><b>OT 开销未报告</b>：每 batch 跑 Sinkhorn 的训练时间增幅、迭代次数、熵正则系数都没给；batch 96 + 4096 码字下边际约束的统计稳定性存疑。</li>
+        <li><b>手工特征前端</b>：16 维 MFCC + 差分；「SSL 特征 + 本框架」的组合空间未检验。</li>
+        <li><b>训练-推理不一致</b>：训练用 OT 软分配监督，推理 VQ 用硬最近邻——量化间隙未分析。</li>
+        <li><b>三级过滤无同义容错</b>：token 一致性未达 1.0 的残余误差（干净 0.86）直接漏进检索误差。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>消融不进正文</b>：三个损失的分量贡献、超参敏感性全部放项目网页——论文本体无法验证「每个组件各贡献多少」。</li>
+        <li><b>查询集偏小</b>：IV / OOV 各 100 个术语，无置信区间。</li>
+        <li><b>单语言朗读语音</b>：自称 language-agnostic 的系列工作却无跨语言实验；自发口语、电话信道未覆盖。</li>
+        <li><b>仿真失真</b>：噪声/混响为事后混合仿真，无真实远场录音验证。</li>
+        <li><b>可扩展性未到头</b>：100 小时库、内存索引测的延迟；千小时级 IVF-PQ 表现未报告——而这正是核心主张。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:18px">
+    <b>值得跟进的方向</b>：① 训练噪声下界扩到 -5dB 以下、混响分档、真实远场/电话数据；② 数百到数千小时库上验证 IVF-PQ 延迟与召回曲线；③ RVQ 残差堆栈 + 逐层 OT 约束的层级码本；④ 引入文本侧监督（音素后验蒸馏）增强 OOV 组合性与跨语言迁移；⑤ BiMamba 线性复杂度对流式编码友好——1 秒分段帧级 hop 的索引增量更新是走向智能音箱实时检索的必经之路。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2026/BEST-STD_20_Balanced_And_Efficient_Speech_Tokenizer_For_Spoken_Term_Detection.md">📝 深读笔记（Markdown）</a>
+    <a class="pill" href="/papers/2026/BEST-STD_20_Balanced_And_Efficient_Speech_Tokenizer_For_Spoken_Term_Detection.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2512.16395" target="_blank">🔗 arXiv:2512.16395</a>
+    <a class="pill" href="https://github.com/anupsingh15/BEST-STD2.0" target="_blank">💻 开源代码</a>
+  </div>
+  本页所有数字均出自论文 Table 1–3 与 4.3 节（检索延迟）；「为什么 OT 能治坍缩」的直观解释综合自论文 2.2 节论述。深读笔记与可视化页同源生成，转载请注明出处。
+</footer>
+
+</div>
+</body>
+</html>
