@@ -11,7 +11,7 @@
       /* docsify rewrites sidebar anchor hrefs at render time, so parse the
        * _sidebar.md source instead — links there keep the #/papers/... form */
       fetch('/_sidebar.md').then(function (r) { return r.text(); }).then(function (md) {
-        var seen = {}, paths = [], re = /\(#\/(papers\/[^)#\s]+)\)/g, m;
+        var seen = {}, paths = [], re = /\((?!#)(papers\/[^)#\s]+)\)/g, m;
         while ((m = re.exec(md))) {
           if (!seen[m[1]]) { seen[m[1]] = 1; paths.push(m[1]); }
         }
