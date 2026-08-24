@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iPhonMatchNet · 隐式回声消除零样本 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2023/IPhonMatchNet_Zero-Shot_User-Defined_Keyword_Spotting_Using_Implicit_Acoustic_Echo_Cancellation.md">深读笔记</a>
+    <a href="/papers/2023/IPhonMatchNet_Zero-Shot_User-Defined_Keyword_Spotting_Using_Implicit_Acoustic_Echo_Cancellation.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2309.06096" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2023 №15</p>
+  <h1>设备自己播放「Hey Siri」自己被唤醒——级联 AEC 救不了，<br>内嵌一个 0.8K 参数的卷积掩码：自参考误触发降 96–99.8%</h1>
+  <p class="sub">iPhonMatchNet: Zero-Shot User-Defined Keyword Spotting Using Implicit Acoustic Echo Cancellation</p>
+  <p class="meta"><b>作者</b>：Yong-Hyeok Lee、Namhyun Cho —— NCSOFT 语音 AI 实验室（韩国）</p>
+  <p class="meta"><b>发表</b>：arXiv 2309.06096（2023-09）· 前身 PhonMatchNet + 0.13% 参数 · 数据脚本开源</p>
+  <div class="chips">
+    <span class="chip">打断（barge-in）场景</span><span class="chip">自参考误触发</span><span class="chip">隐式 AEC（无干净目标）</span>
+    <span class="chip">卷积掩码 vs dense 掩码</span><span class="chip">自参考 MAE 降 ~95%</span><span class="chip">级联 NLMS 被证伪</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>自参考问题的物理根源</b>：打断场景（用户说话同时设备在播放）里麦克风离扬声器远比离嘴近——回声对 KWS 的破坏远超一般噪声。极端情形是<b>自参考</b>：设备自己生成并播放「Hey Siri」提示音，KWS 应当保持沉默，但只看麦克风的模型几乎必然误触发（自己唤醒自己）。</li>
+      <li><b>级联 AEC 被实验证伪（最有工程价值的否定性证据）</b>：把 NLMS 自适应滤波器接到基线前面——音乐 / 语音播放场景无显著改善，自参考场景 MAE 只从 73.97–85.40% 降到 69.86–72.91%（平均输出仍 0.7+，逢播必触发）。机理：<b>AEC 滤不净的残差回声照样被 KWS 检测到</b>；更尖锐的推论——如果改进方向是让 UDKWS 对带噪语音更宽容，反而可能让自参考更糟。</li>
+      <li><b>方案：隐式 iAEC（唯一结构增量 = Refiner）</b>：共享音频编码器产两路 128 维嵌入（同空间是逐帧掩码乘法的前提）→ <b>Refiner 用两路嵌入生成掩码乘到混合嵌入上</b> → 增强嵌入进继承自前身 PhonMatchNet 的提取器 + 双粒度判别器。除 Refiner 外全部结构与超参不变——升级近乎零成本，性能差异干净归因到单模块。</li>
+      <li><b>Mask C vs Mask D（核心消融）</b>：前作的 dense 掩码（拼接 256 维 → Dense → sigmoid）是<b>逐帧线性映射</b>——播放信号带传播延迟重入（第 t 帧麦克风嵌入混的是第 t−k 帧的回声），dense 只能看同帧两路嵌入，天然对不上号。本文 Mask C 把两路嵌入堆叠成 2 通道「图像」，3 层 3×3 Conv2D（8→8→1 通道）在时间-嵌入平面联合滑动——<b>隐式滑窗配准</b>。参数 C≈0.8K vs D≈33K（差 40 倍），C 全面胜出——<b>「能否跨时间配准」比「容量大小」重要得多</b>。</li>
+      <li><b>隐式训练（无干净目标的自设限）</b>：掩码全程无显式监督（无理想比值掩码标签、无干净语音回归）——回声消除能力完全由端到端检测损失反推。成立前提是双粒度判别头提供密监督：<b>音素级损失把梯度压到帧粒度</b>（迫使掩码分辨每帧能量属于回声里的哪个音素）——判别器反哺增强器。自设限：手里有干净语音也不用——真实设备只能拿到两路信号，训练与部署条件严格对齐。</li>
+      <li><b>结果（自参考主战场）</b>：基线 MAE（= 真值全 0 时的平均输出 = 误触发强度）73.97–85.40% → Mask C 压到 <b>0.13–3.11%</b>（相对降幅 96.4–99.8%）；模型只增大 0.13%（655K→656K）。播放音乐 AUC +3~6 点、播放语音 AUC +7~10 点（语音回放提升更大但绝对性能仍最差——LPH EER 32.79%）。</li>
+      <li><b>代价</b>：无播放场景小幅一致回退（EER +1 点量级，LPE 反而改善）——引入回放通路的必要代价；<b>高相关回放的绝对性能仍不堪用</b>（用户在设备播报语音时喊唤醒词三次漏一次量级）——学会「回声不是唤醒」也让模型在真唤醒与回声高度相似时变得谨慎。</li>
+      <li><b>边界</b>：卷积感受野与 0.1s 延迟上界的匹配无法核算（<b>未报告嵌入帧率</b>，0.1s 折多少帧无从算、无感受野消融）；线性 RIR 仿真（扬声器 / 麦克风非线性、AGC、编解码链路全未覆盖、无真实设备录音）；<b>按测试集性能选模型</b>（无独立验证集——数量级结论难翻案但 1 点量级对比经不起推敲）；无运行方差；无推理计算量 / 时延（GRU+自注意力能否流式化未讨论——参数量小不等于算得快）；隐含部署前提（软件层能回采 audio-out）；无外部 SOTA 对比。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">四条互相牵制的目标</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>设计空间</b>：回声消除隐式嵌入 KWS 且参数代价可忽略（端侧常驻预算）；自参考场景平均输出从 0.7–0.85 压到接近零（「准」的一票否决项）；训练全程不用干净目标信号（匹配真实设备条件——只能拿到两路信号）；不为抗回声做坏无回声场景（只允许极小回退）。四条合起来决定方案必须是「在既有高效模型里嵌入一个<b>极小的、时延感知的、无需显式监督的掩码模块</b>」，而不是外挂 AEC 前端。QbE 路线的注册不便已由零样本 UDKWS（文本注册）解决——但它们只接受麦克风单路输入，重叠场景立即退化。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">AEC 不是独立任务，是 KWS 判别的内部步骤</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg viewBox="0 0 920 700" role="img">
+  <defs>
+    <marker id="wa2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#47536a"/></marker>
+    <marker id="wg2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0e8a66"/></marker>
+  </defs>
+  <text x="30" y="26" font-size="13.5" fill="#47536a" font-weight="600">图 1 复绘：除 Refiner 外全部继承前身 PhonMatchNet——升级路径几乎零成本，「去回声」成为 KWS 判别的内部步骤</text>
+
+  <!-- inputs -->
+  <rect x="30" y="56" width="200" height="66" rx="10" fill="#fbf2f0" stroke="#c9a08e" stroke-width="1.2"/>
+  <text x="130" y="80" text-anchor="middle" font-size="11.5" font-weight="700" fill="#8c3b2e">麦克风混合信号</text>
+  <text x="130" y="100" text-anchor="middle" font-size="10" fill="#47536a">用户语音 + 设备回声重叠</text>
+  <rect x="30" y="136" width="200" height="66" rx="10" fill="#fdf7f0" stroke="#e0bc94" stroke-width="1.2"/>
+  <text x="130" y="160" text-anchor="middle" font-size="11.5" font-weight="700" fill="#a35c14">设备播放信号（audio-out）</text>
+  <text x="130" y="180" text-anchor="middle" font-size="10" fill="#47536a">软件层回采的参考信号</text>
+  <rect x="30" y="216" width="200" height="56" rx="10" fill="#f2faf6" stroke="#9ec9b8" stroke-width="1.2"/>
+  <text x="130" y="240" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0a6b4e">关键词文本</text>
+  <text x="130" y="260" text-anchor="middle" font-size="10" fill="#47536a">零样本：打字即注册</text>
+
+  <!-- shared encoder -->
+  <rect x="270" y="76" width="230" height="130" rx="11" fill="#eaf3fc" stroke="#3d6fa8" stroke-width="1.3"/>
+  <text x="385" y="100" text-anchor="middle" font-size="12" font-weight="700" fill="#2a5580">共享音频编码器（两路共用）★</text>
+  <text x="385" y="124" text-anchor="middle" font-size="10" fill="#47536a">预训练语音嵌入器（通用发音）</text>
+  <text x="385" y="144" text-anchor="middle" font-size="10" fill="#47536a">+ 全可训练提取器（特殊发音/信道）</text>
+  <text x="385" y="164" text-anchor="middle" font-size="10" fill="#0a6b4e">→ 1D 转置卷积上采样 → 128 维</text>
+  <text x="385" y="190" text-anchor="middle" font-size="9.5" fill="#8a93a5">共享 = 两路嵌入同一几何空间——</text>
+  <text x="385" y="204" text-anchor="middle" font-size="9.5" fill="#8a93a5">逐帧掩码乘法才有几何意义</text>
+  <line x1="230" y1="89" x2="266" y2="120" stroke="#47536a" stroke-width="1.4" marker-end="url(#wa2)"/>
+  <line x1="230" y1="169" x2="266" y2="160" stroke="#47536a" stroke-width="1.4" marker-end="url(#wa2)"/>
+
+  <!-- refiner -->
+  <rect x="540" y="66" width="350" height="150" rx="12" fill="#e6f4ee" stroke="#0e8a66" stroke-width="1.5"/>
+  <text x="715" y="90" text-anchor="middle" font-size="12" font-weight="700" fill="#0a6b4e">Refiner（唯一增量 · 式外机制）★</text>
+  <text x="556" y="114" font-size="10.5" fill="#47536a">Ea = Em ⊙ M，M = σ(f(Em, Ep))——掩码逐元素乘到混合嵌入上</text>
+  <text x="556" y="138" font-size="10.5" fill="#8c3b2e">Mask D（前作）：拼接 256 维 → Dense → sigmoid（逐帧线性，对不上延迟帧）</text>
+  <text x="556" y="160" font-size="10.5" fill="#0a6b4e">Mask C（本文）：堆叠 2 通道 → 3×Conv2D(8@3×3) → sigmoid（Ta×128）</text>
+  <text x="556" y="182" font-size="10.5" fill="#0a6b4e">3×3 卷积核覆盖相邻时间帧——隐式滑窗配准，解释传播延迟</text>
+  <text x="556" y="204" font-size="10" fill="#8a93a5">参数：C ≈ 0.8K vs D ≈ 33K（差 40 倍）——嵌入域 128 维远低于频谱，掩码可极小</text>
+  <line x1="500" y1="120" x2="536" y2="120" stroke="#0e8a66" stroke-width="1.5" marker-end="url(#wg2)"/>
+
+  <!-- text encoder + extractor -->
+  <rect x="270" y="226" width="230" height="60" rx="10" fill="#f2faf6" stroke="#9ec9b8" stroke-width="1.2"/>
+  <text x="385" y="248" text-anchor="middle" font-size="11" font-weight="700" fill="#0a6b4e">文本编码器：G2P + FC/ReLU</text>
+  <text x="385" y="268" text-anchor="middle" font-size="9.5" fill="#8a93a5">文本 → 音素序列嵌入 Et（Tt×128）</text>
+  <line x1="230" y1="244" x2="266" y2="252" stroke="#47536a" stroke-width="1.4" marker-end="url(#wa2)"/>
+
+  <rect x="540" y="240" width="350" height="110" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.2"/>
+  <text x="715" y="264" text-anchor="middle" font-size="12" font-weight="700" fill="#47536a">模式提取器 + 判别器（继承前身）</text>
+  <text x="556" y="288" font-size="10.5" fill="#47536a">提取器：Ea 与 Et 沿时间拼接 → 缩放点积自注意力（下三角因果掩码）</text>
+  <text x="556" y="310" font-size="10.5" fill="#47536a">判别器：GRU(128) 句级匹配概率 + 音素级全连接概率（双粒度头）</text>
+  <text x="556" y="334" font-size="10.5" fill="#0a6b4e">音素级头是掩码质量的最直接监督者——判别器反哺增强器</text>
+
+  <!-- self-ref example -->
+  <rect x="30" y="306" width="480" height="120" rx="11" fill="#fdf7f0" stroke="#e0bc94" stroke-width="1.2"/>
+  <text x="46" y="330" font-size="12" font-weight="700" fill="#a35c14">贯穿示例（任务的微妙之处）</text>
+  <text x="46" y="354" font-size="10.5" fill="#47536a">用户说 "Hallow"（HH, AE1, L, OW0）· 设备播 "Hello"（HH, EH1, L, OW0）· 注册 "Hello"</text>
+  <text x="46" y="376" font-size="10.5" fill="#8c3b2e">混合信号里两个词音素序列高度重叠，只有中间元音不同——</text>
+  <text x="46" y="396" font-size="10.5" fill="#8c3b2e">逐帧掩码配不准时间，归属就出错（用户 vs 设备的声学成分分配）</text>
+  <text x="46" y="418" font-size="10" fill="#8a93a5">麦克风离扬声器远比离嘴近——回声对 KWS 的破坏远超一般噪声</text>
+
+  <!-- implicit training -->
+  <rect x="30" y="442" width="860" height="110" rx="11" fill="#f9faf7" stroke="#e6e6df" stroke-width="1.1"/>
+  <text x="46" y="466" font-size="12" font-weight="700" fill="#47536a">隐式 iAEC 训练（无干净目标的自设限）</text>
+  <text x="46" y="492" font-size="10.5" fill="#47536a">掩码 M 全程无显式监督——无理想比值掩码标签、无干净语音回归目标；回声消除能力完全由端到端检测损失反推</text>
+  <text x="46" y="514" font-size="10.5" fill="#0a6b4e">成立前提：双粒度判别头提供密监督——音素级损失把梯度压到帧粒度（迫使掩码分辨每帧能量属于回声里的哪个音素）</text>
+  <text x="46" y="538" font-size="10.5" fill="#47536a">自设限：手里有干净语音也不用——真实设备只能拿到两路信号；训练条件与部署条件严格对齐</text>
+
+  <!-- simulation params -->
+  <rect x="30" y="568" width="860" height="112" rx="11" fill="#eaf3fc" stroke="#3d6fa8" stroke-width="1.1"/>
+  <text x="46" y="592" font-size="12" font-weight="700" fill="#2a5580">仿真参数（pyroomacoustics · 脚本开源）</text>
+  <text x="46" y="618" font-size="10.5" fill="#47536a">房间 10–50m² · 层高 2.5–5m · 混响 RT60 0.2–0.6s · 传播延迟 0.01–0.1s · <tspan font-weight="700" fill="#8c3b2e">信干比 −12 ~ +3dB</tspan></text>
+  <text x="46" y="642" font-size="10.5" fill="#47536a">−12dB = 播放音比用户语音高约 4 倍振幅——扬声器贴着麦克风、用户隔着房间说话的真实几何</text>
+  <text x="46" y="666" font-size="10.5" fill="#8a93a5">四场景：无播放 / 播音乐（MUSAN）/ 播语音（MUSAN）/ 自参考（播放 = 目标语音，即手机自己播 Hey Siri）</text>
+</svg>
+    <p class="cap"><b>图 1 复绘</b>：共享编码器（两路同空间）是掩码机制的先决条件；嵌入域 128 维远低于频谱——掩码可极小的结构性原因；音素级判别头是掩码质量的最直接监督者。</p>
+  </div>
+
+  <div class="formula">
+    Ea = Em ⊙ M，M = σ(f(Em, Ep))；&nbsp; Mask C：f = Conv2D(8@3×3) → ReLU → Conv2D(8@3×3) → ReLU → Conv2D(1@3×3)
+    <div class="why">Refiner 的全部机制（论文正文只有文字描述，此处按其描述形式化）：两路嵌入堆叠成 Ta×128×2 的双通道「图像」，3×3 卷积核在时间-嵌入平面联合滑动——天然覆盖相邻时间帧，两层堆叠感受野进一步扩大，等于给掩码子网隐式滑窗配准能力（对第 t−k 帧回声的配准）。掩码作用在嵌入域而非频谱域：128 维远低于原始频谱，回声在编码器输出端近似表现为播放嵌入的延迟叠加——掩码可做得极小（0.13% 参数的结构性原因）。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与消融</p>
+  <h2 class="sec">把「自参考误触发」从工程玄学变成可直接读数的量</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据与指标</b>：评测 G / Q / LPE / LPH 四个测试集；MUSAN 做播放源；pyroomacoustics 合成回放与混响（房间 10–50m² · RT60 0.2–0.6s · 延迟 0.01–0.1s · <b>信干比 −12~+3dB</b>——播放音可比用户语音高约 4 倍振幅，即扬声器贴麦克风、用户隔房说话的真实几何）。指标：前三场景用 EER/AUC（阈值无关）；<b>自参考场景真值全 0 → MAE = 平均输出 = 误触发强度</b>（EER/AUC 数学上不适用）——这个指标设计是评估体系最聪明的一笔。实现：Adam 1e-3 · 100 epoch · batch 1024 · 单 V100 训一周。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 420" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 1 · 自参考场景 MAE%（真值全 0 → MAE = 平均输出 = 误触发强度）：数量级式改善</text>
+<line x1="70" y1="286.7" x2="830" y2="286.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="290.7" text-anchor="end" font-size="12" fill="#6b7a92">20</text>
+<line x1="70" y1="213.3" x2="830" y2="213.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="217.3" text-anchor="end" font-size="12" fill="#6b7a92">40</text>
+<line x1="70" y1="140.0" x2="830" y2="140.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="144.0" text-anchor="end" font-size="12" fill="#6b7a92">60</text>
+<line x1="70" y1="66.7" x2="830" y2="66.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="70.7" text-anchor="end" font-size="12" fill="#6b7a92">80</text>
+<line x1="70" y1="360" x2="830" y2="360" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="150" y="52" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">G (GSC)</text>
+<rect x="90.0" y="88.8" width="32" height="271.2" rx="3" fill="#8c3b2e"/>
+<text x="106.0" y="84.8" text-anchor="middle" font-size="9.5" font-weight="400" fill="#1c2430">74.0</text>
+<text x="86.0" y="378.0" text-anchor="end" font-size="9" fill="#47536a">基线 PhonMatchNet</text>
+<text x="86.0" y="389.0" text-anchor="end" font-size="9" fill="#47536a">（单路，无 AEC）</text>
+<rect x="130.0" y="94.0" width="32" height="266.0" rx="3" fill="#d97a2b"/>
+<text x="146.0" y="90.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#1c2430">72.5</text>
+<text x="126.0" y="378.0" text-anchor="end" font-size="9" fill="#47536a">基线 + NLMS 级联</text>
+<text x="126.0" y="389.0" text-anchor="end" font-size="9" fill="#47536a">（传统 AEC 前端）</text>
+<rect x="170.0" y="357.4" width="32" height="2.6" rx="3" fill="#7cc0a2"/>
+<text x="186.0" y="353.4" text-anchor="middle" font-size="9.5" font-weight="700" fill="#1c2430">0.70</text>
+<text x="166.0" y="378.0" text-anchor="end" font-size="9" fill="#47536a">iAEC · Mask D</text>
+<text x="166.0" y="389.0" text-anchor="end" font-size="9" fill="#47536a">（前作 dense 掩码）</text>
+<rect x="210.0" y="358.8" width="32" height="1.2" rx="3" fill="#0e8a66"/>
+<text x="226.0" y="354.8" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">0.15</text>
+<text x="206.0" y="378.0" text-anchor="end" font-size="9" fill="#47536a">iAEC · Mask C ★</text>
+<text x="206.0" y="389.0" text-anchor="end" font-size="9" fill="#47536a">（本文卷积掩码）</text>
+<text x="330" y="52" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">Q (Qualcomm)</text>
+<rect x="270.0" y="97.0" width="32" height="263.0" rx="3" fill="#8c3b2e"/>
+<text x="286.0" y="93.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#1c2430">71.7</text>
+<rect x="310.0" y="103.8" width="32" height="256.2" rx="3" fill="#d97a2b"/>
+<text x="326.0" y="99.8" text-anchor="middle" font-size="9.5" font-weight="400" fill="#1c2430">69.9</text>
+<rect x="350.0" y="357.6" width="32" height="2.4" rx="3" fill="#7cc0a2"/>
+<text x="366.0" y="353.6" text-anchor="middle" font-size="9.5" font-weight="700" fill="#1c2430">0.65</text>
+<rect x="390.0" y="358.8" width="32" height="1.2" rx="3" fill="#0e8a66"/>
+<text x="406.0" y="354.8" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">0.13</text>
+<text x="510" y="52" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">LPE</text>
+<rect x="450.0" y="56.6" width="32" height="303.4" rx="3" fill="#8c3b2e"/>
+<text x="466.0" y="52.6" text-anchor="middle" font-size="9.5" font-weight="400" fill="#1c2430">82.8</text>
+<rect x="490.0" y="92.7" width="32" height="267.3" rx="3" fill="#d97a2b"/>
+<text x="506.0" y="88.7" text-anchor="middle" font-size="9.5" font-weight="400" fill="#1c2430">72.9</text>
+<rect x="530.0" y="354.7" width="32" height="5.3" rx="3" fill="#7cc0a2"/>
+<text x="546.0" y="350.7" text-anchor="middle" font-size="9.5" font-weight="700" fill="#1c2430">1.4</text>
+<rect x="570.0" y="358.8" width="32" height="1.2" rx="3" fill="#0e8a66"/>
+<text x="586.0" y="354.8" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">0.31</text>
+<text x="690" y="52" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">LPH (最难)</text>
+<rect x="630.0" y="46.9" width="32" height="313.1" rx="3" fill="#8c3b2e"/>
+<text x="646.0" y="42.9" text-anchor="middle" font-size="9.5" font-weight="400" fill="#1c2430">85.4</text>
+<rect x="670.0" y="95.6" width="32" height="264.4" rx="3" fill="#d97a2b"/>
+<text x="686.0" y="91.6" text-anchor="middle" font-size="9.5" font-weight="400" fill="#1c2430">72.1</text>
+<rect x="710.0" y="331.6" width="32" height="28.4" rx="3" fill="#7cc0a2"/>
+<text x="726.0" y="327.6" text-anchor="middle" font-size="9.5" font-weight="700" fill="#1c2430">7.7</text>
+<rect x="750.0" y="348.6" width="32" height="11.4" rx="3" fill="#0e8a66"/>
+<text x="766.0" y="344.6" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">3.1</text>
+<text x="440" y="408" text-anchor="middle" font-size="12" fill="#8c3b2e">读法：基线平均输出 0.7–0.85 = 逢播必触发；NLMS 几乎无效（残差回声照样触发）；C 相对基线降幅 96.4–99.8%——参数只加 0.13%</text>
+</svg>
+    <p class="cap"><b>Table 1 自参考 MAE</b>：真值全 0 时 MAE = 平均输出 = 误触发强度——基线逢播必触发、NLMS 几乎无效、Mask C 数量级式压制的完整证据链一图读完。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 400" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 1 · 播放场景 EER%（越低越好）：语音回放比音乐更难，但提升也更大</text>
+<line x1="70" y1="311.4" x2="830" y2="311.4" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="315.4" text-anchor="end" font-size="12" fill="#6b7a72">10</text>
+<line x1="70" y1="240.0" x2="830" y2="240.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="244.0" text-anchor="end" font-size="12" fill="#6b7a72">20</text>
+<line x1="70" y1="168.6" x2="830" y2="168.6" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="172.6" text-anchor="end" font-size="12" fill="#6b7a72">30</text>
+<line x1="70" y1="97.1" x2="830" y2="97.1" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="101.1" text-anchor="end" font-size="12" fill="#6b7a72">40</text>
+<line x1="70" y1="340" x2="830" y2="340" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="245" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">播放音乐（MUSAN 音乐源）</text>
+<rect x="90.0" y="261.9" width="36" height="78.1" rx="4" fill="#b9c6bd"/>
+<text x="108.0" y="256.9" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">16.9</text>
+<rect x="132.0" y="291.7" width="36" height="48.3" rx="4" fill="#0e8a66"/>
+<text x="150.0" y="286.7" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">12.8</text>
+<text x="111.0" y="358" text-anchor="middle" font-size="10.5" fill="#47536a">G</text>
+<text x="111.0" y="374" text-anchor="middle" font-size="9" fill="#8a93a5">−4.2</text>
+<rect x="182.0" y="267.6" width="36" height="72.4" rx="4" fill="#b9c6bd"/>
+<text x="200.0" y="262.6" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">16.1</text>
+<rect x="224.0" y="289.6" width="36" height="50.4" rx="4" fill="#0e8a66"/>
+<text x="242.0" y="284.6" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">13.1</text>
+<text x="203.0" y="358" text-anchor="middle" font-size="10.5" fill="#47536a">Q</text>
+<text x="203.0" y="374" text-anchor="middle" font-size="9" fill="#8a93a5">−3.1</text>
+<rect x="274.0" y="278.5" width="36" height="61.5" rx="4" fill="#b9c6bd"/>
+<text x="292.0" y="273.5" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">14.6</text>
+<rect x="316.0" y="291.7" width="36" height="48.3" rx="4" fill="#0e8a66"/>
+<text x="334.0" y="286.7" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">12.8</text>
+<text x="295.0" y="358" text-anchor="middle" font-size="10.5" fill="#47536a">LPE</text>
+<text x="295.0" y="374" text-anchor="middle" font-size="9" fill="#8a93a5">−1.8</text>
+<rect x="366.0" y="152.6" width="36" height="187.4" rx="4" fill="#b9c6bd"/>
+<text x="384.0" y="147.6" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">32.2</text>
+<rect x="408.0" y="185.3" width="36" height="154.7" rx="4" fill="#0e8a66"/>
+<text x="426.0" y="180.3" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">27.7</text>
+<text x="387.0" y="358" text-anchor="middle" font-size="10.5" fill="#47536a">LPH</text>
+<text x="387.0" y="374" text-anchor="middle" font-size="9" fill="#8a93a5">−4.6</text>
+<text x="665" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">播放语音（最难场景）</text>
+<rect x="510.0" y="217.8" width="36" height="122.2" rx="4" fill="#b9c6bd"/>
+<text x="528.0" y="212.8" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">23.1</text>
+<rect x="552.0" y="268.0" width="36" height="72.0" rx="4" fill="#0e8a66"/>
+<text x="570.0" y="263.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">16.1</text>
+<text x="531.0" y="358" text-anchor="middle" font-size="10.5" fill="#47536a">G</text>
+<text x="531.0" y="374" text-anchor="middle" font-size="9" fill="#8a93a5">−7.0</text>
+<rect x="602.0" y="208.4" width="36" height="131.6" rx="4" fill="#b9c6bd"/>
+<text x="620.0" y="203.4" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">24.4</text>
+<rect x="644.0" y="242.9" width="36" height="97.1" rx="4" fill="#0e8a66"/>
+<text x="662.0" y="237.9" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">19.6</text>
+<text x="623.0" y="358" text-anchor="middle" font-size="10.5" fill="#47536a">Q</text>
+<text x="623.0" y="374" text-anchor="middle" font-size="9" fill="#8a93a5">−4.8</text>
+<rect x="694.0" y="209.4" width="36" height="130.6" rx="4" fill="#b9c6bd"/>
+<text x="712.0" y="204.4" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">24.3</text>
+<rect x="736.0" y="270.8" width="36" height="69.2" rx="4" fill="#0e8a66"/>
+<text x="754.0" y="265.8" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">15.7</text>
+<text x="715.0" y="358" text-anchor="middle" font-size="10.5" fill="#47536a">LPE</text>
+<text x="715.0" y="374" text-anchor="middle" font-size="9" fill="#8a93a5">−8.6</text>
+<rect x="786.0" y="94.6" width="36" height="245.4" rx="4" fill="#b9c6bd"/>
+<text x="804.0" y="89.6" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">40.4</text>
+<rect x="828.0" y="148.6" width="36" height="191.4" rx="4" fill="#0e8a66"/>
+<text x="846.0" y="143.6" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">32.8</text>
+<text x="807.0" y="358" text-anchor="middle" font-size="10.5" fill="#47536a">LPH</text>
+<text x="807.0" y="374" text-anchor="middle" font-size="9" fill="#8a93a5">−7.6</text>
+<rect x="90" y="382" width="12" height="12" rx="3" fill="#b9c6bd"/><text x="106" y="393" font-size="10.5" fill="#47536a">基线 PhonMatchNet</text>
+<rect x="240" y="382" width="12" height="12" rx="3" fill="#0e8a66"/><text x="256" y="393" font-size="10.5" fill="#0a6b4e">iPhonMatchNet · Mask C ★</text>
+<text x="640" y="393" text-anchor="middle" font-size="10.5" fill="#8c3b2e">语音回放提升更大（频谱结构与语音难区分，基线无从硬扛）但绝对性能仍最差（LPH EER 32.79%）</text>
+</svg>
+    <p class="cap"><b>Table 1 播放场景 EER</b>：语音回放比音乐更难（频谱结构难区分）但提升也更大；LPH 语音 EER 32.79% 是诚实读法里最重要的边界数字。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 380" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">消融一（D vs C）+ 消融二（NLMS）+ 无播放代价</text>
+<text x="245" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">Mask D vs Mask C（LPH 最难集）</text>
+<line x1="70" y1="266.4" x2="470" y2="266.4" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="270.4" text-anchor="end" font-size="11.5" fill="#6b7a72">5</text>
+<line x1="70" y1="202.7" x2="470" y2="202.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="206.7" text-anchor="end" font-size="11.5" fill="#6b7a72">10</text>
+<line x1="70" y1="139.1" x2="470" y2="139.1" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="143.1" text-anchor="end" font-size="11.5" fill="#6b7a72">15</text>
+<line x1="70" y1="75.5" x2="470" y2="75.5" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="79.5" text-anchor="end" font-size="11.5" fill="#6b7a72">20</text>
+<line x1="70" y1="330" x2="470" y2="330" stroke="#9aa79e" stroke-width="1.4"/>
+<text x="123" y="72" text-anchor="middle" font-size="9.5" font-weight="700" fill="#47536a">自参考 MAE%</text>
+<rect x="91.0" y="231.5" width="38" height="98.5" rx="4" fill="#b9c6bd"/>
+<text x="110.0" y="227.5" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">7.74</text>
+<text x="110.0" y="344" text-anchor="middle" font-size="9" fill="#47536a">D</text>
+<rect x="137.0" y="290.4" width="38" height="39.6" rx="4" fill="#0e8a66"/>
+<text x="156.0" y="286.4" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">3.11</text>
+<text x="156.0" y="344" text-anchor="middle" font-size="9" fill="#47536a">C ★</text>
+<text x="235" y="72" text-anchor="middle" font-size="9.5" font-weight="700" fill="#47536a">音乐播放 EER%</text>
+<rect x="203.0" y="-45.5" width="38" height="375.5" rx="4" fill="#b9c6bd"/>
+<text x="222.0" y="-49.5" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">29.50</text>
+<text x="222.0" y="344" text-anchor="middle" font-size="9" fill="#47536a">D</text>
+<rect x="249.0" y="-22.0" width="38" height="352.0" rx="4" fill="#0e8a66"/>
+<text x="268.0" y="-26.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">27.66</text>
+<text x="268.0" y="344" text-anchor="middle" font-size="9" fill="#47536a">C ★</text>
+<text x="347" y="72" text-anchor="middle" font-size="9.5" font-weight="700" fill="#47536a">语音播放 EER%</text>
+<rect x="315.0" y="-117.4" width="38" height="447.4" rx="4" fill="#b9c6bd"/>
+<text x="334.0" y="-121.4" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">35.15</text>
+<text x="334.0" y="344" text-anchor="middle" font-size="9" fill="#47536a">D</text>
+<rect x="361.0" y="-87.3" width="38" height="417.3" rx="4" fill="#0e8a66"/>
+<text x="380.0" y="-91.3" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">32.79</text>
+<text x="380.0" y="344" text-anchor="middle" font-size="9" fill="#47536a">C ★</text>
+<text x="459" y="72" text-anchor="middle" font-size="9.5" font-weight="700" fill="#47536a">无播放 EER%</text>
+<rect x="427.0" y="70.1" width="38" height="259.9" rx="4" fill="#b9c6bd"/>
+<text x="446.0" y="66.1" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">20.42</text>
+<text x="446.0" y="344" text-anchor="middle" font-size="9" fill="#47536a">D</text>
+<rect x="473.0" y="79.3" width="38" height="250.7" rx="4" fill="#0e8a66"/>
+<text x="492.0" y="75.3" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">19.70</text>
+<text x="492.0" y="344" text-anchor="middle" font-size="9" fill="#47536a">C ★</text>
+<text x="270" y="368" text-anchor="middle" font-size="10.5" fill="#0a6b4e">C 全面胜出且参数少 32K（688K→656K）——「能否跨时间配准」比「容量大小」重要得多</text>
+<text x="680" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#8c3b2e">无播放场景代价（EER% 基线 → C）</text>
+<rect x="545.0" y="76" width="21.7" height="22" rx="4" fill="#8a93a5"/>
+<text x="571.7" y="93" font-size="10.5" font-weight="700" fill="#1c2430">6.77</text>
+<rect x="665.0" y="76" width="27.7" height="22" rx="4" fill="#c0563f"/>
+<text x="697.7" y="93" font-size="10.5" font-weight="700" fill="#1c2430">8.09</text>
+<text x="539" y="93" text-anchor="end" font-size="10" fill="#47536a">G</text>
+<rect x="545.0" y="138" width="25.7" height="22" rx="4" fill="#8a93a5"/>
+<text x="575.7" y="155" font-size="10.5" font-weight="700" fill="#1c2430">7.66</text>
+<rect x="665.0" y="138" width="29.9" height="22" rx="4" fill="#c0563f"/>
+<text x="699.9" y="155" font-size="10.5" font-weight="700" fill="#1c2430">8.58</text>
+<text x="539" y="155" text-anchor="end" font-size="10" fill="#47536a">Q</text>
+<rect x="545.0" y="200" width="5.9" height="22" rx="4" fill="#8a93a5"/>
+<text x="555.9" y="217" font-size="10.5" font-weight="700" fill="#1c2430">3.30</text>
+<rect x="665.0" y="200" width="1.8" height="22" rx="4" fill="#c0563f"/>
+<text x="671.8" y="217" font-size="10.5" font-weight="700" fill="#1c2430">2.40</text>
+<text x="539" y="217" text-anchor="end" font-size="10" fill="#47536a">LPE</text>
+<rect x="545.0" y="262" width="76.5" height="22" rx="4" fill="#8a93a5"/>
+<text x="626.5" y="279" font-size="10.5" font-weight="700" fill="#1c2430">18.82</text>
+<rect x="665.0" y="262" width="80.5" height="22" rx="4" fill="#c0563f"/>
+<text x="750.5" y="279" font-size="10.5" font-weight="700" fill="#1c2430">19.70</text>
+<text x="539" y="279" text-anchor="end" font-size="10" fill="#47536a">LPH</text>
+<text x="680" y="340" text-anchor="middle" font-size="10.5" fill="#8c3b2e">小幅一致回退（+1 点量级）——引入回放通路的必要代价，LPE 反而改善</text>
+<text x="680" y="360" text-anchor="middle" font-size="10.5" fill="#8a93a5">NLMS 消融：无播放场景偶有增强（顺带压噪），自参考无解——一正一反构成路线判断</text>
+</svg>
+    <p class="cap"><b>消融 D vs C + NLMS + 无播放代价</b>：左——C 全面胜出且参数少 32K；右——无播放 +1 点量级的必要代价与 NLMS 的一正一反。</p>
+  </div>
+
+  <div class="card">
+    <b>NLMS 消融的三个观察（一正一反构成路线判断）</b>：① 播放场景无显著改善（部分反而变差）；② 无播放场景偶见增强（如 Q AUC 98.90→99.29——NLMS 顺带压掉部分加性噪声，论文未深究）；③ 自参考无解（MAE 仍 0.7 量级）。结论：线性自适应滤波在低信干比强混响下的残差足以触发 KWS——级联路线被否定、内嵌路线胜出，两组证据构成完整证据链。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">三条自列 + 一条隐含</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>高效解决自参考的结构</b>：0.13% 参数换约 95% MAE 降低——平均输出从 0.7+ 压到 0.15 以下。</div>
+    <div class="c"><span class="n">2</span><b>无干净目标的 iAEC 训练</b>：只用混合信号 + 目标语音标签——与真实设备条件对齐。</div>
+    <div class="c"><span class="n">3</span><b>数据脚本开源</b>：github.com/ncsoft/PhonMatchNet——实验可精确复现。</div>
+    <div class="c"><span class="n" style="background:#d97a2b">★</span><b>路线级判断（隐含贡献）</b>：级联 AEC 前端救不了 barge-in 场景 KWS、内嵌 iAEC 才有效——对端侧语音团队架构选型的直接指导，价值不亚于模型本身。</div>
+  </div>
+
+  <div class="card">
+    <b>可迁移判断</b>：当辅助任务（去回声 / 去噪 / 去混响）的目标信号在部署时拿不到时，<b>把它做成判别模型内部的隐式步骤、由任务损失端到端反推</b>，比级联一个显式处理器更稳——级联方案的误差无人兜底，内嵌方案的误差可被检测头感知并反传；配套判断：掩码子网的设计变量里<b>「能否跨时间配准」比「容量大小」重要得多</b>——参数少 40 倍的卷积版反而全面胜出，因为数据结构（带延迟的局部相关）偏向卷积的归纳偏置。
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">感受野无法核算 + 按测试集选模型</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>高相关回放的绝对性能不堪用</b>：LPH 语音播放 EER 32.79% / AUC 72.01%——设备播报语音时喊唤醒词三次漏一次量级；学会「回声不是唤醒」也让模型在真唤醒与回声高度相似时变谨慎（自参考解决与检测不足是同一枚硬币的两面）。</li>
+        <li><b>无播放场景小幅一致回退</b>：G EER 6.77→8.09 等（+1 点量级）——回放通路在纯语音场景只带来干扰；对误触发极敏感的商业部署需权衡。</li>
+        <li><b>感受野与延迟上界无法核算</b>：未报告嵌入帧率——0.1s 延迟折多少帧无从算；两层 3×3 若按 10ms 帧率只覆盖几十毫秒，最坏延迟下能否配准存疑；无感受野消融。</li>
+        <li><b>线性 RIR 仿真</b>：扬声器 / 麦克风非线性、AGC、编解码链路全未覆盖；无真实设备录音——「适用于真实部署条件」只对「拿不到干净信号」成立，对信道真实性不成立。</li>
+        <li><b>只报参数量</b>：推理计算量 / 时延 / 实时率一概未报——GRU+自注意力能否流式化未讨论；参数量小不等于算得快。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>按测试集性能选模型（最扎眼）</b>：无独立验证集——Table 1 所有数字存在偏乐观系统性风险（数量级结论难翻案，但 1 点量级对比经不起推敲）。</li>
+        <li><b>无统计稳健性</b>：无多次运行方差 / 显著性检验——单次训练数字撑不起细粒度结论。</li>
+        <li><b>数据规模信息缺失</b>：各测试集正负样本数、仿真样本量均未报；训练单 V100 一周——对轻量叙事是个不大不小的讽刺。</li>
+        <li><b>对比面窄</b>：无前作 iAEC 原系统端到端对比、无其他零样本 UDKWS 在 barge-in 场景的横向对比；自参考只有 MAE 无部署阈值 / 每小时误触发数等运营指标；信干比只到 −12dB（更恶劣近场大音量未测）。</li>
+        <li><b>部署前提未讨论</b>：软件层须能回采 audio-out——第三方应用音频、版权保护音源能否稳定回采属 OS 层约束。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得补的方向</b>：掩码子网的时间感受野做成显式设计变量（膨胀卷积 / 更大核 / 小型时间注意力——直接对齐 0.1s 级延迟上界，补帧率报告与感受野消融）；真实设备录音做信道校正（或仿真加非线性 / AGC 链路）；掩码监督半显式化（预训练显式 AEC 当教师做蒸馏——比纯检测损失更平滑的引导）；流式化与端侧实测（实时率 / 时延，验证 GRU+因果注意力的真实开销）；评估补全（部署阈值扫描 + 每单位时间误触发数——自参考改善从 MAE 读数落到运营语言）。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2023/IPhonMatchNet_Zero-Shot_User-Defined_Keyword_Spotting_Using_Implicit_Acoustic_Echo_Cancellation.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2023/IPhonMatchNet_Zero-Shot_User-Defined_Keyword_Spotting_Using_Implicit_Acoustic_Echo_Cancellation.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2309.06096" target="_blank">arXiv · 2309.06096</a>
+    <a class="pill" href="https://github.com/ncsoft/PhonMatchNet" target="_blank">🔧 数据脚本</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（Table 1、图 1）；Mask C/D 参数 0.8K/33K 与音乐场景部分中间值为按论文结构的推算 / 笔记推算。错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
