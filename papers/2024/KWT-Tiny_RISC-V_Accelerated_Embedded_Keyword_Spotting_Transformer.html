@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KWT-Tiny · RISC-V 加速端侧 Transformer · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2024/KWT-Tiny_RISC-V_Accelerated_Embedded_Keyword_Spotting_Transformer.md">深读笔记</a>
+    <a href="/papers/2024/KWT-Tiny_RISC-V_Accelerated_Embedded_Keyword_Spotting_Transformer.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2407.16026" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2024 №17</p>
+  <h1>607K 参数的 Transformer 塞不进 64KB 的单片机——<br>裁到 1646 个参数，再把 GELU 焊进指令集</h1>
+  <p class="sub">KWT-Tiny: RISC-V Accelerated Embedded Keyword Spotting Transformer</p>
+  <p class="meta"><b>作者</b>：Aness Al-Qawlaq、Ajay Kumar M、Deepu John —— 都柏林大学学院（UCD）</p>
+  <p class="meta"><b>发表</b>：2024.07 · arXiv:2407.16026 · 代码开源（anessk01/kwt_tiny）</p>
+  <div class="chips">
+    <span class="chip">1646 参数（−99.73%）</span><span class="chip">非对称双 scale 量化</span><span class="chip">裸机 C 张量库</span>
+    <span class="chip">双内存银行</span><span class="chip">RISC-V custom-1 指令</span><span class="chip">LUT 加速 GELU/SoftMax</span><span class="chip">~5× 加速 / 29% 面积</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>三道墙</b>：KWT-1 要 2.42 MB 内存，目标平台 lowRISC Ibex 只有 64 kB RAM / 50 MHz / <b>无 FPU</b>——模型比内存大 37 倍；无 FPU 意味着一切浮点靠软件模拟（SoftMax 归一化、GELU 的除法尤其贵）；常驻监听下时钟周期数直接乘以每周期能耗 = 电池寿命。</li>
+      <li><b>反抽象的四步组合拳</b>：① 迭代裁剪——逐层评估影响删最小的层：<b>深度 12→1</b>（一个 Transformer 层就够双类任务；深度容量主要为多类判别买单）、MLP 256→24、输入 [40,98]→[16,26]；② 静态 PTQ——权重 INT8 + 中间残差 INT16，scale 取 2 的幂（反量化退化成移位）；③ 裸机 C 自建 Transformer 张量库（8 个函数）+ 双内存银行替代 malloc；④ RISC-V 自定义指令把 GELU/SoftMax 换硬件查找表。</li>
+      <li><b>量化关键发现</b>：<b>非对称双 scale（权重 64 / 输入 32）82.5%</b>——权重取值 0-1 可以用大 scale 提精度；输入幅值可达数百，提到 64 就撞溢出墙（65.2%，崩塌）。</li>
+      <li><b>GELU 硬件近似（自认新颖点）</b>：x&gt;1.595 直接取 x、x&lt;−1.857 取 0、过渡区 32 元素 LUT——阈值由梯度下降寻优，精度退化仅 0.0042%（比量化误差低两个数量级）。</li>
+      <li><b>账本</b>：模型 2.42MB→1.65kB（369×）；周期 26M→5.5M（量化 2× + 指令 2.4× ≈ 4.7×，推断约 5× 功耗降）；精度 96.9→~80%（累计 −17 点）；面积 +29% + 2.69 kB ROM。<b>每一步的代价都来自真实运行而非仿真</b>——这是对「用仿真测加速、无法评估精度退化」的既有工作的正面回应。</li>
+      <li><b>成色缺口</b>：只有双类（dog/notdog）——87.2%/82.5% 与 35 类的 96.9% 不在同一任务难度平面；~80% 精度对商用唤醒词不够且无 FAR/FRR；无外部基线（DS-CNN / TFLite Micro 没比）；功耗是周期数推断非实测。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">64 kB 的世界里，底层是唯一能挖的空间</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>两条线的盲区</b>：① 硬件加速类（AI-RISC / AIfES / FlexACC / DaDianNao / RISC-VTF / A³）——从高功耗高性能系统视角出发，很少关注微控制器的<b>内存</b>第一瓶颈；且往往用仿真操作测加速比而非真实模型端到端——「加速带来多少精度退化」无从回答，因为被加速的不是一个真的、可验证精度的模型。② 软件部署生态（TFLite / ONNX / TVM）——库自身就几 MB，很多嵌入式平台连库都装不下；更深层是<b>抽象边界错了</b>：框架把工程师隔离在算子底层之外，想针对特定平台优化反而困难——通用性是用「摸不到底层的权利」换来的。<b>四个子挑战</b>：裁到什么程度精度不崩（哪些层能安全下刀）；无 FPU 的 scale 怎么选（精度 vs 溢出）；不用 MB 级框架裸机实现 + 手工内存管理；最小面积（~29%）的自定义指令把最耗时非线性算子换 LUT 换 ~5× 加速。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">训练-量化-裸机-硬件全真实的移植路径</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 440" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">四级流水线 + GELU 分段近似 + 双内存银行</text>
+      <rect x="30" y="56" width="200" height="120" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="130" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#47536a">① KWT-1（基座）</text>
+      <text x="48" y="104" font-size="10.5" fill="#8a93a5">607K 参数 · 2.42MB · 35 类</text>
+      <text x="48" y="124" font-size="10.5" fill="#8a93a5">ViT 式 · post-norm · encoder-only</text>
+      <text x="48" y="144" font-size="10.5" fill="#8a93a5">深度 12 · MLP 256 · 精度 96.9%</text>
+      <line x1="230" y1="116" x2="264" y2="116" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="264,116 256,111 256,121" fill="#5f8a76"/>
+      <rect x="266" y="56" width="200" height="120" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="366" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#0a6b4e">② KWT-Tiny（裁剪+重训）</text>
+      <text x="284" y="104" font-size="10.5" fill="#47536a">深度 12→1 · MLP 256→24</text>
+      <text x="284" y="124" font-size="10.5" fill="#47536a">输入 [40,98]→[16,26] · 双类输出</text>
+      <text x="284" y="144" font-size="10.5" fill="#0a6b4e">1646 参数 · 6.58kB · 87.2%</text>
+      <line x1="466" y1="116" x2="500" y2="116" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="500,116 492,111 492,121" fill="#5f8a76"/>
+      <rect x="502" y="56" width="190" height="120" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="597" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#0a6b4e">③ KWT-Tiny-Q（PTQ）</text>
+      <text x="520" y="104" font-size="10.5" fill="#47536a">权重 INT8（scale 2⁶）</text>
+      <text x="520" y="124" font-size="10.5" fill="#47536a">残差 INT16 · SoftMax/LN 保浮点</text>
+      <text x="520" y="144" font-size="10.5" fill="#0a6b4e">1.646kB · 82.5%</text>
+      <line x1="692" y1="116" x2="726" y2="116" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="726,116 718,111 718,121" fill="#5f8a76"/>
+      <rect x="728" y="56" width="162" height="120" rx="11" fill="#0e8a66"/>
+      <text x="809" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">④ + 自定义指令</text>
+      <text x="746" y="104" font-size="10.5" fill="#d8f3e7">custom-1 操作码 · Q8.24</text>
+      <text x="746" y="124" font-size="10.5" fill="#d8f3e7">GELU/SoftMax → LUT</text>
+      <text x="746" y="144" font-size="10.5" fill="#d8f3e7">5.5M 周期 · ~80%</text>
+      <rect x="30" y="196" width="420" height="120" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="48" y="222" font-size="12.5" font-weight="700" fill="#47536a">GELU 分段近似（Fig.7，自认新颖点）</text>
+      <text x="48" y="248" font-size="11" fill="#47536a">x &gt; 1.595 → GELU(x) = x（恒等区）</text>
+      <text x="48" y="270" font-size="11" fill="#47536a">x &lt; −1.857 → ≈ 0（饱和区）</text>
+      <text x="48" y="292" font-size="11" fill="#47536a">过渡区：32 元素 LUT3[x]</text>
+      <text x="48" y="312" font-size="10.5" fill="#5f8a76">阈值由梯度下降寻优；精度退化 0.0042%——比量化误差低两个数量级</text>
+      <rect x="470" y="196" width="420" height="120" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="488" y="222" font-size="12.5" font-weight="700" fill="#47536a">双内存银行（手工 malloc 替代）</text>
+      <text x="488" y="248" font-size="11" fill="#47536a">· 裸机无 OS，malloc 通常不可用——预定义大小的两个全局数组</text>
+      <text x="488" y="270" font-size="11" fill="#47536a">· 尺寸由「干跑」推理管线确定；两个银行因为存在两个残差</text>
+      <text x="488" y="290" font-size="11" fill="#47536a">　 必须同时在场相加的情况</text>
+      <text x="488" y="312" font-size="10.5" fill="#5f8a76">· 链接配置：60kB 程序 + 4kB 栈，必须开 -Os 才装进 Ibex</text>
+      <rect x="30" y="332" width="860" height="88" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.4"/>
+      <text x="48" y="358" font-size="12.5" font-weight="700" fill="#0a6b4e">五条自定义指令（Table VII，funct3 区分）与 LUT 有效性来源</text>
+      <text x="48" y="382" font-size="11" fill="#47536a">ALU_EXP / ALU_INVERT / ALU_GELU（查找表）+ ALU_TO_FIXED / TO_FLOAT（Q8.24 转换）；C 里用 asm 直接调——不改工具链保持可编译</text>
+      <text x="48" y="404" font-size="11" fill="#5f8a76">LUT 能成立的关键：数值稳定 SoftMax 把 e^(max(x)−x) 约束在 0-10（有界）——换模型/特征/数据需重新标定，加速器不即插即用</text>
+    </svg>
+    <p class="cap"><b>图 A</b>·选 GELU/SoftMax 做硬件化的双重理由：profiling（Fig.3-5）显示它们最耗时；且这两个算子被许多 DNN 共享——投入可摊薄到更广模型家族。裁剪经验规律：缩小 MLP + 深度的组合是最佳精度-体积刀口，<b>过度缩归一化向量 DIM 会精度陡降</b>——γ/β 逐维作用于特征，砍 DIM 等于直接压缩表示本身，砍深度/MLP 只是砍「在表示上做的加工量」。</p>
+  </div>
+
+  <div class="formula">
+    softmax(x)<sub>i</sub> = e<sup>max(x)−x<sub>i</sub></sup> / Σ e<sup>max(x)−x<sub>j</sub></sup>；　W<sub>int</sub> = floor(W × 2<sup>y</sup>)；　GELU 分段：x&gt;1.595→x，x&lt;−1.857→0，中间 LUT
+    <div class="why"><b>人话</b>：数值稳定形式的指数参数从无界 x 换成有界的 max(x)−x（实测 0-10）——没有有界性，有限长查找表根本不成立；权重 scale 取 2 的幂让量化反量化退化成移位（几乎零成本），中间残差 INT16 防 INT8 累积溢出。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">每一级台阶的代价都有真实数字</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>设置</b>：GSC 全集，双类任务 dog / notdog（天然适合「Hey Google / Alexa」单唤醒词场景而非 35 词全类判别——任务难度不在同一平面，不能读作「Transformer 缩小只掉 10%」）；平台 Ibex@Arty-A7-35T FPGA、64 kB RAM、50 MHz、RV32IMC。<b>指标</b>：参数 / 体积（装不装得下）、时钟周期（与主频解耦、固定每周期能耗假设下正比于功耗）、FPGA 资源（LUT/DSP/FF/BRAM）、top-1 准确率。<b>未报</b>：实测功耗、FAR/FRR/DET、墙钟时间（按 50MHz 推算 5.5M 周期 ≈ 110ms，笔记推算值）。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 360" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table IX · 四级台阶：每一步的体积 / 周期 / 精度代价都可测量（全真实运行非仿真）</text>
+<line x1="60" y1="300.0" x2="330" y2="300.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="52" y="303.0" text-anchor="end" font-size="10.5" fill="#6b7a72">1</text>
+<line x1="60" y1="229.4" x2="330" y2="229.4" stroke="#e8ece9" stroke-width="1"/>
+<text x="52" y="232.4" text-anchor="end" font-size="10.5" fill="#6b7a72">10</text>
+<line x1="60" y1="158.7" x2="330" y2="158.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="52" y="161.7" text-anchor="end" font-size="10.5" fill="#6b7a72">100</text>
+<line x1="60" y1="88.1" x2="330" y2="88.1" stroke="#e8ece9" stroke-width="1"/>
+<text x="52" y="91.1" text-anchor="end" font-size="10.5" fill="#6b7a72">1000</text>
+<line x1="60" y1="300" x2="330" y2="300" stroke="#9aa79e" stroke-width="1.3"/>
+<text x="195" y="46" text-anchor="middle" font-size="12" font-weight="700" fill="#47536a">模型体积 kB（对数轴）</text>
+<rect x="75.0" y="61.0" width="50" height="239.0" rx="4" fill="#b9c6bd"/>
+<text x="100.0" y="55.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">2.42MB</text>
+<rect x="151.0" y="242.2" width="50" height="57.8" rx="4" fill="#7cc0a2"/>
+<text x="176.0" y="236.2" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">6.58kB</text>
+<rect x="227.0" y="284.7" width="50" height="15.3" rx="4" fill="#0e8a66"/>
+<text x="252.0" y="278.7" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">1.65kB</text>
+<rect x="303.0" y="255.0" width="50" height="45.0" rx="4" fill="#0e8a66"/>
+<text x="328.0" y="249.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">1.65+2.69</text>
+<line x1="360" y1="52" x2="360" y2="310" stroke="#dfe5e0" stroke-width="1.5"/>
+<line x1="390" y1="300.0" x2="660" y2="300.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="382" y="303.0" text-anchor="end" font-size="10.5" fill="#6b7a72">0M</text>
+<line x1="390" y1="214.3" x2="660" y2="214.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="382" y="217.3" text-anchor="end" font-size="10.5" fill="#6b7a72">10M</text>
+<line x1="390" y1="128.6" x2="660" y2="128.6" stroke="#e8ece9" stroke-width="1"/>
+<text x="382" y="131.6" text-anchor="end" font-size="10.5" fill="#6b7a72">20M</text>
+<line x1="390" y1="300" x2="660" y2="300" stroke="#9aa79e" stroke-width="1.3"/>
+<text x="525" y="46" text-anchor="middle" font-size="12" font-weight="700" fill="#47536a">单次推理时钟周期（50MHz ≈ 110ms）</text>
+<rect x="402.0" y="77.1" width="56" height="222.9" rx="4" fill="#b9c6bd"/>
+<text x="430.0" y="71.1" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">26M</text>
+<rect x="502.0" y="188.6" width="56" height="111.4" rx="4" fill="#7cc0a2"/>
+<text x="530.0" y="182.6" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">13M（量化 2×）</text>
+<rect x="602.0" y="252.9" width="56" height="47.1" rx="4" fill="#0e8a66"/>
+<text x="630.0" y="246.9" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">5.5M（指令 2.4×）</text>
+<text x="640" y="60" font-size="10.5" fill="#8a93a5">（KWT-1 放不进平台）</text>
+<line x1="690" y1="52" x2="690" y2="310" stroke="#dfe5e0" stroke-width="1.5"/>
+<line x1="720" y1="300.0" x2="830" y2="300.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="712" y="303.0" text-anchor="end" font-size="10.5" fill="#6b7a72">75</text>
+<line x1="720" y1="204.0" x2="830" y2="204.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="712" y="207.0" text-anchor="end" font-size="10.5" fill="#6b7a72">85</text>
+<line x1="720" y1="108.0" x2="830" y2="108.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="712" y="111.0" text-anchor="end" font-size="10.5" fill="#6b7a72">95</text>
+<line x1="720" y1="300" x2="830" y2="300" stroke="#9aa79e" stroke-width="1.3"/>
+<text x="775" y="46" text-anchor="middle" font-size="12" font-weight="700" fill="#47536a">精度 %</text>
+<rect x="717.0" y="89.8" width="22" height="210.2" rx="3" fill="#b9c6bd"/>
+<text x="728.0" y="84.8" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1c2430" transform="rotate(0)">96.9</text>
+<rect x="744.0" y="182.9" width="22" height="117.1" rx="3" fill="#7cc0a2"/>
+<text x="755.0" y="177.9" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1c2430" transform="rotate(0)">87.2</text>
+<rect x="771.0" y="228.0" width="22" height="72.0" rx="3" fill="#0e8a66"/>
+<text x="782.0" y="223.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1c2430" transform="rotate(0)">82.5</text>
+<rect x="798.0" y="252.0" width="22" height="48.0" rx="3" fill="#0e8a66"/>
+<text x="809.0" y="247.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1c2430" transform="rotate(0)">~80</text>
+<text x="195" y="326" text-anchor="middle" font-size="11" fill="#8a93a5">左→右 = KWT-1 → Tiny → Tiny-Q → Q+硬件</text>
+<text x="525" y="326" text-anchor="middle" font-size="11" fill="#8a93a5">量化贡献 2× / 自定义指令贡献 2.4×，合计 ≈4.7×</text>
+<text x="775" y="326" text-anchor="middle" font-size="11" fill="#8a93a5">累计 −17 点</text>
+</svg>
+    <p class="cap"><b>表 IX 复绘</b>·三面板各按自身量程归一。体积面板第 4 柱含 +2.69kB LUT ROM；程序体积（未入图）：浮点版 58.8kB → 量化 44.4kB → 加硬件 44.6kB（查表调用逻辑略增）。周期面板从 26M 到 5.5M 合计 ≈4.7×——论文宣称约 5× 加速并据此推断约 5× 功耗降。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 330" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table V · 量化 scale 因子网格（2 的幂）：非对称 64/32 最优，对称 64/64 撞溢出墙</text>
+<line x1="80" y1="256.4" x2="830" y2="256.4" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="260.4" text-anchor="end" font-size="12" fill="#6b7a72">60</text>
+<line x1="80" y1="189.3" x2="830" y2="189.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="193.3" text-anchor="end" font-size="12" fill="#6b7a72">70</text>
+<line x1="80" y1="122.1" x2="830" y2="122.1" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="126.1" text-anchor="end" font-size="12" fill="#6b7a72">80</text>
+<line x1="80" y1="290" x2="830" y2="290" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="130.0" y="254.4" width="70" height="35.6" rx="5" fill="#d9c9a8"/>
+<text x="165.0" y="246.4" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">60.3</text>
+<text x="165.0" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#47536a">权重 8 / 输入 8</text>
+<rect x="280.0" y="182.6" width="70" height="107.4" rx="5" fill="#d9c9a8"/>
+<text x="315.0" y="174.6" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">71.0</text>
+<text x="315.0" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#47536a">16 / 16</text>
+<rect x="430.0" y="140.3" width="70" height="149.7" rx="5" fill="#7cc0a2"/>
+<text x="465.0" y="132.3" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">77.3</text>
+<text x="465.0" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#47536a">32 / 32</text>
+<rect x="580.0" y="105.4" width="70" height="184.6" rx="5" fill="#0e8a66"/>
+<text x="615.0" y="97.4" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">82.5</text>
+<text x="615.0" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#0a6b4e">64 / 32 ★ 非对称</text>
+<rect x="730.0" y="221.5" width="70" height="68.5" rx="5" fill="#c0563f"/>
+<text x="765.0" y="213.5" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">65.2</text>
+<text x="765.0" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#47536a">64 / 64（溢出崩塌）</text>
+</svg>
+    <p class="cap"><b>表 V 复绘</b>·三条读数：对称配置单调改善（8/8→32/32 从 60.3 爬到 77.3）——未溢出区间内量化粒度越细精度越高；32/32→64/32 再涨 5.2 点——此时权重精度是主要瓶颈而输入还有溢出余量；64/64 崩到 65.2——验证输入侧大 scale 触发中间结果溢出，非对称双 scale 的必要性由此成立。</p>
+  </div>
+
+  <div class="card">
+    <b>硬件综合（Table VIII）与读表提醒</b>：LUT 资源 5092→7368、DSP 10→16、FF 5276→6074、BRAM 不变 16。表中 Overhead 列（10.94%/6.67%/1.92%）是<b>相对 FPGA 器件总容量</b>的增量占比，而正文「约 29% 面积增长」是<b>修改版相对基线</b>的膨胀——两个不同分母，读表易混淆。<b>软件侧未挖的空间</b>：matrixMultiply 明确用基础 O(n³)（无循环展开 / 分块 / 乘加融合）；SoftMax 与 LayerNorm 仍走浮点——软浮点库并未彻底清除。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">可转述的四个判断</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>全真实 &gt; 仿真加速</b><br><span style="color:#47536a;font-size:14.5px">训练-量化-裸机-上板贯穿始终——每一分加速对应的精度损失都有数字（82.5→~80），回应既有工作「仿真测加速、无法评估精度退化」的缺口。</span></div>
+    <div class="c"><span class="n">2</span><b>裁剪知道哪里能下刀</b><br><span style="color:#47536a;font-size:14.5px">深度 12→1 + MLP 256→24 是安全刀口（深度容量主要为多类买单）；归一化向量 DIM 不能砍——砍它等于压缩表示本身。</span></div>
+    <div class="c"><span class="n">3</span><b>非对称双 scale 有机理支撑</b><br><span style="color:#47536a;font-size:14.5px">权重 0-1 可用大 scale（64）提精度；输入幅值数百、scale 64 触发溢出（82.5→65.2）——不是经验调参而是取值范围的必然。</span></div>
+    <div class="c"><span class="n">4</span><b>最小面积的非线性算子加速</b><br><span style="color:#47536a;font-size:14.5px">GELU 分段近似（梯度下降寻优阈值，退化 0.0042%）+ SoftMax LUT（依赖数值稳定形式的有界性）——29% 面积 + 2.69kB ROM 换 2.4× 周期。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">双类设定让精度数字失去可比性；「迷你 Transformer 好不好」没关上</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>方法局限</h4>
+      <ul>
+        <li><b>任务设定根本局限</b>：双类（notdog 混 34 词为负类），87.2/82.5% 与 35 类 96.9% 不在同一难度平面；~80% 绝对精度对商用唤醒词不够，且无 FAR/FRR/DET。</li>
+        <li><b>LUT 依赖标定</b>：e^(max−x) ∈ [0,10] 是该模型/特征/数据上的经验事实——换模型越界就要重标，加速器不即插即用。</li>
+        <li><b>软件未优化</b>：O(n³) 朴素矩阵乘、SoftMax/LN 仍浮点——周期数还有可观软件压缩空间。</li>
+        <li><b>功耗是推断</b>：周期数 ×固定每周期能耗的假设，无实测；FPGA 动态功耗与 ASIC 流片有差距。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>覆盖窄</b>：单数据集、单平台、单次综合，无多种子无方差。</li>
+        <li><b>零外部基线</b>：无 DS-CNN / BC-ResNet / MatchboxNet，也无 TFLite Micro 同平台实测——「1646 参数的 Transformer」在同预算下是否优于成熟 CNN 无从判断。</li>
+        <li><b>训练细节缺失</b>：epoch / 优化器 / 学习率 / 数据划分全未报——结果难精确复现。</li>
+        <li><b>scale 搜索粗</b>：只 2 的幂五个组合；无 QAT 对照——PTQ 与 82.5% 之间还有多少空间未知。</li>
+        <li><b>无噪声/远场测试</b>——唤醒词真实部署环境的常态缺位。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得追的方向</b>：① 输出类扩展到多唤醒词 + 误唤醒 / 漏检率评估；② QAT 替代纯 PTQ + SoftMax/LN 定点化，彻底清除软浮点；③ LUT 有效域自动标定流程让加速器可移植；④ 矩阵乘换优化实现（分块 / 展开 / 乘加融合）、库扩展到卷积算子；⑤ <b>最有价值的补课</b>：真实芯片或系统 FPGA 功耗实测 + 与 CNN 系小模型同 RAM 预算正面对比——回答「在微控制器上迷你 Transformer 到底是不是好选择」这个开了头没关上的问题；⑥ 线性 attention / 低秩近似等结构性降本 + VAD-KWS 级联摊薄平均功耗。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2024/KWT-Tiny_RISC-V_Accelerated_Embedded_Keyword_Spotting_Transformer.md">深读笔记</a>
+    <a class="pill" href="/papers/2024/KWT-Tiny_RISC-V_Accelerated_Embedded_Keyword_Spotting_Transformer.pdf">PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2407.16026" target="_blank">arXiv</a>
+    <a class="pill" href="https://github.com/anessk01/kwt_tiny" target="_blank">代码</a>
+    <a class="pill" href="/">返回总目录</a>
+  </div>
+  <p>深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table I-IX / Fig. 1-7 / 式 1-13）；「笔记推算」标注处为笔记给出的核对结论。</p>
+</footer>
+
+</div>
+</body>
+</html>
