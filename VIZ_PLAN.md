@@ -1,7 +1,7 @@
 # 可视化精读计划（VIZ_PLAN）
 
 > 逐篇把 305 篇深读笔记重写为 HTML+SVG 可视化页（2026→2018 倒序）。每篇流程：读笔记 → python 算图表坐标 → 手绘机制 SVG → 自包含 HTML → 更新 manifest+plan → commit+push。
-**进度：53 / 305**
+**进度：54 / 305**
 > 进度以本文件为准；`viz_manifest.json` 是机器可读版（站点 viz 按钮按它门控）。
 
 ## 2026（24/24）
@@ -31,7 +31,7 @@
 - [✅] ProKWS: Personalized Keyword Spotting via Collaborative Le…
 - [✅] Scalable Keyword Spotting via Modular Network Expansion：冻结…
 
-## 2025（29/36）
+## 2025（30/36）
 
 - [✅] ASAP-FE：面向边缘处理器多通道关键词检出的节能特征提取前端
 - [✅] 免乘法器 MFCC 特征提取器的低功耗关键词检测芯片
@@ -62,7 +62,7 @@
 - [✅] Multichannel Keyword Spotting for Noisy Conditions：用注意力机制让…
 - [✅] OASI：面向 TinyML 关键词检测多目标贝叶斯优化的目标感知代理初始化
 - [✅] On-device Keyword Spotting of Odia Language on an Edge Dev…
-- [⬜] PatchDSU：面向关键词检测分布外泛化的不确定性建模
+- [✅] PatchDSU：面向关键词检测分布外泛化的不确定性建模
 - [⬜] Prototype：面向物联网的、以关键词检测为核心的智能音频 SoC 原型
 - [⬜] Quantization-Based Score Calibration for Few-Shot KWS：噪声短波…
 - [⬜] Synaspot：面向音频-文本协同的轻量级流式多模态关键词检测框架
