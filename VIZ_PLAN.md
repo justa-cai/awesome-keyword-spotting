@@ -4,9 +4,9 @@
 > 每完成一篇：生成 `papers/<year>/<name>.html` → 更新 `viz_manifest.json` → 本文件勾选 → 分批 commit+push。
 > 状态：✅ 已上线 · ⬜ 待做。进度 = 已完成 / 总数。
 
-**进度：14 / 305**
+**进度：15 / 305**
 
-## 2026（14/24）
+## 2026（15/24）
 
 - [✅] A Multiplication-Free Feature Extractor for Signal Class…
 - [✅] BEST-STD 2.0：面向口语词检索的均衡高效语音分词器
@@ -22,7 +22,7 @@
 - [✅] KFC-KWS: Keyframe Fusion with CTC for User-Defined Keywo…
 - [✅] Keyword Spotting using Convolutional Neural Network for …
 - [✅] MALEFA：面向零样本关键词检测的多粒度学习与高效误报抑制
-- [⬜] MATE：套娃式音频-文本嵌入，面向开放词表关键词检测
+- [✅] MATE：套娃式音频-文本嵌入，面向开放词表关键词检测
 - [⬜] Massive Open-Vocabulary Keyword Spotting
 - [⬜] No Word Left Behind: Mitigating Prefix Bias in Open-Voca…
 - [⬜] OK Aura, Be Fair With Me: Demographics-Agnostic Training…
