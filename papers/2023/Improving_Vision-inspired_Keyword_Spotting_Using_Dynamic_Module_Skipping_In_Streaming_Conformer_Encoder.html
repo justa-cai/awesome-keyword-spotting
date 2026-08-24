@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>动态模块跳过流式 Conformer KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2023/Improving_Vision-inspired_Keyword_Spotting_Using_Dynamic_Module_Skipping_In_Streaming_Conformer_Encoder.md">深读笔记</a>
+    <a href="/papers/2023/Improving_Vision-inspired_Keyword_Spotting_Using_Dynamic_Module_Skipping_In_Streaming_Conformer_Encoder.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2309.00140" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2023 №14</p>
+  <h1>全局注意力教会模型「什么不是关键词」——误警率砍半；<br>纯噪声段跳过 97% 计算，常开检测器不再为静音买单</h1>
+  <p class="sub">Improving Vision-inspired Keyword Spotting Using Dynamic Module Skipping in Streaming Conformer Encoder</p>
+  <p class="meta"><b>作者</b>：Alexandre Bittar、Paul Dixon、Mohammad Samragh、Kumari Nishu、Devang Naik —— Apple</p>
+  <p class="meta"><b>发表</b>：arXiv 2309.00140（2023-08）· Librispeech 960h 1000 词 + GSC 加噪流 · 1.29M / 93K 两档</p>
+  <div class="chips">
+    <span class="chip">1.2s 窗 / 240ms 滑移流式契约</span><span class="chip">conformer 四模块独立门</span><span class="chip">Gumbel-Softmax 可微训练</span>
+    <span class="chip">FAR 0.314→0.146</span><span class="chip">噪声段跳过 97%</span><span class="chip">跳过优于缩小（容量对等对照）</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>定位是级联系统的省钱变量</b>：端侧「轻量 KWS + 重量级 ASR」两级架构的隐私与效率都取决于 KWS 能否给出关键词的精确时间边界——给不出就整段音频进大模型（浪费算力）或靠粗糙能量检测（误触发多）。视觉式 KWS 路线（SpeechYOLO → 本文基础框架）已形成「检测-分类-定位」三头标准管线——但编码器一直是<b>全卷积 BC-ResNet</b>：局部相关性强、无显式全局交互，区分同音词（peace/piece、night/knight）与判断完整关键词需要窗口尺度上下文。</li>
+      <li><b>流式契约（最基础的创新）</b>：ASR 的 conformer 默认整句输入、注意力无界——直接搬违反流式与内存约束。三个数字钉死边界：<b>1.2 秒窗口</b>（注意力上下文上界，内存不随音频时长增长）、<b>240ms 滑移</b>（输出节奏，几乎构成全部感知延迟）、<b>960ms 缓存复用</b>（不重复计算）；子采样卷积把 120 帧压到 29 帧——自注意力的平方开销建立在压缩时间轴上，这是 conformer 塞进端侧预算的关键一步。</li>
+      <li><b>I3D 门控扩展到 conformer（四类模块）</b>：transformer 只有前馈 / 注意力两类可跳对象，conformer 有四类（FFN×2 / MHSA / CONV）——<b>每个模块的残差连接上装独立二值门</b>（共 4Nz 个：Librispeech 32 个 / GSC 12 个），门看该模块输入的<b>时间平均</b>（窗口级决策粒度，参数每门仅 2H+2，GSC 全套门 ~1k 参数）。训练用 Gumbel-Softmax 可微采样离散 0/1，推理退化硬判决 p&gt;0.5；<b>门开启率正则防「全开退化静态」</b>；<b>先无门预训练再开门</b>（网络没训到位时时间平均输入是噪声，门学到乱开策略）——也可反向加装到已训好的非门控模型。</li>
+      <li><b>conformer 的增益模式（最有信息量）</b>：test-other 上 FAR 从 0.314 砍到 <b>0.146</b>（每秒误警降一半多）、精确率 0.749→0.869、MTWV 0.58→0.76——但<b>召回率几乎没动</b>（0.684→0.705）。提升全部来自误警侧：全局注意力最大受益方是「第 C+1 类（无关键词）」建模与同音词判别——<b>conformer 教会模型什么不是关键词，而不是多抓住几个</b>。对常开检测器恰是最有价值的方向（误警反复唤醒大模型、耗电 + 隐私）。</li>
+      <li><b>参数账</b>：Ours-L 1.29M vs 基线 1.54M——<b>参数少 16% 指标几乎全线提升</b>（唯二例外：干净集上事件准确率与 IOU 略低于卷积基线——卷积在干净数据的定位边界反而稍好，论文诚实报告）。</li>
+      <li><b>跳过优于缩小（效率论证支点）</b>：Ours-L-gated（跳过 30%）与 Ours-S（静态砍小的非门控模型，平均计算量相当）对照——前者全部指标更好（test-other F1 0.769 vs 0.737）。<b>省算力的正确姿势不是把网络均匀削薄让所有输入一起变差，而是保持容量让简单输入走浅路径、难输入仍走完整深度。</b></li>
+      <li><b>三档跳过率（输入条件化的直接证据）</b>：连续语音 30%、孤立命令语音 42%、<b>纯噪声段 97%</b>——两者相差一倍多验证「门学会了区分语音与非语音」；常开检测器「大部分算力花在非语音上」的隐性浪费变成可砍的显式成本。</li>
+      <li><b>代价的诚实清单（论文表述之外）</b>：「所有指标差异 &lt;1%」只对 P/R/F1 成立——<b>MTWV 落差 3–6 个点</b>（0.87→0.84 / 0.76→0.70）；<b>GSC 上 IOU 0.818→0.757 是最大单点退化</b>（短命令有效信息集中在少数帧，跳过更容易丢边界信息）。论文自己划清的硬边界：跳过<b>不减模型体积</b>（内存不变）、<b>不改善感知延迟</b>——收益仅平均计算量与功耗。</li>
+      <li><b>边界</b>：门决策是窗口级（1.2s 内所有帧共享同一决策——短命令埋在长噪声里只能整体决策）；β=0.5 / λ=1 固定（无法运行时切「省电 / 全精度」档）；无绝对 MACs / 实测延迟 / 实测功耗（97% 跳过率兑多少电池时间只是机制推断）；基线只有 BC-ResNet 一个（无 cFSMN / MatchboxNet / 早退机制横向对比）；噪声只有嘈杂人声一种（无远场 / 混响 / 多说话人 / 音乐）；门位置 / λ / β / 预训练轮数 / 窗长全无敏感性扫描。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">四组互相牵制的约束</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>设计空间</b>：① conformer 装进流式窗口管线（上下文有界 1.2s / 内存小（参数比基线少 16%+）/ 输出节奏固定 240ms）；② I3D 门控从 transformer-ASR 扩展到 conformer 四种模块的残差连接 + 离散门端到端训练；③ 跳过不牺牲检测与定位精度（门开启率正则控制平衡点）；④ 效率收益分场景量化（连续语音 / 孤立命令 / 纯噪声的跳过率分开报告——支撑「适合常开检测器」结论）。任务难度注脚：Librispeech 连续朗读导致关键词窗口内碰撞 + 同音异形词当不同类别——对编码器上下文建模的实打实考验。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">管线不动，编码器换血 + 四模块装门</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg viewBox="0 0 920 700" role="img">
+  <defs>
+    <marker id="va2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#47536a"/></marker>
+    <marker id="vg2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0e8a66"/></marker>
+  </defs>
+  <text x="30" y="26" font-size="13.5" fill="#47536a" font-weight="600">图 1 复绘：视觉式「检测-分类-定位」三头管线不动，编码器换流式 conformer + 四模块独立二值门</text>
+
+  <!-- streaming window -->
+  <rect x="30" y="52" width="860" height="130" rx="11" fill="#f2faf6" stroke="#9ec9b8" stroke-width="1.2"/>
+  <text x="46" y="76" font-size="12.5" font-weight="700" fill="#0a6b4e">流式契约（把 conformer 塞进端侧的三个数字）</text>
+  <text x="46" y="102" font-size="11" fill="#47536a"><tspan font-weight="700" fill="#0a6b4e">1.2 秒窗口</tspan>（120 帧 × 40 梅尔）界定注意力上下文——内存上界，不随音频时长增长</text>
+  <text x="46" y="124" font-size="11" fill="#47536a"><tspan font-weight="700" fill="#0a6b4e">240ms 滑移</tspan>界定输出节奏——几乎构成全部用户感知延迟；每窗 6 个预测步（29−24+1）</text>
+  <text x="46" y="146" font-size="11" fill="#47536a"><tspan font-weight="700" fill="#0a6b4e">960ms 缓存复用</tspan>——保留上一窗末尾与新到音频拼下一窗，不重复计算</text>
+  <text x="46" y="170" font-size="10.5" fill="#8a93a5">推理循环朴素：存 960ms → 等 240ms → 拼 1.2s 窗 → 前向 → 产出预测 → 重复</text>
+
+  <!-- conformer + gates -->
+  <rect x="30" y="200" width="860" height="180" rx="12" fill="#e6f4ee" stroke="#0e8a66" stroke-width="1.4"/>
+  <text x="46" y="224" font-size="12.5" font-weight="700" fill="#0a6b4e">编码器：子采样卷积（120→29 帧，对齐 40ms 感受野步长）→ Nz 个 conformer 块</text>
+  <g font-size="9.5" text-anchor="middle">
+    <rect x="60" y="244" width="170" height="56" rx="8" fill="#fff" stroke="#9ec9b8" stroke-width="1.2"/><text x="145" y="264" font-weight="700" fill="#47536a">前馈 FFN ×2</text><text x="145" y="282" fill="#8a93a5">特征变换 · 门 g₁, g₄</text>
+    <rect x="250" y="244" width="170" height="56" rx="8" fill="#fff" stroke="#0e8a66" stroke-width="1.4"/><text x="335" y="264" font-weight="700" fill="#0a6b4e">多头自注意力 MHSA</text><text x="335" y="282" fill="#8a93a5">全局对齐 · 门 g₂（全局上下文的来源）</text>
+    <rect x="440" y="244" width="170" height="56" rx="8" fill="#fff" stroke="#9ec9b8" stroke-width="1.2"/><text x="525" y="264" font-weight="700" fill="#47536a">卷积 CONV</text><text x="525" y="282" fill="#8a93a5">局部模式 · 门 g₃</text>
+    <rect x="630" y="244" width="240" height="56" rx="8" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.1"/><text x="750" y="264" font-weight="700" fill="#47536a">× Nz 块（LSI: 8 / GSC: 3）</text><text x="750" y="282" fill="#8a93a5">共 4Nz 个门（32 / 12 个）· 全部形状不变 → 残差上乘门不破坏维度</text>
+  </g>
+  <text x="46" y="326" font-size="11" fill="#0a6b4e">四类模块性质各异——不同类型可按同一窗口输入分别决定开闭（噪声窗可能只留早期卷积、关掉所有注意力）；门只看该模块自身输入的时间平均</text>
+  <text x="46" y="350" font-size="10.5" fill="#8a93a5">门参数每门仅 2H+2（GSC 上全套门 ~1k 参数，93k vs 非门控 94k）——推理判断只花一次点积</text>
+
+  <!-- three heads -->
+  <rect x="30" y="396" width="860" height="130" rx="11" fill="#eaf3fc" stroke="#3d6fa8" stroke-width="1.2"/>
+  <text x="46" y="420" font-size="12.5" font-weight="700" fill="#2a5580">三头输出（继承文献[12] 视觉式管线）</text>
+  <text x="46" y="446" font-size="10.5" fill="#47536a">· 检测头：FFN+sigmoid → 逐帧关键词存在概率（IOG&gt;0.95 标 1，&lt;0.5 标 0，中间掩掉——窗口盖到一半是噪声监督）</text>
+  <text x="46" y="468" font-size="10.5" fill="#47536a">· 分类头：检测&lt;0.5 掩码 → softmax C+1 类（第 C+1 = 无关键词，同音异形词 peace/piece 不同类）</text>
+  <text x="46" y="490" font-size="10.5" fill="#47536a">· 定位头：CenterNet 式回归宽度与偏移 → 反解起止时间（级联系统里决定「截多长音频给大模型」）</text>
+  <text x="46" y="514" font-size="10.5" fill="#2a5580">max-pooling 核宽 24（=1s 感受野在 40ms 步长下的跨度）→ 每窗 6 步 → 阈值 ϑ 提候选 → NMS 压重复</text>
+
+  <!-- gating math -->
+  <rect x="30" y="542" width="420" height="142" rx="11" fill="#f9faf7" stroke="#e6e6df" stroke-width="1.1"/>
+  <text x="46" y="566" font-size="12" font-weight="700" fill="#47536a">门控数学（式 1–3）</text>
+  <text x="46" y="592" font-size="11.5" font-family="Georgia,serif" fill="#1c2430">x → x + g(θ,x) · module(x)，g ∈ {0,1}</text>
+  <text x="46" y="614" font-size="10.5" fill="#47536a">p_g = softmax(W_g·x̄ + b_g)——训练用 Gumbel-Softmax 可微采样离散 0/1；</text>
+  <text x="46" y="634" font-size="10.5" fill="#47536a">推理退化硬判决 p_keep &gt; β=0.5（「训练松弛、部署硬判」两段式）</text>
+  <text x="46" y="658" font-size="10.5" fill="#0a6b4e">L_gate = λ·f_open（λ=1）——惩罚开门比例：不加则门全开退化静态深度，过强则精度崩塌</text>
+
+  <rect x="470" y="542" width="420" height="142" rx="11" fill="#fdf7f0" stroke="#e0bc94" stroke-width="1.2"/>
+  <text x="486" y="566" font-size="12" font-weight="700" fill="#a35c14">两个工程决策</text>
+  <text x="486" y="592" font-size="10.5" fill="#a35c14">先无门预训练再开门：网络没训到位时时间平均输入基本是噪声，门学到乱开策略——</text>
+  <text x="486" y="612" font-size="10.5" fill="#47536a">先训表示再训门，门才有有意义信号；也可反向加装到已训好的非门控模型（不必重训）</text>
+  <text x="486" y="640" font-size="10.5" fill="#47536a">诚实边界（论文自己划清）：跳过<b>不减模型体积</b>（内存不变）、<b>不改善感知延迟</b>——</text>
+  <text x="486" y="660" font-size="10.5" fill="#47536a">收益仅平均计算量与功耗——避免了动态深度常见的过度宣传</text>
+</svg>
+    <p class="cap"><b>图 1 复绘</b>：四模块形状不变是门控成立的结构前提（残差上乘标量门不破坏维度）；子采样到 29 帧让自注意力平方开销建立在压缩时间轴上。</p>
+  </div>
+
+  <div class="formula">
+    x → x + g(θ, x) · module(x)；&nbsp; p<sub>g</sub>(x) = Softmax(W<sub>g</sub>·x̄ + b<sub>g</sub>)；&nbsp; L<sub>gate</sub> = λ·f<sub>open</sub>（λ=1）
+    <div class="why">式 1–3 · 门控全部数学：g∈{0,1} 二值门乘在残差分支上（四模块形状不变是结构前提）；门看时间平均输入 x̄（窗口级粒度）；Gumbel-Softmax 让离散决策可反传（「训练松弛、部署硬判」两段式）；开启率正则防两个极端——不加则门全开退化静态深度（跳过率归零）、过强则集体关闭精度崩塌。λ=1 是给出的平衡点但无扫描。</div>
+  </div>
+
+  <div class="formula">
+    IOG(t, c) = 重叠时长 / 关键词时长（&gt;0.95 标 1，&lt;0.5 标 0，中间掩掉）；定位：CenterNet 式宽度 (e−b)/R + 偏移
+    <div class="why">式 7–10 · 标签构造的「物体 vs 视野」逻辑：分母是关键词自身时长不是窗口——窗口覆盖关键词绝大部分就算看见（不管窗口多大）；窗口只盖到一半时强行标 1 或 0 都是噪声监督（掩掉中间地带）。定位头反解起止时间 = 级联系统「截多长音频给大模型」的直接依据。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与消融</p>
+  <h2 class="sec">表 1 模型矩阵承担消融功能</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据与指标</b>：Librispeech（960h / 28 万句）取词频前 1000 词做词表，MFA 对齐词级起止时间；GSC 35 命令词孤立放置在 MS-SNSD 嘈杂人声噪声流上（SNR 10–40dB——刻意构造「命令稀疏、噪声主导」模拟常开输入分布）。指标覆盖三视角：FAR 用<b>每秒误警次数</b>（流式常开场景误警随时间线性累积——直接对应「会不会烦人 / 反复唤醒大模型」的部署量纲）；MTWV 是 NIST 口语词检测标准指标（20 词、每词独立调阈值——整条工作点扫描，弥补单阈值盲区）；Skips% 是 I3D 带来的新量纲（传统 KWS 论文无对应物）。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 480" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 1 · Librispeech 主对比：conformer 的增益几乎全部来自误警侧（FAR 每秒次数）</text>
+<line x1="70" y1="387.4" x2="560" y2="387.4" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="391.4" text-anchor="end" font-size="11.5" fill="#6b7a72">0.6</text>
+<line x1="70" y1="282.1" x2="560" y2="282.1" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="286.1" text-anchor="end" font-size="11.5" fill="#6b7a72">0.7</text>
+<line x1="70" y1="176.8" x2="560" y2="176.8" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="180.8" text-anchor="end" font-size="11.5" fill="#6b7a72">0.8</text>
+<line x1="70" y1="71.6" x2="560" y2="71.6" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="75.6" text-anchor="end" font-size="11.5" fill="#6b7a72">0.9</text>
+<line x1="70" y1="440" x2="560" y2="440" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="182" y="52" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">test-clean（F1）</text>
+<rect x="62.0" y="111.6" width="48" height="328.4" rx="4" fill="#b9c6bd"/>
+<text x="86.0" y="105.6" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">0.862</text>
+<text x="86.0" y="458.0" text-anchor="middle" font-size="8.5" fill="#47536a">BC-ResNet-L</text>
+<text x="86.0" y="469.0" text-anchor="middle" font-size="8.5" fill="#47536a">1.54M</text>
+<rect x="124.0" y="75.8" width="48" height="364.2" rx="4" fill="#0e8a66"/>
+<text x="148.0" y="69.8" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">0.896</text>
+<text x="148.0" y="458.0" text-anchor="middle" font-size="8.5" fill="#47536a">Ours-L</text>
+<text x="148.0" y="469.0" text-anchor="middle" font-size="8.5" fill="#47536a">1.29M conformer</text>
+<rect x="186.0" y="80.0" width="48" height="360.0" rx="4" fill="#5aa88a"/>
+<text x="210.0" y="74.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">0.892</text>
+<text x="210.0" y="458.0" text-anchor="middle" font-size="8.5" fill="#47536a">Ours-L-gated</text>
+<text x="210.0" y="469.0" text-anchor="middle" font-size="8.5" fill="#47536a">跳过30%</text>
+<rect x="248.0" y="103.2" width="48" height="336.8" rx="4" fill="#d9c9a8"/>
+<text x="272.0" y="97.2" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">0.870</text>
+<text x="272.0" y="458.0" text-anchor="middle" font-size="8.5" fill="#47536a">Ours-S</text>
+<text x="272.0" y="469.0" text-anchor="middle" font-size="8.5" fill="#47536a">静态缩小</text>
+<text x="382" y="52" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">test-other（F1）</text>
+<rect x="262.0" y="266.3" width="48" height="173.7" rx="4" fill="#b9c6bd"/>
+<text x="286.0" y="260.3" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">0.715</text>
+<text x="286.0" y="458.0" text-anchor="middle" font-size="8.5" fill="#47536a">BC-ResNet-L</text>
+<rect x="324.0" y="198.9" width="48" height="241.1" rx="4" fill="#0e8a66"/>
+<text x="348.0" y="192.9" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">0.779</text>
+<text x="348.0" y="458.0" text-anchor="middle" font-size="8.5" fill="#47536a">Ours-L</text>
+<rect x="386.0" y="209.5" width="48" height="230.5" rx="4" fill="#5aa88a"/>
+<text x="410.0" y="203.5" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">0.769</text>
+<text x="410.0" y="458.0" text-anchor="middle" font-size="8.5" fill="#47536a">Ours-L-gated</text>
+<text x="410.0" y="469.0" text-anchor="middle" font-size="8.5" fill="#47536a">跳过26%</text>
+<rect x="448.0" y="243.2" width="48" height="196.8" rx="4" fill="#d9c9a8"/>
+<text x="472.0" y="237.2" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">0.737</text>
+<text x="472.0" y="458.0" text-anchor="middle" font-size="8.5" fill="#47536a">Ours-S</text>
+<text x="700" y="52" text-anchor="middle" font-size="11.5" font-weight="700" fill="#8c3b2e">FAR（每秒误警）——增益真正来源</text>
+<rect x="612.0" y="76" width="90.4" height="22" rx="4" fill="0.55" opacity="#b9c6bd"/>
+<text x="707.4" y="92" font-size="10.5" font-weight="700" fill="#1c2430">0.192</text>
+<rect x="696.0" y="76" width="147.8" height="22" rx="4" fill="1.0" opacity="#b9c6bd"/>
+<text x="848.8" y="92" font-size="10.5" font-weight="700" fill="#1c2430">0.314</text>
+<text x="606" y="92" text-anchor="end" font-size="9" fill="#47536a">BC-ResNet-L</text>
+<rect x="612.0" y="136" width="45.6" height="22" rx="4" fill="0.55" opacity="#0e8a66"/>
+<text x="662.6" y="152" font-size="10.5" font-weight="700" fill="#1c2430">0.097</text>
+<rect x="696.0" y="136" width="68.7" height="22" rx="4" fill="1.0" opacity="#0e8a66"/>
+<text x="769.7" y="152" font-size="10.5" font-weight="700" fill="#1c2430">0.146</text>
+<text x="606" y="152" text-anchor="end" font-size="9" fill="#47536a">Ours-L</text>
+<rect x="612.0" y="196" width="48.9" height="22" rx="4" fill="0.55" opacity="#5aa88a"/>
+<text x="665.9" y="212" font-size="10.5" font-weight="700" fill="#1c2430">0.104</text>
+<rect x="696.0" y="196" width="74.4" height="22" rx="4" fill="1.0" opacity="#5aa88a"/>
+<text x="775.4" y="212" font-size="10.5" font-weight="700" fill="#1c2430">0.158</text>
+<text x="606" y="212" text-anchor="end" font-size="9" fill="#47536a">Ours-L-gated</text>
+<rect x="612" y="252" width="11" height="11" rx="2" fill="#0e8a66" opacity="0.55"/><text x="627" y="262" font-size="10" fill="#47536a">test-clean</text>
+<rect x="700" y="252" width="11" height="11" rx="2" fill="#0e8a66"/><text x="715" y="262" font-size="10" fill="#47536a">test-other（更难）</text>
+<text x="700" y="292" text-anchor="middle" font-size="10.5" fill="#8c3b2e">test-other FAR 0.314 → 0.146（降一半多）</text>
+<text x="700" y="312" text-anchor="middle" font-size="10.5" fill="#8c3b2e">召回几乎没动（0.684→0.705）——</text>
+<text x="700" y="332" text-anchor="middle" font-size="10.5" fill="#8c3b2e">提升全部来自「学会什么不是关键词」</text>
+<text x="700" y="360" text-anchor="middle" font-size="10" fill="#8a93a5">第 C+1 类建模与同音词判别是全局</text>
+<text x="700" y="378" text-anchor="middle" font-size="10" fill="#8a93a5">注意力最大受益方——误警才是常开</text>
+<text x="700" y="396" text-anchor="middle" font-size="10" fill="#8a93a5">检测器最贵的代价（反复唤醒大模型）</text>
+</svg>
+    <p class="cap"><b>Table 1（Librispeech）</b>：左——F1 对比矩阵（基线 / conformer / 门控 / 静态缩小）；右——FAR 侧面板：增益的分布模式（召回不动、误警砍半）及其机理解释。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 340" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">输入条件化的跳过率（表 1 GSC 行）：门学会了区分语音与非语音并调整计算</text>
+<line x1="70" y1="300.0" x2="830" y2="300.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="304.0" text-anchor="end" font-size="12" fill="#6b7a72">0%</text>
+<line x1="70" y1="235.0" x2="830" y2="235.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="239.0" text-anchor="end" font-size="12" fill="#6b7a72">25%</text>
+<line x1="70" y1="170.0" x2="830" y2="170.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="174.0" text-anchor="end" font-size="12" fill="#6b7a72">50%</text>
+<line x1="70" y1="105.0" x2="830" y2="105.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="109.0" text-anchor="end" font-size="12" fill="#6b7a72">75%</text>
+<line x1="70" y1="40.0" x2="830" y2="40.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="44.0" text-anchor="end" font-size="12" fill="#6b7a72">100%</text>
+<line x1="70" y1="300" x2="830" y2="300" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="145.0" y="222.0" width="90" height="78.0" rx="6" fill="#7cc0a2"/>
+<text x="190.0" y="267.0" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">30%</text>
+<text x="190.0" y="322.0" text-anchor="middle" font-size="10.5" fill="#47536a">连续语音</text>
+<text x="190.0" y="335.0" text-anchor="middle" font-size="10.5" fill="#47536a">（Librispeech）</text>
+<rect x="395.0" y="190.8" width="90" height="109.2" rx="6" fill="#5aa88a"/>
+<text x="440.0" y="251.4" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">42%</text>
+<text x="440.0" y="322.0" text-anchor="middle" font-size="10.5" fill="#47536a">孤立命令语音</text>
+<text x="440.0" y="335.0" text-anchor="middle" font-size="10.5" fill="#47536a">（GSC+噪声流）</text>
+<rect x="645.0" y="47.8" width="90" height="252.2" rx="6" fill="#0a6b4e"/>
+<text x="690.0" y="179.9" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">97%</text>
+<text x="690.0" y="322.0" text-anchor="middle" font-size="10.5" fill="#47536a">纯噪声段</text>
+<text x="690.0" y="335.0" text-anchor="middle" font-size="10.5" fill="#47536a">（GSC 背景）</text>
+<text x="440" y="336" text-anchor="middle" font-size="11.5" fill="#0a6b4e">「常开检测器大部分算力花在非语音上」的隐性浪费变成可砍的显式成本——42% vs 97% 相差一倍多，验证机制假设</text>
+</svg>
+    <p class="cap"><b>跳过率的输入依赖性</b>：42% vs 97% 相差一倍多——门确实学会了区分语音与非语音；纯噪声段 97% 是全文最有部署价值的单个数字。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 400" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">效率论证的支点与诚实的代价清单</text>
+<text x="245" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">容量对等对照：动态跳过 vs 静态缩小（平均计算量相当）</text>
+<line x1="70" y1="274.0" x2="470" y2="274.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="278.0" text-anchor="end" font-size="11.5" fill="#6b7a72">0.72</text>
+<line x1="70" y1="190.0" x2="470" y2="190.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="194.0" text-anchor="end" font-size="11.5" fill="#6b7a72">0.75</text>
+<line x1="70" y1="106.0" x2="470" y2="106.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="110.0" text-anchor="end" font-size="11.5" fill="#6b7a72">0.78</text>
+<line x1="70" y1="330" x2="470" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="135" y="76" text-anchor="middle" font-size="10.5" font-weight="700" fill="#47536a">test-clean F1</text>
+<rect x="82.0" y="-146.0" width="46" height="476.0" rx="4" fill="#d9c9a8"/>
+<text x="105.0" y="-152.0" text-anchor="middle" font-size="10" font-weight="700" fill="#1c2430">0.870</text>
+<text x="105.0" y="348" text-anchor="middle" font-size="9" fill="#47536a">Ours-S</text>
+<rect x="138.0" y="-207.6" width="46" height="537.6" rx="4" fill="#0e8a66"/>
+<text x="161.0" y="-213.6" text-anchor="middle" font-size="10" font-weight="700" fill="#1c2430">0.892</text>
+<text x="161.0" y="348" text-anchor="middle" font-size="9" fill="#47536a">Ours-L-gated</text>
+<text x="285" y="76" text-anchor="middle" font-size="10.5" font-weight="700" fill="#47536a">test-other F1</text>
+<rect x="232.0" y="226.4" width="46" height="103.6" rx="4" fill="#d9c9a8"/>
+<text x="255.0" y="220.4" text-anchor="middle" font-size="10" font-weight="700" fill="#1c2430">0.737</text>
+<text x="255.0" y="348" text-anchor="middle" font-size="9" fill="#47536a">Ours-S</text>
+<rect x="288.0" y="136.8" width="46" height="193.2" rx="4" fill="#0e8a66"/>
+<text x="311.0" y="130.8" text-anchor="middle" font-size="10" font-weight="700" fill="#1c2430">0.769</text>
+<text x="311.0" y="348" text-anchor="middle" font-size="9" fill="#47536a">Ours-L-gated</text>
+<text x="435" y="76" text-anchor="middle" font-size="10.5" font-weight="700" fill="#47536a">test-other MTWV</text>
+<rect x="382.0" y="414.0" width="46" height="-84.0" rx="4" fill="#d9c9a8"/>
+<text x="405.0" y="408.0" text-anchor="middle" font-size="10" font-weight="700" fill="#1c2430">0.670</text>
+<text x="405.0" y="348" text-anchor="middle" font-size="9" fill="#47536a">Ours-S</text>
+<rect x="438.0" y="330.0" width="46" height="0.0" rx="4" fill="#0e8a66"/>
+<text x="461.0" y="324.0" text-anchor="middle" font-size="10" font-weight="700" fill="#1c2430">0.700</text>
+<text x="461.0" y="348" text-anchor="middle" font-size="9" fill="#47536a">Ours-L-gated</text>
+<text x="270" y="372" text-anchor="middle" font-size="11" fill="#0a6b4e">省算力的正确姿势：保持容量让简单输入走浅路径（难输入仍走完整深度），不是把网络均匀削薄让所有输入一起变差</text>
+<text x="680" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#8c3b2e">门控的代价（论文表述之外）</text>
+<line x1="520" y1="272.1" x2="830" y2="272.1" stroke="#e8ece9" stroke="1"/>
+<line x1="520" y1="175.7" x2="830" y2="175.7" stroke="#e8ece9" stroke="1"/>
+<line x1="520" y1="79.3" x2="830" y2="79.3" stroke="#e8ece9" stroke="1"/>
+<line x1="520" y1="330" x2="830" y2="330" stroke="#9aa79e" stroke-width="1.4"/>
+<rect x="545.0" y="70" width="90.4" height="24" rx="4" fill="#8a93a5"/>
+<text x="640.4" y="87" font-size="10.5" font-weight="700" fill="#1c2430">0.870</text>
+<rect x="675.0" y="70" width="78.6" height="24" rx="4" fill="#c0563f"/>
+<text x="758.6" y="87" font-size="10.5" font-weight="700" fill="#1c2430">0.840</text>
+<text x="539" y="78" text-anchor="end" font-size="9" fill="#47536a">MTWV clean</text>
+<text x="539" y="89" text-anchor="end" font-size="9" fill="#47536a">（0.87→0.84）</text>
+<text x="790" y="87" font-size="10" font-weight="700" fill="#8c3b2e">−3 点</text>
+<rect x="545.0" y="148" width="47.1" height="24" rx="4" fill="#8a93a5"/>
+<text x="597.1" y="165" font-size="10.5" font-weight="700" fill="#1c2430">0.760</text>
+<rect x="675.0" y="148" width="23.6" height="24" rx="4" fill="#c0563f"/>
+<text x="703.6" y="165" font-size="10.5" font-weight="700" fill="#1c2430">0.700</text>
+<text x="539" y="156" text-anchor="end" font-size="9" fill="#47536a">MTWV other</text>
+<text x="539" y="167" text-anchor="end" font-size="9" fill="#47536a">（0.76→0.70）</text>
+<text x="790" y="165" font-size="10" font-weight="700" fill="#8c3b2e">−6 点</text>
+<rect x="545.0" y="226" width="69.9" height="24" rx="4" fill="#8a93a5"/>
+<text x="619.9" y="243" font-size="10.5" font-weight="700" fill="#1c2430">0.818</text>
+<rect x="675.0" y="226" width="46.0" height="24" rx="4" fill="#c0563f"/>
+<text x="726.0" y="243" font-size="10.5" font-weight="700" fill="#1c2430">0.757</text>
+<text x="539" y="234" text-anchor="end" font-size="9" fill="#47536a">GSC IOU</text>
+<text x="539" y="245" text-anchor="end" font-size="9" fill="#47536a">（0.818→0.757）</text>
+<text x="790" y="243" font-size="10" font-weight="700" fill="#8c3b2e">−6 点 最大单点退化</text>
+<text x="680" y="326" text-anchor="middle" font-size="10.5" fill="#8c3b2e">论文声称「所有指标差异 &lt;1%」对 P/R/F1 成立，但检索与定位指标超范围</text>
+<text x="680" y="346" text-anchor="middle" font-size="10.5" fill="#8a93a5">短命令场景跳过最伤边界（有效信息集中在少数帧）</text>
+</svg>
+    <p class="cap"><b>容量对等对照 + 代价清单</b>：左——跳过 vs 缩小三组指标全胜（效率论证支点）；右——论文「&lt;1%」表述之外的真实代价（MTWV −3~6 点 / IOU −6 点）。</p>
+  </div>
+
+  <div class="card">
+    <b>训练配置与未报项</b>：Librispeech 侧 H=80 · Nz=8 · Adam 余弦退火 1e-3→1e-4 · 100 epoch · 8×V100 每卡批 8；GSC 侧 H=40 · Nz=3。「先预训练再开门优于从头带门」以文字报告但无数字对比；门位置（哪类模块最值得装门）、λ、β、Nz、窗长、子采样倍率的敏感性全无扫描；多随机种子方差未报。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">四条贡献</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>第一个流式 conformer 装进视觉式 KWS 管线</b>：1.2s 窗 / 240ms 滑移 / 960ms 缓存 / 四倍子采样——内存与延迟双上界受控下把全局注意力带进检测定位，增益集中在最关乎部署的误警侧（FAR 0.314→0.146）。</div>
+    <div class="c"><span class="n">2</span><b>I3D 扩展到 conformer 四模块 + 流式 KWS 多任务</b>：Gumbel-Softmax + 开启率正则 + 先预训练后开门三个工程问题配套解决；门参数开销趋近于零（~1k）。</div>
+    <div class="c"><span class="n">3</span><b>三档跳过率量化输入条件化计算</b>：30% / 42% / 97%——纯噪声段 97% 把隐性浪费变成可砍的显式成本。</div>
+    <div class="c"><span class="n" style="background:#d97a2b">★</span><b>容量对等对照的方法论贡献</b>：Ours-S 对照组把「动态跳过」与「静态缩小」放同一杆秤——跳过优于缩小的结论对后续端侧高效推理有参考价值。</div>
+  </div>
+
+  <div class="card">
+    <b>可迁移判断</b>：省算力有两条路——<b>均匀缩小（所有输入一起变差）vs 输入条件化跳过（简单输入走浅路径，难输入保留完整深度）</b>；在输入分布高度倾斜（常开检测器绝大部分时间是非语音）的场景后者严格更优，且验证它的正确姿势是容量对等对照而非只报平均计算量；配套判断：全局注意力的价值常常不在「多抓住」而在<b>「学会拒绝」</b>——误警侧的收益对常开系统比召回侧更值钱。
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">不减内存不降延迟，97% 跳过率兑多少电池时间未实测</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>论文自认的两条硬边界</b>：跳过不减少需加载的模型体积（内存不变）、不明显改善感知延迟——收益仅平均计算量与功耗。</li>
+        <li><b>门决策是窗口级</b>：输入取时间平均——同 1.2s 窗内所有帧共享同一开闭决策，无法窗口内部更细的条件计算；短命令埋在长噪声里只能整体决策。</li>
+        <li><b>工作点固定</b>：β=0.5、λ=1 固定——无法运行时切「省电 / 全精度」档，比宽度可裁剪网络灵活性低。</li>
+        <li><b>精度非零代价</b>：MTWV 门控后降 3–6 点、GSC IOU 降 6 点——「维持同等性能」的结论在检索与定位指标上要打折扣。</li>
+        <li><b>停留跳过率层面</b>：无绝对 MACs / 实测延迟 / 实测功耗 / 每焦耳检测数——「可观的功耗节省」只是机制推断。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>对比面窄</b>：基线只有复现的 BC-ResNet 一个——无 cFSMN / DS-TCN / MatchboxNet 等流式编码器、无其它早退 / 动态计算方案、无与文献[12]原报告数字并排核对。</li>
+        <li><b>噪声条件单一</b>：只有嘈杂人声一种、SNR 10–40dB 一个区间——远场 / 混响 / 多说话人重叠 / 音乐背景全部缺席。</li>
+        <li><b>消融缺失</b>：门位置、λ、β、预训练轮数、窗长、子采样倍率全无扫描；无多随机种子方差。</li>
+        <li><b>MTWV 外推谨慎</b>：只在 20 个关键词上计算——1000 词词表下的检索性能外推需谨慎；测试集规模与噪声以外失真类型未报。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得补的方向</b>：门细化到帧级 / token 级（带时间权重池化或学习查询向量——短命令触发局部加深，有望修复 GSC 定位 IOU 退化）；运行时预算控制（λ 换成推理期约束 / 目标跳过率下受限解码——电量充足与紧张间切换工作点，做成多档省电模式）；与量化蒸馏叠加（门控减动态计算不减内存、量化减内存不动结构——正交组合收益空间大）；能量维度实测（真实终端芯片测每秒功耗与检测延迟——97% 跳过率兑多少电池时间，「适合常开检测器」从定性变定量的最后一步）；推广到自定义唤醒词与多语种词表；门控决策与下游 NMS 阈值联合优化。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2023/Improving_Vision-inspired_Keyword_Spotting_Using_Dynamic_Module_Skipping_In_Streaming_Conformer_Encoder.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2023/Improving_Vision-inspired_Keyword_Spotting_Using_Dynamic_Module_Skipping_In_Streaming_Conformer_Encoder.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2309.00140" target="_blank">arXiv · 2309.00140</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（表 1、图 1、式 1–10）；错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
