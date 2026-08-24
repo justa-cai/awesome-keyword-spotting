@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CTCAT · CTC 对齐流式开放词表 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2024/CTC-aligned_Audio-Text_Embedding_For_Streaming_Open-vocabulary_Keyword_Spotting.md">深读笔记</a>
+    <a href="/papers/2024/CTC-aligned_Audio-Text_Embedding_For_Streaming_Open-vocabulary_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2406.07923" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2024 №6</p>
+  <h1>把「对齐」本身做成流式：CTC 解码图逐帧更新，<br>155K 参数的开放词表检测器反超非流式基线</h1>
+  <p class="sub">CTC-aligned Audio-Text Embedding for Streaming Open-vocabulary Keyword Spotting（CTCAT）</p>
+  <p class="meta"><b>作者</b>：Sichen Jin、Youngmoon Jung、Seungjin Lee 等 6 人 —— 三星研究院（韩国）</p>
+  <p class="meta"><b>发表</b>：2024.06 · arXiv:2406.07923</p>
+  <div class="chips">
+    <span class="chip">流式开放词表</span><span class="chip">文本注册</span><span class="chip">在线 Viterbi 解码图</span>
+    <span class="chip">CTC + 嵌入双通道</span><span class="chip">155K / 6.91M FLOPs</span><span class="chip">O(U) 逐帧解码</span><span class="chip">LibriPhrase</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>痛点</b>：常驻 KWS 三条底线——低算力、只用过去帧、全天候激活。已有文本注册方法（交叉注意力 LibriPhrase / 动态规划 DSP）都要<b>全局上下文</b>：注意力矩阵两端互相依赖，动态规划要整条序列才能切分——与常驻监听正面冲突。纯 CTC 流式方案倒是逐帧，但只有帧级局部证据，误报控制弱。</li>
+      <li><b>方案（CTCAT）</b>：声学编码器（12 个 MobileNet 块，155K 参数）双头输出——CTC 头给每帧 token 后验、AE 头给每帧声学嵌入；<b>CTC 对齐器</b>维护为当前关键词构建的解码图（y₁-blank-y₂-blank-…-y<sub>U</sub>），逐帧 Viterbi 更新每个状态的累积分数 / 转移时刻 / 累积嵌入——每个时刻都持有「以当前帧结尾的最优对齐路径」。</li>
+      <li><b>双分数融合</b>：z = z<sub>CTC</sub>（局部：每个字符是否按顺序被发音）+ 6·z<sub>embed</sub>（全局：整词声学-文本一致性）——两类证据互补，从纯 CTC 到加短语级嵌入，LPE EER 9.11%→6.06%。</li>
+      <li><b>结果</b>：简单负例（LPE）上 155K 流式模型反超非流式 DSP（3.7M，EER 7.36→6.06）和 Attention（420K，8.24）；<b>困难负例（LPH）仍落后 DSP 6.27 点</b>（29.63 对 23.36）——3.7M 全序列容量在发音高度相似的负例上占优。</li>
+      <li><b>最有信息量的消融</b>：聚合粒度即上下文量——字符级（平均 5.6 帧）/ 词级（31.7 帧）/ 短语级（49.2 帧）的 LPH EER 完全同向（32.76 / 31.62 / 29.63）；字符级在 LPH 上甚至比纯 CTC 还差（上下文太少注入噪声）。</li>
+      <li><b>缺口</b>：双分数线性融合未归一化（z_CTC 随时长无界增长）；触发阈值 / 端点 / 去重的产品链路缺失；全部单次训练无显著性。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">开放词表的「对齐」卡在全局计算上</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>文本注册 vs QbyE</b>：论文站文本注册——① 体验：打字比对着设备念几遍自然；② 泛化：QbyE 只依赖声学特征，在环境变化与不同嗓音间弱，文本锚点天然不受说话人音色影响。<b>但文本注册路线的已有方法都是非流式的</b>：交叉注意力要整段音频与整个文本 token 序列做完整注意力运算（任何一帧的输出都要看到整段输入）；DSP 类动态规划要把整条隐编码序列拿到手才能全局切分。设备不可能为常驻唤醒词缓存并反复处理无限长的全局上下文。参数量也不友好：DSP 3.7M、Attention 约 420K。<b>三个互相牵制的条件</b>：文本注册 + 逐帧因果 + 小足迹算力——论文的答案是让 CTC 管逐帧对齐、嵌入管整词匹配，推理时以动态规划逐帧耦合（作者声明为首个推理时动态对齐音频与文本的流式 KWS）。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">解码图把全局性摊销进逐帧状态更新</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 430" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">Fig. 1 复绘：双头声学编码器 + 离线文本编码器 + 在线 CTC 对齐器</text>
+      <rect x="30" y="60" width="150" height="64" rx="9" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="105" y="86" text-anchor="middle" font-size="12" font-weight="700" fill="#1c2430">输入音频流</text>
+      <text x="105" y="106" text-anchor="middle" font-size="10.5" fill="#8a93a5">80 通道 Fbank · 25/10 ms</text>
+      <line x1="180" y1="92" x2="216" y2="92" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="216,92 208,87 208,97" fill="#5f8a76"/>
+      <rect x="218" y="52" width="270" height="80" rx="9" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.6"/>
+      <text x="353" y="76" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0a6b4e">声学编码器（流式，155K）</text>
+      <text x="353" y="98" text-anchor="middle" font-size="10.5" fill="#5f8a76">12 个 MobileNet 深度可分离卷积块</text>
+      <text x="353" y="118" text-anchor="middle" font-size="10.5" fill="#5f8a76">核宽 12 · 96 通道 · 每时间步 6.91M FLOPs</text>
+      <line x1="353" y1="132" x2="353" y2="156" stroke="#5f8a76" stroke-width="1.8"/>
+      <line x1="270" y1="156" x2="436" y2="156" stroke="#5f8a76" stroke-width="1.8"/>
+      <line x1="270" y1="156" x2="270" y2="176" stroke="#5f8a76" stroke-width="1.8"/>
+      <line x1="436" y1="156" x2="436" y2="176" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="270,176 265,168 275,168" fill="#5f8a76"/>
+      <polygon points="436,176 431,168 441,168" fill="#5f8a76"/>
+      <rect x="196" y="178" width="148" height="56" rx="8" fill="#fff" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="270" y="200" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0a6b4e">CTC 投影头</text>
+      <text x="270" y="220" text-anchor="middle" font-size="10" fill="#5f8a76">每帧 token 后验 P(y|x_t)</text>
+      <rect x="362" y="178" width="148" height="56" rx="8" fill="#fff" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="436" y="200" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0a6b4e">AE 投影头</text>
+      <text x="436" y="220" text-anchor="middle" font-size="10" fill="#5f8a76">每帧声学嵌入</text>
+      <text x="353" y="256" text-anchor="middle" font-size="10.5" fill="#8a93a5">双头解耦：CTC 要判别性后验，度量学习要可比较空间——各塑各的头、共享底层</text>
+
+      <rect x="30" y="286" width="300" height="128" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="48" y="312" font-size="12.5" font-weight="700" fill="#47536a">文本编码器（注册时一次性离线）</text>
+      <text x="48" y="338" font-size="11" fill="#47536a">· 字符级 token（28 字符 + pad/blank）</text>
+      <text x="48" y="358" font-size="11" fill="#47536a">· 查找表 256 维 → 双向 LSTM ×2</text>
+      <text x="48" y="378" font-size="11" fill="#47536a">· 文本侧敢用双向：序列极短且离线，</text>
+      <text x="48" y="396" font-size="11" fill="#47536a">　 不受流式约束</text>
+
+      <rect x="350" y="286" width="540" height="128" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.6"/>
+      <text x="368" y="312" font-size="12.5" font-weight="700" fill="#0a6b4e">CTC 对齐器（心脏）：关键词解码图 + 逐帧 Viterbi</text>
+      <text x="368" y="338" font-size="11" fill="#47536a">· 状态序列 y₁,␣,y₂,␣,…,y_U（L=2U−1）：首尾都是非 blank——关键词可出现在流的任何位置，</text>
+      <text x="368" y="356" font-size="11" fill="#47536a">　 图只刻画「y₁ 后拖任意长 blank 再 y₂ … 直到 y_U 收尾」</text>
+      <text x="368" y="378" font-size="11" fill="#47536a">· 每状态存三类：累积 CTC 分数 / 转移时刻 / 累积声学嵌入；每时刻重算「以当前帧结尾的</text>
+      <text x="368" y="396" font-size="11" fill="#47536a">　 最优路径」——历史全压在 DP 状态里，不回访过去帧 → 这就是能流式的根本原因</text>
+    </svg>
+    <p class="cap"><b>图 A</b>·与注意力 / 离线 DP 的本质区别：那些方法的全局计算需要整段序列同时在手上；这里全局性被<b>摊销</b>进逐帧状态更新。blank 语义重定义——紧跟非 blank token 的 blank = 该 token 发音的延续，其帧级嵌入累加进前导 token（LibriPhrase 平均每字符 5.6 帧，只取首帧会丢掉后半段声学）。</p>
+  </div>
+
+  <div class="formula">
+    L = L<sub>CTC</sub> + L<sub>multi-view</sub>（非对称代理损失 AsyP）；　推理：z = z<sub>CTC</sub> + 6 · z<sub>embed</sub>
+    <div class="why"><b>人话</b>：CTC 损失逐帧塑形 token 后验（提供对齐能力），多视角损失的梯度从池化后的 token 级嵌入回传到帧级（塑造度量空间）——两条监督在共享编码器上互相配合，<b>从零端到端联合训练，不需要预训练对齐器</b>。推理时 z<sub>CTC</sub> 是「每个字符是否按顺序被发音」的局部序列证据，z<sub>embed</sub> 是整词层面的全局一致性——融合系数 λ=6 在 10 万留出样本上调出。训练内存策略：全存 AE 要 O(TU²)，跳过 AE 存储、只存每步最终状态分数与时刻，对齐后取 CTC 分数最高的 t<sub>optimal</sub> 路径做池化。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">LPE 反超非流式；LPH 差距指向容量鸿沟</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据与设置</b>：LibriPhrase（与前人公平可比）——训练由 train-clean-100/360 生成，短语 1-4 词；干净语音卷积合成房间脉冲响应 + MUSAN 噪声（SNR −3~25 dB）。评测由 train-others-500 生成，负例按<b>编辑距离</b>分 LPE（简单）/ LPH（困难）两档；4391/2605/467/56 个 episode 对应 1-4 词长度，每 episode 3 正对 + 3 负对。<b>指标</b>：EER / AUC（阈值无关，LibriPhrase 原文口径）；部署侧指标（特定误唤醒率下召回 / 每小时误唤醒 / 触发延迟）未报告。训练：batch 1024 个关键词、Adam + 余弦退火、100 epoch、两块 A100 两天。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 400" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 1 · LibriPhrase EER%（越低越好）：流式轻量 vs 非流式基线</text>
+<line x1="70" y1="259.2" x2="420" y2="259.2" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="263.2" text-anchor="end" font-size="12" fill="#6b7a72">10</text>
+<line x1="70" y1="177.5" x2="420" y2="177.5" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="181.5" text-anchor="end" font-size="12" fill="#6b7a72">20</text>
+<line x1="70" y1="95.8" x2="420" y2="95.8" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="99.8" text-anchor="end" font-size="12" fill="#6b7a72">30</text>
+<line x1="70" y1="300" x2="420" y2="300" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="245" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#47536a">LPE 简单负例</text>
+<rect x="95.0" y="273.5" width="46" height="26.5" rx="4" fill="#8a93a5"/>
+<text x="118.0" y="267.5" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">8.24</text>
+<rect x="157.0" y="280.7" width="46" height="19.3" rx="4" fill="#d97a2b"/>
+<text x="180.0" y="274.7" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">7.36</text>
+<rect x="219.0" y="266.4" width="46" height="33.6" rx="4" fill="#b9c6bd"/>
+<text x="242.0" y="260.4" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">9.11</text>
+<rect x="281.0" y="270.2" width="46" height="29.8" rx="4" fill="#d9e8df"/>
+<text x="304.0" y="264.2" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">8.65</text>
+<rect x="343.0" y="283.3" width="46" height="16.7" rx="4" fill="#7cc0a2"/>
+<text x="366.0" y="277.3" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">7.05</text>
+<rect x="405.0" y="291.3" width="46" height="8.7" rx="4" fill="#0e8a66"/>
+<text x="428.0" y="285.3" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">6.06</text>
+<line x1="470" y1="218.3" x2="830" y2="218.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="462" y="222.3" text-anchor="end" font-size="12" fill="#6b7a72">25</text>
+<line x1="470" y1="136.7" x2="830" y2="136.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="462" y="140.7" text-anchor="end" font-size="12" fill="#6b7a72">30</text>
+<line x1="470" y1="55.0" x2="830" y2="55.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="462" y="59.0" text-anchor="end" font-size="12" fill="#6b7a72">35</text>
+<line x1="470" y1="300" x2="830" y2="300" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="650" y="48" text-anchor="middle" font-size="13" font-weight="700" fill="#47536a">LPH 困难负例（编辑距离近）</text>
+<rect x="495.0" y="89.3" width="46" height="210.7" rx="4" fill="#8a93a5"/>
+<text x="518.0" y="83.3" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">32.90</text>
+<text x="518.0" y="322" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">Attention</text>
+<text x="518.0" y="337" text-anchor="middle" font-size="10" fill="#8a93a5">~420K</text>
+<rect x="557.0" y="245.1" width="46" height="54.9" rx="4" fill="#d97a2b"/>
+<text x="580.0" y="239.1" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">23.36</text>
+<text x="580.0" y="322" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">DSP</text>
+<text x="580.0" y="337" text-anchor="middle" font-size="10" fill="#8a93a5">3.7M</text>
+<rect x="619.0" y="98.0" width="46" height="202.0" rx="4" fill="#b9c6bd"/>
+<text x="642.0" y="92.0" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">32.37</text>
+<text x="642.0" y="322" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">CTC</text>
+<text x="642.0" y="337" text-anchor="middle" font-size="10" fill="#8a93a5">147K</text>
+<rect x="681.0" y="91.6" width="46" height="208.4" rx="4" fill="#d9e8df"/>
+<text x="704.0" y="85.6" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">32.76</text>
+<text x="704.0" y="322" text-anchor="middle" font-size="10.5" font-weight="600" fill="#0a6b4e">字符级嵌入</text>
+<text x="704.0" y="337" text-anchor="middle" font-size="10" fill="#8a93a5">155K</text>
+<rect x="743.0" y="110.2" width="46" height="189.8" rx="4" fill="#7cc0a2"/>
+<text x="766.0" y="104.2" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">31.62</text>
+<text x="766.0" y="322" text-anchor="middle" font-size="10.5" font-weight="600" fill="#0a6b4e">词级嵌入</text>
+<text x="766.0" y="337" text-anchor="middle" font-size="10" fill="#8a93a5">155K</text>
+<rect x="805.0" y="142.7" width="46" height="157.3" rx="4" fill="#0e8a66"/>
+<text x="828.0" y="136.7" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c2430">29.63</text>
+<text x="828.0" y="322" text-anchor="middle" font-size="10.5" font-weight="600" fill="#0a6b4e">短语级嵌入</text>
+<text x="828.0" y="337" text-anchor="middle" font-size="10" fill="#8a93a5">155K</text>
+<text x="245" y="360" text-anchor="middle" font-size="12" fill="#0a6b4e">LPE：短语级 6.06 反超两个非流式基线（DSP 7.36 / Attention 8.24）</text>
+<text x="650" y="360" text-anchor="middle" font-size="12" fill="#8c3b2e">LPH：29.63 仍落后 DSP 6.27 点（3.7M 全序列容量在难负例占优），但好于 Attention</text>
+<text x="440" y="386" text-anchor="middle" font-size="12" fill="#8a93a5">AUC 对应：短语级 98.32 / 77.10；DSP 97.83 / 84.21；Attention 96.70 / 73.58</text>
+</svg>
+    <p class="cap"><b>表 1 复绘</b>·横轴标签：前两列为非流式基线（Attention / DSP），后四列为本文消融阶梯（纯 CTC → 字符 → 词 → 短语级）。LPE 反超的工程含义：流式 + 1/24 参数不再是性能折衷；LPH 差距是容量与上下文长度的代价。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 320" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 2 · 聚合粒度 = 上下文量：嵌入平均聚合帧数 vs LPH EER%</text>
+<line x1="80" y1="270.0" x2="800" y2="270.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="274.0" text-anchor="end" font-size="12.5" fill="#6b7a72">29</text>
+<line x1="80" y1="225.6" x2="800" y2="225.6" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="229.6" text-anchor="end" font-size="12.5" fill="#6b7a72">30</text>
+<line x1="80" y1="181.1" x2="800" y2="181.1" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="185.1" text-anchor="end" font-size="12.5" fill="#6b7a72">31</text>
+<line x1="80" y1="136.7" x2="800" y2="136.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="140.7" text-anchor="end" font-size="12.5" fill="#6b7a72">32</text>
+<line x1="80" y1="92.2" x2="800" y2="92.2" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="96.2" text-anchor="end" font-size="12.5" fill="#6b7a72">33</text>
+<line x1="80" y1="270" x2="800" y2="270" stroke="#9aa79e" stroke-width="1.5"/>
+<polyline points="201.1,102.9 485.8,153.6 676.7,242.0" fill="none" stroke="#0e8a66" stroke-width="2.5" stroke-dasharray="6 4"/>
+<circle cx="201.1" cy="102.9" r="7" fill="#c0563f" stroke="#fff" stroke-width="2.5"/>
+<text x="201.1" y="86.9" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">字符级</text>
+<text x="201.1" y="128.9" text-anchor="middle" font-size="12" fill="#47536a">聚合 5.6 帧 · EER 32.76</text>
+<circle cx="485.8" cy="153.6" r="7" fill="#7cc0a2" stroke="#fff" stroke-width="2.5"/>
+<text x="485.8" y="137.6" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">词级</text>
+<text x="485.8" y="179.6" text-anchor="middle" font-size="12" fill="#47536a">聚合 31.7 帧 · EER 31.62</text>
+<circle cx="676.7" cy="242.0" r="7" fill="#0e8a66" stroke="#fff" stroke-width="2.5"/>
+<text x="676.7" y="226.0" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">短语级</text>
+<text x="676.7" y="268.0" text-anchor="middle" font-size="12" fill="#47536a">聚合 49.2 帧 · EER 29.63</text>
+<text x="440" y="302" text-anchor="middle" font-size="12.5" fill="#8a93a5">帧数与性能完全同向：粒度越粗 → 上下文越多 → 隐空间分离越好；字符级只看 5.6 帧，在 LPH 上甚至比纯 CTC（32.37）更差</text>
+</svg>
+    <p class="cap"><b>表 2 复绘</b>·论文消融部分最扎实的发现：聚合帧数与 LPH EER 完全同向——粒度即上下文量，上下文量即判别力。字符级反直觉退化的解释：平均只聚合 5.6 帧，池化向量判别力有限，在难负例上甚至注入噪声。</p>
+  </div>
+
+  <div class="card">
+    <b>三点核心结论</b>：① <b>LPE 反超</b>——155K 流式模型 EER 6.06 / AUC 98.32 全表最高，参数不到 DSP 的 1/24、不到 Attention 的 2/3，且完全流式；② <b>LPH 落后 DSP 6.27 点</b>（29.63 对 23.36）但好于 Attention 3.27 点——困难负例是编辑距离近、发音高度相似的短语，区分它们需要更强全局判别，DSP 的 3.7M 全序列容量恰在此占优；论文为流式与轻量牺牲了容量与上下文长度；③ <b>性价比</b>——从纯 CTC 到加嵌入头只增 8K 参数（147K→155K），LPE EER 9.11→6.06。表征层佐证（Fig. 3）：词级模型对 "said the king" 的音频-文本嵌入相关图显示 CTC 对齐段内相关性高于段间——两套打分相干工作、互不拆台，也是端到端联合训练可行的直接证据。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">可转述的四个判断</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>把对齐做成流式</b><br><span style="color:#47536a;font-size:14.5px">首个推理时动态对齐音频流与关键词文本的流式 KWS：全局性摊销进逐帧 DP 状态更新——消除开放词表 KWS 走向常驻部署的最大障碍。</span></div>
+    <div class="c"><span class="n">2</span><b>局部 + 全局双通道范式</b><br><span style="color:#47536a;font-size:14.5px">CTC 管「对齐在哪里」（逐帧即时证据）、嵌入管「整体像不像」（整词全局校验）——纯 CTC 误报控制弱的缺口由嵌入补上，两投影头共享 155K 编码器。</span></div>
+    <div class="c"><span class="n">3</span><b>免预训练对齐器的端到端</b><br><span style="color:#47536a;font-size:14.5px">CTC 对齐与联合嵌入空间同时学出——此前流程依赖外部对齐器 / 注意力产生配对单元，配对质量受制于上游。</span></div>
+    <div class="c"><span class="n">4</span><b>「粒度即上下文」证据链</b><br><span style="color:#47536a;font-size:14.5px">字符 / 词 / 短语三级消融（5.6 / 31.7 / 49.2 帧）与性能完全同向——聚合窗口大小是纳入全局上下文量的控制变量，粒度越粗隐空间分离越好。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">难负例的容量鸿沟；从打分到唤醒的产品链路缺失</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>方法局限</h4>
+      <ul>
+        <li><b>困难负例短板</b>：LPH 落后 DSP 6.27 点；字符级在 LPH 上反向退化（32.37→32.76）说明轻量编码器在发音高度相似负例前帧级与嵌入证据都不够强——155K 轻量化与难负例判别力之间有未填平的鸿沟。</li>
+        <li><b>双分数融合未归一化</b>：z<sub>CTC</sub> 是对数概率累加，量纲随关键词长度与时长<b>无界增长</b>；z<sub>embed</sub> 有界（−1~1）。直接相加意味着不同长度关键词两路证据权重天然不同；λ=6 能否跨长度、跨场景稳定无敏感性分析。</li>
+        <li><b>触发链路未形式化</b>：超阈值后如何判定触发、端点、连续流去重（一次发音多帧超阈不应多次唤醒）均未详述，工作阈值未报告。</li>
+        <li><b>O(U²) 空间</b>：状态累积嵌入随关键词长度平方增长，对更长自定义短语 / 整句口令扩展性存疑。</li>
+        <li><b>词表封闭在英文 28 字符</b>：拼写变体、非拉丁字母鲁棒性未讨论；AE 嵌入维度未报告。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>全部仿真增强</b>：朗读语音 + 合成混响 + MUSAN——无真实远场、真实设备、真实用户输入（打错字、口语化拼写）。</li>
+        <li><b>无 QbyE 对比</b>：文本注册的优势（说话人鲁棒、注册体验）停留在动机论述，无实验量化。</li>
+        <li><b>无端侧实测</b>：RTF、实际延迟（发音结束到触发）、设备内存全未报告——只有 FLOPs 与复杂度理论值，对主打轻量流式的论文说服链不完整。</li>
+        <li><b>单次训练、单次评测</b>：无方差与显著性——0.4 点量级差异（字符级 32.76 vs 纯 CTC 32.37）是否超出随机波动无从判断。</li>
+        <li><b>参数量口径</b>：Table 1 标「估计值」，推理时文本编码器是否计入、注册是否只执行一次等未说清。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得追的方向</b>：① token 单元从字符换音素 / BPE 子词——覆盖多语言与拼写变体，也是「粒度向上收益大」曲线的自然延伸；② 线性融合换可学习、可校准融合（按关键词长度归一化、温度缩放），补触发阈值与端点策略；③ 声学编码器吸收 KWS 社区高效架构（TC-ResNet / BC-ResNet）或大模型蒸馏，专攻 LPH 难负例的 6 点差距；④ 评测扩展到真实设备与真实注册文本，补 QbyE 及「文本+音频混合注册」对比——两个锚点很可能互补；⑤ 困难负例对抗式挖掘（按编辑距离主动构造易混短语）+ 多粒度联合训练（三级同时监督）。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2024/CTC-aligned_Audio-Text_Embedding_For_Streaming_Open-vocabulary_Keyword_Spotting.md">深读笔记</a>
+    <a class="pill" href="/papers/2024/CTC-aligned_Audio-Text_Embedding_For_Streaming_Open-vocabulary_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2406.07923" target="_blank">arXiv</a>
+    <a class="pill" href="/">返回总目录</a>
+  </div>
+  <p>深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table 1-2 / Fig. 1、3 / 式 1-11）。</p>
+</footer>
+
+</div>
+</body>
+</html>
