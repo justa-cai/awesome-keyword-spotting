@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>自监督预训练噪声鲁棒 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2024/Noise-Robust_Keyword_Spotting_Through_Self-supervised_Pretraining.md">深读笔记</a>
+    <a href="/papers/2024/Noise-Robust_Keyword_Spotting_Through_Self-supervised_Pretraining.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2403.18560" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2024 №44</p>
+  <h1>训练全程不碰一条噪声的预训练模型，5dB 起反超用噪声数据训练的 MTR——<br>真正的增益来自把去噪装进自监督目标</h1>
+  <p class="sub">Noise-Robust Keyword Spotting through Self-supervised Pretraining</p>
+  <p class="meta"><b>作者</b>：Jacob Mørk、Holger Severin Bovbjerg、Gergely Kiss、Zheng-Hua Tan —— 奥尔堡大学（丹麦）电子系统系</p>
+  <p class="meta"><b>发表</b>：arXiv 2403.18560（2024-03）· 代码开源 github.com/aau-es-ml · GSC V2 + KWT 三尺寸</p>
+  <div class="chips">
+    <span class="chip">首个 SSL×噪声鲁棒 KWS 系统研究</span><span class="chip">Data2Vec-denoising 非对称加噪</span><span class="chip">seen/unseen 噪声分离评测</span>
+    <span class="chip">相对 MTR 提升 16–18%</span><span class="chip">−10dB 提升 31%</span><span class="chip">A40 预训练仅 2h</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>三层背景</b>：KWS 是 24 小时常开前端 + 语音交互链路守门人（唤醒不起来，后面再强的 ASR 都没意义）——噪声鲁棒是部署硬门槛不是锦上添花；标注数据贵而无标注录音便宜，SSL 杠杆明显；作者前作（ICASSPW 2023）已证 Data2Vec 预训练在标注稀缺时显著优于纯监督——但<b>全部假设干净输入</b>，干净下的收益能否迁移到噪声是留下的空白。</li>
+      <li><b>监督范式的结构性缺陷</b>：MTR（多风格训练）靠「见过噪声」改善鲁棒——本质是把噪声当另一种样式去 memorize，收益高度依赖训练 / 测试噪声匹配度；还有隐性代价：用噪声数据训练摊薄干净准确率（Baseline-MTR 干净 0.800 &lt; Baseline-Clean 的 0.832）。SSL 的噪声增益在 ASR 已有研究（Robust Data2Vec 等）但没传导到 KWS。</li>
+      <li><b>核心方法（改动小到几乎免费）</b>：Data2Vec-denoising 非对称加噪——teacher 吃干干净、student 又掩码又加噪。目标侧始终干净 → student 被迫学「噪声输入 → 干净潜在表示」的映射，<b>一个目标同时完成学表示和做去噪</b>；不动损失函数、不加任何模块，只改数据流配对。</li>
+      <li><b>对照组的价值（实验设计最讲究的一手）</b>：Data2Vec-noisy（teacher 和 student 都加噪）实测与「干净预训练 + MTR 微调」几乎完全重合（0.692 vs 0.693）——对称加噪的收益与 MTR 高度重叠（都只是噪声暴露），denoising 再多出的那一截（0.708）才是<b>去噪目标独有的贡献</b>。没有这个对照就无法把结论收敛到「去噪式目标才是关键」。</li>
+      <li><b>最有信息量的交叉点</b>：Data2Vec-clean（预训练 + 微调<b>全程零噪声</b>）在 seen 噪声 10dB 起反超 Baseline-MTR（0.743 vs 0.720）、20dB 拉到 0.848 vs 0.783；unseen 噪声下交叉点提前到 5dB——MTR 在 seen 的优势延伸到更低 SNR 恰恰说明其鲁棒性部分是<b>绑定噪声类型的记忆</b>，unseen 下记忆失效，SSL 的泛化优势提前显现。</li>
+      <li><b>结果</b>：denoising 在三个模型尺寸（0.6M/2.4M/5.4M）× seen/unseen 全部六种组合上第一（KWT-1 0.708/0.688）；对 Baseline-MTR 相对提升 seen 16.26–16.96%、unseen 16.22–<b>18.04%</b>（unseen 增益随模型增大略增）；−10dB 极端噪声 0.310 vs 0.236（相对 +31%）；代价：干净条件 0.876 仅比纯干净预训练的 0.887 低 1 个点——以可忽略的干净损失换显著噪声增益。</li>
+      <li><b>两个次级发现</b>：① KWT-2（2.4M）总分优于 KWT-3（5.4M）——4.7h 标注下 5.4M 已过甜点，盲目加大模型不划算；② unseen −10dB 时纯噪声暴露反略胜 denoising（0.225 vs 0.219）——极端 + 陌生时「见过噪声」占一点点便宜，−5dB 起 denoising 全面领先。</li>
+      <li><b>边界</b>：全是人工加性混叠（无混响 / 远场 / 信道畸变 / AGC）；−10dB 绝对性能 0.219–0.310 距实用还远（纯后端表示学习补不回前端信噪比）；denoising 有隐含数据前提——teacher 必须拿到干净版本（真实远场只有带噪录音时配对不成立，退化为对称加噪）；关键超参（K、τ、预训练轮数）未报数值；GSC 孤立词分类 ≠ 流式检测，无误报 / 漏报权衡指标；transformer + mean pooling 天然离线式，端侧 FLOPs / 延迟未讨论。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">SSL 学到的表示提升，是对输入退化的容忍度提升吗？</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>四个环环相扣的问题</b>：① 科学问题——干净预训练（全程不碰噪声）在噪声下能否打过直接用噪声训练的监督 MTR（真收益还是假象）；② 方法问题——对称加噪（student/teacher 都噪声）与构造去噪目标（teacher 干净 / student 噪声）哪种更能学到噪声不变表示；③ 对照公平性——SSL 与监督 SOTA 放同一标注预算下比，且训练可见 / 不可见噪声分开评测，区分「泛化鲁棒性」与「噪声记忆」；④ 规模一致性——0.6M/2.4M/5.4M 三尺寸验证结论普适。四个问题合起来是一个完整的小型系统性研究。
+  </div>
+
+  <div class="card">
+    <b>架构与 SSL 的互相成就</b>：声学模型是 Keyword Transformer（12 个编码块 + 余弦位置编码 + mean pooling + MLP）——选纯 encoder 而非 CNN/RNN，因为 Data2Vec 的 teacher-student 框架天然作用于 encoder 隐状态，帧级隐状态可直接充当预训练回归目标。特征 40 维 MFCC（沿用前作保持可比）。监督侧对照 MTR：训练数据混入加噪副本。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">增益来自「配对怎么构造」，不是损失函数</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg viewBox="0 0 920 600" role="img">
+  <defs>
+    <marker id="za" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#47536a"/></marker>
+    <marker id="zg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0e8a66"/></marker>
+  </defs>
+  <text x="30" y="26" font-size="13.5" fill="#47536a" font-weight="600">图 2 复绘：Data2Vec 自蒸馏 + 三种数据流配对——增益来自「配对怎么构造」，不是损失函数</text>
+
+  <!-- base framework -->
+  <rect x="30" y="52" width="860" height="150" rx="12" fill="#f9faf7" stroke="#e6e6df" stroke-width="1.2"/>
+  <text x="46" y="76" font-size="12.5" font-weight="700" fill="#47536a">Data2Vec 框架（teacher-student 自蒸馏）</text>
+  <rect x="60" y="94" width="160" height="86" rx="9" fill="#fff" stroke="#c9c9bd" stroke-width="1.2"/>
+  <text x="140" y="116" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">teacher 分支</text>
+  <text x="140" y="138" text-anchor="middle" font-size="10" fill="#47536a">权重 = student 的 EMA</text>
+  <text x="140" y="156" text-anchor="middle" font-size="10" fill="#8a93a5">Δ ← τΔ + (1−τ)θ，不吃梯度</text>
+  <text x="140" y="174" text-anchor="middle" font-size="10" fill="#8a93a5">比 student 更稳定 → 目标质量更高</text>
+  <rect x="700" y="94" width="160" height="86" rx="9" fill="#fff" stroke="#c9c9bd" stroke-width="1.2"/>
+  <text x="780" y="116" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">student 分支</text>
+  <text x="780" y="138" text-anchor="middle" font-size="10" fill="#47536a">标准反向传播更新</text>
+  <text x="780" y="156" text-anchor="middle" font-size="10" fill="#8a93a5">任务 = 预测 teacher 的</text>
+  <text x="780" y="174" text-anchor="middle" font-size="10" fill="#8a93a5">隐层表示（MSE）</text>
+  <rect x="280" y="112" width="380" height="50" rx="9" fill="#eaf3fc" stroke="#3d6fa8" stroke-width="1.2"/>
+  <text x="470" y="132" text-anchor="middle" font-size="11.5" font-family="Georgia,serif" fill="#1c2430">y_t = (1/K) Σ（顶部 K 块在掩码步的归一化输出均值）</text>
+  <text x="470" y="152" text-anchor="middle" font-size="10" fill="#47536a">「预测自己的未来表示」+ 多尺度平滑约束；掩码率 0.65（语音帧冗余高，掩少了退化成插值）</text>
+  <line x1="220" y1="137" x2="276" y2="137" stroke="#47536a" stroke-width="1.4" marker-end="url(#za)"/>
+  <line x1="660" y1="137" x2="696" y2="137" stroke="#47536a" stroke-width="1.4" marker-end="url(#za)"/>
+
+  <!-- three pairings -->
+  <text x="30" y="232" font-size="12.5" font-weight="700" fill="#47536a">三种数据流配对（其余一切不动）</text>
+  <rect x="30" y="248" width="280" height="180" rx="11" fill="#f2faf6" stroke="#9ec9b8" stroke-width="1.2"/>
+  <text x="46" y="272" font-size="12" font-weight="700" fill="#0a6b4e">Data2Vec-clean（前作 [6]）</text>
+  <text x="46" y="298" font-size="11" fill="#47536a">teacher：干净（未掩码）输入</text>
+  <text x="46" y="320" font-size="11" fill="#47536a">student：掩码后的干净输入</text>
+  <text x="46" y="348" font-size="11" fill="#0a6b4e">干净条件下显著优于纯监督——</text>
+  <text x="46" y="368" font-size="11" fill="#0a6b4e">但训练全程不碰噪声</text>
+  <text x="46" y="398" font-size="10.5" fill="#8a93a5">留下的问题：干净下的收益能否迁移到噪声？</text>
+
+  <rect x="330" y="248" width="280" height="180" rx="11" fill="#fbf2f0" stroke="#c9a08e" stroke-width="1.2"/>
+  <text x="346" y="272" font-size="12" font-weight="700" fill="#8c3b2e">Data2Vec-noisy（对称加噪 · 对照组）</text>
+  <text x="346" y="298" font-size="11" fill="#47536a">teacher：加噪输入</text>
+  <text x="346" y="320" font-size="11" fill="#47536a">student：掩码后的加噪输入</text>
+  <text x="346" y="348" font-size="11" fill="#8c3b2e">回归目标本身被噪声污染——student 学到</text>
+  <text x="346" y="368" font-size="11" fill="#8c3b2e">「噪声语音的表示」而非「噪声→干净的映射」</text>
+  <text x="346" y="398" font-size="10.5" fill="#8a93a5">实测：与「干净预训练 + MTR 微调」几乎重合（0.692 vs 0.693）</text>
+
+  <rect x="630" y="248" width="260" height="180" rx="11" fill="#e6f4ee" stroke="#0e8a66" stroke-width="1.6"/>
+  <text x="646" y="272" font-size="12" font-weight="700" fill="#0a6b4e">Data2Vec-denoising ★（非对称）</text>
+  <text x="646" y="298" font-size="11" fill="#0a6b4e">teacher：干干净（无噪）</text>
+  <text x="646" y="320" font-size="11" fill="#0a6b4e">student：又掩码又加噪</text>
+  <text x="646" y="348" font-size="11" fill="#0a6b4e">目标侧始终干净 → student 被迫学</text>
+  <text x="646" y="368" font-size="11" fill="#0a6b4e">「噪声输入 → 干净潜在表示」的映射</text>
+  <text x="646" y="398" font-size="10.5" fill="#8a93a5">一个目标同时完成「学表示」+「做去噪」，零新增模块</text>
+
+  <!-- protocol -->
+  <rect x="30" y="446" width="860" height="136" rx="11" fill="#f4f5f8" stroke="#c9c9bd" stroke-width="1.1"/>
+  <text x="46" y="470" font-size="12.5" font-weight="700" fill="#47536a">评测协议（结论可信度的三根支柱）</text>
+  <text x="46" y="496" font-size="11" fill="#47536a">① 标注稀缺：GSC V2 切 80%（67,874 条 / 18.9h）只作无标注预训练，仅 20%（16,969 条 / 4.7h）供监督训练与微调——贴合「无标注便宜标注贵」的现实</text>
+  <text x="46" y="520" font-size="11" fill="#47536a">② 训练噪声与测试噪声分离：训练只用 BUS/PED/STR/SSN（50% 数据加噪，SNR −10~20dB 七档），BBL 与 CAF 完全留作未见噪声——鲁棒性拆成「见过」与「泛化」两维</text>
+  <text x="46" y="544" font-size="11" fill="#47536a">③ 全网格：6 噪声 × 7 信噪比 = 42 个测试集 + 干净条件，每种方法在 KWT-1/2/3（0.6M/2.4M/5.4M）三个尺寸上各跑一遍——任何结论都被三重交叉验证</text>
+  <text x="46" y="570" font-size="10.5" fill="#8a93a5">口径疑点：正文训练噪声 SSN vs 表题 BBL 不一致（疑笔误，复现以开源代码为准）；单卡 A40 最大模型预训练仅 2h · 微调 15min——实验室尺度完全可复现</text>
+</svg>
+    <p class="cap"><b>图 2 复绘</b>：三种配对只改数据流、不动损失函数——denoising 的精妙在于 teacher 的 EMA 权重虽来自噪声上训练的 student，但前向吃干净特征，去噪压力全部落在 student 的表示学习上。</p>
+  </div>
+
+  <div class="formula">
+    y<sub>t</sub> = (1/K) Σ<sub>l=L−K+1..L</sub> â<sub>l</sub><sup>t</sup>；&nbsp; teacher 权重 Δ ← τΔ + (1−τ)θ（EMA，不吃梯度）
+    <div class="why">式 1 · Data2Vec 目标：teacher 顶部 K 块在被掩码时间步上的归一化输出均值。两个关键细节：按样本实例归一化避免回归目标被个别异常激活主导（Data2Vec 相对早期 BYOL 式自蒸馏能稳定训练的原因）；掩码率 0.65（wav2vec 2.0 式时域掩码、连续 10 帧替换为可学习 token）——语音帧冗余度高，掩得不够任务退化成插值。student 用 MSE 拟合，标准反向传播。</div>
+  </div>
+
+  <div class="card">
+    <b>训练配置与工程开销</b>：微调与监督基线共用 140 epoch · batch 512 · AdamW（lr 1e-3 · wd 0.1）· warmup+余弦退火 + SpecAugment；微调唯一区别是编码器从预训练初始化。单卡 A40（48GB）：最大模型预训练 2 小时、微调 15 分钟——18.9h 无标注音频的红利，实验室尺度完全可复现。
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与消融</p>
+  <h2 class="sec">六方法矩阵 = 一组精心设计的消融</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据与指标</b>：GSC V2（105,829 条 · 35 词 · 1 秒），80%（18.9h）只作无标注预训练、20%（4.7h）供监督训练。六种噪声：BUS/PED/STR/CAF 来自 CHiME3，BBL/SSN 生成——训练只见 BUS/PED/STR/SSN（50% 数据加噪，SNR −10~20dB），BBL/CAF 完全留作未见。42 个测试集（6 噪声 × 7 SNR）+ 干净，三尺寸交叉。指标准确率（35 类均匀分布不扭曲）——但作为 KWS 论文只报准确率偏简化：无误触发 / 漏唤醒权衡指标。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 430" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 3 · 六方法总榜（KWT-1 · 全信噪比与噪声类型平均含干净 · 准确率）</text>
+<line x1="70" y1="330.0" x2="830" y2="330.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="334.0" text-anchor="end" font-size="12" fill="#6b7a72">0.50</text>
+<line x1="70" y1="269.6" x2="830" y2="269.6" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="273.6" text-anchor="end" font-size="12" fill="#6b7a72">0.55</text>
+<line x1="70" y1="209.2" x2="830" y2="209.2" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="213.2" text-anchor="end" font-size="12" fill="#6b7a72">0.60</text>
+<line x1="70" y1="148.7" x2="830" y2="148.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="152.7" text-anchor="end" font-size="12" fill="#6b7a72">0.65</text>
+<line x1="70" y1="88.3" x2="830" y2="88.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="92.3" text-anchor="end" font-size="12" fill="#6b7a72">0.70</text>
+<line x1="70" y1="330" x2="830" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="97.0" y="301.0" width="30" height="29.0" rx="3" fill="#b9c6bd"/>
+<text x="112.0" y="295.0" text-anchor="middle" font-size="10" font-weight="700" fill="#47536a">0.524</text>
+<rect x="133.0" y="291.3" width="30" height="38.7" rx="3" fill="#b9c6bd"/>
+<text x="148.0" y="285.3" text-anchor="middle" font-size="10" font-weight="700" fill="#47536a">0.532</text>
+<text x="130.0" y="352.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">Baseline-Clean</text>
+<text x="130.0" y="365.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">纯监督·干净训练</text>
+<rect x="237.0" y="198.3" width="30" height="131.7" rx="3" fill="#d9c9a8"/>
+<text x="252.0" y="192.3" text-anchor="middle" font-size="10" font-weight="700" fill="#47536a">0.609</text>
+<rect x="273.0" y="218.8" width="30" height="111.2" rx="3" fill="#b9c6bd"/>
+<text x="288.0" y="212.8" text-anchor="middle" font-size="10" font-weight="700" fill="#47536a">0.592</text>
+<text x="270.0" y="352.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">Baseline-MTR</text>
+<text x="270.0" y="365.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">监督侧最强鲁棒化</text>
+<rect x="377.0" y="201.9" width="30" height="128.1" rx="3" fill="#7cc0a2"/>
+<text x="392.0" y="195.9" text-anchor="middle" font-size="10" font-weight="700" fill="#47536a">0.606</text>
+<rect x="413.0" y="208.0" width="30" height="122.0" rx="3" fill="#b9c6bd"/>
+<text x="428.0" y="202.0" text-anchor="middle" font-size="10" font-weight="700" fill="#47536a">0.601</text>
+<text x="410.0" y="352.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">Data2Vec-clean</text>
+<text x="410.0" y="365.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">干净预训练+干净微调</text>
+<text x="410.0" y="392.0" text-anchor="middle" font-size="9" fill="#8a93a5">预训练本身即鲁棒</text>
+<rect x="517.0" y="96.8" width="30" height="233.2" rx="3" fill="#5aa88a"/>
+<text x="532.0" y="90.8" text-anchor="middle" font-size="10" font-weight="700" fill="#47536a">0.693</text>
+<rect x="553.0" y="117.3" width="30" height="212.7" rx="3" fill="#b9c6bd"/>
+<text x="568.0" y="111.3" text-anchor="middle" font-size="10" font-weight="700" fill="#47536a">0.676</text>
+<text x="550.0" y="352.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">D2V-clean + noisy</text>
+<text x="550.0" y="365.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">干净预训练+MTR 微调</text>
+<text x="550.0" y="392.0" text-anchor="middle" font-size="9" fill="#8a93a5">预训练与 MTR 互补</text>
+<rect x="657.0" y="98.0" width="30" height="232.0" rx="3" fill="#c9a08e"/>
+<text x="672.0" y="92.0" text-anchor="middle" font-size="10" font-weight="700" fill="#47536a">0.692</text>
+<rect x="693.0" y="117.3" width="30" height="212.7" rx="3" fill="#b9c6bd"/>
+<text x="708.0" y="111.3" text-anchor="middle" font-size="10" font-weight="700" fill="#47536a">0.676</text>
+<text x="690.0" y="352.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">D2V-noisy</text>
+<text x="690.0" y="365.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">对称加噪预训练</text>
+<text x="690.0" y="392.0" text-anchor="middle" font-size="9" fill="#8a93a5">与上行几乎重合！</text>
+<rect x="797.0" y="78.7" width="30" height="251.3" rx="3" fill="#0e8a66"/>
+<text x="812.0" y="72.7" text-anchor="middle" font-size="10" font-weight="700" fill="#0a6b4e">0.708</text>
+<rect x="833.0" y="102.8" width="30" height="227.2" rx="3" fill="#b9c6bd"/>
+<text x="848.0" y="96.8" text-anchor="middle" font-size="10" font-weight="700" fill="#47536a">0.688</text>
+<text x="830.0" y="352.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">D2V-denoising ★</text>
+<text x="830.0" y="365.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">非对称去噪预训练</text>
+<text x="830.0" y="392.0" text-anchor="middle" font-size="9" fill="#8a93a5">全尺寸全条件第一</text>
+<rect x="90" y="404" width="12" height="12" rx="3" fill="#0e8a66"/><text x="106" y="415" font-size="11" fill="#47536a">seen 噪声（训练见过 BUS/PED/STR/SSN）</text>
+<rect x="410" y="404" width="12" height="12" rx="3" fill="#b9c6bd"/><text x="426" y="415" font-size="11" fill="#47536a">unseen 噪声（BBL/CAF 完全未见）</text>
+<text x="440" y="428" text-anchor="middle" font-size="11.5" fill="#0a6b4e">KWT-2 上最优 0.717/0.700、KWT-3 上 0.676/0.661——denoising 三个尺寸六种组合全部第一；对 Baseline-MTR 的相对提升 seen 16.26–16.96%、unseen 16.22–18.04%</text>
+</svg>
+    <p class="cap"><b>Table 3</b>（KWT-1 全六方法）：层次清晰——基线 → 预训练增益 → +MTR 互补 → 去噪目标独有贡献；noisy 与 clean+noisy 的重合是对照设计的价值所在。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 440" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 4/5 · 交叉点分析（KWT-1 · seen 噪声）：干净预训练全程零噪声，5–10dB 起反超用噪声训练的 MTR</text>
+<line x1="70" y1="284.6" x2="830" y2="284.6" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="288.6" text-anchor="end" font-size="12" fill="#6b7a72">0.2</text>
+<line x1="70" y1="213.9" x2="830" y2="213.9" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="217.9" text-anchor="end" font-size="12" fill="#6b7a72">0.4</text>
+<line x1="70" y1="143.2" x2="830" y2="143.2" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="147.2" text-anchor="end" font-size="12" fill="#6b7a72">0.6</text>
+<line x1="70" y1="72.4" x2="830" y2="72.4" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="76.4" text-anchor="end" font-size="12" fill="#6b7a72">0.8</text>
+<line x1="70" y1="320" x2="830" y2="320" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="120" y="340" text-anchor="middle" font-size="11.5" fill="#47536a">−10</text>
+<text x="216" y="340" text-anchor="middle" font-size="11.5" fill="#47536a">−5</text>
+<text x="312" y="340" text-anchor="middle" font-size="11.5" fill="#47536a">0</text>
+<text x="408" y="340" text-anchor="middle" font-size="11.5" fill="#47536a">5</text>
+<text x="504" y="340" text-anchor="middle" font-size="11.5" fill="#47536a">10</text>
+<text x="600" y="340" text-anchor="middle" font-size="11.5" fill="#47536a">15</text>
+<text x="696" y="340" text-anchor="middle" font-size="11.5" fill="#47536a">20</text>
+<text x="792" y="340" text-anchor="middle" font-size="11.5" fill="#47536a">干净</text>
+<text x="476" y="360" text-anchor="middle" font-size="12.5" fill="#47536a">信噪比（dB）</text>
+<path d="M 120 271.9 120 271.9 L 408 126.2 L 504 100.7 L 600 86.6 L 696 78.5 L 792 72.4" fill="none" stroke="#d97a2b" stroke-width="2.6"/>
+<circle cx="120" cy="271.9" r="4.5" fill="#d97a2b" stroke="#fff" stroke-width="1.2"/>
+<circle cx="408" cy="126.2" r="4.5" fill="#d97a2b" stroke="#fff" stroke-width="1.2"/>
+<circle cx="504" cy="100.7" r="4.5" fill="#d97a2b" stroke="#fff" stroke-width="1.2"/>
+<circle cx="600" cy="86.6" r="4.5" fill="#d97a2b" stroke="#fff" stroke-width="1.2"/>
+<circle cx="696" cy="78.5" r="4.5" fill="#d97a2b" stroke="#fff" stroke-width="1.2"/>
+<circle cx="792" cy="72.4" r="4.5" fill="#d97a2b" stroke="#fff" stroke-width="1.2"/>
+<path d="M 120 293.8 120 293.8 L 504 92.6 L 600 69.6 L 696 55.5 L 792 41.7" fill="none" stroke="#0e8a66" stroke-width="2.6"/>
+<circle cx="120" cy="293.8" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="504" cy="92.6" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="600" cy="69.6" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="696" cy="55.5" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="792" cy="41.7" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<path d="M 120 245.7 120 245.7 L 408 83.4 L 792 45.6" fill="none" stroke="#3d6fa8" stroke-width="2.2" stroke-dasharray="7 4"/>
+<circle cx="120" cy="245.7" r="4.5" fill="#3d6fa8" stroke="#fff" stroke-width="1.2"/>
+<circle cx="408" cy="83.4" r="4.5" fill="#3d6fa8" stroke="#fff" stroke-width="1.2"/>
+<circle cx="792" cy="45.6" r="4.5" fill="#3d6fa8" stroke="#fff" stroke-width="1.2"/>
+<circle cx="504" cy="96.7" r="9" fill="none" stroke="#8c3b2e" stroke-width="2"/>
+<text x="504" y="76.6" text-anchor="middle" font-size="11.5" font-weight="700" fill="#8c3b2e">交叉点 10dB ★</text>
+<text x="504" y="89.6" text-anchor="middle" font-size="10" fill="#8c3b2e">unseen 噪声下提前到 5dB</text>
+<rect x="90" y="40" width="13" height="13" rx="3" fill="#d97a2b"/><text x="108" y="51" font-size="11" fill="#47536a">Baseline-MTR（监督·噪声训练）</text>
+<rect x="330" y="40" width="13" height="13" rx="3" fill="#0e8a66"/><text x="348" y="51" font-size="11" fill="#0a6b4e">Data2Vec-clean（全程零噪声！）</text>
+<rect x="590" y="40" width="13" height="13" rx="3" fill="#3d6fa8"/><text x="608" y="51" font-size="11" fill="#3d6fa8">D2V-denoising（已知点）</text>
+<text x="440" y="392" text-anchor="middle" font-size="12" fill="#0a6b4e">解读：MTR 在 seen 噪声的优势能延伸到更低 SNR——恰恰说明其鲁棒性部分是绑定噪声类型的记忆；unseen 下记忆失效，SSL 的泛化优势提前显现</text>
+<text x="440" y="414" text-anchor="middle" font-size="12" fill="#47536a">机理：回归隐层表示的目标强迫模型学语音潜在结构（音素 + 时间上下文联合分布）= 强语音流形先验，噪声在流形之外，中等退化下靠先验「脑补」回来</text>
+<text x="440" y="432" text-anchor="middle" font-size="10.5" fill="#8a93a5">部分中间档数值原文未报告（曲线按已知点连接）；−10dB：denoising 0.310 vs MTR 0.236（相对 +31%）</text>
+</svg>
+    <p class="cap"><b>Table 4/5 交叉点</b>：全文最有信息量的图——全程零噪声的预训练在中高信噪比反超噪声训练的 MTR，且 unseen 噪声下交叉点提前。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 380" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">尺寸一致性 + 极端条件的反转细节</text>
+<text x="245" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">对 Baseline-MTR 的相对提升（%）</text>
+<line x1="70" y1="330.0" x2="470" y2="330.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="334.0" text-anchor="end" font-size="11.5" fill="#6b7a72">15</text>
+<line x1="70" y1="267.8" x2="470" y2="267.8" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="271.8" text-anchor="end" font-size="11.5" fill="#6b7a72">16</text>
+<line x1="70" y1="205.6" x2="470" y2="205.6" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="209.6" text-anchor="end" font-size="11.5" fill="#6b7a72">17</text>
+<line x1="70" y1="143.3" x2="470" y2="143.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="147.3" text-anchor="end" font-size="11.5" fill="#6b7a72">18</text>
+<line x1="70" y1="81.1" x2="470" y2="81.1" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="85.1" text-anchor="end" font-size="11.5" fill="#6b7a72">19</text>
+<line x1="70" y1="330" x2="470" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="108.0" y="251.6" width="38" height="78.4" rx="4" fill="#7cc0a2"/>
+<text x="127.0" y="245.6" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">16.3</text>
+<rect x="152.0" y="254.1" width="38" height="75.9" rx="4" fill="#0e8a66"/>
+<text x="171.0" y="248.1" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">16.2</text>
+<text x="130.0" y="352.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">KWT-1</text>
+<text x="130.0" y="365.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">0.6M</text>
+<rect x="238.0" y="208.0" width="38" height="122.0" rx="4" fill="#7cc0a2"/>
+<text x="257.0" y="202.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">17.0</text>
+<rect x="282.0" y="177.6" width="38" height="152.4" rx="4" fill="#0e8a66"/>
+<text x="301.0" y="171.6" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">17.4</text>
+<text x="260.0" y="352.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">KWT-2</text>
+<text x="260.0" y="365.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">2.4M</text>
+<rect x="368.0" y="246.0" width="38" height="84.0" rx="4" fill="#7cc0a2"/>
+<text x="387.0" y="240.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">16.4</text>
+<rect x="412.0" y="140.8" width="38" height="189.2" rx="4" fill="#0e8a66"/>
+<text x="431.0" y="134.8" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">18.0</text>
+<text x="390.0" y="352.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">KWT-3</text>
+<text x="390.0" y="365.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">5.4M</text>
+<text x="270" y="388" text-anchor="middle" font-size="10.5" fill="#8a93a5">增益跨尺寸稳定；unseen 相对增益随模型增大略增；但 KWT-2 总分优于 KWT-3——4.7h 标注下 5.4M 已过甜点</text>
+<text x="680" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">unseen 噪声极端低 SNR（Table 5）</text>
+<line x1="510" y1="311.3" x2="830" y2="311.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="315.3" text-anchor="end" font-size="11.5" fill="#6b7a72">0.2</text>
+<line x1="510" y1="218.0" x2="830" y2="218.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="222.0" text-anchor="end" font-size="11.5" fill="#6b7a72">0.3</text>
+<line x1="510" y1="124.7" x2="830" y2="124.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="128.7" text-anchor="end" font-size="11.5" fill="#6b7a72">0.4</text>
+<line x1="510" y1="330" x2="830" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="606" y="70" text-anchor="middle" font-size="11" font-weight="700" fill="#47536a">−10 dB</text>
+<rect x="537.0" y="288.0" width="26" height="42.0" rx="3" fill="#c9a08e"/>
+<text x="550.0" y="283.0" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">0.225</text>
+<rect x="569.0" y="290.8" width="26" height="39.2" rx="3" fill="#d9c9a8"/>
+<text x="582.0" y="285.8" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">0.222</text>
+<rect x="601.0" y="293.6" width="26" height="36.4" rx="3" fill="#0e8a66"/>
+<text x="614.0" y="288.6" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">0.219</text>
+<text x="606" y="348" text-anchor="middle" font-size="9" fill="#8a93a5">noisy / clean+noisy / denoising</text>
+<text x="806" y="70" text-anchor="middle" font-size="11" font-weight="700" fill="#47536a">−5 dB</text>
+<rect x="737.0" y="92.9" width="26" height="237.1" rx="3" fill="#c9a08e"/>
+<text x="750.0" y="87.9" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">0.434</text>
+<rect x="769.0" y="94.8" width="26" height="235.2" rx="3" fill="#d9c9a8"/>
+<text x="782.0" y="89.8" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">0.432</text>
+<rect x="801.0" y="81.7" width="26" height="248.3" rx="3" fill="#0e8a66"/>
+<text x="814.0" y="76.7" text-anchor="middle" font-size="9.5" font-weight="600" fill="#47536a">0.446</text>
+<text x="806" y="348" text-anchor="middle" font-size="9" fill="#8a93a5">noisy / clean+noisy / denoising</text>
+<text x="680" y="374" text-anchor="middle" font-size="10.5" fill="#8c3b2e">−10dB 时纯噪声暴露反略胜（0.225 vs 0.219）——极端+陌生时「见过噪声」占一点点便宜；−5dB 起 denoising 全面领先</text>
+</svg>
+    <p class="cap"><b>第 4 节 + Table 5 细节</b>：增益跨尺寸稳定且 unseen 略随尺寸增长；极端低信噪比 + 完全陌生噪声时纯暴露反略胜的反转细节。</p>
+  </div>
+
+  <div class="card">
+    <b>五条消融发现（六方法矩阵拆解）</b>：① <b>预训练本身即鲁棒</b>——Data2Vec-clean 对 Baseline-Clean 全条件更准，对 MTR 中高 SNR 占优（语音流形先验 + 更好损失面起点）；② <b>预训练与 MTR 互补</b>——干净预训练从干净微调换 MTR 微调，seen 平均 0.606→0.693、−10dB 从 0.174→0.298（预训练给泛化鲁棒性、MTR 给低 SNR 噪声适应，解决的问题段不同）；③ 对称加噪几乎不带来超出 MTR 微调的收益（同质暴露相互抵消）；④ 非对称去噪目标才是增益来源（三尺寸稳定领先，干净仅 −1 点）；⑤ 增益跨尺寸一致（16.22–18.04%），且 4.7h 标注下 5.4M 已过甜点。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">六条贡献</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>首个系统研究</b>：SSL 预训练对 KWS 噪声鲁棒性的影响——填补「SSL 鲁棒性收益在 ASR 已验证、在 KWS 空缺」的空白。</div>
+    <div class="c"><span class="n">2</span><b>反直觉且有工程价值的结论</b>：干净数据预训练（全程零噪声）就能在 5dB 以上打过用噪声训练的 MTR——预训练学到的语音表示先验是 MTR 无法替代的鲁棒性来源。</div>
+    <div class="c"><span class="n">3</span><b>Data2Vec-denoising</b>：teacher 干净 / student 噪声的非对称预训练，把去噪监督无成本嵌入自监督目标——全噪声条件全尺寸最优、干净仅边际受损。</div>
+    <div class="c"><span class="n">4</span><b>归因干净的对照设计</b>：Data2Vec-noisy 对照把「噪声暴露（MTR 可替代）」与「去噪目标（不可替代）」明确区分。</div>
+    <div class="c"><span class="n">5</span><b>可复用的评测协议</b>：80/20 标注稀缺 + seen/unseen 分离 + 42 测试集 + 三尺寸交叉，全部开源。</div>
+    <div class="c"><span class="n">6</span><b>工程可行性数据</b>：单卡 A40 最大模型预训练 2h——方法门槛很低。</div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">加性混叠的理想世界，配对构造的隐含前提</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>噪声模型过于理想化</b>：全部人工加性混叠——无混响、远场拾取、麦克风信道畸变、自动增益控制；未见噪声 BBL/CAF 仍与训练噪声同属加性平稳类，对非平稳突发噪声（键盘敲击、电视节目切换）的泛化未验证。</li>
+        <li><b>极低 SNR 绝对性能不可用</b>：−10dB 下 0.219–0.310——纯后端表示学习无法完全弥补前端信噪比损失。</li>
+        <li><b>隐含数据前提</b>：denoising 需要与 student 加噪输入对应的干净版本——真实场景只有带噪无标注录音（远场常态）时配对不成立，退化为对称加噪。</li>
+        <li><b>超参不透明 + 端侧指标缺失</b>：K、τ、预训练轮数未报数值（复现依赖开源代码）；无 FLOPs / 延迟 / 内存——全局自注意力 + mean pooling 天然离线式，流式兼容性未讨论。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>任务范式距离</b>：GSC 一秒孤立词分类 ≠ 产品级唤醒——连续语流、负样本占绝对多数、误触发约束；只报 35 类准确率，无 ROC 类指标，部署表现难推断。</li>
+        <li><b>口径不一致</b>：正文训练噪声（BUS/PED/STR/SSN）与表题（BUS/BBL/PED/STR）矛盾，疑笔误——复现以代码为准。</li>
+        <li><b>无统计稳健性</b>：随机种子数、方差、显著性全未报——unseen −10dB 的 0.225 vs 0.219 在无重复实验时无法判断显著性。</li>
+        <li><b>单一数据集与标注比例</b>：未在更大无标注语料上测规模化收益，只测了 20% 标注一档；未与对抗训练 / 滤波器组学习 / 前端增强级联对比——「预训练 vs MTR」二元对照干净但不完整，正交叠加收益未探索。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得补的方向</b>：非对称去噪搬到真实数据——用语音增强模型或可微分加噪器生成配对，摆脱「必须有干净源」的限制；借鉴 Robust Data2Vec 组合对比损失与回归去噪目标检验互补性；大规模无标注语料（数十到数千小时）验证增益随数据的放大，迁移到流式 / 自定义唤醒词 / 低资源语言；补部署视角评测（固定误触发率下的检出率、ROC、真实远场含混响信道、FLOPs 延迟）；去噪预训练迁移到流式友好架构（卷积前端、有限上下文注意力）；标注量 × 最优容量 × 预训练量的联合标定；预训练 + MTR + 对抗训练 + 前端增强的正交叠加实验（对照矩阵已搭好一半）。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2024/Noise-Robust_Keyword_Spotting_Through_Self-supervised_Pretraining.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2024/Noise-Robust_Keyword_Spotting_Through_Self-supervised_Pretraining.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2403.18560" target="_blank">arXiv · 2403.18560</a>
+    <a class="pill" href="https://github.com/aau-es-ml/ssl_noise_robust_kws" target="_blank">🔧 代码 aau-es-ml</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（Table 1–5、Fig 1–4、式 1）；SNR 曲线部分中间档数值原文未报告、按已知点连接。错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
