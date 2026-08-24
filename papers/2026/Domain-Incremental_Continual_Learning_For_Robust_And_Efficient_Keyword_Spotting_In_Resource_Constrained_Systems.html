@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>域增量持续学习 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15.5px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .grid2{grid-template-columns:1fr;} }
+  table.tbl { width:100%; border-collapse:collapse; font-size:14px; }
+  table.tbl th { text-align:left; color:var(--ink-2); font-weight:600; border-bottom:2px solid var(--line); padding:8px 10px; }
+  table.tbl td { border-bottom:1px solid var(--line); padding:8px 10px; vertical-align:top; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2026/Domain-Incremental_Continual_Learning_For_Robust_And_Efficient_Keyword_Spotting_In_Resource_Constrained_Systems.md">深读笔记</a>
+    <a href="/papers/2026/Domain-Incremental_Continual_Learning_For_Robust_And_Efficient_Keyword_Spotting_In_Resource_Constrained_Systems.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2601.16158" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2026 №4</p>
+  <h1>域增量持续学习<br>让千级参数的 KWS 在设备上自己适应新环境</h1>
+  <p class="sub">Domain-Incremental Continual Learning for Robust and Efficient Keyword Spotting in Resource Constrained Systems</p>
+  <p class="meta"><b>作者</b>：Prakash Dhungana, Sayed Ahmad Salehi —— 肯塔基大学（University of Kentucky）</p>
+  <p class="meta"><b>发表</b>：2026.01 · arXiv:2601.16158 · 端侧学习 / TinyML 方向</p>
+  <div class="chips">
+    <span class="chip">域增量持续学习</span><span class="chip">灾难性遗忘</span><span class="chip">重演缓冲</span>
+    <span class="chip">伪标签双门控</span><span class="chip">INT8 量化训练</span><span class="chip">Cortex-M4</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>问题：训练数据与部署环境之间系统性<b>域漂移</b>（新噪声/新说话人/新录音条件），精度最多退化 27%；云端重训有隐私、成本、无人值守三重不可行。</li>
+      <li>方案：把模型压到 <b>1.64k 参数</b>，让 MCU 上能<b>全参数更新</b>（前作只能动分类器层）；运行时用「置信度门 + 原型距离门」双门控筛选<b>有效样本</b>当伪标签，每 1024 条样本触发一次重训（重演缓冲 + 增强缓冲 + 有效样本）。</li>
+      <li>前端双级整数去噪（Haar 小波 VisuShrink + 特征域掩码），MFCC + LogMel 双路输入白拿 2.18 个点（97.45% → 99.63%）。</li>
+      <li>结果：−10~10 dB 五档 SNR × 四类噪声全部 ≥ 91%；比 ODDL 最小模型<b>少 93% 参数精度还高 3.6 个点</b>，跑在单核 Cortex-M4 上。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">设备搬个房间，域就变了</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 240" role="img">
+      <!-- 训练域 -->
+      <rect x="20" y="40" width="250" height="130" rx="12" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="145" y="68" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0a6b4e">训练域（GSCD v2）</text>
+      <text x="145" y="94" text-anchor="middle" font-size="12.5" fill="#47536a">105k 条 · 2,618 说话人 · 相对干净</text>
+      <text x="145" y="118" text-anchor="middle" font-size="12.5" fill="#47536a">"Yes" / "No" 二分类</text>
+      <text x="145" y="148" text-anchor="middle" font-size="11.5" fill="#5f8a76">干净测试集精度 99.63%</text>
+
+      <!-- 漂移箭头 -->
+      <line x1="270" y1="105" x2="380" y2="105" stroke="#c0392b" stroke-width="3"/>
+      <polygon points="380,105 370,99 370,111" fill="#c0392b"/>
+      <text x="325" y="88" text-anchor="middle" font-size="13" fill="#c0392b" font-weight="700">域漂移</text>
+      <text x="325" y="130" text-anchor="middle" font-size="11.5" fill="#c0392b">新噪声 · 新口音</text>
+      <text x="325" y="148" text-anchor="middle" font-size="11.5" fill="#c0392b">新麦克风 · 新房间</text>
+
+      <!-- 部署域 -->
+      <rect x="385" y="40" width="250" height="130" rx="12" fill="#fbf3ec" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="510" y="68" text-anchor="middle" font-size="14.5" font-weight="700" fill="#b0631d">部署域（真实环境）</text>
+      <text x="510" y="94" text-anchor="middle" font-size="12.5" fill="#47536a">DEMAND 四类噪声环境</text>
+      <text x="510" y="118" text-anchor="middle" font-size="12.5" fill="#47536a">−10 ~ 10 dB 五档 SNR</text>
+      <text x="510" y="148" text-anchor="middle" font-size="12.5" fill="#c0392b" font-weight="700">精度最多退化 27%（引文[1]实测）</text>
+
+      <!-- 云端重训三不可行 -->
+      <rect x="665" y="30" width="240" height="150" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="785" y="58" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">云端重训三不可行</text>
+      <g font-size="12.5" fill="#47536a">
+        <text x="685" y="86">✗ 原始音频回传 —— 隐私风险</text>
+        <text x="685" y="112">✗ 反复全量重训 —— 算力人力贵</text>
+        <text x="685" y="138">✗ 部署周期内 —— 无法人工介入</text>
+      </g>
+      <text x="785" y="168" text-anchor="middle" font-size="11.5" fill="#8a93a5">→ 只能设备上自己学（Continual Learning）</text>
+    </svg>
+  </div>
+
+  <h3>现有方案的共同短板</h3>
+  <div class="card">
+    <table class="tbl">
+      <tr><th>方案</th><th>更新范围</th><th>验证条件</th><th>硬件</th><th>缺口</th></tr>
+      <tr><td>ODDL</td><td>只重训分类器层</td><td>仅 0 dB 单档</td><td>GAP9 多核</td><td>骨干冻结跟不上域漂移；假定部分噪声训练时已见过</td></tr>
+      <tr><td>MCUNetv3 系（Lin 等）</td><td>特定层稀疏更新</td><td>GPU 模拟</td><td>—</td><td>专有方案（QAS+TTE），离真实 MCU 有距离</td></tr>
+      <tr><td>TAP-SLDA</td><td>只更新高斯原型</td><td>—</td><td>—</td><td>表示上限锁死在原型统计量</td></tr>
+      <tr><td>重演类 CL（iCaRL/GEM/DER）</td><td>—</td><td>类/任务增量</td><td>—</td><td>未与运行时伪标签结合用于<b>域增量</b></td></tr>
+    </table>
+  </div>
+
+  <div class="formula">
+    核心问题：能否在 MCU 级参数预算（<b>千级</b>）内，构建不依赖人工标注、不需要并行加速器、−10~10 dB 宽信噪比都维持 ~94% 的域增量 CL 闭环？
+    <div class="why">五个子挑战：全参数可更新（否则域适应受限）· 可靠伪标签筛选 · 输入特征先可靠（去噪不可靠则分类和筛选一起崩）· INT8 上训练闭环 · 对抗遗忘。</div>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">一个闭环：推理时攒样本，计数触发重训</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 420" role="img">
+      <!-- 推理管线 -->
+      <text x="30" y="26" font-size="13.5" fill="#8a93a5" font-weight="600">运行时：四组件管线（全整数）+ 双门控有效样本判定</text>
+      <rect x="20" y="42" width="120" height="86" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <polyline points="34,85 46,78 54,92 62,74 70,90 78,80 86,88 94,72 102,92 110,80 132,84" fill="none" stroke="#47536a" stroke-width="1.8"/>
+      <text x="80" y="108" text-anchor="middle" font-size="12" fill="#47536a">1 秒波形</text>
+
+      <line x1="140" y1="85" x2="162" y2="85" stroke="#0e8a66" stroke-width="2.5"/><polygon points="162,85 154,80 154,90" fill="#0e8a66"/>
+      <rect x="166" y="42" width="128" height="86" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="230" y="68" text-anchor="middle" font-size="13" font-weight="700" fill="#0a6b4e">① 小波去噪</text>
+      <text x="230" y="90" text-anchor="middle" font-size="11.5" fill="#47536a">Haar + VisuShrink</text>
+      <text x="230" y="110" text-anchor="middle" font-size="11" fill="#8a93a5">量化 [−128,127]</text>
+
+      <line x1="294" y1="85" x2="316" y2="85" stroke="#0e8a66" stroke-width="2.5"/><polygon points="316,85 308,80 308,90" fill="#0e8a66"/>
+      <rect x="320" y="42" width="128" height="86" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="384" y="64" text-anchor="middle" font-size="13" font-weight="700" fill="#0a6b4e">② 特征提取</text>
+      <text x="384" y="86" text-anchor="middle" font-size="11.5" fill="#47536a">CMSIS-DSP 整数 MFCC</text>
+      <text x="384" y="106" text-anchor="middle" font-size="11.5" fill="#47536a">+ LogMel（免费第二路）</text>
+
+      <line x1="448" y1="85" x2="470" y2="85" stroke="#0e8a66" stroke-width="2.5"/><polygon points="470,85 462,80 462,90" fill="#0e8a66"/>
+      <rect x="474" y="42" width="128" height="86" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="538" y="68" text-anchor="middle" font-size="13" font-weight="700" fill="#0a6b4e">③ 谱去噪</text>
+      <text x="538" y="90" text-anchor="middle" font-size="11.5" fill="#47536a">双轴均值减 + 掩码</text>
+      <text x="538" y="110" text-anchor="middle" font-size="11" fill="#8a93a5">[0,1] 归一化 → 幅度不变</text>
+
+      <line x1="602" y1="85" x2="624" y2="85" stroke="#0e8a66" stroke-width="2.5"/><polygon points="624,85 616,80 616,90" fill="#0e8a66"/>
+      <rect x="628" y="42" width="150" height="86" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="703" y="66" text-anchor="middle" font-size="13" font-weight="700" fill="#0a6b4e">④ INT8 CNN 分类器</text>
+      <text x="703" y="88" text-anchor="middle" font-size="11.5" fill="#47536a">3 层 5×5 无填充 Conv2D</text>
+      <text x="703" y="108" text-anchor="middle" font-size="11" fill="#8a93a5">双输入 · 1,595 参数</text>
+
+      <!-- 双门控 -->
+      <line x1="778" y1="85" x2="800" y2="85" stroke="#d97a2b" stroke-width="2.5"/><polygon points="800,85 792,80 792,90" fill="#d97a2b"/>
+      <rect x="804" y="42" width="100" height="86" rx="10" fill="#f3ede2" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="854" y="66" text-anchor="middle" font-size="12.5" font-weight="700" fill="#b0631d">双门控</text>
+      <text x="854" y="86" text-anchor="middle" font-size="10.5" fill="#47536a">置信度 ≥ 85%</text>
+      <text x="854" y="102" text-anchor="middle" font-size="10.5" fill="#47536a">原型距离带内</text>
+      <text x="854" y="122" text-anchor="middle" font-size="10.5" fill="#0a6b4e">→ 有效样本</text>
+
+      <!-- 重训循环 -->
+      <text x="30" y="170" font-size="13.5" fill="#8a93a5" font-weight="600">每 1024 条样本触发一次：全参数 CL 重训（反量化 → CE 损失 → 反传 → 更新 → 重量化）</text>
+      <rect x="20" y="186" width="884" height="222" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <!-- 三路 mini-batch -->
+      <rect x="40" y="216" width="240" height="96" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="160" y="242" text-anchor="middle" font-size="13" font-weight="700" fill="#0a6b4e">重演缓冲（存特征不存音频）</text>
+      <text x="160" y="264" text-anchor="middle" font-size="11.5" fill="#47536a">GSCD 训练子集的 MFCC + LogMel</text>
+      <text x="160" y="284" text-anchor="middle" font-size="11.5" fill="#5f8a76">对抗遗忘的旧知识锚</text>
+
+      <rect x="310" y="216" width="240" height="96" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="430" y="242" text-anchor="middle" font-size="13" font-weight="700" fill="#0a6b4e">增强重演缓冲</text>
+      <text x="430" y="264" text-anchor="middle" font-size="11.5" fill="#47536a">部署环境噪声谱 × 缓冲特征混合</text>
+      <text x="430" y="284" text-anchor="middle" font-size="11.5" fill="#5f8a76">已在特征域，跳过前两级前端</text>
+
+      <rect x="580" y="216" width="240" height="96" rx="10" fill="#f3ede2" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="700" y="242" text-anchor="middle" font-size="13" font-weight="700" fill="#b0631d">运行时有效样本</text>
+      <text x="700" y="264" text-anchor="middle" font-size="11.5" fill="#47536a">双门控筛过的伪标签样本</text>
+      <text x="700" y="284" text-anchor="middle" font-size="11.5" fill="#5f8a76">无监督流 → 高置信子集</text>
+
+      <line x1="160" y1="312" x2="440" y2="344" stroke="#0e8a66" stroke-width="2"/>
+      <line x1="430" y1="312" x2="450" y2="344" stroke="#0e8a66" stroke-width="2"/>
+      <line x1="700" y1="312" x2="470" y2="344" stroke="#d97a2b" stroke-width="2"/>
+
+      <rect x="360" y="344" width="200" height="44" rx="10" fill="#0e8a66"/>
+      <text x="460" y="371" text-anchor="middle" font-size="13.5" font-weight="700" fill="#fff">mini-batch 重训全模型</text>
+      <text x="600" y="362" font-size="12" fill="#47536a">→ 更新类原型 P_class 与</text>
+      <text x="600" y="382" font-size="12" fill="#47536a">　 距离阈值 μ+nσ（自适应）</text>
+      <text x="120" y="362" font-size="12" fill="#47536a">学习率沿用初始训练的 0.001</text>
+      <text x="120" y="382" font-size="12" fill="#47536a">（控制更新幅度保稳定）</text>
+    </svg>
+    <p class="cap"><b>设计巧思</b>：隐层取第三层 Conv2D 输出（仅 160 字节，比前两层的 960/192 字节都省）；MAE 算原型距离 160 次运算（MSE 要 320 次）——原型比较发生在<b>每条</b>运行时样本上，这里的每次节省都乘以全部流量。</p>
+  </div>
+
+  <h3>双门控：把无监督流变成高置信半监督流</h3>
+  <div class="fig">
+    <svg viewBox="0 0 920 250" role="img">
+      <!-- 置信度门 -->
+      <rect x="20" y="30" width="270" height="180" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="155" y="58" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">第一门：预测置信度</text>
+      <g font-size="12" fill="#47536a">
+        <rect x="50" y="80" width="60" height="18" rx="9" fill="#e6e8eb"/><rect x="114" y="80" width="60" height="18" rx="9" fill="#e6e8eb"/>
+        <rect x="178" y="80" width="60" height="18" rx="9" fill="#7cc7ad"/><rect x="242" y="80" width="20" height="18" rx="9" fill="#0e8a66"/>
+      </g>
+      <text x="188" y="122" text-anchor="middle" font-size="12" fill="#0a6b4e" font-weight="700">P_th = 85%</text>
+      <text x="155" y="150" text-anchor="middle" font-size="12" fill="#47536a">先查置信度再算距离</text>
+      <text x="155" y="172" text-anchor="middle" font-size="11.5" fill="#8a93a5">距离计算不免费（MAE 160 ops），</text>
+      <text x="155" y="190" text-anchor="middle" font-size="11.5" fill="#8a93a5">低置信样本不值得算 —— 刻意的算力节省</text>
+
+      <!-- 原型距离门 -->
+      <rect x="330" y="30" width="570" height="180" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="615" y="58" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">第二门：隐层与类原型的 MAE 距离落在自适应接受带内</text>
+      <!-- 接受带 -->
+      <rect x="380" y="90" width="300" height="56" rx="8" fill="#0e8a66" opacity=".18"/>
+      <line x1="380" y1="90" x2="380" y2="146" stroke="#0e8a66" stroke-width="2"/>
+      <line x1="680" y1="90" x2="680" y2="146" stroke="#0e8a66" stroke-width="2"/>
+      <text x="530" y="82" text-anchor="middle" font-size="12.5" fill="#0a6b4e" font-weight="700">接受带：|d_p − μ| ≤ nσ（μ+nσ 随类分布缩放）</text>
+      <!-- 样本点 -->
+      <circle cx="430" cy="112" r="8" fill="#d97a2b"/>
+      <circle cx="500" cy="128" r="8" fill="#d97a2b"/>
+      <circle cx="575" cy="104" r="8" fill="#d97a2b"/>
+      <circle cx="730" cy="98" r="8" fill="#c0392b"/>
+      <circle cx="790" cy="130" r="8" fill="#c0392b"/>
+      <circle cx="840" cy="108" r="8" fill="#c0392b"/>
+      <text x="500" y="168" text-anchor="middle" font-size="12" fill="#b0631d">带内黄点 → 有效样本（伪标签 = 预测类）</text>
+      <text x="790" y="168" text-anchor="middle" font-size="12" fill="#c0392b">带外红点 → 拒绝</text>
+      <text x="615" y="196" text-anchor="middle" font-size="11.5" fill="#8a93a5">双门缺一不可：只置信度 → 过度自信错样本带毒进重训；只距离 → 类边界模糊样本漏网</text>
+    </svg>
+  </div>
+
+  <h3>两级去噪：不是冗余，各清一层噪声</h3>
+  <div class="formula">
+    第一级（波形域）：MAD = median(|d − median(d)|)/0.6745，阈值 τ = MAD·√(2 log N)，软阈值压制后重构、量化 [−128,127]。
+    <div class="why">第二级（特征域）：归一化 [0,1] → 时间轴/频率轴各自减均值 → 双轴二值掩码只保留高于均值的分量 → 按系数 α 重组：x_d = (1−α)(α·x_s·M_s + (1−α)·x_t·M_t) + α·x_n。直觉：背景噪声在两个轴上趋于均匀分布（减均值后只剩弱分量），语音谐波和瞬态高于均值得以保留。α∈[0.4,0.9] 全区间稳定。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">−10 dB 也不下 91%，参数少两个数量级</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>设置</b>：GSCD v2（Yes/No 二分类，干净测试 99.63% 双输入）；DEMAND 四环境（洗碗机/田野/办公室/车厢）× 五档 SNR（−10~10 dB），每环境 169,695 条评估样本；25 次 CL 重训迭代后的平均精度。目标硬件单核 Cortex-M4（TM4C123GXL）。
+  </div>
+
+  <h3>四环境 × 五档 SNR 全景（Table II）</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 320" role="img">
+      <text x="80" y="32" font-size="13.5" fill="#47536a" font-weight="600">−10 dB 全部 ≥ 91%，0 dB 起全部 ≥ 94% —— 衰减斜率被 CL 压平</text>
+      <line x1="80" y1="250" x2="840" y2="250" stroke="#f0f1f3"/><text x="72" y="254" text-anchor="end" font-size="12" fill="#9ca3af">90%</text>
+      <line x1="80" y1="193" x2="840" y2="193" stroke="#f0f1f3"/><text x="72" y="197" text-anchor="end" font-size="12" fill="#9ca3af">92%</text>
+      <line x1="80" y1="136" x2="840" y2="136" stroke="#f0f1f3"/><text x="72" y="140" text-anchor="end" font-size="12" fill="#9ca3af">94%</text>
+      <line x1="80" y1="79" x2="840" y2="79" stroke="#f0f1f3"/><text x="72" y="83" text-anchor="end" font-size="12" fill="#9ca3af">96%</text>
+      <text x="80" y="272" text-anchor="middle" font-size="12.5" fill="#9ca3af">−10 dB</text>
+      <text x="270" y="272" text-anchor="middle" font-size="12.5" fill="#9ca3af">−5 dB</text>
+      <text x="460" y="272" text-anchor="middle" font-size="12.5" fill="#9ca3af">0 dB</text>
+      <text x="650" y="272" text-anchor="middle" font-size="12.5" fill="#9ca3af">5 dB</text>
+      <text x="840" y="272" text-anchor="middle" font-size="12.5" fill="#9ca3af">10 dB</text>
+      <text x="460" y="296" text-anchor="middle" font-size="13" fill="#6b7280">信噪比（DEMAND 噪声，25 次 CL 重训后平均精度，Table II，悬停看数值）</text>
+      <polyline points="80,140 270,111 460,89 650,101 840,101" fill="none" stroke="#0e8a66" stroke-width="3"/>
+      <circle cx="80" cy="140" r="5" fill="#0e8a66"><title>DWASHING 洗碗机 −10dB：93.84%</title></circle>
+      <circle cx="270" cy="111" r="5" fill="#0e8a66"><title>DWASHING −5dB：94.88%</title></circle>
+      <circle cx="460" cy="89" r="5" fill="#0e8a66"><title>DWASHING 0dB：95.62%</title></circle>
+      <circle cx="650" cy="101" r="5" fill="#0e8a66"><title>DWASHING 5dB：95.22%</title></circle>
+      <circle cx="840" cy="101" r="5" fill="#0e8a66"><title>DWASHING 10dB：95.20%</title></circle>
+      <polyline points="80,209 270,177 460,110 650,72 840,105" fill="none" stroke="#7cc7ad" stroke-width="3"/>
+      <circle cx="80" cy="209" r="5" fill="#7cc7ad"><title>NFIELD 田野 −10dB：91.44%（全场最差）</title></circle>
+      <circle cx="270" cy="177" r="5" fill="#7cc7ad"><title>NFIELD −5dB：92.56%</title></circle>
+      <circle cx="460" cy="110" r="5" fill="#7cc7ad"><title>NFIELD 0dB：94.91%</title></circle>
+      <circle cx="650" cy="72" r="5" fill="#7cc7ad"><title>NFIELD 5dB：96.22%（全场最好）</title></circle>
+      <circle cx="840" cy="105" r="5" fill="#7cc7ad"><title>NFIELD 10dB：95.09%</title></circle>
+      <polyline points="80,166 270,179 460,126 650,109 840,127" fill="none" stroke="#d97a2b" stroke-width="3"/>
+      <circle cx="80" cy="166" r="5" fill="#d97a2b"><title>OOFFICE 办公室 −10dB：92.94%</title></circle>
+      <circle cx="270" cy="179" r="5" fill="#d97a2b"><title>OOFFICE −5dB：92.50%</title></circle>
+      <circle cx="460" cy="126" r="5" fill="#d97a2b"><title>OOFFICE 0dB：94.34%</title></circle>
+      <circle cx="650" cy="109" r="5" fill="#d97a2b"><title>OOFFICE 5dB：94.94%</title></circle>
+      <circle cx="840" cy="127" r="5" fill="#d97a2b"><title>OOFFICE 10dB：94.31%</title></circle>
+      <polyline points="80,120 270,100 460,99 650,113 840,101" fill="none" stroke="#94a3b8" stroke-width="3"/>
+      <circle cx="80" cy="120" r="5" fill="#94a3b8"><title>TCAR 车厢 −10dB：94.56%</title></circle>
+      <circle cx="270" cy="100" r="5" fill="#94a3b8"><title>TCAR −5dB：95.25%</title></circle>
+      <circle cx="460" cy="99" r="5" fill="#94a3b8"><title>TCAR 0dB：95.28%</title></circle>
+      <circle cx="650" cy="113" r="5" fill="#94a3b8"><title>TCAR 5dB：94.78%</title></circle>
+      <circle cx="840" cy="101" r="5" fill="#94a3b8"><title>TCAR 10dB：95.22%</title></circle>
+      <text x="92" y="200" font-size="11.5" fill="#47536a">最差 91.44%</text>
+      <line x1="560" y1="62" x2="586" y2="62" stroke="#0e8a66" stroke-width="4"/><text x="594" y="66" font-size="12.5" fill="#374151">DWASHING 洗碗机</text>
+      <line x1="560" y1="83" x2="586" y2="83" stroke="#7cc7ad" stroke-width="4"/><text x="594" y="87" font-size="12.5" fill="#374151">NFIELD 田野</text>
+      <line x1="560" y1="104" x2="586" y2="104" stroke="#d97a2b" stroke-width="4"/><text x="594" y="108" font-size="12.5" fill="#374151">OOFFICE 办公室</text>
+      <line x1="560" y1="125" x2="586" y2="125" stroke="#94a3b8" stroke-width="4"/><text x="594" y="129" font-size="12.5" fill="#374151">TCAR 车厢</text>
+    </svg>
+    <p class="cap"><b>读法</b>：论文摘要称 −10 dB 下「各环境超过 94%」略偏乐观——实际 91.44~94.56，仅 TCAR 一项过 94%。但「压平衰减斜率」的主张成立：从 10 dB 到 −10 dB，最差环境只掉不到 4 个点。</p>
+  </div>
+
+  <h3>系统级对比：参数-精度全景（Table IV）</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 330" role="img">
+      <text x="90" y="32" font-size="13.5" fill="#47536a" font-weight="600">精度-参数全景：千级参数 + 全模型可更新 = 左上角</text>
+      <line x1="90" y1="250" x2="830" y2="250" stroke="#f0f1f3"/><text x="82" y="254" text-anchor="end" font-size="12" fill="#9ca3af">89%</text>
+      <line x1="90" y1="217" x2="830" y2="217" stroke="#f0f1f3"/><text x="82" y="221" text-anchor="end" font-size="12" fill="#9ca3af">90%</text>
+      <line x1="90" y1="185" x2="830" y2="185" stroke="#f0f1f3"/><text x="82" y="189" text-anchor="end" font-size="12" fill="#9ca3af">91%</text>
+      <line x1="90" y1="152" x2="830" y2="152" stroke="#f0f1f3"/><text x="82" y="156" text-anchor="end" font-size="12" fill="#9ca3af">92%</text>
+      <line x1="90" y1="119" x2="830" y2="119" stroke="#f0f1f3"/><text x="82" y="123" text-anchor="end" font-size="12" fill="#9ca3af">93%</text>
+      <line x1="90" y1="87" x2="830" y2="87" stroke="#f0f1f3"/><text x="82" y="91" text-anchor="end" font-size="12" fill="#9ca3af">94%</text>
+      <line x1="90" y1="54" x2="830" y2="54" stroke="#f0f1f3"/><text x="82" y="58" text-anchor="end" font-size="12" fill="#9ca3af">95%</text>
+      <text x="90" y="272" text-anchor="middle" font-size="12" fill="#9ca3af">1K</text>
+      <text x="366" y="272" text-anchor="middle" font-size="12" fill="#9ca3af">10K</text>
+      <text x="642" y="272" text-anchor="middle" font-size="12" fill="#9ca3af">100K</text>
+      <text x="830" y="272" text-anchor="middle" font-size="12" fill="#9ca3af">480K</text>
+      <text x="460" y="296" text-anchor="middle" font-size="13" fill="#6b7280">参数量（对数轴，Table IV）</text>
+      <rect x="822" y="232" width="16" height="16" rx="3" fill="#c9ced6"><title>MCUNetv3 (M7)：480,000 参数，89.3%</title></rect>
+      <rect x="805" y="96" width="16" height="16" rx="3" fill="#c9ced6"><title>ODDL DSCNN-L (GAP9)：416,700 参数，93.47%</title></rect>
+      <rect x="673" y="123" width="16" height="16" rx="3" fill="#94a3b8"><title>ODDL DSCNN-M (GAP9)：138,100 参数，92.64%</title></rect>
+      <rect x="461" y="187" width="16" height="16" rx="3" fill="#94a3b8"><title>ODDL DSCNN-S (GAP9)：23,700 参数，90.68%</title></rect>
+      <circle cx="149" cy="77" r="11" fill="#0e8a66"><title>本文 (Cortex-M4)：1,640 参数，94.31%</title></circle>
+      <text x="153" y="56" font-size="12.5" fill="#0a6b4e" font-weight="700">本文 1.64K</text>
+      <text x="155" y="72" font-size="11" fill="#0a6b4e">少 93~99.6% 参数仍最高</text>
+      <text x="469" y="219" text-anchor="middle" font-size="11" fill="#6b7280">ODDL-S</text>
+      <text x="681" y="155" text-anchor="middle" font-size="11" fill="#6b7280">ODDL-M</text>
+      <text x="813" y="128" text-anchor="middle" font-size="11" fill="#6b7280">ODDL-L</text>
+      <text x="830" y="264" text-anchor="middle" font-size="11" fill="#6b7280">MCUNetv3</text>
+    </svg>
+    <p class="cap"><b>关键读数</b>：1.64k 参数 / 0.89M FLOPS，精度超过 ODDL 全部三档（比最小的 DSCNN-S 少 93% 参数还高 3.6 点）和 MCUNetv3。代价维度：95.11 ms 单样本时延高于 GAP9 的 6.74~32.95 ms，但硬件档位完全不同（单核入门 M4 vs 多核 GAP9），对 1 秒分析窗仍属实时；时延与能耗均为 ARM 数据手册<b>估算值</b>（非板级实测），「优化 M4」可把能耗 200.87 → 64.45 µJ。</p>
+  </div>
+
+  <h3>消融：重训的收益藏在低 SNR（Table III）</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 320" role="img">
+      <text x="80" y="32" font-size="13.5" fill="#47536a" font-weight="600">实线圆点 = 开启 CL 重训，虚线方块 = 不重训（悬停看数值）</text>
+      <line x1="80" y1="250" x2="840" y2="250" stroke="#f0f1f3"/><text x="72" y="254" text-anchor="end" font-size="12" fill="#9ca3af">85%</text>
+      <line x1="80" y1="207" x2="840" y2="207" stroke="#f0f1f3"/><text x="72" y="211" text-anchor="end" font-size="12" fill="#9ca3af">88%</text>
+      <line x1="80" y1="164" x2="840" y2="164" stroke="#f0f1f3"/><text x="72" y="168" text-anchor="end" font-size="12" fill="#9ca3af">91%</text>
+      <line x1="80" y1="121" x2="840" y2="121" stroke="#f0f1f3"/><text x="72" y="125" text-anchor="end" font-size="12" fill="#9ca3af">94%</text>
+      <line x1="80" y1="79" x2="840" y2="79" stroke="#f0f1f3"/><text x="72" y="83" text-anchor="end" font-size="12" fill="#9ca3af">97%</text>
+      <text x="80" y="272" text-anchor="middle" font-size="12.5" fill="#9ca3af">−10 dB</text>
+      <text x="270" y="272" text-anchor="middle" font-size="12.5" fill="#9ca3af">−5 dB</text>
+      <text x="460" y="272" text-anchor="middle" font-size="12.5" fill="#9ca3af">0 dB</text>
+      <text x="650" y="272" text-anchor="middle" font-size="12.5" fill="#9ca3af">5 dB</text>
+      <text x="840" y="272" text-anchor="middle" font-size="12.5" fill="#9ca3af">10 dB</text>
+      <text x="460" y="296" text-anchor="middle" font-size="13" fill="#6b7280">信噪比（OOFFICE 环境，双输入模型，Table III）</text>
+      <polyline points="80,198 270,114 460,83 650,65 840,64" fill="none" stroke="#94a3b8" stroke-width="3" stroke-dasharray="6 4"/>
+      <rect x="75" y="193" width="10" height="10" rx="2" fill="#94a3b8"><title>不重训 · 仅谱去噪 −10dB：88.62%</title></rect>
+      <rect x="265" y="109" width="10" height="10" rx="2" fill="#94a3b8"><title>不重训 · 仅谱去噪 −5dB：94.50%</title></rect>
+      <rect x="455" y="78" width="10" height="10" rx="2" fill="#94a3b8"><title>不重训 · 仅谱去噪 0dB：96.72%</title></rect>
+      <rect x="645" y="60" width="10" height="10" rx="2" fill="#94a3b8"><title>不重训 · 仅谱去噪 5dB：97.97%</title></rect>
+      <rect x="835" y="59" width="10" height="10" rx="2" fill="#94a3b8"><title>不重训 · 仅谱去噪 10dB：98.03%</title></rect>
+      <polyline points="80,230 270,148 460,100 650,97 840,87" fill="none" stroke="#c9ced6" stroke-width="3" stroke-dasharray="6 4"/>
+      <rect x="75" y="225" width="10" height="10" rx="2" fill="#c9ced6"><title>不重训 · 小波+谱 −10dB：86.38%</title></rect>
+      <rect x="265" y="143" width="10" height="10" rx="2" fill="#c9ced6"><title>不重训 · 小波+谱 −5dB：92.16%</title></rect>
+      <rect x="455" y="95" width="10" height="10" rx="2" fill="#c9ced6"><title>不重训 · 小波+谱 0dB：95.47%</title></rect>
+      <rect x="645" y="92" width="10" height="10" rx="2" fill="#c9ced6"><title>不重训 · 小波+谱 5dB：95.69%</title></rect>
+      <rect x="835" y="82" width="10" height="10" rx="2" fill="#c9ced6"><title>不重训 · 小波+谱 10dB：96.41%</title></rect>
+      <polyline points="80,137 270,114 460,84 650,88 840,78" fill="none" stroke="#7cc7ad" stroke-width="3"/>
+      <circle cx="80" cy="137" r="5" fill="#7cc7ad"><title>重训 · 仅谱去噪 −10dB：92.88%</title></circle>
+      <circle cx="270" cy="114" r="5" fill="#7cc7ad"><title>重训 · 仅谱去噪 −5dB：94.53%</title></circle>
+      <circle cx="460" cy="84" r="5" fill="#7cc7ad"><title>重训 · 仅谱去噪 0dB：96.59%</title></circle>
+      <circle cx="650" cy="88" r="5" fill="#7cc7ad"><title>重训 · 仅谱去噪 5dB：96.31%</title></circle>
+      <circle cx="840" cy="78" r="5" fill="#7cc7ad"><title>重训 · 仅谱去噪 10dB：97.03%</title></circle>
+      <polyline points="80,137 270,143 460,117 650,108 840,117" fill="none" stroke="#0e8a66" stroke-width="3"/>
+      <circle cx="80" cy="137" r="5" fill="#0e8a66"><title>重训 · 小波+谱（完整）−10dB：92.94%</title></circle>
+      <circle cx="270" cy="143" r="5" fill="#0e8a66"><title>重训 · 小波+谱 −5dB：92.50%</title></circle>
+      <circle cx="460" cy="117" r="5" fill="#0e8a66"><title>重训 · 小波+谱 0dB：94.34%</title></circle>
+      <circle cx="650" cy="108" r="5" fill="#0e8a66"><title>重训 · 小波+谱 5dB：94.94%</title></circle>
+      <circle cx="840" cy="117" r="5" fill="#0e8a66"><title>重训 · 小波+谱 10dB：94.31%</title></circle>
+      <line x1="110" y1="137" x2="86" y2="137" stroke="#c0392b" stroke-dasharray="4 3"/>
+      <text x="116" y="129" font-size="12.5" fill="#c0392b" font-weight="700">−10dB：88.62 → 92.88</text>
+      <text x="116" y="147" font-size="12" fill="#c0392b">重训收益集中在低 SNR</text>
+      <line x1="560" y1="62" x2="586" y2="62" stroke="#94a3b8" stroke-width="4"/><text x="594" y="66" font-size="12.5" fill="#374151">不重训 · 仅谱去噪</text>
+      <line x1="560" y1="83" x2="586" y2="83" stroke="#c9ced6" stroke-width="4"/><text x="594" y="87" font-size="12.5" fill="#374151">不重训 · 小波+谱</text>
+      <line x1="560" y1="104" x2="586" y2="104" stroke="#7cc7ad" stroke-width="4"/><text x="594" y="108" font-size="12.5" fill="#374151">重训 · 仅谱去噪</text>
+      <line x1="560" y1="125" x2="586" y2="125" stroke="#0e8a66" stroke-width="4"/><text x="594" y="129" font-size="12.5" fill="#374151">重训 · 小波+谱（完整）</text>
+    </svg>
+    <p class="cap"><b>三个发现</b>：① 重训收益集中在低 SNR（−10dB +4 点以上；10dB 反而略降 98.03→94.31，域漂移本来就小时 CL 无增益）；② <b>小波去噪的价值要重训配合才兑现</b>——无重训时它在 −10dB 反而损失 2.24 点（重度噪声下引入失真），有重训时反超，论文据此论证失真源于噪声且可被 CL 吸收；③ 谱去噪单独已很能打（两级中性价比最高的一级）。另：α∈[0.4,0.9]、P_th∈[0.70,0.85]、距离阈值∈[1.7,2.4] 三个超参全区间平坦（Fig 6-8）——不依赖精调。</p>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">四条可以带走的东西</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>新的域增量 CL 框架</b><br><span style="color:var(--ink-2)">运行时伪标签「有效样本」+ 重演缓冲驱动<b>完整量化模型</b>增量更新（而非仅分类器层），同步更新类原型——端侧域适应上限从分类边界推进到整个特征提取器。</span></div>
+    <div class="c"><span class="n">2</span><b>双级去噪嵌入特征管线</b><br><span style="color:var(--ink-2)">小波域（Haar-VisuShrink）+ 特征域（谱减+掩码+归一化）两级整数化去噪，同时保障分类精度与有效样本判定的特征可靠性。</span></div>
+    <div class="c"><span class="n">3</span><b>双特征输入分类器</b><br><span style="color:var(--ink-2)">MFCC + LogMel 并行流，干净数据 99.63%（比单输入高 2.18 点）——第二路特征借 MFCC 流水线中间产物零额外计算获得。</span></div>
+    <div class="c"><span class="n">4</span><b>宽条件验证 + 极致资源占用</b><br><span style="color:var(--ink-2)">−10~10 dB × 四类噪声全部 ≥ 91%；1.64k 参数、0.89M FLOPS，单核 Cortex-M4 可部署，比 ODDL DSCNN-M 少 98.81% 参数且精度更高。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与展望</p>
+  <h2 class="sec">二分类边界与估算值</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法本身的技术局限</h4>
+      <ul>
+        <li><b>二分类边界</b>：双类原型、µ+nσ 阈值、各 64 条的均衡重演都按 Yes/No 设计；多类需重设计原型配比与逐类阈值。</li>
+        <li><b>时延偏高且为估算</b>：95.11 ms 对 1 秒窗是实时的，但对低延迟流式唤醒偏大；时延/能耗均出自数据手册估算而非板级实测。</li>
+        <li><b>依赖重训按周期发生</b>：两次重训之间遭遇剧烈域变存在性能凹陷窗口（小波去噪无重训时会引入失真）。</li>
+        <li><b>隐层维度低</b>：160/320 字节隐层决定原型表达容量上限；未做隐层位置/维度消融。</li>
+        <li><b>可复现性缺口</b>：算法 2 的逐元素梯度缩放步骤未解释动机；初始训练的优化器、轮数、QAT 配置均未报告。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>关键资源账缺失</b>：重演缓冲容量（样本数/字节数）与总 RAM/Flash 占用未报告——这恰是端侧 CL 最核心的账。</li>
+        <li><b>无遗忘度量</b>：未报告 CL 后干净测试集精度（旧知识保住没有，无从判断）。</li>
+        <li><b>对比口径未对齐</b>：Table IV 的 94.31% 未注明噪声环境与 SNR（数值恰与 OOFFICE@10dB 一致，疑为该配置）。</li>
+        <li><b>域定义偏窄</b>：只用加性环境噪声模拟，未覆盖混响、远场、信道失真、说话人变化。</li>
+        <li><b>无 CL 同台对比</b>：TAP-SLDA、iCaRL 只引数字未直接对照；摘要 −10dB「超 94%」表述偏乐观。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:18px">
+    <b>值得跟进的方向</b>：① 多类域增量扩展（KWS-35；作者把框架定位为通用方案，还列了 MNIST/CIFAR）；② 板级实测替换估算 + 真实 always-on 设备验证；③ 混响/远场/信道/说话人纳入域定义；④ 事件驱动重训触发（压缩域变后的凹陷窗口）+ 类不均衡排练配比；⑤ 与联邦学习结合——多设备协同的域适应是自然延伸。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2026/Domain-Incremental_Continual_Learning_For_Robust_And_Efficient_Keyword_Spotting_In_Resource_Constrained_Systems.md">📝 深读笔记（Markdown）</a>
+    <a class="pill" href="/papers/2026/Domain-Incremental_Continual_Learning_For_Robust_And_Efficient_Keyword_Spotting_In_Resource_Constrained_Systems.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2601.16158" target="_blank">🔗 arXiv:2601.16158</a>
+  </div>
+  本页所有数字均出自论文 Table I–IV 与 Fig 6–8；「第三层输出通道为 5」为笔记推断（非原文陈述）。深读笔记与可视化页同源生成，转载请注明出处。
+</footer>
+
+</div>
+</body>
+</html>
