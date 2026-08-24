@@ -4,9 +4,9 @@
 > 每完成一篇：生成 `papers/<year>/<name>.html` → 更新 `viz_manifest.json` → 本文件勾选 → 分批 commit+push。
 > 状态：✅ 已上线 · ⬜ 待做。进度 = 已完成 / 总数。
 
-**进度：17 / 305**
+**进度：18 / 305**
 
-## 2026（17/24）
+## 2026（18/24）
 
 - [✅] A Multiplication-Free Feature Extractor for Signal Class…
 - [✅] BEST-STD 2.0：面向口语词检索的均衡高效语音分词器
@@ -25,7 +25,7 @@
 - [✅] MATE：套娃式音频-文本嵌入，面向开放词表关键词检测
 - [✅] Massive Open-Vocabulary Keyword Spotting
 - [✅] No Word Left Behind: Mitigating Prefix Bias in Open-Voca…
-- [⬜] OK Aura, Be Fair With Me: Demographics-Agnostic Training…
+- [✅] OK Aura, Be Fair With Me: Demographics-Agnostic Training…
 - [⬜] OnDA: On-device Channel Pruning for Efficient Personaliz…
 - [⬜] PCOV-KWS：面向个性化可定制开放词表关键词检测的多任务学习
 - [⬜] Perforated Neural Networks for Keyword Spotting
