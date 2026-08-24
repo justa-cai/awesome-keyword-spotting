@@ -1,7 +1,7 @@
 # 可视化精读计划（VIZ_PLAN）
 
 > 逐篇把 305 篇深读笔记重写为 HTML+SVG 可视化页（2026→2018 倒序）。每篇流程：读笔记 → python 算图表坐标 → 手绘机制 SVG → 自包含 HTML → 更新 manifest+plan → commit+push。
-**进度：109 / 305**
+**进度：110 / 305**
 > 进度以本文件为准；`viz_manifest.json` 是机器可读版（站点 viz 按钮按它门控）。
 
 ## 2026（24/24）
@@ -117,14 +117,14 @@
 - [✅] Utilizing TTS Synthesized Data for Efficient Development o…
 - [✅] Wake Word and Speech Recognition Application on Edge Devic…
 
-## 2023（5/41）
+## 2023（6/41）
 
 - [✅] A 3.8μW 10 关键词抗噪关键词检出处理器：对称压缩三值权重神经网络
 - [✅] 少神经元神经形态关键词检测的时间编码器对比：TDE 与双突触 E-I 元件
 - [✅] Automatic Audio Feature Extraction for Keyword Spotting：用卷…
 - [✅] Conditional Online Learning for Keyword Spotting
 - [✅] CosMix：面向低资源关键词检测的对比式语音混音学习
-- [⬜] DCCRN-KWS: 基于音频偏置的噪声鲁棒小 footprint 关键词检测
+- [✅] DCCRN-KWS: 基于音频偏置的噪声鲁棒小 footprint 关键词检测
 - [⬜] Does Single-channel Speech Enhancement Improve Keyword Spo…
 - [⬜] Dual-Attention Neural Transducers for Efficient Wake Word …
 - [⬜] 探索面向小体积关键词检测的表示学习
