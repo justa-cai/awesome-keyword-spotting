@@ -1,7 +1,7 @@
 # 可视化精读计划（VIZ_PLAN）
 
 > 逐篇把 305 篇深读笔记重写为 HTML+SVG 可视化页（2026→2018 倒序）。每篇流程：读笔记 → python 算图表坐标 → 手绘机制 SVG → 自包含 HTML → 更新 manifest+plan → commit+push。
-**进度：90 / 305**
+**进度：91 / 305**
 > 进度以本文件为准；`viz_manifest.json` 是机器可读版（站点 viz 按钮按它门控）。
 
 ## 2026（24/24）
@@ -70,7 +70,7 @@
 - [✅] TsetlinKWS：65nm 工艺下 16.58µW、0.63mm² 的状态驱动卷积 Tsetlin Machin…
 - [✅] Vocal Tract Length Warped Features for Spoken Keyword Spot…
 
-## 2024（30/44）
+## 2024（31/44）
 
 - [✅] KWS-Whisper：用开放词表关键词检测增强 Whisper 的多任务训练方法
 - [✅] 对抗训练最小化关键词检测中的TTS数据过拟合
@@ -104,7 +104,7 @@
 - [✅] 音素级对比学习：支持灵活注册的用户自定义关键词检测
 - [✅] Query-by-Example Keyword Spotting Using Spectral-Temporal …
 - [✅] Relational Proxy Loss：用结构对结构的关系迁移改进文本注册式关键词检测
-- [⬜] Robust Dual-Modal Speech Keyword Spotting for XR Headsets：…
+- [✅] Robust Dual-Modal Speech Keyword Spotting for XR Headsets：…
 - [⬜] 帧级跨模态注意力音视频 Conformer 的鲁棒唤醒词检测
 - [⬜] SLiCK: Exploiting Subsequences for Length-Constrained Keyw…
 - [⬜] Self-Learning for Personalized Keyword Spotting on Ultra-L…
