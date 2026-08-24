@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MALEFA · 零样本 KWS 误报抑制 · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15.5px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight="700"; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2026/MALEFA_Multi-grAnularity_Learning_And_Effective_False_Alarm_Suppression_For_Zero-shot_Keyword_Spotting.md">深读笔记</a>
+    <a href="/papers/2026/MALEFA_Multi-grAnularity_Learning_And_Effective_False_Alarm_Suppression_For_Zero-shot_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2604.03689" target="_blank">arXiv</a>
+    <a href="https://github.com/Debbyyy10158/MALEFA" target="_blank">代码</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2026 №14</p>
+  <h1>MALEFA<br>零样本 KWS：多粒度学习 + 把误报优化写进损失函数</h1>
+  <p class="sub">MALEFA: Multi-grAnularity Learning and Effective False Alarm Suppression for Zero-shot Keyword Spotting</p>
+  <p class="meta"><b>作者</b>：Lo-Ya Li, Tien-Hong Lo, Berlin Chen（台师大）；Jeih-Weih Hung（暨南大学）；Shih-Chieh Huang（瑞昱半导体）</p>
+  <p class="meta"><b>发表</b>：2026.04 · arXiv:2604.03689 · 代码开源</p>
+  <div class="chips">
+    <span class="chip">零样本 KWS</span><span class="chip">多粒度对比学习</span><span class="chip">误报抑制</span>
+    <span class="chip">交叉注意力对齐</span><span class="chip">CTC/Viterbi</span><span class="chip">精度约束损失</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>场景：零样本 KWS——只凭关键词<b>文本</b>检测任意新词；常驻监听设备上误触发比漏检更伤体验（随时间线性累积）。</li>
+      <li>痛点实例：come on（K-AH1-M-AA1-N）与 call mom（K-AO1-L-M-AA1-M）音素大量重叠——只看全局相似度的匹配器必然误触发。</li>
+      <li>三个损失各司其职：<b>PCL</b> 音素级对比（对齐质量变训练信号）、<b>UCL</b> 话语级双向对比（类间分离）、<b>FA 损失</b> 把 Precision 直接写进目标（TP/FP 用平滑 sigmoid 界可微化）。</li>
+      <li>结果：0.7M 参数四基准全面最优（LPH AUC 93.58）；AMI 误报率 <b>17.879% → 0.007%</b>（约四个数量级）——消融显示这主要就是 FA 损失一个组件的功劳。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">声学相似的词，误报是刚需痛点</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 230" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">论文图 1 的例子：音素序列大量重叠的词对</text>
+      <g font-size="14" text-anchor="middle" font-weight="600">
+        <rect x="70" y="50" width="80" height="40" rx="8" fill="#0e8a66"/><text x="110" y="76" fill="#fff">K</text>
+        <rect x="155" y="50" width="90" height="40" rx="8" fill="#c0392b"/><text x="200" y="76" fill="#fff">AH1</text>
+        <rect x="250" y="50" width="80" height="40" rx="8" fill="#0e8a66"/><text x="290" y="76" fill="#fff">M</text>
+        <rect x="335" y="50" width="90" height="40" rx="8" fill="#0e8a66"/><text x="380" y="76" fill="#fff">AA1</text>
+        <rect x="430" y="50" width="70" height="40" rx="8" fill="#0e8a66"/><text x="465" y="76" fill="#fff">N</text>
+        <text x="600" y="76" font-size="14" fill="#47536a" font-weight="400">← "come on"</text>
+        <rect x="70" y="110" width="80" height="40" rx="8" fill="#0e8a66"/><text x="110" y="136" fill="#fff">K</text>
+        <rect x="155" y="110" width="90" height="40" rx="8" fill="#d97a2b"/><text x="200" y="136" fill="#fff">AO1</text>
+        <rect x="250" y="110" width="80" height="40" rx="8" fill="#0e8a66"/><text x="290" y="136" fill="#fff">L</text>
+        <rect x="335" y="110" width="90" height="40" rx="8" fill="#0e8a66"/><text x="380" y="136" fill="#fff">AA1</text>
+        <rect x="430" y="110" width="70" height="40" rx="8" fill="#0e8a66"/><text x="465" y="136" fill="#fff">M</text>
+        <text x="600" y="136" font-size="14" fill="#47536a" font-weight="400">← "call mom"</text>
+      </g>
+      <text x="70" y="190" font-size="12.5" fill="#47536a">绿 = 共享音素（橙色 = 仅有的差异处）——语义毫无关系的两个词，声学轮廓高度相似，全局匹配器必然误触发</text>
+      <text x="70" y="212" font-size="12" fill="#8a93a5">现有路线的缺口：CMCD 系全局表示对音素级差异先天不足（LPH AUC 仅 73.58）；Conformer 重型路线精度高但 4.6M 参数；BCE 损失优化整体准确率不显式惩罚 FP——误报只能靠事后调阈值打补丁</text>
+    </svg>
+  </div>
+
+  <div class="formula">
+    四个互相牵制的目标：(1) 不用任何关键词专属音频分辨音素级混淆对（要细粒度判别力）；(2) 误报率压到接近零（训练目标直接面向 FAR）；(3) 模型轻到端侧部署（650K 参数 / 93M FLOPs）；(4) 只用公开语音数据训练。
+    <div class="why">牵制的本质：细粒度判别通常要更大模型、显式误报优化通常要更多数据调阈值——都要在轻量、零样本约束内完成。</div>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">三模块串联 + 六项损失等权</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 360" role="img">
+      <!-- 输入 -->
+      <rect x="20" y="60" width="150" height="90" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <polyline points="34,105 46,98 54,112 62,94 70,110 78,100 86,108 94,92 104,112 160,106" fill="none" stroke="#47536a" stroke-width="1.8"/>
+      <text x="95" y="130" text-anchor="middle" font-size="12" fill="#47536a">1 秒音频 @16 kHz</text>
+
+      <line x1="170" y1="105" x2="196" y2="105" stroke="#0e8a66" stroke-width="2.5"/><polygon points="196,105 188,100 188,110" fill="#0e8a66"/>
+      <!-- Feature Extractor 双流 -->
+      <rect x="200" y="40" width="200" height="130" rx="12" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="300" y="66" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0a6b4e">① Feature Extractor</text>
+      <rect x="215" y="80" width="170" height="34" rx="6" fill="#fff" stroke="#b9dccb"/><text x="300" y="102" text-anchor="middle" font-size="11" fill="#47536a">冻结 Google speech emb（775/80ms）</text>
+      <rect x="215" y="120" width="170" height="34" rx="6" fill="#fff" stroke="#b9dccb"/><text x="300" y="142" text-anchor="middle" font-size="11" fill="#47536a">可训练卷积（log-Mel 25/10ms）</text>
+
+      <line x1="400" y1="105" x2="426" y2="105" stroke="#0e8a66" stroke-width="2.5"/><polygon points="426,105 418,100 418,110" fill="#0e8a66"/>
+      <!-- Pattern Extractor -->
+      <rect x="430" y="40" width="230" height="130" rx="12" fill="#0e8a66"/>
+      <text x="545" y="68" text-anchor="middle" font-size="13.5" font-weight="700" fill="#fff">② Pattern Extractor</text>
+      <text x="545" y="94" text-anchor="middle" font-size="11" fill="#e6f4ee">交叉注意力：Q=音素嵌入, K=V=音频嵌入</text>
+      <text x="545" y="116" text-anchor="middle" font-size="11" fill="#cdeede">注意力矩阵 = 音素-帧对齐图（可解释）</text>
+      <text x="545" y="140" text-anchor="middle" font-size="10.5" fill="#cdeede">128 维 · 正弦位置编码</text>
+      <!-- 文本输入 -->
+      <rect x="430" y="190" width="230" height="60" rx="10" fill="#f3ede2" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="545" y="214" text-anchor="middle" font-size="12" font-weight="700" fill="#b0631d">关键词文本 → G2P → 音素嵌入</text>
+      <text x="545" y="236" text-anchor="middle" font-size="10.5" fill="#8a93a5">音素粒度 = 与帧级声学细节对齐的前提</text>
+      <line x1="545" y1="190" x2="545" y2="170" stroke="#d97a2b" stroke-width="2.5"/><polygon points="545,170 540,178 550,178" fill="#d97a2b"/>
+
+      <line x1="660" y1="105" x2="686" y2="105" stroke="#0e8a66" stroke-width="2.5"/><polygon points="686,105 678,100 678,110" fill="#0e8a66"/>
+      <!-- Discriminator -->
+      <rect x="690" y="40" width="210" height="130" rx="12" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="795" y="66" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0a6b4e">③ Pattern Discriminator</text>
+      <text x="795" y="92" text-anchor="middle" font-size="11" fill="#47536a">GRU 双头：话语级 q_utt</text>
+      <text x="795" y="112" text-anchor="middle" font-size="11" fill="#47536a">+ 音素级对齐序列 q_phon</text>
+      <text x="795" y="140" text-anchor="middle" font-size="10.5" fill="#5f8a76">双头对应双粒度监督</text>
+
+      <!-- 损失
+      <rect x="20" y="270" width="884" height="80" rx="12" fill="#f3ede2" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="462" y="296" text-anchor="middle" font-size="13.5" font-weight="700" fill="#b0631d">L_total = L_utt + L_phon + L_CTC + L_PCL + L_UCL + L_FA（六项等权，全取 1）</text>
+      <text x="40" y="326" font-size="12" fill="#47536a">PCL 管「对齐质量」（Viterbi 置信度当监督）· UCL 管类间绝对分离 · FA 管误报基本面（−log Precision + 铰链边界，TP/FP 平滑 sigmoid 界可微化）</text>
+    </svg>
+    <p class="cap"><b>为什么音素而不是字符作文本单元</b>：声学混淆发生在发音层面，只有拆到音素粒度才能与帧级声学做细粒度对齐——这正是分辨 come on / call mom 所需要的。<b>为什么文本作 Query</b>：让每个音素主动去音频里「找自己对应的帧」，注意力矩阵天然构成对齐图，还免费提供可解释性（论文图 4 热图）。</p>
+  </div>
+
+  <h3>FA 损失：把「惩罚误报」变成梯度</h3>
+  <div class="formula">
+    L_FA = −log(Precision) + λ·max(0, α − Precision)，其中 TP/FP 用平滑 sigmoid 界近似：TP = Σ(1+γδ)·σ(γx−δ)·y，FP = Σ(1+γδ)·σ(γx+δ)·(1−y)
+    <div class="why">Precision = TP/(TP+FP) 天然把 FP 放进分母——误报的数学化身。两个门的偏移方向相反：TP 门要求分数超过偏置才计正，FP 门让负样本上稍高的分数就被计入 FP——<b>偏保守的近似，宁可高估错误</b>。L_FA 与 BCE 一起用而非取代：保住整体准确率的前提下，额外挂一条「把 FP 往死里打」的梯度通道。α=0.9，λ=10.0。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">抗混淆优势 + 四个数量级的误报下降</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>设置</b>：训练 LibriPhrase train-clean-100/360 + MUSAN 噪声增强；四基准评测（LPE/L_H 音素混淆度划分、GSC、Qcomm 带口音、AMI 会议切 2 秒段专测误报）；740k 步、Adam 1e-3、batch 1000、单卡 RTX 4090。
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 300" role="img">
+      <text x="70" y="32" font-size="13.5" fill="#47536a" font-weight="600">AUC 对比（表 1）：MALEFA 的优势本质是「抗混淆优势」</text>
+      <line x1="70" y1="198" x2="860" y2="198" stroke="#f0f1f3"/><text x="62" y="202" text-anchor="end" font-size="12" fill="#9ca3af">75</text>
+      <line x1="70" y1="170" x2="860" y2="170" stroke="#f0f1f3"/><text x="62" y="174" text-anchor="end" font-size="12" fill="#9ca3af">80</text>
+      <line x1="70" y1="142" x2="860" y2="142" stroke="#f0f1f3"/><text x="62" y="146" text-anchor="end" font-size="12" fill="#9ca3af">85</text>
+      <line x1="70" y1="114" x2="860" y2="114" stroke="#f0f1f3"/><text x="62" y="118" text-anchor="end" font-size="12" fill="#9ca3af">90</text>
+      <line x1="70" y1="86" x2="860" y2="86" stroke="#f0f1f3"/><text x="62" y="90" text-anchor="end" font-size="12" fill="#9ca3af">95</text>
+      <line x1="70" y1="58" x2="860" y2="58" stroke="#f0f1f3"/><text x="62" y="62" text-anchor="end" font-size="12" fill="#9ca3af">100</text>
+      <rect x="85" y="76" width="42" height="139" rx="4" fill="#dfe3e8"/><text x="106" y="71" text-anchor="middle" font-size="10.5" font-weight="600" fill="#374151">96.70</text>
+      <rect x="137" y="206" width="42" height="9" rx="4" fill="#c9ced6"/><text x="158" y="201" text-anchor="middle" font-size="10.5" font-weight="600" fill="#374151">73.58</text>
+      <text x="132" y="238" text-anchor="middle" font-size="11" fill="#374151">CMCD</text>
+      <rect x="215" y="74" width="42" height="141" rx="4" fill="#dfe3e8"/><text x="236" y="69" text-anchor="middle" font-size="10.5" font-weight="600" fill="#374151">97.03</text>
+      <rect x="267" y="192" width="42" height="23" rx="4" fill="#c9ced6"/><text x="288" y="187" text-anchor="middle" font-size="10.5" font-weight="600" fill="#374151">76.15</text>
+      <text x="262" y="238" text-anchor="middle" font-size="11" fill="#374151">CLAD</text>
+      <rect x="345" y="62" width="42" height="153" rx="4" fill="#dfe3e8"/><text x="366" y="57" text-anchor="middle" font-size="10.5" font-weight="600" fill="#374151">99.29</text>
+      <rect x="397" y="122" width="42" height="93" rx="4" fill="#94a3b8"/><text x="418" y="117" text-anchor="middle" font-size="10.5" font-weight="600" fill="#374151">88.52</text>
+      <text x="392" y="238" text-anchor="middle" font-size="10.5" fill="#374151">PhonMatchNet 0.7M</text>
+      <rect x="475" y="59" width="42" height="156" rx="4" fill="#dfe3e8"/><text x="496" y="54" text-anchor="middle" font-size="10.5" font-weight="600" fill="#374151">99.86</text>
+      <rect x="527" y="121" width="42" height="94" rx="4" fill="#94a3b8"/><text x="548" y="116" text-anchor="middle" font-size="10.5" font-weight="600" fill="#374151">88.71</text>
+      <text x="522" y="238" text-anchor="middle" font-size="11" fill="#374151">ADML 1.8M</text>
+      <rect x="605" y="59" width="42" height="156" rx="4" fill="#dfe3e8"/><text x="626" y="54" text-anchor="middle" font-size="10.5" font-weight="600" fill="#374151">99.84</text>
+      <rect x="657" y="99" width="42" height="116" rx="4" fill="#7cc7ad"/><text x="678" y="94" text-anchor="middle" font-size="10.5" font-weight="600" fill="#374151">92.70</text>
+      <text x="652" y="238" text-anchor="middle" font-size="11" fill="#374151">CED 4.6M</text>
+      <rect x="735" y="58" width="42" height="157" rx="4" fill="#dfe3e8"/><text x="756" y="53" text-anchor="middle" font-size="10.5" font-weight="600" fill="#374151">99.98</text>
+      <rect x="787" y="94" width="42" height="121" rx="4" fill="#0e8a66"/><text x="808" y="89" text-anchor="middle" font-size="10.5" font-weight="600" fill="#374151">93.58</text>
+      <text x="782" y="238" text-anchor="middle" font-size="10.5" fill="#374151">MALEFA 0.7M</text>
+      <line x1="70" y1="215" x2="860" y2="215" stroke="#9ca3af"/>
+      <rect x="640" y="34" width="13" height="13" rx="3" fill="#dfe3e8"/><text x="659" y="45" font-size="12" fill="#374151">Easy</text>
+      <rect x="720" y="34" width="13" height="13" rx="3" fill="#374151"/><text x="739" y="45" font-size="12" fill="#374151">Hard（易混）</text>
+      <text x="70" y="264" font-size="12.5" fill="#0a6b4e" font-weight="600">L_H 上 93.58 领先所有人——比同参数量 PhonMatchNet 高 5.06，比 4.6M 的 CED 还高 0.88；Q 集 ACC4 80.45→98.77</text>
+    </svg>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 320" role="img">
+      <text x="70" y="32" font-size="13.5" fill="#47536a" font-weight="600">误报率 FAR %（表 2，对数轴，越低越好）——论文最戏剧性的表</text>
+      <line x1="110" y1="215" x2="860" y2="215" stroke="#f0f1f3"/><text x="102" y="219" text-anchor="end" font-size="12" fill="#9ca3af">0.001%</text>
+      <line x1="110" y1="179" x2="860" y2="179" stroke="#f0f1f3"/><text x="102" y="183" text-anchor="end" font-size="12" fill="#9ca3af">0.01%</text>
+      <line x1="110" y1="144" x2="860" y2="144" stroke="#f0f1f3"/><text x="102" y="148" text-anchor="end" font-size="12" fill="#9ca3af">0.1%</text>
+      <line x1="110" y1="108" x2="860" y2="108" stroke="#f0f1f3"/><text x="102" y="112" text-anchor="end" font-size="12" fill="#9ca3af">1%</text>
+      <line x1="110" y1="72" x2="860" y2="72" stroke="#f0f1f3"/><text x="102" y="76" text-anchor="end" font-size="12" fill="#9ca3af">10%</text>
+      <text x="235" y="40" text-anchor="middle" font-size="13.5" font-weight="700" fill="#111827">AMI（会议）</text>
+      <rect x="140" y="63" width="34" height="152" rx="3" fill="#94a3b8"/><text x="157" y="59" text-anchor="middle" font-size="9.5" fill="#374151">17.879</text>
+      <rect x="184" y="66" width="34" height="149" rx="3" fill="#c0392b"/><text x="201" y="62" text-anchor="middle" font-size="9.5" fill="#374151">14.542</text>
+      <rect x="228" y="103" width="34" height="112" rx="3" fill="#d97a2b"/><text x="245" y="99" text-anchor="middle" font-size="9.5" fill="#374151">1.334</text>
+      <rect x="272" y="146" width="34" height="69" rx="3" fill="#7cc7ad"/><text x="289" y="142" text-anchor="middle" font-size="9.5" fill="#374151">0.085</text>
+      <rect x="316" y="185" width="34" height="30" rx="3" fill="#0e8a66"/><text x="333" y="181" text-anchor="middle" font-size="9.5" fill="#374151">0.007</text>
+      <line x1="134" y1="215" x2="346" y2="215" stroke="#c9c9bd"/>
+      <text x="475" y="40" text-anchor="middle" font-size="13.5" font-weight="700" fill="#111827">GSC</text>
+      <rect x="380" y="77" width="34" height="138" rx="3" fill="#94a3b8"/><text x="397" y="73" text-anchor="middle" font-size="9.5" fill="#374151">7.438</text>
+      <rect x="424" y="78" width="34" height="137" rx="3" fill="#c0392b"/><text x="441" y="74" text-anchor="middle" font-size="9.5" fill="#374151">6.71</text>
+      <rect x="468" y="88" width="34" height="127" rx="3" fill="#d97a2b"/><text x="485" y="84" text-anchor="middle" font-size="9.5" fill="#374151">3.58</text>
+      <rect x="512" y="169" width="34" height="46" rx="3" fill="#7cc7ad"/><text x="529" y="165" text-anchor="middle" font-size="9.5" fill="#374151">0.019</text>
+      <rect x="556" y="204" width="34" height="11" rx="3" fill="#0e8a66"/><text x="573" y="200" text-anchor="middle" font-size="9.5" fill="#374151">0.002</text>
+      <line x1="374" y1="215" x2="586" y2="215" stroke="#c9c9bd"/>
+      <text x="715" y="40" text-anchor="middle" font-size="13.5" font-weight="700" fill="#111827">Qcomm</text>
+      <rect x="620" y="81" width="34" height="134" rx="3" fill="#94a3b8"/><text x="637" y="77" text-anchor="middle" font-size="9.5" fill="#374151">5.743</text>
+      <rect x="664" y="114" width="34" height="101" rx="3" fill="#c0392b"/><text x="681" y="110" text-anchor="middle" font-size="9.5" fill="#374151">0.69</text>
+      <rect x="708" y="163" width="34" height="52" rx="3" fill="#d97a2b"/><text x="725" y="159" text-anchor="middle" font-size="9.5" fill="#374151">0.029</text>
+      <rect x="752" y="143" width="34" height="72" rx="3" fill="#7cc7ad"/><text x="769" y="139" text-anchor="middle" font-size="9.5" fill="#374151">0.105</text>
+      <rect x="796" y="213" width="34" height="2" rx="3" fill="#0e8a66"/><text x="813" y="209" text-anchor="middle" font-size="9.5" fill="#374151">0</text>
+      <line x1="614" y1="215" x2="826" y2="215" stroke="#c9c9bd"/>
+      <line x1="110" y1="215" x2="860" y2="215" stroke="#9ca3af"/>
+      <rect x="130" y="248" width="13" height="13" rx="3" fill="#94a3b8"/><text x="149" y="259" font-size="12" fill="#374151">PhonMatchNet（前身）</text>
+      <rect x="363" y="248" width="13" height="13" rx="3" fill="#c0392b"/><text x="382" y="259" font-size="12" fill="#374151">w/o FA 损失</text>
+      <rect x="512" y="248" width="13" height="13" rx="3" fill="#d97a2b"/><text x="531" y="259" font-size="12" fill="#374151">w/o UCL</text>
+      <rect x="637" y="248" width="13" height="13" rx="3" fill="#7cc7ad"/><text x="656" y="259" font-size="12" fill="#374151">w/o PCL</text>
+      <rect x="130" y="270" width="13" height="13" rx="3" fill="#0e8a66"/><text x="149" y="281" font-size="12" fill="#374151">MALEFA 满配</text>
+      <text x="70" y="304" font-size="13" fill="#0a6b4e" font-weight="600">AMI 上 FAR 降约四个数量级（17.879% → 0.007%）；去掉 FA 损失几乎打回原形（14.5%）——误报优势主要就是 FA 损失一个组件贡献的</text>
+    </svg>
+    <p class="cap"><b>消融分工</b>：FA 管误报基本面（最大单点崩塌）；UCL 管类间绝对分离（GSC 上去掉后 3.58%）；PCL 专补混淆对细粒度判别（去掉后 L_H AUC −5.94，但在简单集上反而微升——约束冲突）。<b>可视化佐证</b>（图 3/4）：无 PCL 时注意力弥散、音素边界模糊；加 PCL 后对齐锐化——正是误报来源的消除。</p>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">四条可以带走的东西</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>多粒度对比统一框架</b><br><span style="color:var(--ink-2)">话语级 + 音素级对比目标统一进一个轻量框架；余弦相似度可视化双向验证。</span></div>
+    <div class="c"><span class="n">2</span><b>FA-aware 损失</b><br><span style="color:var(--ink-2)">精度约束经平滑 sigmoid 界可微化引入 ZSKWS——FAR 17.9%→0.007% 的最大功臣，替代事后调阈值。</span></div>
+    <div class="c"><span class="n">3</span><b>轻量端侧可行性</b><br><span style="color:var(--ink-2)">0.7M 参数四基准 SOTA，不依赖 Conformer 级小编码器。</span></div>
+    <div class="c"><span class="n">4</span><b>可解释性副产品</b><br><span style="color:var(--ink-2)">交叉注意力对齐图——直接看到每个音素对到哪些帧、PCL 前后边界如何锐化。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与展望</p>
+  <h2 class="sec">流式未触及 + FAR 协议不完整</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法本身的技术局限</h4>
+      <ul>
+        <li><b>流式与延迟完全未触及</b>：整句（2 秒段）离线处理；93M FLOPs 是唯一效率证据，无延迟/RTF/内存实测。</li>
+        <li><b>双流时间分辨率疑点</b>：775ms/80ms 与 25ms/10ms 相差 8 倍帧率，如何对齐后拼接未说明——复现者要自己猜。</li>
+        <li><b>超参无敏感性分析</b>：γ/δ/α/λ 与六项等权全为单点取值，换分布后 α=0.9 是否合适无从判断。</li>
+        <li><b>PCL 依赖 CTC/Viterbi 质量</b>：早期训练置信度不可靠时可能在放大噪声（或解释了简单集上轻微负作用）。</li>
+        <li><b>语言绑定</b>：G2P 到 ARPAbet 音素集，天然绑定英语。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>无统计稳健性</b>：全部单次运行，无多种子方差；0.5 点级差异是否超随机波动无从判断。</li>
+        <li><b>FAR 协议不完整</b>：AMI 评测的关键词集、判决阈值、跨方法是否统一均未说明——FAR 是阈值敏感指标，0.007% 的可比性打折。</li>
+        <li><b>对比是拼合的</b>：CED/CLAD/ADML 只报 LibriPhrase 子集；ACC4 只在 Q 报。</li>
+        <li><b>无非语音误报源</b>：电视声/音乐里混入相似音素串未专项评测——AMI 只覆盖「人说话不含关键词」。</li>
+        <li><b>轻量化缺实测</b>：与 CED 对比停在参数量，无端侧硬件延迟/功耗。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:18px">
+    <b>值得跟进的方向</b>：① 跨语种扩展（多语 G2P + 音素词表）；② 流式化改造（滑窗增量判决 + 因果注意力受限版 + RTF/延迟实测）；③ 损失权重自动化（GradNorm / 课程式启用 PCL）；④ 温度校准或开集分数归一化，让 0.007% 从「调出来的」变「保出来的」；⑤ 补非语音事件/电视旁路音频/跨说话人变异三类误报源的压力测试。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2026/MALEFA_Multi-grAnularity_Learning_And_Effective_False_Alarm_Suppression_For_Zero-shot_Keyword_Spotting.md">📝 深读笔记（Markdown）</a>
+    <a class="pill" href="/papers/2026/MALEFA_Multi-grAnularity_Learning_And_Effective_False_Alarm_Suppression_For_Zero-shot_Keyword_Spotting.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2604.03689" target="_blank">🔗 arXiv:2604.03689</a>
+    <a class="pill" href="https://github.com/Debbyyy10158/MALEFA" target="_blank">💻 开源代码</a>
+  </div>
+  本页所有数字均出自论文表 1/2 与图 3/4；本篇英文版由本库翻译管线产出。深读笔记与可视化页同源生成，转载请注明出处。
+</footer>
+
+</div>
+</body>
+</html>
