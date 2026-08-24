@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SpectroNet · 混合 CNN-LSTM 边缘 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2024/Efficient_Real-Time_Smart_Keyword_Spotting_Using_Spectrogram-Based_Hybrid_CNN-LSTM_For_Edge_System.md">深读笔记</a>
+    <a href="/papers/2024/Efficient_Real-Time_Smart_Keyword_Spotting_Using_Spectrogram-Based_Hybrid_CNN-LSTM_For_Edge_System.pdf">PDF 原稿</a>
+    <a href="https://doi.org/10.1109/access.2024.3380350" target="_blank">DOI</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2024 №12</p>
+  <h1>把梅尔频谱图塞进网络第一层，<br>89K 参数的「设计-部署-真机」全链路样板</h1>
+  <p class="sub">Efficient Real-Time Smart Keyword Spotting Using Spectrogram-Based Hybrid CNN-LSTM for Edge System（SpectroNet）</p>
+  <p class="meta"><b>作者</b>：Infall Syafalni、Clarence Amadeus 等 4 人 —— 万隆理工学院（ITB）× IMEC</p>
+  <p class="meta"><b>发表</b>：IEEE Access 2024.01 · 部署平台 Jetson Xavier NX + TensorRT</p>
+  <div class="chips">
+    <span class="chip">梅尔层内嵌网络</span><span class="chip">DenseNet + 单向 LSTM</span><span class="chip">频率轴卷积 / 时间轴留给 LSTM</span>
+    <span class="chip">89,241 参数 / 93.33%</span><span class="chip">TensorRT FP16 52ms</span><span class="chip">真人语音 LED 闭环</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>定位</b>：工程集成型论文——不在单项技术上求高度，而是把「模型设计-数据-硬件选型-推理优化-真机验证」整条链路在一篇里走通并给出全链路数字，适合作为边缘 KWS 部署流程参考样板。</li>
+      <li><b>架构（SpectroNet）</b>：梅尔频谱图做成<b>网络内自定义层</b>（直接吃 16000 点原始波形，消灭独立特征提取流程）→ DenseNet 空间特征 + <b>单向</b>LSTM 时序建模。最值得注意的结构细节：<b>卷积和池化几乎只在频率轴上做</b>——两个过渡层都是 1×2 池化，时间维 59 帧一路保持到 LSTM——时序职责整个让渡给 LSTM，职责切分而非能力堆叠。</li>
+      <li><b>结果</b>：GSC v2 十词闭集（38,546 条）89,241 参数拿到 93.33% 测试精度 / 61ms 真机推理——五模型横评里「精度第二、参数第二少、速度第二快」的平衡位；验证集 95.21% 五者最高、过拟合 2.84% 第二低。</li>
+      <li><b>TensorRT 账本</b>：FP32 引擎 54.9ms（提速 10%）、FP16 52.0ms（14.75%），精度只掉 0.33%；但操作转换率只有 ~53%——<b>自定义梅尔层把近一半计算锁在优化器门外</b>，提速远低于文献 FP16 动辄数倍的预期（笔记推断的权衡，论文未分析）；FP16 引擎构建时间还多 66%。</li>
+      <li><b>闭环</b>：USB 麦克风采真人语音 → Jetson 推理 → GPIO LED 指示 10 词分类结果，100 次真人发音验证、PC 与 Jetson 精度零损失（部署一致性本身当指标）。</li>
+      <li><b>成色警告（必读）</b>：<b>摘要与正文数字大面积冲突</b>（180ms vs 61ms、45%/62% vs 10%/14.75% 提速、2.68%/4.84% vs 0.33% 精度损失——疑为 2023 会议版残留，论文零解释）；参数量两处不一致（142,877 vs 89,241）；Hamming/Hanning 窗自相矛盾——引用任何数字前先交叉核对正文表格。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">云端路线的延迟 / 隐私 / 扩展性三宗罪；边缘路线的工程闭环没人走完</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>五个角度的缺口</b>：① 单一架构能力缺陷——纯 CNN 只学空间结构要堆深度、纯 RNN 学不到局部信息，辅音瞬态与共振峰轨迹的局部形状 + 跨时间上下文需要两种能力；② 已有混合架构帕累托不佳——CTC 法 12.21M/98%（自定义集）、混合 CNN-RNN 229K/97.15%、DenseNet-BiLSTM 223K/97.3%、门控卷积 RNN 154.53K/只有 90.6%——小模型掉精度、精度高的不够小；③ <b>特征提取与模型割裂</b>——离线算频谱图、存文件、再喂网络，「低效、耗时、耗资源」（原话），实时系统还要维护两套软件组件；④ 缺真机真人验证——大量工作只测数据集准确率，「模型精度-部署性能」的鸿沟没填平；⑤ 优化空间没用足——文献显示 TensorRT FP16 吞吐提升可达 746%、INT8 达 1318%；而 TensorRT 比 TFLite 快但多耗 ~40% 能量——框架选择本身就是精度-能耗-速度三角，需实测。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">时间轴全程保护给 LSTM；频率轴交给 DenseNet</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 420" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">Table 3 复绘：端到端管线——时间维（下标 t）从 59 帧起一路保持到 LSTM</text>
+      <rect x="30" y="56" width="130" height="64" rx="9" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="95" y="82" text-anchor="middle" font-size="12" font-weight="700" fill="#1c2430">原始波形</text>
+      <text x="95" y="102" text-anchor="middle" font-size="10.5" fill="#8a93a5">16,000 点（1s @16kHz）</text>
+      <line x1="160" y1="88" x2="196" y2="88" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="196,88 188,83 188,93" fill="#5f8a76"/>
+      <rect x="198" y="56" width="190" height="64" rx="9" fill="#0e8a66"/>
+      <text x="293" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">梅尔频谱图层（内嵌）★</text>
+      <text x="293" y="102" text-anchor="middle" font-size="10.5" fill="#d8f3e7">自定义层 · 118 帧 × 80 梅尔通道</text>
+      <line x1="388" y1="88" x2="424" y2="88" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="424,88 416,83 416,93" fill="#5f8a76"/>
+      <rect x="426" y="56" width="200" height="64" rx="9" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="526" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#0a6b4e">CNN 空间段（DenseNet）</text>
+      <text x="526" y="102" text-anchor="middle" font-size="10.5" fill="#5f8a76">5×1 conv → 2×2 池化 → 稠密块×2 + 1×2 过渡</text>
+      <line x1="626" y1="88" x2="662" y2="88" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="662,88 654,83 654,93" fill="#5f8a76"/>
+      <rect x="664" y="56" width="110" height="64" rx="9" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="719" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#0a6b4e">重排 59×10</text>
+      <text x="719" y="102" text-anchor="middle" font-size="10.5" fill="#5f8a76">时间 × 通道序列</text>
+      <line x1="774" y1="88" x2="806" y2="88" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="806,88 798,83 798,93" fill="#5f8a76"/>
+      <rect x="788" y="118" width="102" height="0" fill="none"/>
+      <rect x="700" y="140" width="190" height="64" rx="9" fill="#0e8a66"/>
+      <text x="795" y="164" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">LSTM ×128（单向）</text>
+      <text x="795" y="186" text-anchor="middle" font-size="10.5" fill="#d8f3e7">→ FC 64 → Dropout 0.5 → 10 类</text>
+      <line x1="806" y1="88" x2="806" y2="140" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="806,140 801,132 811,132" fill="#5f8a76"/>
+
+      <rect x="30" y="152" width="620" height="130" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="48" y="178" font-size="12.5" font-weight="700" fill="#47536a">职责切分的时间轴证据（Table 3 逐层）</text>
+      <text x="48" y="204" font-size="11.5" fill="#47536a">· 118 帧 →（2×2 池化）→ 59 帧：这是时间维唯一一次缩减，发生在网络最早期</text>
+      <text x="48" y="226" font-size="11.5" fill="#47536a">· 之后两个过渡层池化都是 1×2：只砍频率维（80→20→10），时间维 59 帧保持不变</text>
+      <text x="48" y="248" font-size="11.5" fill="#47536a">· 时间轴上没有卷积核展开——「避免丢失任何可交给 LSTM 提取的时序数据」（论文原话）</text>
+      <text x="48" y="272" font-size="11" fill="#5f8a76">· DenseNet 稠密连接（特征复用）让浅网达到深层表达——参数效率的另一来源</text>
+
+      <rect x="668" y="216" width="222" height="150" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="686" y="242" font-size="12.5" font-weight="700" fill="#0a6b4e">为什么单向 LSTM（笔记推断）</text>
+      <text x="686" y="268" font-size="11" fill="#47536a">· 双向需要未来帧——与流式</text>
+      <text x="686" y="286" font-size="11" fill="#47536a">　「来一帧算一帧」的因果性冲突</text>
+      <text x="686" y="310" font-size="11" fill="#47536a">· 单向少一半反向权重：</text>
+      <text x="686" y="328" font-size="11" fill="#47536a">　 C1G2BiLSTM 149.9K/106ms</text>
+      <text x="686" y="346" font-size="11" fill="#0a6b4e">　 SpectroNet 89.2K/61ms</text>
+      <rect x="30" y="300" width="620" height="66" rx="11" fill="#fdf3ef" stroke="#c0563f" stroke-width="1.3"/>
+      <text x="48" y="326" font-size="12.5" font-weight="700" fill="#8c3b2e">内嵌梅尔层的隐性代价（笔记观察，论文未分析）</text>
+      <text x="48" y="350" font-size="11.5" fill="#47536a">TensorRT 只转换 ~53% 操作——自定义梅尔层 + 部分 reshape/LSTM 不在原生算子集内，回退未优化路径 → 实测提速仅 10-14.75%；流水线简洁与优化覆盖率互相牵制</text>
+    </svg>
+    <p class="cap"><b>图 A</b>·梅尔层内嵌的三重工程收益：① 流水线从「录音→离线特征脚本→网络」简化为「录音→网络」；② 训练与推理的特征路径完全同源（避免离线脚本与在线实现不一致的隐性精度损失）；③ 端到端单模型便于交给部署优化器整体转换。代价见红框。选 Jetson Xavier NX 的理由：Jetson 家族里 FPS/瓦特最优（Nano 是 FPS/美元最优、AGX 是绝对 FPS 最优）——能效比作为边缘选型第一标准。</p>
+  </div>
+
+  <div class="formula">
+    Mel(f) = 1127·ln(1 + f/700)；　STFT：S(m,k) = Σ x(n+mH)·w(n)·e^(−i2πnk/N)；　参数（Table 4）：窗 512 · 跳步 128（重叠 75%）· 80 梅尔滤波器 · 0-8 kHz
+    <div class="why"><b>人话</b>：分帧加窗 → 每帧傅里叶变换 → 功率谱（与共轭相乘）→ 三角梅尔滤波器组 → 对数缩放。梅尔刻度是对数的、贴近人耳频率感知。注意：按 16000 点 / 512 / 128 推算帧数应约 122-125，与 Table 3 的 118 帧对不上——论文未报告推导（细节欠账之一）。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">五模型横评占平衡位；TensorRT 账本诚实但被摘要拖累</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据与协议</b>：GSC v2 十词子集（go/on/off/yes/no/up/down/left/right/stop），38,546 条按 80/10/10 划分——<b>没有 unknown/silence 背充类</b>（闭集分类，任何非命令词都被强制分进 10 类）。训练：100 epoch 上限 + 早停（耐心 10）、Adam lr 0.001、batch 64、稀疏类别交叉熵。测试与推理全部在 Jetson Xavier NX 上执行。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 400" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 11 · 五模型对比：参数量（对数横轴）× 测试精度，标注真机推理延迟</text>
+<line x1="90" y1="306.4" x2="830" y2="306.4" stroke="#e8ece9" stroke-width="1"/>
+<text x="82" y="310.4" text-anchor="end" font-size="12" fill="#6b7a72">85</text>
+<line x1="90" y1="235.5" x2="830" y2="235.5" stroke="#e8ece9" stroke-width="1"/>
+<text x="82" y="239.5" text-anchor="end" font-size="12" fill="#6b7a72">88</text>
+<line x1="90" y1="164.5" x2="830" y2="164.5" stroke="#e8ece9" stroke-width="1"/>
+<text x="82" y="168.5" text-anchor="end" font-size="12" fill="#6b7a72">91</text>
+<line x1="90" y1="93.6" x2="830" y2="93.6" stroke="#e8ece9" stroke-width="1"/>
+<text x="82" y="97.6" text-anchor="end" font-size="12" fill="#6b7a72">94</text>
+<line x1="76.3" y1="60" x2="76.3" y2="330" stroke="#e8ece9" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="76.3" y="348" text-anchor="middle" font-size="11.5" fill="#6b7a72">10K</text>
+<line x1="254.7" y1="60" x2="254.7" y2="330" stroke="#e8ece9" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="254.7" y="348" text-anchor="middle" font-size="11.5" fill="#6b7a72">100K</text>
+<line x1="433.1" y1="60" x2="433.1" y2="330" stroke="#e8ece9" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="433.1" y="348" text-anchor="middle" font-size="11.5" fill="#6b7a72">1M</text>
+<line x1="611.6" y1="60" x2="611.6" y2="330" stroke="#e8ece9" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="611.6" y="348" text-anchor="middle" font-size="11.5" fill="#6b7a72">10M</text>
+<line x1="790.0" y1="60" x2="790.0" y2="330" stroke="#e8ece9" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="790.0" y="348" text-anchor="middle" font-size="11.5" fill="#6b7a72">100M</text>
+<line x1="90" y1="330" x2="830" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="460" y="368" text-anchor="middle" font-size="12.5" fill="#6b7a72">参数量（对数轴，越左越省）</text>
+<circle cx="176.2" cy="296.9" r="6" fill="#b9c6bd" stroke="#fff" stroke-width="2"/>
+<text x="166.2" y="280.9" font-size="12" font-weight="500" fill="#77837b">DSCNN 36.3K · 30ms</text>
+<circle cx="286.1" cy="195.5" r="6" fill="#b9c6bd" stroke="#fff" stroke-width="2"/>
+<text x="226.1" y="179.5" font-size="12" font-weight="500" fill="#77837b">C1G2BiLSTM 149.9K · 106ms</text>
+<circle cx="245.9" cy="109.5" r="8" fill="#0e8a66" stroke="#fff" stroke-width="2"/>
+<text x="175.9" y="93.5" font-size="12" font-weight="700" fill="#0a6b4e">SpectroNet 89.2K · 61ms ★</text>
+<circle cx="422.7" cy="133.3" r="6" fill="#b9c6bd" stroke="#fff" stroke-width="2"/>
+<text x="436.7" y="121.3" font-size="12" font-weight="500" fill="#77837b">SBNet 874K · 60ms</text>
+<circle cx="748.2" cy="100.5" r="6" fill="#b9c6bd" stroke="#fff" stroke-width="2"/>
+<text x="708.2" y="82.5" font-size="12" font-weight="500" fill="#77837b">AlexNet 58.3M · 120ms</text>
+<text x="440" y="392" text-anchor="middle" font-size="12" fill="#8a93a5">SpectroNet 占「精度第二、参数第二少、速度第二快」的平衡位：比 AlexNet 少 99.85% 参数达到相当精度；DSCNN 最轻最快但 85.40% 不可靠</text>
+</svg>
+    <p class="cap"><b>表 11 复绘</b>·测试在 Jetson Xavier NX 上执行。注意论文结论性百分比的口径问题：「少 28.57% 延迟」相对表中任何模型都算不出（相对 AlexNet 应为 49.2%）；「少约 70% 参数」相对各模型也不均匀成立（相对 DSCNN 反而多 1.46 倍）——Table 11 原始数字比这些百分比更可信。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 360" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 10 · 训练/验证准确率与过拟合（同超参 100 epoch 上限 + 早停）</text>
+<line x1="70" y1="275.9" x2="830" y2="275.9" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="279.9" text-anchor="end" font-size="12" fill="#6b7a72">85</text>
+<line x1="70" y1="205.3" x2="830" y2="205.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="209.3" text-anchor="end" font-size="12" fill="#6b7a72">90</text>
+<line x1="70" y1="134.7" x2="830" y2="134.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="138.7" text-anchor="end" font-size="12" fill="#6b7a72">95</text>
+<line x1="70" y1="64.1" x2="830" y2="64.1" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="68.1" text-anchor="end" font-size="12" fill="#6b7a72">100</text>
+<line x1="70" y1="290" x2="830" y2="290" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="99.0" y="117.6" width="48" height="172.4" rx="4" fill="#d9c9a8"/>
+<text x="123.0" y="111.6" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">96.21</text>
+<rect x="153.0" y="150.0" width="48" height="140.0" rx="4" fill="#b9c6bd"/>
+<text x="177.0" y="144.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">93.92</text>
+<text x="150.0" y="312" text-anchor="middle" font-size="12.5" font-weight="600" fill="#47536a">AlexNet</text>
+<text x="150.0" y="331" text-anchor="middle" font-size="11.5" fill="#8a93a5">过拟合 2.29%</text>
+<rect x="239.0" y="70.3" width="48" height="219.7" rx="4" fill="#d9c9a8"/>
+<text x="263.0" y="64.3" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">99.56</text>
+<rect x="293.0" y="165.6" width="48" height="124.4" rx="4" fill="#b9c6bd"/>
+<text x="317.0" y="159.6" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">92.81</text>
+<text x="290.0" y="312" text-anchor="middle" font-size="12.5" font-weight="600" fill="#47536a">SBNet</text>
+<text x="290.0" y="331" text-anchor="middle" font-size="11.5" fill="#8c3b2e">过拟合 6.75%</text>
+<rect x="379.0" y="147.6" width="48" height="142.4" rx="4" fill="#d9c9a8"/>
+<text x="403.0" y="141.6" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">94.09</text>
+<rect x="433.0" y="253.2" width="48" height="36.8" rx="4" fill="#b9c6bd"/>
+<text x="457.0" y="247.2" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">86.61</text>
+<text x="430.0" y="312" text-anchor="middle" font-size="12.5" font-weight="600" fill="#47536a">DSCNN</text>
+<text x="430.0" y="331" text-anchor="middle" font-size="11.5" fill="#8c3b2e">过拟合 7.68%</text>
+<rect x="519.0" y="120.6" width="48" height="169.4" rx="4" fill="#d9c9a8"/>
+<text x="543.0" y="114.6" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">96.00</text>
+<rect x="573.0" y="196.1" width="48" height="93.9" rx="4" fill="#b9c6bd"/>
+<text x="597.0" y="190.1" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">90.65</text>
+<text x="570.0" y="312" text-anchor="middle" font-size="12.5" font-weight="600" fill="#47536a">C1G2BiLSTM</text>
+<text x="570.0" y="331" text-anchor="middle" font-size="11.5" fill="#8c3b2e">过拟合 5.35%</text>
+<rect x="659.0" y="91.6" width="48" height="198.4" rx="4" fill="#d9c9a8"/>
+<text x="683.0" y="85.6" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">98.05</text>
+<rect x="713.0" y="131.7" width="48" height="158.3" rx="4" fill="#0e8a66"/>
+<text x="737.0" y="125.7" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">95.21</text>
+<text x="710.0" y="312" text-anchor="middle" font-size="12.5" font-weight="600" fill="#0a6b4e">SpectroNet</text>
+<text x="710.0" y="331" text-anchor="middle" font-size="11.5" fill="#8a93a5">过拟合 2.84%</text>
+<rect x="86" y="344" width="13" height="13" rx="3" fill="#d9c9a8"/><text x="104" y="355" font-size="12" fill="#47536a">训练准确率</text>
+<rect x="210" y="344" width="13" height="13" rx="3" fill="#0e8a66"/><text x="228" y="355" font-size="12" fill="#47536a">验证准确率（SpectroNet 95.21% 五者最高）</text>
+</svg>
+    <p class="cap"><b>表 10 复绘</b>·同超参横评（100 epoch 上限 + 早停耐心 10）。SpectroNet 验证 95.21% 五者最高、过拟合 2.84% 第二低（仅高于 AlexNet 2.29%）；收敛曲线最快到达良好值。学习率小实验：0.0001 显著拉长训练且无收益，论证 0.001 合理。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 380" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 13 · TensorRT 优化：提速只有 10-14.75%——近一半操作被自定义层锁在引擎外</text>
+<line x1="80" y1="290.0" x2="560" y2="290.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="294.0" text-anchor="end" font-size="12" fill="#6b7a72">40</text>
+<line x1="80" y1="216.7" x2="560" y2="216.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="220.7" text-anchor="end" font-size="12" fill="#6b7a72">50</text>
+<line x1="80" y1="143.3" x2="560" y2="143.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="147.3" text-anchor="end" font-size="12" fill="#6b7a72">60</text>
+<line x1="80" y1="290" x2="560" y2="290" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="124.0" y="136.0" width="72" height="154.0" rx="5" fill="#b9c6bd"/>
+<text x="160.0" y="127.0" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">61.0 ms</text>
+<text x="160.0" y="312" text-anchor="middle" font-size="12.5" font-weight="600" fill="#47536a">未优化</text>
+<text x="160.0" y="330" text-anchor="middle" font-size="11.5" fill="#8a93a5">精度 93.33%</text>
+<rect x="279.0" y="180.7" width="72" height="109.3" rx="5" fill="#7cc0a2"/>
+<text x="315.0" y="171.7" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">54.9 ms</text>
+<text x="315.0" y="312" text-anchor="middle" font-size="12.5" font-weight="600" fill="#47536a">FP32 引擎</text>
+<text x="315.0" y="330" text-anchor="middle" font-size="11.5" fill="#8a93a5">精度 93%</text>
+<rect x="434.0" y="202.0" width="72" height="88.0" rx="5" fill="#0e8a66"/>
+<text x="470.0" y="193.0" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">52.0 ms</text>
+<text x="470.0" y="312" text-anchor="middle" font-size="12.5" font-weight="600" fill="#47536a">FP16 引擎</text>
+<text x="470.0" y="330" text-anchor="middle" font-size="11.5" fill="#8a93a5">精度 93%</text>
+<text x="320" y="354" text-anchor="middle" font-size="12" fill="#0a6b4e">提速 10% → 14.75%，精度损失仅 0.33%；FP16 相对 FP16/FP32 无额外精度代价（免费速度档）</text>
+<line x1="590" y1="50" x2="590" y2="330" stroke="#dfe5e0" stroke-width="1.5"/>
+<text x="712" y="80" text-anchor="middle" font-size="13" font-weight="700" fill="#8c3b2e">为什么提速远低于文献预期</text>
+<text x="612" y="110" font-size="11.5" fill="#47536a">· 操作转换率：FP32 193/369（52.57%）</text>
+<text x="612" y="130" font-size="11.5" fill="#47536a">　 FP16 197/365（53.97%）——近一半算子</text>
+<text x="612" y="150" font-size="11.5" fill="#47536a">　 回退到未优化路径</text>
+<text x="612" y="180" font-size="11.5" fill="#47536a">· 最合理原因（笔记推断）：自定义梅尔层 +</text>
+<text x="612" y="200" font-size="11.5" fill="#47536a">　 部分 reshape/LSTM 不在 TensorRT 原生</text>
+<text x="612" y="220" font-size="11.5" fill="#47536a">　 算子集内</text>
+<text x="612" y="250" font-size="11.5" fill="#47536a">· 引擎构建时间：FP32 258.8s → FP16 430.2s</text>
+<text x="612" y="270" font-size="11.5" fill="#47536a">　 （多 66.29%）</text>
+<text x="612" y="300" font-size="11.5" fill="#8a93a5">· 文献[31] FP16 动辄 746% 吞吐提升——</text>
+<text x="612" y="320" font-size="11.5" fill="#8a93a5">　 内嵌层换简洁，也把优化器关在门外</text>
+</svg>
+    <p class="cap"><b>表 12/13 复绘</b>·右侧为笔记对「提速远低于文献预期」的解释——内嵌层与优化器覆盖率的矛盾是论文未报告但数据里清晰可见的权衡。FP16 模式下总操作数还从 369 缩到 365。</p>
+  </div>
+
+  <div class="card">
+    <b>消融的缺失（实验设计最大缺口）</b>：论文反复主张混合架构与内嵌层的必要性，但<b>没有任何组件级消融</b>——去掉 LSTM 只留 DenseNet？内嵌层换离线特征差多少？稠密块减半？1×2 换 2×2 池化？全部未做。实际提供的近似证据只有两组：精度档位消融（FP32 vs FP16 精度同为 93%——FP16 是免费速度档）和学习率消融（0.0001 拉长训练且无收益）。Table 11 的五模型横评是「架构路线消融」的弱替代，无法回答归因问题。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">可转述的四个判断</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>特征提取变成模型的一部分</b><br><span style="color:#47536a;font-size:14.5px">梅尔层内嵌消除独立频谱转换流程——部署链路少一个组件、特征路径训练/推理同源，最清晰的系统贡献。</span></div>
+    <div class="c"><span class="n">2</span><b>频率轴 CNN + 时间轴 LSTM 的职责切分</b><br><span style="color:#47536a;font-size:14.5px">时间维保护到 LSTM 之前不衰减、DenseNet 特征复用压参数——89K/93.33% 验证这条切分路线的参数效率。</span></div>
+    <div class="c"><span class="n">3</span><b>FP16 完整代价清单</b><br><span style="color:#47536a;font-size:14.5px">提速 14.75% / 精度 −0.33% / 构建时间 +66% 三列并报——把 FP16 的真实代价摆明面上，部署类论文少见的诚实写法。</span></div>
+    <div class="c"><span class="n">4</span><b>真机真人闭环 + 部署一致性</b><br><span style="color:#47536a;font-size:14.5px">真人语音 → GPIO LED，100 次发音验证；PC 与 Jetson 精度零损失——「部署一致性」本身作为被验证指标。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">「边缘」是 10-20W 的 GPU 板；摘要与正文两套数字</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>方法局限</h4>
+      <ul>
+        <li><b>「边缘」的成色</b>：Jetson Xavier NX 是 10-20W 级 GPU 平台——与真唤醒词场景（无线耳机 / MCU 毫瓦常监听）差两三个数量级；系统是定窗触发式分类，VAD / 端点检测 / 流式机制完全没设计。</li>
+        <li><b>闭集无拒识</b>：10 类无 unknown/silence，93.33% 闭集精度不能外推为开集可用性；误唤醒率 / 拒识率未报告。</li>
+        <li><b>TensorRT 收益被自定义层锁死</b>：~53% 转换率 → 提速停在 10-14.75%；未尝试把梅尔层拆出引擎单独优化。</li>
+        <li><b>LSTM 序列性</b>：59 步逐帧扫描 GPU 难并行——与后续全卷积 / 纯注意力路线相比缺延展性。</li>
+        <li><b>结构细节欠账</b>：118 帧推不出、稠密块 10→106 通道拼接算术不可复现、过渡层记法自相矛盾。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>摘要-正文数字大面积冲突</b>（精读必警）：180ms vs 61ms、操作减少 59.35%/59.63% vs 52.57%/53.97%、提速 45%/62% vs 10%/14.75%、精度损失 2.68%/4.84% vs 0.33%——疑为团队 2023 MWSCAS 会议版残留，零解释。</li>
+        <li><b>多处内部不一致</b>：参数 142,877 vs 89,241；收敛 epoch 正文 27 vs 表 30；Hamming vs Hanning 窗；TF 版本两说；稠密块 3 个 vs 2 个；Table 7 的 OS 字段填了 CPU 型号——作者版未经充分编辑。</li>
+        <li><b>基线偏旧非 SOTA</b>：最新对照是 2019 年的 DSCNN / C1G2BiLSTM；无 MatchboxNet / BC-ResNet；10 类协议与文献 35 类不可比。</li>
+        <li><b>真人测试太小</b>：100 次发音、说话人数与环境未描述、无显著性；噪声鲁棒性零评测（论文未来工作里自己承认）。</li>
+        <li><b>缺工程指标</b>：FLOPs / 体积 / 内存 / 功耗全无——而能效恰是选型动机；「少 28.57% 延迟」「少约 70% 参数」等结论百分比与表格对不上。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得追的方向</b>：① 补组件级消融（去 LSTM / 离线特征替换内嵌层 / 稠密块数扫描 / 1×2 换 2×2），把混合架构的必要性从主张变成证据；② <b>INT8 量化</b>——论文自己引用了 INT8 有 1318% 吞吐提升的数据却只做到 FP16；③ 梅尔层拆出 TensorRT 引擎或改写为可转换算子，释放被锁的 ~47% 操作；④ 加 unknown/silence 类与误唤醒 / 拒识指标，向真实 KWS 协议靠拢；⑤ 远场 / 噪声 / 多说话人真人测试 + 实测功耗，把「边缘实时」补成完整能效数据；⑥ 流式窗口与端点检测——从定窗分类升级为常开监听；⑦ 论文自指的 FPGA / IC 移植（IMEC 团队背景，专用硬件加速是明确下一步）。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2024/Efficient_Real-Time_Smart_Keyword_Spotting_Using_Spectrogram-Based_Hybrid_CNN-LSTM_For_Edge_System.md">深读笔记</a>
+    <a class="pill" href="/papers/2024/Efficient_Real-Time_Smart_Keyword_Spotting_Using_Spectrogram-Based_Hybrid_CNN-LSTM_For_Edge_System.pdf">PDF 原稿</a>
+    <a class="pill" href="https://doi.org/10.1109/access.2024.3380350" target="_blank">DOI</a>
+    <a class="pill" href="https://youtu.be/1jDInCVdyvU" target="_blank">演示视频</a>
+    <a class="pill" href="/">返回总目录</a>
+  </div>
+  <p>深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table 2-13 / Figures 10-16）；「笔记推断 / 观察」标注处为笔记给出的分析与核对，引用以正文表格为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
