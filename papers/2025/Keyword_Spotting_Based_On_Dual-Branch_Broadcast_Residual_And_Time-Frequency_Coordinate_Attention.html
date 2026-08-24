@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TF-DBPResNet · 双支广播残差 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2025/Keyword_Spotting_Based_On_Dual-Branch_Broadcast_Residual_And_Time-Frequency_Coordinate_Attention.md">深读笔记</a>
+    <a href="/papers/2025/Keyword_Spotting_Based_On_Dual-Branch_Broadcast_Residual_And_Time-Frequency_Coordinate_Attention.pdf">PDF 原稿</a>
+    <a href="https://doi.org/10.32604/cmc.2025.072881" target="_blank">DOI</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2025 №20</p>
+  <h1>TF-DBPResNet<br>把广播残差从串行改成并行：103K 参数硬扛 −10dB 远场噪声</h1>
+  <p class="sub">Keyword Spotting Based on Dual-Branch Broadcast Residual and Time-Frequency Coordinate Attention</p>
+  <p class="meta"><b>作者</b>：Zeyu Wang 等 —— 山东理工大学 × 国立台北商业大学</p>
+  <p class="meta"><b>发表</b>：CMC 87(1), 2026.02（2025.09 投稿）· DOI 10.32604/cmc.2025.072881</p>
+  <div class="chips">
+    <span class="chip">广播残差并行化</span><span class="chip">时频双支解耦</span><span class="chip">坐标注意力</span>
+    <span class="chip">课程学习 + OHEM</span><span class="chip">噪声远场</span><span class="chip">103K 轻量</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>靶子明确：<b>轻量与噪声鲁棒必须同时成立</b>。近场低噪下现有小模型够用，但远场加噪急剧退化——参数少结构简的模型遇到没见过的声学条件就脆弱。</li>
+      <li>核心洞察：噪声在时域（随机不规则）和频域（额外谱成分）呈现不同形态——时域动力学（音素时长、能量变化）与频域分布（共振峰、音色）<b>应该分开建模</b>。BC-ResNet 的串行残差让时间卷积吃已被频率卷积加工过的特征，互相踩踏、梯度耦合。</li>
+      <li>DBBR 改造：双支并行（时间支 + 频率支对偶镜像），各自「压缩-门控-广播」后拼接融合——对 BC-ResNet-6 <b>参数省 50%、MACs 省 33.6%</b>，五个噪声条件全面领先（−5 dB +9.02 pp），噪声越重差距越大。</li>
+      <li>配套：TFCA 坐标注意力（沿时/频两轴独立建模注意力，只加 12.3K 参数）+ 课程学习五阶段（clean→0→−5→−10dB→加混响）+ 前 5 epoch OHEM。</li>
+      <li>结果：103K 参数在 GSC V2-12 远场全条件最优（Clean 92.17% / −10dB 71.93%）；跨数据集 V2→V1 泛化持平。诚实项：MACs 高于 ConvMixer；硬件验证停留在笔记本 CPU。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">最重要的批评对象：BC-ResNet 的串行残差时频耦合</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 330" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">现有路线的缺陷谱系：串行处理是共同的病根</text>
+      <g font-size="11">
+        <rect x="30" y="46" width="200" height="88" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="130" y="70" text-anchor="middle" font-weight="700" fill="#1c2430">纯 CNN</text>
+        <text x="44" y="94" fill="#8c3b2e">固定感受野，长程上下文弱</text>
+        <text x="44" y="114" fill="#8a93a5">忽略全局时间结构</text>
+        <rect x="246" y="46" width="200" height="88" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="346" y="70" text-anchor="middle" font-weight="700" fill="#1c2430">RNN 系</text>
+        <text x="260" y="94" fill="#8c3b2e">顺序计算延迟高、复杂</text>
+        <text x="260" y="114" fill="#8a93a5">唤醒词段短不需要长依赖</text>
+        <rect x="462" y="46" width="200" height="88" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="562" y="70" text-anchor="middle" font-weight="700" fill="#1c2430">纯 1D 深度可分离</text>
+        <text x="476" y="94" fill="#8c3b2e">MatchboxNet：低 SNR 特征</text>
+        <text x="476" y="114" fill="#8a93a5">建模能力受限</text>
+        <rect x="678" y="46" width="212" height="88" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="784" y="70" text-anchor="middle" font-weight="700" fill="#1c2430">注意力 / Transformer</text>
+        <text x="692" y="94" fill="#8c3b2e">计算内存开销高</text>
+        <text x="692" y="114" fill="#8a93a5">音箱/可穿戴/车机不实用</text>
+
+        <rect x="30" y="148" width="420" height="98" rx="10" fill="#fdf6f4" stroke="#c9a9a0" stroke-width="1.5"/>
+        <text x="240" y="172" text-anchor="middle" font-weight="700" fill="#8c3b2e">BC-ResNet：串行残差堆叠（本文主要批评对象）</text>
+        <text x="46" y="196" fill="#47536a">先频率卷积 → 沿频轴池化 → 再时间运算 → 广播回二维</text>
+        <text x="46" y="218" fill="#8c3b2e">✕ 时间卷积的输入已被频率运算加工——后做的覆写/干扰先做的</text>
+        <text x="46" y="238" fill="#8c3b2e">✕ 时频耦合、梯度传播路径长、特征互相干扰</text>
+        <rect x="470" y="148" width="420" height="98" rx="10" fill="#fdf6f4" stroke="#c9a9a0" stroke-width="1.3"/>
+        <text x="690" y="172" text-anchor="middle" font-weight="700" fill="#8c3b2e">ConvMixer：同样串行</text>
+        <text x="486" y="196" fill="#47536a">二维频域子块 + 一维时域子块依次执行</text>
+        <text x="486" y="218" fill="#8c3b2e">✕ 转换过程信息损失</text>
+        <text x="486" y="238" fill="#8c3b2e">✕ 多条件训练在 SNR 差距大时学不动</text>
+      </g>
+      <rect x="30" y="260" width="860" height="50" rx="9" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="46" y="282" font-size="12.5" fill="#0a6b4e" font-weight="600">核心洞察：噪声在时域（随机不规则）与频域（额外谱成分）形态不同 → 两域特征应并行独立建模，</text>
+      <text x="46" y="302" font-size="12.5" fill="#0a6b4e" font-weight="600">而不是在同一条串行路径里互相踩踏</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">DBBR：继承广播残差骨架，分叉在「串行变并行」</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 400" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">DBBR 模块（式 1–8）：双支并行 + 各自「压缩-门控-广播」+ 拼接融合</text>
+      <g font-size="11.5">
+        <rect x="390" y="52" width="140" height="44" rx="9" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="460" y="78" text-anchor="middle" font-weight="700" fill="#1c2430">输入 x (B×H×W)</text>
+
+        <rect x="160" y="130" width="200" height="56" rx="9" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+        <text x="260" y="152" text-anchor="middle" font-weight="700" fill="#0a6b4e">时间支：1D DSConv（时间核）</text>
+        <text x="260" y="172" text-anchor="middle" font-size="10" fill="#5f8a76">1×9→1×15 逐级加宽 · BN+Swish</text>
+
+        <rect x="560" y="130" width="200" height="56" rx="9" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+        <text x="660" y="152" text-anchor="middle" font-weight="700" fill="#0a6b4e">频率支：2D DSConv（频率核）</text>
+        <text x="660" y="172" text-anchor="middle" font-size="10" fill="#5f8a76">5×1/7×1 · 通道 64→8 递减 · 子带归一化</text>
+
+        <rect x="160" y="206" width="200" height="50" rx="9" fill="#f4f8f5" stroke="#7cc7ad" stroke-width="1.3"/>
+        <text x="260" y="226" text-anchor="middle" font-size="10.5" fill="#0a6b4e">沿 W 池化 → 频率索引 1D（式1）</text>
+        <text x="260" y="244" text-anchor="middle" font-size="10.5" fill="#5f8a76">GLU 门控 σ⊙tanh（式3）</text>
+        <rect x="560" y="206" width="200" height="50" rx="9" fill="#f4f8f5" stroke="#7cc7ad" stroke-width="1.3"/>
+        <text x="660" y="226" text-anchor="middle" font-size="10.5" fill="#0a6b4e">沿 H 池化 → 时间索引 1D（式2）</text>
+        <text x="660" y="244" text-anchor="middle" font-size="10.5" fill="#5f8a76">GLU 门控 σ⊙tanh（式4）</text>
+
+        <rect x="160" y="274" width="200" height="44" rx="9" fill="#f4f8f5" stroke="#7cc7ad" stroke-width="1.3"/>
+        <text x="260" y="302" text-anchor="middle" font-size="10.5" fill="#0a6b4e">广播回 (B,H,W) + x 残差（式5）</text>
+        <rect x="560" y="274" width="200" height="44" rx="9" fill="#f4f8f5" stroke="#7cc7ad" stroke-width="1.3"/>
+        <text x="660" y="302" text-anchor="middle" font-size="10.5" fill="#0a6b4e">广播回 (B,H,W) + x 残差（式6）</text>
+
+        <rect x="330" y="338" width="260" height="48" rx="9" fill="#0e8a66"/>
+        <text x="460" y="358" text-anchor="middle" font-weight="700" fill="#fff">沿通道拼接（式7）</text>
+        <text x="460" y="376" text-anchor="middle" font-size="10.5" fill="#cdebdf">1×1 卷积 + BN + Swish 通道融合（式8）</text>
+      </g>
+      <g stroke="#8a93a5" stroke-width="1.4" fill="none">
+        <line x1="430" y1="96" x2="290" y2="126"/><polygon points="290,126 297,127 294,120" fill="#8a93a5"/>
+        <line x1="490" y1="96" x2="630" y2="126"/><polygon points="630,126 623,120 626,127" fill="#8a93a5"/>
+        <line x1="260" y1="186" x2="260" y2="202"/><polygon points="260,202 257,196 263,196" fill="#8a93a5"/>
+        <line x1="660" y1="186" x2="660" y2="202"/><polygon points="660,202 657,196 663,196" fill="#8a93a5"/>
+        <line x1="260" y1="256" x2="260" y2="270"/><polygon points="260,270 257,264 263,264" fill="#8a93a5"/>
+        <line x1="660" y1="256" x2="660" y2="270"/><polygon points="660,270 657,264 663,264" fill="#8a93a5"/>
+        <line x1="300" y1="296" x2="380" y2="336"/><polygon points="380,336 375,330 373,337" fill="#8a93a5"/>
+        <line x1="620" y1="296" x2="540" y2="336"/><polygon points="540,336 547,337 545,330" fill="#8a93a5"/>
+      </g>
+      <text x="30" y="130" font-size="11" fill="#8a93a5">对 BC-ResNet 的三处分叉：</text>
+      <text x="30" y="152" font-size="11" fill="#0a6b4e" font-weight="600">① 串行→并行（两支互不污染，</text>
+      <text x="30" y="170" font-size="11" fill="#0a6b4e" font-weight="600">　 梯度独立回传）</text>
+      <text x="30" y="196" font-size="11" fill="#0a6b4e" font-weight="600">② 增加对偶镜像时间支</text>
+      <text x="30" y="220" font-size="11" fill="#0a6b4e" font-weight="600">③ 拼接 + 1×1 融合取代</text>
+      <text x="30" y="238" font-size="11" fill="#0a6b4e" font-weight="600">　 单一逐元素残差</text>
+      <text x="30" y="270" font-size="10.5" fill="#8a93a5">继承：广播残差骨架、门控</text>
+      <text x="30" y="288" font-size="10.5" fill="#8a93a5">结构、Swish、频率通道递减</text>
+      <text x="700" y="390" font-size="10" fill="#8a93a5">注意：正文「沿非建模维池化」与公式下标有出入，以公式为准</text>
+    </svg>
+    <p class="cap"><b>并行化的双层理由：</b>前向——串行结构中后做的卷积覆写先做的卷积特征，并行避免干扰、融合时既保留各域细节又捕获跨域相关；反向——两支梯度独立计算回传，避免串行架构的梯度耦合，促进时频表示均衡学习。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 300" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">整体架构（图 1）与 TFCA（式 9–14）</text>
+      <g font-size="11.5">
+        <rect x="30" y="60" width="130" height="66" rx="9" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="95" y="82" text-anchor="middle" font-weight="700" fill="#1c2430">FBank 98×64</text>
+        <text x="95" y="102" text-anchor="middle" font-size="10" fill="#8a93a5">25/10ms · 64 梅尔</text>
+
+        <rect x="180" y="60" width="160" height="66" rx="9" fill="#f4f4ee" stroke="#9ca3af" stroke-width="1.4"/>
+        <text x="260" y="82" text-anchor="middle" font-weight="700" fill="#47536a">SE-Res 前卷积块</text>
+        <text x="260" y="102" text-anchor="middle" font-size="10" fill="#8a93a5">7 层 3×3 + BN/ReLU + SE</text>
+
+        <rect x="360" y="52" width="180" height="82" rx="9" fill="#0e8a66"/>
+        <text x="450" y="76" text-anchor="middle" font-weight="700" fill="#fff">4 × TF-Block</text>
+        <text x="450" y="98" text-anchor="middle" font-size="10.5" fill="#cdebdf">DBBR（并行时频提取）</text>
+        <text x="450" y="118" text-anchor="middle" font-size="10.5" fill="#cdebdf">+ TFCA（时频坐标注意力）</text>
+
+        <rect x="560" y="60" width="150" height="66" rx="9" fill="#f4f4ee" stroke="#9ca3af" stroke-width="1.4"/>
+        <text x="635" y="82" text-anchor="middle" font-weight="700" fill="#47536a">后卷积块</text>
+        <text x="635" y="102" text-anchor="middle" font-size="10" fill="#8a93a5">3 层 1D DSConv + 时间最大池化</text>
+
+        <rect x="730" y="60" width="120" height="66" rx="9" fill="#1c2430"/>
+        <text x="790" y="84" text-anchor="middle" font-weight="700" fill="#fff">FC + Softmax</text>
+        <text x="790" y="104" text-anchor="middle" font-size="10" fill="#c9ced6">12 类输出</text>
+      </g>
+      <g stroke="#8a93a5" stroke-width="1.4" fill="none">
+        <line x1="160" y1="93" x2="176" y2="93"/><polygon points="176,93 170,90 170,96" fill="#8a93a5"/>
+        <line x1="340" y1="93" x2="356" y2="93"/><polygon points="356,93 350,90 350,96" fill="#8a93a5"/>
+        <line x1="540" y1="93" x2="556" y2="93"/><polygon points="556,93 550,90 550,96" fill="#8a93a5"/>
+        <line x1="710" y1="93" x2="726" y2="93"/><polygon points="726,93 720,90 720,96" fill="#8a93a5"/>
+      </g>
+      <rect x="30" y="156" width="420" height="126" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.4"/>
+      <text x="46" y="182" font-size="12.5" font-weight="700" fill="#0a6b4e">TFCA：坐标注意力迁移到时频平面（CV 的 CVPR 2021 → 声学）</text>
+      <text x="46" y="206" font-size="11" fill="#47536a">动机：噪声干扰在不同帧/不同频带非均匀——有的帧被瞬时噪声淹没，</text>
+      <text x="46" y="226" font-size="11" fill="#47536a">有的频带被稳态噪声占据 → 沿两轴独立建模注意力</text>
+      <text x="46" y="250" font-size="11" fill="#5f8a76">方向池化 → 拼接共享卷积（跨轴交换）→ 拆分 → 双向 Sigmoid 权重 → 广播乘</text>
+      <text x="46" y="272" font-size="11" fill="#0a6b4e" font-weight="600">成本仅 +12.3K 参数；图 6 可视化验证注意力集中在关键词时频区域</text>
+      <rect x="470" y="156" width="420" height="126" rx="10" fill="#fbfaf6" stroke="#e6e6df"/>
+      <text x="486" y="182" font-size="12.5" font-weight="700" fill="#1c2430">训练策略：五阶段课程 + 前 5 epoch OHEM</text>
+      <text x="486" y="206" font-size="11" fill="#47536a">clean → +0 dB → +−5 dB → +−10 dB → 半数叠加 RIR 混响（远场）</text>
+      <text x="486" y="228" font-size="11" fill="#47536a">阶段推进判据：归一化验证准确率 − 验证损失，连续 5 epoch 无改善即切换</text>
+      <text x="486" y="250" font-size="11" fill="#47536a">OHEM 取批内损失最高前 70% 样本；延长到 25ep 或全程反而更差</text>
+      <text x="486" y="272" font-size="11" fill="#8a93a5">（后期损失分布趋集中，持续强调难例偏向离群点 → 过拟合）</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">噪声越重领先越大</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <h3 style="margin-top:0">设置</h3>
+    <p style="margin:6px 0">GSC V2 12 类（官方 80/10/10 划分）；噪声 MUSAN（930 条约 6 小时）、混响 BUT RIR（9 间房间）。<b>加噪和混响同时用于训练和评估；「Clean」指远场干净条件</b>（无加性噪声但仍处混响远场）——所有测试都是远场任务，基线全部用官方源码同环境重训。20 dB 是训练未见的 SNR（训练只用 0/−5/−10 dB），专测泛化。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 380" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">表 2 远场多 SNR 准确率（GSC V2-12，%）：*20 dB 为训练未见的 SNR（泛化测试）</text>
+      <line x1="100" y1="250.0" x2="840" y2="250.0" stroke="#f0f1f3"/>
+      <text x="94" y="254.0" text-anchor="end" font-size="11" fill="#9ca3af">50</text>
+      <line x1="100" y1="207.8" x2="840" y2="207.8" stroke="#f0f1f3"/>
+      <text x="94" y="211.8" text-anchor="end" font-size="11" fill="#9ca3af">60</text>
+      <line x1="100" y1="165.6" x2="840" y2="165.6" stroke="#f0f1f3"/>
+      <text x="94" y="169.6" text-anchor="end" font-size="11" fill="#9ca3af">70</text>
+      <line x1="100" y1="123.3" x2="840" y2="123.3" stroke="#f0f1f3"/>
+      <text x="94" y="127.3" text-anchor="end" font-size="11" fill="#9ca3af">80</text>
+      <line x1="100" y1="81.1" x2="840" y2="81.1" stroke="#f0f1f3"/>
+      <text x="94" y="85.1" text-anchor="end" font-size="11" fill="#9ca3af">90</text>
+      <text x="130" y="272" text-anchor="middle" font-size="11.5" fill="#47536a">Clean 远场</text>
+      <text x="300" y="272" text-anchor="middle" font-size="11.5" fill="#47536a">20 dB*</text>
+      <text x="470" y="272" text-anchor="middle" font-size="11.5" fill="#47536a">0 dB</text>
+      <text x="640" y="272" text-anchor="middle" font-size="11.5" fill="#47536a">−5 dB</text>
+      <text x="810" y="272" text-anchor="middle" font-size="11.5" fill="#47536a">−10 dB</text>
+      <polyline points="130,81.7 300,92.1 470,126.5 640,146.7 810,175.2" fill="none" stroke="#0e8a66" stroke-width="3.2"/>
+      <circle cx="130" cy="81.7" r="4.5" fill="#0e8a66"/><circle cx="300" cy="92.1" r="4.5" fill="#0e8a66"/><circle cx="470" cy="126.5" r="4.5" fill="#0e8a66"/><circle cx="640" cy="146.7" r="4.5" fill="#0e8a66"/><circle cx="810" cy="175.2" r="4.5" fill="#0e8a66"/>
+      <polyline points="130,87.8 300,101.3 470,140.0 640,165.7 810,188.1" fill="none" stroke="#94a3b8" stroke-width="1.8" opacity=".95"/>
+      <polyline points="130,88.1 300,101.9 470,140.8 640,165.0 810,190.0" fill="none" stroke="#c9ced6" stroke-width="1.8" opacity=".95"/>
+      <polyline points="130,88.4 300,102.3 470,141.7 640,166.9 810,191.4" fill="none" stroke="#c9ced6" stroke-width="1.8" opacity=".95"/>
+      <polyline points="130,97.6 300,108.1 470,153.7 640,162.7 810,200.6" fill="none" stroke="#94a3b8" stroke-width="1.8" opacity=".95"/>
+      <polyline points="130,90.9 300,104.3 470,135.0 640,161.1 810,193.7" fill="none" stroke="#b8c4d4" stroke-width="1.6" opacity=".95"/>
+      <polyline points="130,144.4 300,154.6 470,207.0 640,241.6 810,256.7" fill="none" stroke="#d97a2b" stroke-width="1.8" opacity=".95"/>
+      <text x="620" y="66" font-size="10.5" fill="#0a6b4e" font-weight="700">TF-DBPResNet（本文 103K）</text>
+      <text x="620" y="86" font-size="9.5" fill="#8a93a5">ConvMixer · BC-ResNet-8/6 · MatchboxNet</text>
+      <text x="620" y="102" font-size="9.5" fill="#8a93a5">ResNet-15 · MHAtt-RNN（各标注参数量）</text>
+      <text x="70" y="300" font-size="12.5" fill="#0a6b4e" font-weight="600">全部 SNR 条件最优；对 BC-ResNet-6 参数省 50%、MACs 省 33.6%，噪声越重领先越大（−5 dB +9.02 pp）</text>
+      <text x="70" y="322" font-size="12" fill="#47536a">−10 dB 极低信噪比仍 71.93%，比所有基线高至少 4.91 pp；诚实项：MACs 38.65M 高于 ConvMixer 22.34M（论文未讨论）</text>
+      <text x="70" y="344" font-size="12" fill="#47536a">跨数据集（表 3）：GSC V2 训练直接测 V1，五条件 92.65/91.21/82.93/78.79/72.11——与 V2 持平甚至略高（反直觉，论文未解释）</text>
+      <text x="70" y="366" font-size="11.5" fill="#9ca3af">部署模拟：i7 CPU 单样本 12.4ms / 内存 4.8MB——笔记本 CPU 而非 MCU，4.8MB 对典型 MCU 偏大</text>
+    </svg>
+    <p class="cap"><b>读数：</b>MHAtt-RNN 的多头注意力在低 SNR 崩到 51.23%（对噪声高度敏感）；纯 1D 的 MatchboxNet 在 0 dB 落后 7.77 pp——纯一维结构在复杂噪声下特征建模受限；本文是全场唯一在 −10 dB 仍保住 70%+ 的模型。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 330" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">表 4 模块消融（%）：干净条件退化轻微、低信噪比放大——两个模块的价值在抗噪</text>
+      <line x1="90" y1="230.0" x2="850" y2="230.0" stroke="#f0f1f3"/>
+      <text x="84" y="234.0" text-anchor="end" font-size="11" fill="#9ca3af">69</text>
+      <line x1="90" y1="198.0" x2="850" y2="198.0" stroke="#f0f1f3"/>
+      <text x="84" y="202.0" text-anchor="end" font-size="11" fill="#9ca3af">74</text>
+      <line x1="90" y1="166.0" x2="850" y2="166.0" stroke="#f0f1f3"/>
+      <text x="84" y="170.0" text-anchor="end" font-size="11" fill="#9ca3af">79</text>
+      <line x1="90" y1="134.0" x2="850" y2="134.0" stroke="#f0f1f3"/>
+      <text x="84" y="138.0" text-anchor="end" font-size="11" fill="#9ca3af">84</text>
+      <line x1="90" y1="102.0" x2="850" y2="102.0" stroke="#f0f1f3"/>
+      <text x="84" y="106.0" text-anchor="end" font-size="11" fill="#9ca3af">89</text>
+      <line x1="90" y1="70.0" x2="850" y2="70.0" stroke="#f0f1f3"/>
+      <text x="84" y="74.0" text-anchor="end" font-size="11" fill="#9ca3af">94</text>
+      <rect x="144.7" y="81.7" width="34" height="148.3" rx="4" fill="#0e8a66"/>
+      <text x="161.7" y="76.7" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">92.17</text>
+      <rect x="181.7" y="84.4" width="34" height="145.6" rx="4" fill="#7cc7ad"/>
+      <rect x="218.7" y="86.7" width="34" height="143.3" rx="4" fill="#94a3b8"/>
+      <rect x="255.7" y="89.9" width="34" height="140.1" rx="4" fill="#c9ced6"/>
+      <text x="272.7" y="84.9" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">90.89</text>
+      <text x="216.7" y="252" text-anchor="middle" font-size="11.5" fill="#1c2430" font-weight="700">Clean</text>
+      <rect x="398.0" y="142.4" width="34" height="87.6" rx="4" fill="#0e8a66"/>
+      <text x="415.0" y="137.4" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">82.68</text>
+      <rect x="435.0" y="148.3" width="34" height="81.7" rx="4" fill="#7cc7ad"/>
+      <rect x="472.0" y="149.6" width="34" height="80.4" rx="4" fill="#94a3b8"/>
+      <rect x="509.0" y="152.9" width="34" height="77.1" rx="4" fill="#c9ced6"/>
+      <text x="526.0" y="147.9" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">81.05</text>
+      <text x="470.0" y="252" text-anchor="middle" font-size="11.5" fill="#1c2430" font-weight="700">0 dB</text>
+      <rect x="651.3" y="211.2" width="34" height="18.8" rx="4" fill="#0e8a66"/>
+      <text x="668.3" y="206.2" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">71.93</text>
+      <rect x="688.3" y="218.4" width="34" height="11.6" rx="4" fill="#7cc7ad"/>
+      <rect x="725.3" y="223.5" width="34" height="6.5" rx="4" fill="#94a3b8"/>
+      <rect x="762.3" y="224.5" width="34" height="5.5" rx="4" fill="#c9ced6"/>
+      <text x="779.3" y="219.5" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">69.86</text>
+      <text x="723.3" y="252" text-anchor="middle" font-size="11.5" fill="#1c2430" font-weight="700">−10 dB</text>
+      <line x1="90" y1="230" x2="850" y2="230" stroke="#9ca3af"/>
+      <rect x="130" y="268" width="12" height="12" rx="3" fill="#0e8a66"/><text x="148" y="279" font-size="10.5" fill="#47536a">完整</text>
+      <rect x="190" y="268" width="12" height="12" rx="3" fill="#7cc7ad"/><text x="208" y="279" font-size="10.5" fill="#47536a">去 TFCA</text>
+      <rect x="286" y="268" width="12" height="12" rx="3" fill="#94a3b8"/><text x="304" y="279" font-size="10.5" fill="#47536a">去 DBBR</text>
+      <rect x="382" y="268" width="12" height="12" rx="3" fill="#c9ced6"/><text x="400" y="279" font-size="10.5" fill="#47536a">两者都去</text>
+      <text x="70" y="308" font-size="12.5" fill="#0a6b4e" font-weight="600">去 DBBR 降幅 &gt; 去 TFCA——双支并行时频提取是抗噪主心骨；两模块增益基本可叠加</text>
+      <text x="70" y="328" font-size="11.5" fill="#8a93a5">公平性设计：串行替换结构参数量只差 0.156K（102.705 vs 102.861）——排除「容量变小导致掉点」的混淆解释</text>
+    </svg>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 300" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">表 6 训练策略消融（%）：课程学习的增益随噪声加重单调扩大</text>
+      <line x1="90" y1="230.0" x2="620" y2="230.0" stroke="#f0f1f3"/>
+      <text x="84" y="234.0" text-anchor="end" font-size="11" fill="#9ca3af">68</text>
+      <line x1="90" y1="198.0" x2="620" y2="198.0" stroke="#f0f1f3"/>
+      <text x="84" y="202.0" text-anchor="end" font-size="11" fill="#9ca3af">74</text>
+      <line x1="90" y1="166.0" x2="620" y2="166.0" stroke="#f0f1f3"/>
+      <text x="84" y="170.0" text-anchor="end" font-size="11" fill="#9ca3af">80</text>
+      <line x1="90" y1="134.0" x2="620" y2="134.0" stroke="#f0f1f3"/>
+      <text x="84" y="138.0" text-anchor="end" font-size="11" fill="#9ca3af">86</text>
+      <line x1="90" y1="102.0" x2="620" y2="102.0" stroke="#f0f1f3"/>
+      <text x="84" y="106.0" text-anchor="end" font-size="11" fill="#9ca3af">92</text>
+      <rect x="86.0" y="102.7" width="40" height="127.3" rx="4" fill="#0e8a66"/>
+      <rect x="132.0" y="109.6" width="40" height="120.4" rx="4" fill="#c9ced6"/>
+      <text x="129.0" y="248" text-anchor="middle" font-size="9.5" fill="#0a6b4e" font-weight="700">+1.08</text>
+      <text x="129.0" y="266" text-anchor="middle" font-size="10.5" fill="#374151">Clean</text>
+      <rect x="204.0" y="110.8" width="40" height="119.2" rx="4" fill="#0e8a66"/>
+      <rect x="250.0" y="127.4" width="40" height="102.6" rx="4" fill="#c9ced6"/>
+      <text x="247.0" y="248" text-anchor="middle" font-size="9.5" fill="#0a6b4e" font-weight="700">+2.56</text>
+      <text x="247.0" y="266" text-anchor="middle" font-size="10.5" fill="#374151">20 dB</text>
+      <rect x="322.0" y="157.6" width="40" height="72.4" rx="4" fill="#0e8a66"/>
+      <rect x="368.0" y="175.7" width="40" height="54.3" rx="4" fill="#c9ced6"/>
+      <text x="365.0" y="248" text-anchor="middle" font-size="9.5" fill="#0a6b4e" font-weight="700">+2.83</text>
+      <text x="365.0" y="266" text-anchor="middle" font-size="10.5" fill="#374151">0 dB</text>
+      <rect x="440.0" y="181.9" width="40" height="48.1" rx="4" fill="#0e8a66"/>
+      <rect x="486.0" y="200.6" width="40" height="29.4" rx="4" fill="#c9ced6"/>
+      <text x="483.0" y="248" text-anchor="middle" font-size="9.5" fill="#0a6b4e" font-weight="700">+2.93</text>
+      <text x="483.0" y="266" text-anchor="middle" font-size="10.5" fill="#374151">−5 dB</text>
+      <rect x="558.0" y="224.4" width="40" height="5.6" rx="4" fill="#0e8a66"/>
+      <rect x="604.0" y="242.7" width="40" height="0" rx="4" fill="#c9ced6"/>
+      <text x="601.0" y="248" text-anchor="middle" font-size="9.5" fill="#0a6b4e" font-weight="700">+3.17</text>
+      <text x="601.0" y="266" text-anchor="middle" font-size="10.5" fill="#374151">−10 dB</text>
+      <line x1="90" y1="230" x2="620" y2="230" stroke="#9ca3af"/>
+      <rect x="130" y="278" width="12" height="12" rx="3" fill="#0e8a66"/><text x="148" y="289" font-size="10.5" fill="#47536a">课程学习（五阶段：clean→0→−5→−10 dB→半数加 RIR）</text>
+      <rect x="520" y="278" width="12" height="12" rx="3" fill="#c9ced6"/><text x="538" y="289" font-size="10.5" fill="#47536a">多条件直训</text>
+      <text x="660" y="66" font-size="12" fill="#47536a" font-weight="600">配套：OHEM 只用前 5 epoch</text>
+      <text x="660" y="90" font-size="10.5" fill="#47536a">0 / 5 / 10 / 15 / 25 epoch 引入：</text>
+      <text x="660" y="110" font-size="10.5" fill="#47536a">91.65 / 92.17 / 92.09 /</text>
+      <text x="660" y="130" font-size="10.5" fill="#47536a">91.88 / 91.79（Clean，表 5）</text>
+      <text x="660" y="156" font-size="10.5" fill="#8c3b2e">延长难例挖掘反而退化——</text>
+      <text x="660" y="176" font-size="10.5" fill="#8c3b2e">后期损失分布趋集中，持续强调</text>
+      <text x="660" y="196" font-size="10.5" fill="#8c3b2e">难例偏向离群点、过拟合风险↑</text>
+      <text x="660" y="222" font-size="10.5" fill="#9ca3af">前 70% 最难样本；表 5 只报 Clean 列</text>
+    </svg>
+    <p class="cap"><b>课程学习的收益结构：</b>+1.08（Clean）单调扩大到 +3.17（−10dB）——渐进引导在低信噪比区间收益最大，正是它要解决的主战场。⚠ 正文写 OHEM 提升「约 0.57%」，按表 5 计为 0.52 pp——轻微出入；且 OHEM 消融只报 Clean 列，噪声条件下的贡献未知。</p>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">四条可转述的判断</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>DBBR：广播残差的并行化改造</b><br><span style="font-size:14.5px;color:var(--ink-2)">双支对偶镜像 + 各自「压缩-门控-广播」+ 拼接融合——规避串行堆叠的信息覆写与梯度耦合；对 BC-ResNet-6 参数减半、精度全面反超且噪声越重领先越大。</span></div>
+    <div class="c"><span class="n">2</span><b>TFCA：坐标注意力进声学</b><br><span style="font-size:14.5px;color:var(--ink-2)">针对「噪声干扰在帧/频带非均匀」的对症设计：沿时频两轴独立建模注意力 +12.3K 参数换低 SNR 下 0.9–1.6 pp。</span></div>
+    <div class="c"><span class="n">3</span><b>课程学习 + 前 5 epoch OHEM</b><br><span style="font-size:14.5px;color:var(--ink-2)">解决多条件训练「SNR 差距大时学不动」：增益随噪声单调扩大（+1.08→+3.17）；难例挖掘只在早期用，延长反而过拟合。</span></div>
+    <div class="c"><span class="n">4</span><b>103K 全条件最优</b><br><span style="font-size:14.5px;color:var(--ink-2)">GSC V2-12 远场 Clean 92.17% / −10dB 71.93%；对未见 SNR（20dB）与跨数据集（V1）均泛化良好——轻量与鲁棒同时成立的实证。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">仿真噪声 + 笔记本 CPU：结论的边界</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法的技术局限</h4>
+      <ul>
+        <li><b>只支持预定义唤醒词</b>：不支持用户自定义（论文自认，列为后续方向）。</li>
+        <li><b>口音与低资源语言适应不足</b>：鲁棒性只在英语命令词上验证。</li>
+        <li><b>极端噪声仍有距离</b>：−10dB 71.93% 领先但绝对值离实用尚远。</li>
+        <li><b>MACs 非帕累托最优</b>：38.65M 高于 ConvMixer 22.34M，论文未讨论——功耗敏感场景是实际约束。</li>
+        <li><b>设计细节缺解释与消融</b>：频率支子带归一化 vs 时间支 BN 的理由、频率通道 64→8 递减依据、TFCA 降维比率 r、Swish/h-swish、前端七层深度——均未报告。</li>
+        <li><b>无显式降噪机制</b>：靠结构硬扛，没有前置自适应噪声抑制。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>全部仿真加噪加混响</b>：MUSAN 叠加 + BUT RIR 卷积，无真实远场录音或真实设备采集评测。</li>
+        <li><b>硬件验证是笔记本 CPU</b>：i7-13620H（45W 级）而非 MCU/DSP；4.8MB 内存对典型 MCU（数百 KB SRAM）偏大——「资源受限可部署」需真机验证。</li>
+        <li><b>缺 KWS 部署指标</b>：无误报/误拒、DET 曲线、流式时延——本质是 1 秒片段 12 类分类而非连续流开集检测。</li>
+        <li><b>无统计稳健性</b>：单次运行点值，0.5–1 pp 的消融增益难与随机波动区分。</li>
+        <li><b>对比集缺 Transformer 基线</b>：相关工作引了 AST/KWT 但表 2 未纳入；训练策略超参无敏感性消融。</li>
+        <li><b>小出入</b>：OHEM 增益 0.57 vs 0.52；V1 测试略高于 V2 未解释。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">下一步方向（论文展望 + 笔者补充）</h3>
+    <p style="margin:6px 0"><b>论文自列</b>：自适应噪声抑制；多模态融合；跨口音/低资源语言迁移；自定义唤醒词。<br>
+    <b>笔者补充</b>：真实 MCU/DSP 上的延迟/功耗/内存实测；补误报误拒与流式评测把「分类器」推向「检测器」；与量化/蒸馏正交组合压参数与 MACs（针对高于 ConvMixer 的运算量劣势）；补齐子带归一化/通道配置/TFCA r 的敏感性实验；把双支并行思想推广到流式 attention 等新范式检验普适性。</p>
+  </div>
+</section>
+
+<footer>
+  <p><b>论文精读 · 可视化版</b> · 2025 №20 · TF-DBPResNet 双支广播残差（山东理工 × 台北商业大学，CMC 2026）</p>
+  <p>数据来源：论文表 1–6、图 1–6（经由本库深读笔记核对，含正文-表格出入标注）。图表坐标由脚本从论文原表计算生成。</p>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2025/Keyword_Spotting_Based_On_Dual-Branch_Broadcast_Residual_And_Time-Frequency_Coordinate_Attention.md">📄 深读笔记</a>
+    <a class="pill" href="/papers/2025/Keyword_Spotting_Based_On_Dual-Branch_Broadcast_Residual_And_Time-Frequency_Coordinate_Attention.pdf">📕 PDF 原稿</a>
+    <a class="pill" href="https://doi.org/10.32604/cmc.2025.072881" target="_blank">🔗 DOI 10.32604/cmc.2025.072881</a>
+    <a class="pill" href="/">← 返回论文库</a>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>
