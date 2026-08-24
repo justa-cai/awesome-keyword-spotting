@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TDE 脉冲时间差编码器 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1 dashed var(--line); padding-top:8px; border-top-style:dashed; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2025/Towards_Efficient_Keyword_Spotting_Using_Spike-based_Time_Difference_Encoders.md">深读笔记</a>
+    <a href="/papers/2025/Towards_Efficient_Keyword_Spotting_Using_Spike-based_Time_Difference_Encoders.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2503.15402" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2025 №34</p>
+  <h1>脉冲时间差编码器 TDE<br>在前馈的连接预算里拿到递归的时间建模：SynOps 少 92%，精度只差 2 个点</h1>
+  <p class="sub">Towards Efficient Keyword Spotting using Spike-based Time Difference Encoders</p>
+  <p class="meta"><b>作者</b>：Alejandro Pequeño-Zuritro 等 —— 意大利技术研究院 × 格罗宁根大学 × 汉堡-埃彭多夫大学医学中心</p>
+  <p class="meta"><b>发表</b>：2025.03 · arXiv:2503.15402</p>
+  <div class="chips">
+    <span class="chip">脉冲神经网络 SNN</span><span class="chip">时间差编码器 TDE</span><span class="chip">共振峰分解</span>
+    <span class="chip">互相关剪枝</span><span class="chip">SynOps 能效</span><span class="chip">神经形态计算</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>切入点比「换硬件跑 KWS」更基础：<b>语音的毫秒级时间信息到底值多少</b>。生物听觉证明脉冲时间编码承载关键判别信息，而主流 KWS 管线（HMM+MFCC / 帧级特征喂 ANN）只在滑窗意义上间接利用时间结构。</li>
+      <li>痛点结构：前馈 SNN 抓不住时间（CuBa-LIF 仅 71.59%，比递归低近 20 pp）；递归 SNN 精度好（90.04%）但<b>连接数随隐藏神经元平方增长</b>且脉冲活跃「传染」下游（L2 SynOps 是 TDE 的 2.3 倍）。</li>
+      <li>TDE 细胞：双输入突触前腔——<b>易化脉冲注入指数衰减增益迹线，触发脉冲到来时注入「当时的增益值」</b>。两路脉冲间隔越短输出越强，且方向敏感（易化必须先于触发）→ 一对频率定义两个 TDE（32×31=992 个候选）。</li>
+      <li>配平对比（按突触连接总数而非神经元数）：89.08% vs LIFrec 91.11%（差 2 pp），SynOps 少 <b>91.79%</b>（14417 vs 175548）；L1 层少 97.64%。信息论分析（图 5）证明任务时间信息充足，前馈 LIF 的天花板不是规模能补的。</li>
+      <li>工程工具链：互相关排序剪枝（45.5% 规模缩减只损 1.22 pp）+ 用互相关最大滞后初始化 τg；<b>反直觉发现</b>：训练选中的判别频率对与互相关最高的对重合很少——「最大巧合 ≠ 最有判别力」。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">前馈抓不住时间，递归付不起平方账单</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 330" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">问题结构：时间建模能力 vs 连接预算的两难</text>
+      <g font-size="11.5">
+        <rect x="30" y="50" width="270" height="150" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="165" y="74" text-anchor="middle" font-weight="700" fill="#1c2430">前馈 SNN（CuBa-LIF）</text>
+        <text x="44" y="100" fill="#8c3b2e">无跨时间步信息通路——只能靠膜电位</text>
+        <text x="44" y="122" fill="#8c3b2e">时间常数「记住」一小段历史</text>
+        <text x="44" y="150" fill="#8a93a5">准确率仅 71.59%（表 3），比递归低</text>
+        <text x="44" y="172" fill="#8a93a5">近 20 pp——大量时间信息用不上</text>
+        <rect x="316" y="50" width="270" height="150" rx="10" fill="#fdf6f4" stroke="#c9a9a0" stroke-width="1.4"/>
+        <text x="451" y="74" text-anchor="middle" font-weight="700" fill="#8c3b2e">递归 SNN（LIFrec）</text>
+        <text x="330" y="100" fill="#47536a">精度 90.04% ✓ 但层内连接数随隐藏</text>
+        <text x="330" y="122" fill="#47536a">神经元数<tspan font-weight="700" fill="#8c3b2e">平方增长</tspan>（式 12）</text>
+        <text x="330" y="150" fill="#8c3b2e">65 个神经元的 L1 就产生 151,076 SynOps</text>
+        <text x="330" y="172" fill="#8c3b2e">活跃级联下游：L2 SynOps 也是 TDE 的 2.3×</text>
+        <rect x="602" y="50" width="288" height="150" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="746" y="74" text-anchor="middle" font-weight="700" fill="#1c2430">全连接 + 随机初始化</text>
+        <text x="616" y="100" fill="#8c3b2e">W1 稠密矩阵——无法读出「哪个特征</text>
+        <text x="616" y="122" fill="#8c3b2e">对哪个类有贡献」</text>
+        <text x="616" y="150" fill="#8a93a5">网络规模只能凭经验选——缺数据</text>
+        <text x="616" y="172" fill="#8a93a5">驱动的定尺寸方法</text>
+      </g>
+      <rect x="30" y="214" width="860" height="80" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="46" y="240" font-size="12.5" font-weight="700" fill="#0a6b4e">核心挑战：在前馈的连接预算里拿到递归的时间建模能力</text>
+      <text x="46" y="264" font-size="11.5" fill="#47536a">四个子问题：TDE 细胞模型（时间差→发放率）· 按突触连接数（内存代理量）配平公平比较 · 互相关驱动的定尺寸与初始化</text>
+      <text x="46" y="286" font-size="11.5" fill="#47536a">· 输出权重反解为「频率对 + 时间常数」的可解释特征</text>
+      <text x="30" y="322" font-size="11.5" fill="#8a93a5">背景：当前 AI 算法进步与硬件能耗轨迹在技术上不可持续（Thompson 2020/21）——SNN 异步计算天然利用事件稀疏性，时间是被显式利用的计算资源</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">把特征工程前移进细胞定义</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 400" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">管线（图 1–3）：共振峰 → L0 转脉冲 → L1 三变体（唯一变量层）→ L2 输出</text>
+      <g font-size="11.5">
+        <rect x="30" y="60" width="150" height="76" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="105" y="84" text-anchor="middle" font-weight="700" fill="#1c2430">共振峰分解</text>
+        <text x="105" y="104" text-anchor="middle" font-size="10" fill="#8a93a5">前 3 共振峰 + 幅度</text>
+        <text x="105" y="120" text-anchor="middle" font-size="10" fill="#8a93a5">Matlab 离线提取</text>
+
+        <rect x="200" y="60" width="150" height="76" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+        <text x="275" y="84" text-anchor="middle" font-weight="700" fill="#0a6b4e">32 频率通道</text>
+        <text x="275" y="104" text-anchor="middle" font-size="10" fill="#5f8a76">0–4kHz · 每通道 125Hz</text>
+        <text x="275" y="122" text-anchor="middle" font-size="10" fill="#5f8a76">同通道取最大幅度</text>
+
+        <rect x="370" y="60" width="130" height="76" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="435" y="84" text-anchor="middle" font-weight="700" fill="#1c2430">L0 转脉冲</text>
+        <text x="435" y="104" text-anchor="middle" font-size="10" fill="#8a93a5">32 个 CuBa-LIF</text>
+        <text x="435" y="122" text-anchor="middle" font-size="10" fill="#8a93a5">幅度→脉冲</text>
+
+        <rect x="520" y="46" width="200" height="104" rx="10" fill="#0e8a66"/>
+        <text x="620" y="70" text-anchor="middle" font-weight="700" fill="#fff">L1 隐藏层（唯一变量层）</text>
+        <rect x="532" y="80" width="176" height="20" rx="4" fill="#fff"/>
+        <text x="620" y="94" text-anchor="middle" font-size="10" fill="#0a6b4e">TDE（本文）· 连接 2·N</text>
+        <rect x="532" y="104" width="176" height="20" rx="4" fill="#cdebdf" opacity=".85"/>
+        <text x="620" y="118" text-anchor="middle" font-size="10" fill="#0a6b4e">LIFrec · 连接 32N + N²</text>
+        <rect x="532" y="124" width="176" height="20" rx="4" fill="#fff" opacity=".75"/>
+        <text x="620" y="138" text-anchor="middle" font-size="10" fill="#0a6b4e">LIF · 连接 32·N</text>
+
+        <rect x="740" y="60" width="150" height="76" rx="10" fill="#1c2430"/>
+        <text x="815" y="84" text-anchor="middle" font-weight="700" fill="#fff">L2 输出 11 类</text>
+        <text x="815" y="104" text-anchor="middle" font-size="10" fill="#c9ced6">每类一个神经元</text>
+        <text x="815" y="122" text-anchor="middle" font-size="10" fill="#c9ced6">取发放最活跃者</text>
+      </g>
+      <g stroke="#8a93a5" stroke-width="1.4" fill="none">
+        <line x1="180" y1="98" x2="198" y2="98"/><polygon points="198,98 192,95 192,101" fill="#8a93a5"/>
+        <line x1="350" y1="98" x2="368" y2="98"/><polygon points="368,98 362,95 362,101" fill="#8a93a5"/>
+        <line x1="500" y1="98" x2="518" y2="98"/><polygon points="518,98 512,95 512,101" fill="#8a93a5"/>
+        <line x1="720" y1="98" x2="738" y2="98"/><polygon points="738,98 732,95 732,101" fill="#8a93a5"/>
+      </g>
+      <rect x="30" y="170" width="424" height="120" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.4"/>
+      <text x="46" y="196" font-size="12" font-weight="700" fill="#0a6b4e">TDE 细胞（式 5–8）：单细胞巧合检测器</text>
+      <text x="46" y="220" font-size="11" fill="#47536a">易化输入 → 注入 τg 指数衰减增益迹线 G(t)</text>
+      <text x="46" y="242" font-size="11" fill="#47536a">触发输入 → 注入「当时的 G(t)」作为电流增量</text>
+      <text x="46" y="268" fill="#0a6b4e" font-size="11" font-weight="600">间隔越短输出越强；方向敏感（易化必须先到）</text>
+      <text x="46" y="286" fill="#0a6b4e" font-size="11" font-weight="600">→ 每对频率定义两个 TDE（32×31 = 992 候选）</text>
+      <rect x="474" y="170" width="416" height="120" rx="10" fill="#fbfaf6" stroke="#e6e6df"/>
+      <text x="490" y="196" font-size="12" font-weight="700" fill="#1c2430">三个关键设计决策</text>
+      <text x="490" y="220" font-size="11" fill="#47536a">· 易化侧权重固定为 1 不训练——用时间常数而非权重</text>
+      <text x="490" y="240" font-size="11" fill="#47536a">　 矩阵利用时间动力学（参数更少 + τg 有物理含义）</text>
+      <text x="490" y="264" font-size="11" fill="#47536a">· τg 按细胞独立训练——每对频率学出专属时间窗口</text>
+      <text x="490" y="286" font-size="11" fill="#47536a">· 特征工程前移进细胞定义：连接从平方级降到常数级</text>
+      <text x="30" y="322" font-size="11.5" fill="#8a93a5">公平性设计（式 12）：按突触连接总数配平——540 TDE = 65 LIFrec = ~163 LIF（均 7020 连接）；992 档 = 94 LIFrec = 300 LIF（12896 连接）</text>
+      <text x="30" y="344" font-size="11.5" fill="#8a93a5">992 = 32 通道全部有序频率对（每对两个方向）——最大网络的物理上限；训练 BPTT + 代理梯度（fast sigmoid）+ ADAM</text>
+      <text x="30" y="366" font-size="11.5" fill="#8a93a5">数据：TIdigits 225 人 11 类（数字 0–9 + 'oh'）每类 450 次，词长 ~400ms 嵌入 1500ms 窗口；超参：时间 bin 0.015s / τmem 2ms / τsyn 8ms</text>
+    </svg>
+    <p class="cap"><b>为什么选共振峰不选 MFCC：</b>共振峰把频谱压缩成「少数几根随时间移动的能量峰」——恰好匹配 TDE 的输入假设（每根峰调制成脉冲，两根峰的时间关系正是 TDE 要算的量）。前三个共振峰足以区分元音与半元音（Welling &amp; Ney 1998）。</p>
+  </div>
+
+  <div class="formula">
+    SynOps = Σ<sub>j</sub> S<sub>in,j</sub> + Σ<sub>j</sub> S<sub>out,j</sub>　（式 13，改进的能耗代理）
+    <div class="why">文献惯用 SynOps 只计「积分输入脉冲」；论文把<b>发放脉冲本身</b>（膜电位重置等）也计入——Lemaire et al. 2022 的分析表明发放侧动态能耗不可忽略。该度量把激活稀疏性与层间连接性压成单一计算成本指标（Neurobench 思路）。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">连接数配平下的三角对比</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <h3 style="margin-top:0">信息论前置分析（图 5）与指标口径</h3>
+    <p style="margin:6px 0">图 5 用互信息量化共振峰编码后 TIdigits 的信息含量：<b>时间模式信息在较大时间窗下显著高于速率信息</b>（15–20 ms 范围两者相当）——既证明任务时间信息重要，也反向支撑 0.015s 时间 bin 落在信息量充足区间。指标：准确率取「测试集最高的 25 个 epoch 的平均」（3 次初始化均值±std，作者称降低波动——该口径偏乐观，见局限）；每层脉冲数与 SynOps 按关键词平均；I_rate / I_pattern 从每神经元首脉冲起算 400ms。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 380" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">表 4 按连接数配平的准确率 + 表 3 SynOps：前馈 LIF 的天花板靠规模补不上</text>
+      <line x1="90" y1="250.0" x2="560" y2="250.0" stroke="#f0f1f3"/>
+      <text x="84" y="254.0" text-anchor="end" font-size="11" fill="#9ca3af">65</text>
+      <line x1="90" y1="208.0" x2="560" y2="208.0" stroke="#f0f1f3"/>
+      <text x="84" y="212.0" text-anchor="end" font-size="11" fill="#9ca3af">72</text>
+      <line x1="90" y1="166.0" x2="560" y2="166.0" stroke="#f0f1f3"/>
+      <text x="84" y="170.0" text-anchor="end" font-size="11" fill="#9ca3af">79</text>
+      <line x1="90" y1="124.0" x2="560" y2="124.0" stroke="#f0f1f3"/>
+      <text x="84" y="128.0" text-anchor="end" font-size="11" fill="#9ca3af">86</text>
+      <line x1="90" y1="82.0" x2="560" y2="82.0" stroke="#f0f1f3"/>
+      <text x="84" y="86.0" text-anchor="end" font-size="11" fill="#9ca3af">93</text>
+      <rect x="72.7" y="141.6" width="40" height="108.4" rx="4" fill="#c9ced6"/>
+      <text x="92.7" y="136.6" text-anchor="middle" font-size="10.5" font-weight="700" fill="#374151">68.73</text>
+      <rect x="116.7" y="42.0" width="40" height="208.0" rx="4" fill="#0e8a66"/>
+      <text x="136.7" y="37.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#374151">83.70</text>
+      <rect x="160.7" y="46.1" width="40" height="203.9" rx="4" fill="#94a3b8"/>
+      <text x="180.7" y="41.1" text-anchor="middle" font-size="10.5" font-weight="700" fill="#374151">83.03</text>
+      <text x="116.7" y="268" text-anchor="middle" font-size="10.5" fill="#1c2430" font-weight="700">2418 连接</text>
+      <text x="116.7" y="282" text-anchor="middle" font-size="9.5" fill="#9ca3af">186·32·56 细胞</text>
+      <rect x="229.4" y="124.5" width="40" height="125.5" rx="4" fill="#c9ced6"/>
+      <text x="249.4" y="119.5" text-anchor="middle" font-size="10.5" font-weight="700" fill="#374151">71.59</text>
+      <rect x="273.4" y="57.3" width="40" height="192.7" rx="4" fill="#0e8a66"/>
+      <text x="293.4" y="52.3" text-anchor="middle" font-size="10.5" font-weight="700" fill="#374151">87.86</text>
+      <rect x="317.4" y="38.0" width="40" height="212.0" rx="4" fill="#94a3b8"/>
+      <text x="337.4" y="33.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#374151">90.04</text>
+      <text x="273.4" y="268" text-anchor="middle" font-size="10.5" fill="#1c2430" font-weight="700">7020 连接</text>
+      <text x="273.4" y="282" text-anchor="middle" font-size="9.5" fill="#9ca3af">540·65·163 细胞</text>
+      <rect x="386.2" y="125.2" width="40" height="124.8" rx="4" fill="#c9ced6"/>
+      <text x="406.2" y="120.2" text-anchor="middle" font-size="10.5" font-weight="700" fill="#374151">71.46</text>
+      <rect x="430.2" y="47.5" width="40" height="202.5" rx="4" fill="#0e8a66"/>
+      <text x="450.2" y="42.5" text-anchor="middle" font-size="10.5" font-weight="700" fill="#374151">89.08</text>
+      <rect x="474.2" y="35.3" width="40" height="214.7" rx="4" fill="#94a3b8"/>
+      <text x="494.2" y="30.3" text-anchor="middle" font-size="10.5" font-weight="700" fill="#374151">91.11</text>
+      <text x="430.2" y="268" text-anchor="middle" font-size="10.5" fill="#1c2430" font-weight="700">12896 连接</text>
+      <text x="430.2" y="282" text-anchor="middle" font-size="9.5" fill="#9ca3af">992·94·300 细胞</text>
+      <line x1="90" y1="250" x2="560" y2="250" stroke="#9ca3af"/>
+      <rect x="96" y="296" width="12" height="12" rx="3" fill="#c9ced6"/><text x="113" y="307" font-size="10.5" fill="#47536a">LIF 前馈</text>
+      <rect x="196" y="296" width="12" height="12" rx="3" fill="#0e8a66"/><text x="213" y="307" font-size="10.5" fill="#47536a">TDE（本文）</text>
+      <rect x="313" y="296" width="12" height="12" rx="3" fill="#94a3b8"/><text x="330" y="307" font-size="10.5" fill="#47536a">LIFrec 递归</text>
+      <text x="70" y="334" font-size="12.5" fill="#c0392b" font-weight="600">LIF 全档 68–72%（~160 神经元即达上限）——时间建模缺失不是规模能弥补的；最小档 TDE 反超 LIFrec（83.70 对 83.03，</text>
+      <text x="70" y="354" font-size="12.5" fill="#c0392b" font-weight="600">LIFrec std 高达 5.14 小规模训练不稳）；最大档 TDE 落后 LIFrec 约 2 pp</text>
+      <text x="600" y="56" font-size="12" fill="#47536a" font-weight="600">表 3 SynOps（7020 连接档）</text>
+      <text x="592" y="94.0" text-anchor="end" font-size="11" fill="#0a6b4e">TDE</text>
+      <rect x="600" y="80.0" width="18.4" height="26" rx="5" fill="#0e8a66"/>
+      <text x="626.4" y="98.0" font-size="11.5" font-weight="700" fill="#374151">14,417</text>
+      <text x="592" y="144.0" text-anchor="end" font-size="11" fill="#47536a">LIF</text>
+      <rect x="600" y="130.0" width="27.8" height="26" rx="5" fill="#c9ced6"/>
+      <text x="635.8" y="148.0" font-size="11.5" font-weight="700" fill="#374151">21,771</text>
+      <text x="592" y="194.0" text-anchor="end" font-size="11" fill="#47536a">LIFrec</text>
+      <rect x="600" y="180.0" width="224.0" height="26" rx="5" fill="#c0392b"/>
+      <text x="832.0" y="198.0" font-size="11.5" font-weight="700" fill="#374151">175,548</text>
+      <text x="600" y="248" font-size="11.5" fill="#0a6b4e" font-weight="600">TDE 比 LIFrec 少 91.79%（摘要 92%）</text>
+      <text x="600" y="270" font-size="11" fill="#47536a">L1 层：3572 vs 151076（-97.64%）</text>
+      <text x="600" y="292" font-size="11" fill="#47536a">L2 层（三架构完全相同）：10768 vs 24395</text>
+      <text x="600" y="312" font-size="11" fill="#8a93a5">——递归高活跃「传染」下游，加深则逐层放大</text>
+      <text x="600" y="342" font-size="11" fill="#c0392b" font-weight="600">反例警示：LIF 更稀疏（SynOps 21771）但精度只有</text>
+      <text x="600" y="360" font-size="11" fill="#c0392b" font-weight="600">71.59%——稀疏不值钱，单位精度的操作数才关键</text>
+    </svg>
+    <p class="cap"><b>训练数据效率（图 8）：</b>训练集减到 75% 时 TDE 无统计显著变化、LIFrec 显著下降——参数少 7% 是表层原因，更本质是连接按设计固化 = 向网络注入结构先验，特征映射不依赖数据去学。<b>可解释性（图 9，W2 top-25 权重反解）：</b>所选频率对集中在 0–1500Hz（口语词主频段）；类别间重叠极小（局部化群体编码）；τg 分布有语音学意义（"oh" 时间常数更长、"seven" 更短）；<b>反直觉</b>：训练选中的频率对与互相关最高的对重合很少、频谱距离显著更大——「最大巧合 ≠ 最有判别力」，纯数据统计替代不了训练。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 320" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">表 2 剪枝消融：互相关排序剪枝全档优于随机；45.5% 规模缩减只损失 1.22 pp</text>
+      <line x1="90" y1="230.0" x2="850" y2="230.0" stroke="#f0f1f3"/>
+      <text x="84" y="234.0" text-anchor="end" font-size="11" fill="#9ca3af">35</text>
+      <line x1="90" y1="188.9" x2="850" y2="188.9" stroke="#f0f1f3"/>
+      <text x="84" y="192.9" text-anchor="end" font-size="11" fill="#9ca3af">50</text>
+      <line x1="90" y1="147.7" x2="850" y2="147.7" stroke="#f0f1f3"/>
+      <text x="84" y="151.7" text-anchor="end" font-size="11" fill="#9ca3af">65</text>
+      <line x1="90" y1="106.6" x2="850" y2="106.6" stroke="#f0f1f3"/>
+      <text x="84" y="110.6" text-anchor="end" font-size="11" fill="#9ca3af">80</text>
+      <line x1="90" y1="65.4" x2="850" y2="65.4" stroke="#f0f1f3"/>
+      <text x="84" y="69.4" text-anchor="end" font-size="11" fill="#9ca3af">95</text>
+      <polyline points="130.0,120.1 224.4,74.4 346.4,41.1 437.6,35.3 500.6,33.5 538.9,34.6 810.0,30.0" fill="none" stroke="#0e8a66" stroke-width="2.5"/>
+      <circle cx="130.0" cy="120.1" r="4" fill="#0e8a66"/><circle cx="224.4" cy="74.4" r="4" fill="#0e8a66"/><circle cx="346.4" cy="41.1" r="4" fill="#0e8a66"/><circle cx="437.6" cy="35.3" r="4" fill="#0e8a66"/><circle cx="500.6" cy="33.5" r="4" fill="#0e8a66"/><circle cx="538.9" cy="34.6" r="4" fill="#0e8a66"/><circle cx="810.0" cy="30.0" r="4" fill="#0e8a66"/>
+      <polyline points="130.0,149.0 224.4,100.3 346.4,56.9 437.6,46.6 500.6,42.1 538.9,41.1" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 4"/>
+      <circle cx="130.0" cy="149.0" r="3.5" fill="#94a3b8"/><circle cx="224.4" cy="100.3" r="3.5" fill="#94a3b8"/><circle cx="346.4" cy="56.9" r="3.5" fill="#94a3b8"/><circle cx="437.6" cy="46.6" r="3.5" fill="#94a3b8"/><circle cx="500.6" cy="42.1" r="3.5" fill="#94a3b8"/><circle cx="538.9" cy="41.1" r="3.5" fill="#94a3b8"/>
+      <text x="130.0" y="250" text-anchor="middle" font-size="10" fill="#47536a">23</text>
+      <text x="224.4" y="250" text-anchor="middle" font-size="10" fill="#47536a">68</text>
+      <text x="346.4" y="250" text-anchor="middle" font-size="10" fill="#47536a">186</text>
+      <text x="437.6" y="250" text-anchor="middle" font-size="10" fill="#47536a">378</text>
+      <text x="500.6" y="250" text-anchor="middle" font-size="10" fill="#47536a">540</text>
+      <text x="538.9" y="250" text-anchor="middle" font-size="10" fill="#47536a">676</text>
+      <text x="810.0" y="250" text-anchor="middle" font-size="10" fill="#47536a">992</text>
+      <text x="470" y="270" text-anchor="middle" font-size="10.5" fill="#9ca3af">保留的 TDE 细胞数（992 = 32 通道全部有序频率对）</text>
+      <rect x="280" y="286" width="12" height="12" rx="3" fill="#0e8a66"/><text x="298" y="297" font-size="10.5" fill="#47536a">互相关排序剪枝</text>
+      <rect x="430" y="286" width="12" height="12" rx="3" fill="#94a3b8"/><text x="448" y="297" font-size="10.5" fill="#47536a">随机剪枝</text>
+      <text x="70" y="312" font-size="12" fill="#0a6b4e" font-weight="600">剪 45.5%（992→540）只损失 1.22 pp；68 细胞以下断崖（68.36%）——高互相关 ≠ 高判别力，激进区间需判别性排序指标</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">六条可转述的判断</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>TDE 首次进 KWS</b><br><span style="font-size:14.5px;color:var(--ink-2)">同等突触预算下接近递归 LIF 精度（89.08 对 91.11）且 SynOps 少 92%——事件驱动异步硬件上操作数直接映射动态能耗。</span></div>
+    <div class="c"><span class="n">2</span><b>改进 SynOps 指标</b><br><span style="font-size:14.5px;color:var(--ink-2)">发放侧操作计入度量（式 13）——比文献惯用的仅计输入积分更贴近异步硬件真实能耗构成。</span></div>
+    <div class="c"><span class="n">3</span><b>数据驱动的定尺寸工具</b><br><span style="font-size:14.5px;color:var(--ink-2)">互相关排序剪枝：45.5% 规模缩减只损 1.22 pp，全档优于随机——神经形态工程师「按资源缩放网络」的抓手。</span></div>
+    <div class="c"><span class="n">4</span><b>训练数据效率</b><br><span style="font-size:14.5px;color:var(--ink-2)">训练集减到 75% 无统计显著损失（LIFrec 显著下降）——连接固化 = 结构先验，端侧小数据场景直接价值。</span></div>
+    <div class="c"><span class="n">5</span><b>可解释性 + 否定性证据</b><br><span style="font-size:14.5px;color:var(--ink-2)">参数反解为「频率对 + τg」；训练所选特征系统性偏离互相关分析所选——纯统计做特征选择的否定性证据。</span></div>
+    <div class="c"><span class="n">6</span><b>时间信息的信息论量化</b><br><span style="font-size:14.5px;color:var(--ink-2)">图 5 证明共振峰编码后时间模式信息显著高于速率信息——为「KWS 应认真利用时间编码」提供数据支撑。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">能耗论断停留在代理指标层面</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法的技术局限</h4>
+      <ul>
+        <li><b>能耗无实测</b>：SynOps 是代理——数字处理器每时间步更新所有泄漏隔室（常量能耗）；只有异步架构「来脉冲才算」，而该性质内建于混模数电路（泄漏由电容物理实现）。论文自认硬件能耗验证是未来工作。</li>
+        <li><b>TDE 细胞本身更贵</b>：比 CuBa-LIF 多一个隔室和一条迹线——数字同步实现不占优；「混模数芯片上复杂度代价相对 92% 节省微不足道」的论证链未完成实测闭环。</li>
+        <li><b>精度仍差 ~2 pp</b>：89.08 对 91.11，未研究压缩差距的机制。</li>
+        <li><b>共振峰提取离线</b>：Matlab 主机完成——端到端边缘部署缺片上前端（方向：硅耳蜗 + 谐振滤波器）。</li>
+        <li><b>超参未按架构分别调优</b>：三网络共享同一套超参——作者承认对 LIF/LIFrec 可能不公平。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>数据集偏干净偏小</b>：TIdigits 11 类清洁朗读数字——无噪声/混响/远场，与真实唤醒词场景（自定义词表、持续监听、误唤醒约束）差距明显。</li>
+        <li><b>缺外部基线</b>：只对比自家三种 SNN 变体——无 ANN KWS、无 Blouw 的 Loihi 基准同特征对照；无 AUC / 误拒率 / 误报率。</li>
+        <li><b>汇报口径偏乐观</b>：「top-25 epoch 最佳测试准确率平均」实质用测试集参与模型选择；3 次重复样本量小（LIFrec 小档 std 5.14）。</li>
+        <li><b>时间窗冗余未分析</b>：1500ms 窗内仅 ~400ms 语音——静音段对 SynOps 与延迟的影响未报。</li>
+        <li><b>只有单隐藏层</b>：可扩展性结论（递归负担随深度放大）是基于 L2 数据的推断，无深层实验。</li>
+        <li><b>剪枝指标激进区间失效</b>：68 细胞以下断崖——无判别性排序的替代指标。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">下一步方向（论文展望）</h3>
+    <p style="margin:6px 0"><b>① 硬件落地实测</b>：Loihi（TDE 实现已存在于 intel-nrc-ecosystem）或 DYNAPs/Texel 混模数芯片实测能耗——闭环验证 92% SynOps 节省的能效转化。<br>
+    <b>② 片上前端补全</b>：硅耳蜗频率分解 + 谐振滤波器提共振峰——「语音→共振峰→脉冲→分类」整条管线上边缘设备，全事件驱动系统。<br>
+    <b>③ 时间精度深挖</b>：降低 binning 时间精度以最大化时间模式信息——当前 0.015s 在信息论意义上可能尚未吃满。<br>
+    <b>④ 程序化调参 + 深层可扩展性验证</b>；<b>⑤ 判别性排序指标</b>（以训练所得判别频率对替代/融合互相关排序）；<b>⑥ 走向真实场景</b>（含噪、真实唤醒词词表、误报/漏报指标、自定义关键词的定尺寸）。</p>
+  </div>
+</section>
+
+<footer>
+  <p><b>论文精读 · 可视化版</b> · 2025 №34 · TDE 脉冲时间差编码器 KWS（IIT × 格罗宁根 × UKE，arXiv 2025）</p>
+  <p>数据来源：论文表 1–4、图 1–9、式 1–13（经由本库深读笔记核对）。图表坐标由脚本从论文原表计算生成。</p>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2025/Towards_Efficient_Keyword_Spotting_Using_Spike-based_Time_Difference_Encoders.md">📄 深读笔记</a>
+    <a class="pill" href="/papers/2025/Towards_Efficient_Keyword_Spotting_Using_Spike-based_Time_Difference_Encoders.pdf">📕 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2503.15402" target="_blank">🔗 arXiv:2503.15402</a>
+    <a class="pill" href="/">← 返回论文库</a>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>
