@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cumsum-Composable Phase Transport · 低成本流式 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:30px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:16px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .grid2{grid-template-columns:1fr;} }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2026/Cumsum-Composable_Phase_Transport_For_Low-Cost_Streaming_Keyword_Spotting.md">深读笔记</a>
+    <a href="/papers/2026/Cumsum-Composable_Phase_Transport_For_Low-Cost_Streaming_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2607.20086" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2026 №3</p>
+  <h1>Cumsum-Composable Phase Transport<br>用前缀和可组合的相位传输构建低成本流式关键词检测</h1>
+  <p class="sub">Cumsum-Composable Phase Transport for Low-Cost Streaming Keyword Spotting</p>
+  <p class="meta"><b>作者</b>：Mahesh Godavarti（A Carrot, Inc · 独立研究者）</p>
+  <p class="meta"><b>发表</b>：2026.07 · arXiv:2607.20086 · 自称 draft（阶段性报告）</p>
+  <div class="chips">
+    <span class="chip">相位传输</span><span class="chip">前缀和 cumsum</span><span class="chip">流式推理</span>
+    <span class="chip">酉旋转</span><span class="chip">状态空间模型的替代</span><span class="chip">Speech Commands v2</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>问题：一秒左右的短命令 KWS 上，SSM「渐进线性」的大 O 优势被实现常数因子吃掉——最普通的 torch.cumsum 比选择性扫描的 Triton 内核<b>快 3.2~4.5 倍</b>（Table 5）。</li>
+      <li>方案：把时序聚合原语换成「<b>酉相位传输 + 前缀和 + 窗口差分</b>」三件事——训练用一次 torch.cumsum（批式），推理用一步前缀更新（流式），两者<b>数学上精确等价</b>（命题 1，证明只有一行）。</li>
+      <li>为什么必须「酉」：衰减式记忆写成前缀形式会出现 ρ<sup>−τ</sup> 尺度爆炸；酉旋转的逆保持范数恒一，前缀累加器数值良态——<b>遗忘不放在传输里，外置到读出端</b>（硬窗口/块衰减）。</li>
+      <li>结果：24.8K 参数 96.8%、最强 97.3%，与受控紧凑 CNN 基线（97.1%）相当；匹配对比下比 scan 模型<b>延迟低 42%、精度还高 0.49 点</b>，且零自定义内核。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">渐进线性的大 O，救不了一两百帧的序列</h2>
+  <div class="sec-line"></div>
+
+  <p>流式语音系统的核心矛盾：必须在严格的延迟和成本约束下<b>持续保留时间维度上的证据</b>。KWS 是这矛盾最尖锐的场景——音箱、耳机、可穿戴设备常年常驻监听，单帧延迟、内存、能耗都极度敏感，又不允许漏检。现代状态空间模型（S4/S5/Mamba）用紧凑递归状态替代注意力的两两关注，被视作流式语音的有力候选；但作者指出，在<b>一秒左右的短命令</b>上，实际的权衡完全不同——一条短命令是有限的局部模式，紧凑 CNN 早已能很好映射到商用硬件；一个必须依赖 scan 内核的 SSM，其线性复杂度优势在序列只有一两百帧时，会被实现层面的常数因子劣势彻底吃掉。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 260" role="img">
+      <text x="70" y="29" font-size="13.5" fill="#47536a" font-weight="600">原语级墙钟（mel 层序列 T=200, N=40, Tesla T4, Table 5）</text>
+      <rect x="100" y="181" width="46" height="24" rx="4" fill="#0e8a66"/><text x="123" y="174" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">85 µs</text>
+      <rect x="158" y="128" width="46" height="77" rx="4" fill="#c0392b"/><text x="181" y="121" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">271 µs</text>
+      <text x="151" y="228" text-anchor="middle" font-size="13" fill="#374151" font-weight="600">batch = 1　慢 3.2×</text>
+      <rect x="360" y="184" width="46" height="21" rx="4" fill="#0e8a66"/><text x="383" y="177" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">73 µs</text>
+      <rect x="418" y="111" width="46" height="94" rx="4" fill="#c0392b"/><text x="441" y="104" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">332 µs</text>
+      <text x="411" y="228" text-anchor="middle" font-size="13" fill="#374151" font-weight="600">batch = 32　慢 4.5×</text>
+      <rect x="620" y="165" width="46" height="40" rx="4" fill="#0e8a66"/><text x="643" y="158" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">140 µs</text>
+      <rect x="678" y="59" width="46" height="146" rx="4" fill="#c0392b"/><text x="701" y="52" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">514 µs</text>
+      <text x="671" y="228" text-anchor="middle" font-size="13" fill="#374151" font-weight="600">batch = 128　慢 3.7×</text>
+      <line x1="70" y1="205" x2="820" y2="205" stroke="#9ca3af"/>
+      <rect x="560" y="18" width="13" height="13" rx="3" fill="#0e8a66"/><text x="579" y="29" font-size="12.5" fill="#374151">torch.cumsum（本文用的原语）</text>
+      <rect x="560" y="38" width="13" height="13" rx="3" fill="#c0392b"/><text x="579" y="49" font-size="12.5" fill="#374151">Triton scan（SSM 选择性扫描内核）</text>
+    </svg>
+    <p class="cap"><b>硬数字</b>：在最普通的序列原语层面，扫描内核就要付出三倍以上的墙钟代价，且需要维护非标准自定义内核代码。这就是标题「低成本」三个字指向的痛点——不是模型表达力，而是训练与推理在商用 GPU（Tesla T4）上的真实开销。</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h3 style="margin-top:0">更深一层的不足：衰减递归破坏前缀表示</h3>
+      <p>「训练用并行批算、推理用流式递归」这条最省事的路径，对衰减模型<b>天然不友好</b>：指数衰减记忆改写成前缀和形式，前缀累加器里会出现对衰减因子的除法（ρ<sup>−τ</sup>），有限精度下产生尺度分离、溢出风险和低位信息丢失——训练与流式推理两套实现之间存在<b>数值上的裂缝</b>。</p>
+    </div>
+    <div class="card"><h3 style="margin-top:0">前端两条路各有短板</h3>
+      <p>FFT + log-mel 是强归纳偏置（前端实验之首 97.1%）但非可学习；LEAF 类学习前端依赖卷积和非瞬时滤波器；原始波形 Conv1d 只有 91.0%——同等参数预算下直接从样本学习明显吃亏。</p>
+    </div>
+  </div>
+
+  <div class="formula">
+    四条挑战：(1) 时序原语的批式训练形式与流式推理形式<b>精确等价</b>（不是近似）；(2) 等价性建立在<b>数值良态</b>的结构假设上；(3) 精度与紧凑 CNN 基线有竞争力、参数同量级（2~3 万档）；(4) 不加自定义扫描内核做到<b>更低延迟</b>。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">三个式子撑起的全部数学骨架</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 400" role="img">
+      <!-- 主链 -->
+      <rect x="18" y="120" width="118" height="110" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <polyline points="32,175 44,168 52,182 60,162 68,188 76,170 84,178 92,158 100,190 108,168 124,176"
+        fill="none" stroke="#47536a" stroke-width="1.8"/>
+      <text x="77" y="206" text-anchor="middle" font-size="12.5" fill="#47536a">16 kHz 波形</text>
+      <text x="77" y="224" text-anchor="middle" font-size="11" fill="#8a93a5">1 秒流式输入</text>
+
+      <line x1="136" y1="175" x2="164" y2="175" stroke="#0e8a66" stroke-width="2.5"/><polygon points="164,175 156,170 156,180" fill="#0e8a66"/>
+
+      <rect x="168" y="120" width="118" height="110" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <g fill="#0e8a66" opacity=".75">
+        <rect x="184" y="138" width="86" height="6" rx="2"/><rect x="184" y="148" width="86" height="6" rx="2" opacity=".45"/>
+        <rect x="184" y="158" width="86" height="6" rx="2" opacity=".9"/><rect x="184" y="168" width="86" height="6" rx="2" opacity=".35"/>
+        <rect x="184" y="178" width="86" height="6" rx="2" opacity=".6"/><rect x="184" y="188" width="86" height="6" rx="2" opacity=".3"/>
+      </g>
+      <text x="227" y="212" text-anchor="middle" font-size="12.5" fill="#47536a">40 维 log-mel</text>
+      <text x="227" y="228" text-anchor="middle" font-size="11" fill="#8a93a5">hop 5 或 10 ms</text>
+
+      <line x1="286" y1="175" x2="314" y2="175" stroke="#0e8a66" stroke-width="2.5"/><polygon points="314,175 306,170 306,180" fill="#0e8a66"/>
+
+      <rect x="318" y="120" width="120" height="110" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="378" y="152" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">数值投影</text>
+      <text x="378" y="176" text-anchor="middle" font-size="12" fill="#47536a">(a, b) → z = a + ib</text>
+      <text x="378" y="200" text-anchor="middle" font-size="11" fill="#8a93a5">投到复数域：</text>
+      <text x="378" y="216" text-anchor="middle" font-size="11" fill="#8a93a5">旋转的天然载体</text>
+
+      <line x1="438" y1="175" x2="466" y2="175" stroke="#0e8a66" stroke-width="2.5"/><polygon points="466,175 458,170 458,180" fill="#0e8a66"/>
+
+      <rect x="470" y="120" width="158" height="110" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="549" y="148" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0a6b4e">相位库 + cumsum 传输</text>
+      <text x="549" y="172" text-anchor="middle" font-size="12" fill="#47536a">U_t = diag(e^{iφ_t,k}), φ = t·ω_k</text>
+      <text x="549" y="194" text-anchor="middle" font-size="12" fill="#47536a">p_t = Σ U_τ⁻¹ z_τ　(前缀和)</text>
+      <text x="549" y="216" text-anchor="middle" font-size="12" fill="#0a6b4e" font-weight="600">y_t = U_t (p_t − p_{t−W})</text>
+
+      <line x1="628" y1="175" x2="656" y2="175" stroke="#0e8a66" stroke-width="2.5"/><polygon points="656,175 648,170 648,180" fill="#0e8a66"/>
+
+      <rect x="660" y="120" width="118" height="110" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="719" y="150" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">BN + GLU</text>
+      <text x="719" y="172" text-anchor="middle" font-size="12" fill="#47536a">门控残差更新</text>
+      <text x="719" y="196" text-anchor="middle" font-size="11" fill="#8a93a5">h ← h + GLU(BN(y))</text>
+      <text x="719" y="214" text-anchor="middle" font-size="11" fill="#8a93a5">× 8 层（可绑定）</text>
+
+      <line x1="778" y1="175" x2="806" y2="175" stroke="#0e8a66" stroke-width="2.5"/><polygon points="806,175 798,170 798,180" fill="#0e8a66"/>
+
+      <rect x="810" y="120" width="94" height="110" rx="10" fill="#0e8a66"/>
+      <text x="857" y="152" text-anchor="middle" font-size="13.5" font-weight="700" fill="#fff">取模 +</text>
+      <text x="857" y="172" text-anchor="middle" font-size="13.5" font-weight="700" fill="#fff">max 池化</text>
+      <text x="857" y="200" text-anchor="middle" font-size="11.5" fill="#cdeede">→ 12 类</text>
+      <text x="857" y="218" text-anchor="middle" font-size="10.5" fill="#cdeede">滚动触发分数</text>
+
+      <!-- 流式形态 -->
+      <rect x="18" y="268" width="886" height="106" rx="12" fill="#f3ede2" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="461" y="296" text-anchor="middle" font-size="14" font-weight="700" fill="#b0631d">流式形态：逐帧一步更新，不等满一秒</text>
+      <text x="461" y="324" text-anchor="middle" font-size="13.5" fill="#47536a" font-family="Georgia, serif" font-style="italic">x_{1:t} → m_t → z_t → p_t = p_{t−1} + U_{t−1}⁻¹ z_t → y_t = U_t (p_t − p_{t−W}) → s_t</text>
+      <text x="461" y="352" text-anchor="middle" font-size="12" fill="#8a93a5">每层内存 = 当前前缀 p_t + 存旧前缀的环形缓冲（硬窗口）或块摘要（块衰减）；分数超阈值即触发</text>
+      <text x="461" y="262" text-anchor="middle" font-size="12" fill="#8a93a5">▲ 命题 1：批式 cumsum 与流式递推输出的 y_t 逐项相等 —— 训练图与部署图是同一个数学对象（证明一行）</text>
+    </svg>
+    <p class="cap"><b>主架构（表 1）</b>：固定 mel 前端胜过学习前端（附录表 11–14），所以最强模型把 cumsum 放在 mel 之后而不是替换 mel。取模读出让判别依据对相位旋转不变、落在能量包络上，与 max 池化配合适合不定时对齐的命令模式。</p>
+  </div>
+
+  <h3>直觉：什么是「相位传输」</h3>
+  <div class="fig">
+    <svg viewBox="0 0 920 268" role="img">
+      <!-- 时间轴 -->
+      <line x1="50" y1="200" x2="880" y2="200" stroke="#9ca3af" stroke-width="1.5"/>
+      <g font-size="12" fill="#8a93a5" text-anchor="middle">
+        <text x="120" y="222">τ 时刻（证据到达）</text>
+        <text x="480" y="222">…t−W（窗口外沿）</text>
+        <text x="810" y="222">t 时刻（读出）</text>
+      </g>
+      <circle cx="120" cy="200" r="6" fill="#d97a2b"/>
+      <circle cx="480" cy="200" r="5" fill="#c9ced6"/>
+      <circle cx="810" cy="200" r="6" fill="#0e8a66"/>
+
+      <!-- 相量示意 -->
+      <g transform="translate(120,110)">
+        <circle r="36" fill="none" stroke="#e3e0d8"/>
+        <line x1="0" y1="0" x2="26" y2="-24" stroke="#d97a2b" stroke-width="3"/>
+        <text x="46" y="-8" font-size="12" fill="#b0631d">z_τ（含相位 φ_τ）</text>
+        <path d="M 20 -10 A 22 22 0 0 0 10 -20" fill="none" stroke="#c0392b" stroke-width="2" stroke-dasharray="3 2"/>
+      </g>
+      <text x="120" y="46" text-anchor="middle" font-size="12.5" fill="#b0631d" font-weight="600">① 逆旋转回公共坐标系</text>
+      <text x="120" y="64" text-anchor="middle" font-size="11.5" fill="#8a93a5">U_τ⁻¹ z_τ</text>
+
+      <path d="M 175 95 Q 320 30 460 95" fill="none" stroke="#47536a" stroke-width="2" stroke-dasharray="5 4"/>
+      <text x="320" y="52" text-anchor="middle" font-size="12.5" fill="#47536a">② 前缀累加 p_t = Σ U_τ⁻¹ z_τ</text>
+      <text x="320" y="72" text-anchor="middle" font-size="11.5" fill="#8a93a5">标准并行原语（Blelloch 1990 前缀和体系）</text>
+
+      <g transform="translate(810,110)">
+        <circle r="36" fill="none" stroke="#dbeee6"/>
+        <line x1="0" y1="0" x2="26" y2="-24" stroke="#0e8a66" stroke-width="3"/>
+        <line x1="0" y1="0" x2="-20" y2="30" stroke="#0e8a66" stroke-width="3" opacity=".4"/>
+        <text x="-160" y="34" font-size="12" fill="#0a6b4e">③ 旋转到当前帧坐标系 U_t</text>
+      </g>
+      <path d="M 560 95 Q 690 40 775 95" fill="none" stroke="#0e8a66" stroke-width="2" stroke-dasharray="5 4"/>
+      <text x="320" y="130" text-anchor="middle" font-size="12" fill="#8a93a5">时间 τ 的信息被「搬运」到时间 t 的坐标框架下才做聚合 —— 递归记忆的局部相位传输类比</text>
+      <text x="320" y="156" text-anchor="middle" font-size="12.5" fill="#47536a" font-weight="600">固定学习相位 φ_{t,k} = t·ω_k 下，第 k 个复坐标被乘上 e^{i(t−τ)ω_k}：以相对滞后为自变量的学习型振荡核</text>
+      <text x="320" y="180" text-anchor="middle" font-size="11.5" fill="#8a93a5">数学家族：正弦位置编码 · RoPE · 对角复数 SSM（S4D/DSS）——本文收窄在：有限窗口 + 酉参数化</text>
+    </svg>
+  </div>
+
+  <h3>为什么必须「酉」：衰减传输的数值反例</h3>
+  <div class="formula">
+    酉传输：U<sub>t</sub><sup>−1</sup> = U<sub>t</sub><sup>*</sup>，‖U<sub>t</sub><sup>−1</sup>z‖ = ‖z‖ → 前缀各项与投影值同一数值尺度。
+    <div class="why">反例：取衰减传输 A<sub>t</sub> = ρ<sup>t</sup>U<sub>t</sub>（0&lt;ρ&lt;1）套同样前缀形式，累加器里会出现 A<sub>τ</sub><sup>−1</sup>z<sub>τ</sub> = ρ<sup>−τ</sup>U<sub>τ</sub><sup>−1</sup>z<sub>τ</sub> —— 精确算术下最终读出能抵消缩放，但<b>前缀状态本身包含对越来越小的数的除法</b>：有限精度下尺度分离、溢出、低位丢失。<b>遗忘因此被外置</b>——硬窗口减法或块级几何加权（式 6），而不是衰减在传输里。</div>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 250" role="img">
+      <text x="60" y="28" font-size="13.5" fill="#47536a" font-weight="600">前缀累加器里的逆传输范数 ‖A_τ⁻¹‖ 随滞后 τ 的变化（对数轴）</text>
+      <line x1="60" y1="60" x2="60" y2="205" stroke="#9ca3af"/>
+      <line x1="60" y1="205" x2="840" y2="205" stroke="#9ca3af"/>
+      <g font-size="12" fill="#8a93a5">
+        <text x="52" y="176" text-anchor="end">1×</text><text x="52" y="128" text-anchor="end">10¹</text>
+        <text x="52" y="80" text-anchor="end">10²</text>
+        <text x="450" y="228" text-anchor="middle">滞后 τ（帧）→ 100</text>
+      </g>
+      <!-- 酉：恒 1 -->
+      <line x1="60" y1="168" x2="840" y2="168" stroke="#0e8a66" stroke-width="3.5"/>
+      <text x="700" y="156" font-size="12.5" fill="#0a6b4e" font-weight="700">酉传输：恒为 1（数值良态）</text>
+      <!-- ρ=0.99 -->
+      <path d="M 60,168 C 300,168 500,160 620,120 C 700,90 780,55 840,42" fill="none" stroke="#d97a2b" stroke-width="3"/>
+      <text x="780" y="38" font-size="12.5" fill="#b0631d">ρ = 0.99：τ=100 时 ≈ 2.7×10²</text>
+      <!-- ρ=0.9 -->
+      <path d="M 60,168 C 150,168 200,140 260,100 C 300,72 340,58 400,48" fill="none" stroke="#c0392b" stroke-width="3"/>
+      <text x="410" y="44" font-size="12.5" fill="#c0392b">ρ = 0.9：τ=44 即破 10²，尺度分离</text>
+      <text x="60" y="242" font-size="12" fill="#9ca3af">示意曲线按 ρ^{−τ} 精确趋势绘制 —— 衰减记忆的前缀形式天然携带指数爆炸因子，这正是 S4/S5 无法走「cumsum 路线」的原因</text>
+    </svg>
+  </div>
+
+  <h3>紧凑化配方：小窗 × 深堆 × 权重绑定</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 280" role="img">
+      <text x="60" y="24" font-size="13.5" fill="#47536a" font-weight="600">同为 40 帧跨度时：小窗 × 深堆单调变好（绿）；一味拉大跨度反而不如小窗深堆（灰，Table 7）</text>
+      <rect x="80" y="173" width="88" height="42" rx="6" fill="#0e8a66"/><text x="124" y="165" text-anchor="middle" font-size="13.5" font-weight="700" fill="#374151">94.4%</text>
+      <text x="124" y="238" text-anchor="middle" font-size="12.5" fill="#374151">W=20 · 2 层</text><text x="124" y="256" text-anchor="middle" font-size="11.5" fill="#8a93a5">名义跨度 40 帧</text>
+      <rect x="232" y="107" width="88" height="108" rx="6" fill="#0e8a66"/><text x="276" y="99" text-anchor="middle" font-size="13.5" font-weight="700" fill="#374151">95.8%</text>
+      <text x="276" y="238" text-anchor="middle" font-size="12.5" fill="#374151">W=10 · 4 层</text><text x="276" y="256" text-anchor="middle" font-size="11.5" fill="#8a93a5">名义跨度 40 帧</text>
+      <rect x="384" y="88" width="88" height="127" rx="6" fill="#0e8a66"/><text x="428" y="80" text-anchor="middle" font-size="13.5" font-weight="700" fill="#374151">96.2%</text>
+      <text x="428" y="238" text-anchor="middle" font-size="12.5" fill="#374151">W=5 · 8 层</text><text x="428" y="256" text-anchor="middle" font-size="11.5" fill="#8a93a5">名义跨度 40 帧</text>
+      <rect x="536" y="135" width="88" height="80" rx="6" fill="#b9c2d0"/><text x="580" y="127" text-anchor="middle" font-size="13.5" font-weight="700" fill="#374151">95.2%</text>
+      <text x="580" y="238" text-anchor="middle" font-size="12.5" fill="#374151">W=20 · 4 层</text><text x="580" y="256" text-anchor="middle" font-size="11.5" fill="#8a93a5">名义跨度 80 帧</text>
+      <rect x="688" y="121" width="88" height="94" rx="6" fill="#b9c2d0"/><text x="732" y="113" text-anchor="middle" font-size="13.5" font-weight="700" fill="#374151">95.5%</text>
+      <text x="732" y="238" text-anchor="middle" font-size="12.5" fill="#374151">W=20 · 8 层</text><text x="732" y="256" text-anchor="middle" font-size="11.5" fill="#8a93a5">名义跨度 160 帧</text>
+      <line x1="60" y1="215" x2="840" y2="215" stroke="#9ca3af"/>
+    </svg>
+    <p class="cap"><b>读法</b>：cumsum 应作为带非线性门控的<b>局部时序构件</b>使用，而非一个大而无差别的累加器。叠加权重绑定（各层共享投影与 GLU，仅频率和 BN 独立）：82,252 → 24,012 参数（≈3.4×），96.3% → 95.2%——「重复局部传输 + 共享投影」本身就是紧凑时序混合器。</p>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">精度打平紧凑 CNN，延迟低四成</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>设置</b>：Google Speech Commands v2（12 类），本地训练集约 36K 样本（<b>少于</b>社区常用 85K 划分——绝对数字与外部文献不可直接横比）；Tesla T4 + PyTorch 2.6；Adam lr 10⁻³，batch 128；全部<b>单种子</b>。
+  </div>
+
+  <h3>精度-参数全景（Table 2）</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 320" role="img">
+      <text x="80" y="30" font-size="13.5" fill="#47536a" font-weight="600">Speech Commands v2 测试精度 vs 参数量（Table 2，单种子，悬停看数值）</text>
+      <line x1="80" y1="250" x2="840" y2="250" stroke="#f0f1f3"/><text x="72" y="254" text-anchor="end" font-size="12" fill="#9ca3af">96.4%</text>
+      <line x1="80" y1="195" x2="840" y2="195" stroke="#f0f1f3"/><text x="72" y="199" text-anchor="end" font-size="12" fill="#9ca3af">96.7%</text>
+      <line x1="80" y1="141" x2="840" y2="141" stroke="#f0f1f3"/><text x="72" y="145" text-anchor="end" font-size="12" fill="#9ca3af">97.0%</text>
+      <line x1="80" y1="86" x2="840" y2="86" stroke="#f0f1f3"/><text x="72" y="90" text-anchor="end" font-size="12" fill="#9ca3af">97.3%</text>
+      <text x="163" y="272" text-anchor="middle" font-size="12" fill="#9ca3af">25K</text>
+      <text x="417" y="272" text-anchor="middle" font-size="12" fill="#9ca3af">50K</text>
+      <text x="671" y="272" text-anchor="middle" font-size="12" fill="#9ca3af">100K</text>
+      <text x="843" y="272" text-anchor="middle" font-size="12" fill="#9ca3af">160K</text>
+      <text x="460" y="296" text-anchor="middle" font-size="13" fill="#6b7280">参数量（对数轴）</text>
+      <circle cx="846" cy="86" r="8" fill="#0e8a66"><title>MelCumsum 最强：160,892 参数，97.3%</title></circle>
+      <circle cx="429" cy="86" r="8" fill="#0e8a66"><title>绑定 51.6K：51,612 参数，97.3%</title></circle>
+      <circle cx="307" cy="141" r="8" fill="#7cc7ad"><title>绑定 37.0K：37,012 参数，97.0%</title></circle>
+      <circle cx="249" cy="177" r="8" fill="#7cc7ad"><title>双向绑定 31.6K：31,612 参数，96.8%</title></circle>
+      <circle cx="160" cy="177" r="8" fill="#0e8a66"><title>绑定 24.8K（效率点）：24,812 参数，96.8%</title></circle>
+      <rect x="165" y="116" width="14" height="14" rx="3" fill="#d97a2b"><title>MelCNNMaxPool 基线：25,628 参数，97.1%</title></rect>
+      <text x="832" y="74" text-anchor="middle" font-size="11.5" fill="#47536a">MelCumsum 最强</text>
+      <text x="441" y="74" text-anchor="middle" font-size="11.5" fill="#47536a">绑定 51.6K</text>
+      <text x="319" y="131" text-anchor="middle" font-size="11.5" fill="#47536a">绑定 37.0K</text>
+      <text x="261" y="167" text-anchor="middle" font-size="11.5" fill="#47536a">双向绑定 31.6K</text>
+      <text x="150" y="199" text-anchor="middle" font-size="11.5" fill="#47536a">绑定 24.8K（效率点）</text>
+      <text x="186" y="129" text-anchor="middle" font-size="11.5" fill="#47536a">MelCNNMaxPool 基线</text>
+      <circle cx="600" cy="40" r="7" fill="#0e8a66"/><text x="614" y="45" font-size="12.5" fill="#374151">mel + cumsum（本文）</text>
+      <rect x="596" y="58" width="14" height="14" rx="3" fill="#d97a2b"/><text x="614" y="70" font-size="12.5" fill="#374151">紧凑 CNN 基线</text>
+    </svg>
+    <p class="cap"><b>关键读数</b>：绑定 51.6K 参数达到与 160K 未绑定模型同值的 97.3%（省 3.1×）；最干净的效率点 24.8K 参数 96.8%，与 25.6K 的 CNN 基线（97.1%）几乎重叠——cumsum 可组合原语在精确流式前缀表示下与受控 CNN 精度相当。</p>
+  </div>
+
+  <h3>匹配对比：cumsum vs scan（Table 4）</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 250" role="img">
+      <text x="30" y="20" font-size="13.5" fill="#47536a" font-weight="600">匹配架构对比：唯一差异是时序原语（cumsum 前缀 vs Triton scan，Table 4，Tesla T4）</text>
+      <text x="160" y="40" text-anchor="middle" font-size="14" font-weight="700" fill="#111827">测试精度 %</text>
+      <rect x="85" y="101" width="72" height="89" rx="6" fill="#0e8a66"/><text x="121" y="93" text-anchor="middle" font-size="14" font-weight="700" fill="#374151">94.82</text>
+      <text x="121" y="212" text-anchor="middle" font-size="13" fill="#374151">cumsum</text>
+      <rect x="195" y="154" width="72" height="36" rx="6" fill="#94a3b8"/><text x="231" y="146" text-anchor="middle" font-size="14" font-weight="700" fill="#374151">94.33</text>
+      <text x="231" y="212" text-anchor="middle" font-size="13" fill="#374151">scan</text>
+      <text x="160" y="236" text-anchor="middle" font-size="12.5" fill="#0a6b4e" font-weight="600">+0.49 点</text>
+      <text x="450" y="40" text-anchor="middle" font-size="14" font-weight="700" fill="#111827">单例推理延迟 ms</text>
+      <rect x="375" y="111" width="72" height="79" rx="6" fill="#0e8a66"/><text x="411" y="103" text-anchor="middle" font-size="14" font-weight="700" fill="#374151">5.01</text>
+      <text x="411" y="212" text-anchor="middle" font-size="13" fill="#374151">cumsum</text>
+      <rect x="485" y="78" width="72" height="112" rx="6" fill="#94a3b8"/><text x="521" y="70" text-anchor="middle" font-size="14" font-weight="700" fill="#374151">7.09</text>
+      <text x="521" y="212" text-anchor="middle" font-size="13" fill="#374151">scan</text>
+      <text x="450" y="236" text-anchor="middle" font-size="12.5" fill="#0a6b4e" font-weight="600">低 42%</text>
+      <text x="740" y="40" text-anchor="middle" font-size="14" font-weight="700" fill="#111827">每 epoch 训练 s</text>
+      <rect x="665" y="85" width="72" height="105" rx="6" fill="#0e8a66"/><text x="701" y="77" text-anchor="middle" font-size="14" font-weight="700" fill="#374151">16.2</text>
+      <text x="701" y="212" text-anchor="middle" font-size="13" fill="#374151">cumsum</text>
+      <rect x="775" y="77" width="72" height="113" rx="6" fill="#94a3b8"/><text x="811" y="69" text-anchor="middle" font-size="14" font-weight="700" fill="#374151">17.4</text>
+      <text x="811" y="212" text-anchor="middle" font-size="13" fill="#374151">scan</text>
+      <text x="740" y="236" text-anchor="middle" font-size="12.5" fill="#0a6b4e" font-weight="600">低 7%</text>
+    </svg>
+    <p class="cap"><b>最有解释力的发现</b>：scan 模型学到的衰减值隐含 3–21 帧有效窗口——学习型递归记忆在这个任务上<b>本来就收敛成短局部滤波器</b>，而硬窗口 cumsum 直接供给了这个短记忆。这是「有限记忆假设」的直接证据。注意匹配基准绝对精度（94.8%）低于主表 97.3%——采用了不同的 hop/宽度/epoch 组合，论文未拆解差距来源。</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h3 style="margin-top:0">前端消融的信息量（附录）</h3>
+      <p>学习相位 + 实虚部信道：hop 400 下 90.8% → 93.6%（冻结 mel 相位 92.0% → 94.0%）——滑动 cumsum 的幅度是更噪的谱估计，<b>相位信道把窗内相位信息交给下一层补回来</b>。对照：Hann 加窗卷积滤波器组反而最强（95.7%）且不需要实虚部——因为其幅度谱估计更干净，反衬 cumsum 前端的幅度噪声。</p>
+    </div>
+    <div class="card"><h3 style="margin-top:0">cumsum 前端的工程优化</h3>
+      <p>原始波形 cumsum 前端经内存布局优化（连续 (B,N,T) 布局、先索引步进位置）：第一层单例延迟 5.8 ms → <b>284 µs</b>，最终 337 µs，与 FFT+log+嵌入的 359 µs 打平——同一原语可以前移到 mel 之前，输出流式声学帧。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">六条可以带走的东西</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>形式化相位传输层</b><br><span style="color:var(--ink-2)">有限窗口表示可由累加和计算、且具有精确流式等价形式（式 1–3 + 命题 1）。</span></div>
+    <div class="c"><span class="n">2</span><b>阐明酉传输的结构作用</b><br><span style="color:var(--ink-2)">逆传输范数恒一 → 前缀因式分解数值良态；遗忘外置到读出端——「在哪里实现遗忘」的完整答案。</span></div>
+    <div class="c"><span class="n">3</span><b>配套流式前端</b><br><span style="color:var(--ink-2)">音频转低延迟 mel 或学习谱帧，每帧一次 cumsum 状态更新，从有限窗口状态发出滚动关键词分数。</span></div>
+    <div class="c"><span class="n">4</span><b>精度竞争力证据</b><br><span style="color:var(--ink-2)">堆叠局部 mel+cumsum 与紧凑 CNN 基线相当，最高 97.3%（表 2）。</span></div>
+    <div class="c"><span class="n">5</span><b>参数效率证据</b><br><span style="color:var(--ink-2)">绑定局部 cumsum 层小参数量保持强精度：24.8K 参数 96.8%。</span></div>
+    <div class="c"><span class="n">6</span><b>匹配系统基准</b><br><span style="color:var(--ink-2)">对学习衰减 scan 的匹配对比：更低延迟、相当精度、零自定义内核（表 4、5）。</span></div>
+  </div>
+  <div class="formula" style="margin-top:16px">
+    宏观视角：这篇论文把「SSM 式紧凑流式状态」与「最便宜的原语（前缀和）」焊接在一起，并指出焊接处的数值条件性由<b>酉性</b>保证——为短时流式语音任务提供了介于 CNN 与 SSM 之间的<b>第三选择</b>。
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与展望</p>
+  <h2 class="sec">单种子、单数据集、单硬件——外推需谨慎</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法本身的技术局限</h4>
+      <ul>
+        <li><b>短记忆假设的适用边界</b>：整个设计前提是 KWS 只需有限局部记忆（scan 学到 3–21 帧窗口佐证）；长关键词、上下文自适应、连续大词表识别下 W 有限的硬窗口是否够用未验证。</li>
+        <li><b>硬窗口不连续</b>：旧项退出窗口时表示跳变（论文自认）；块衰减是理论替代但主实验未采用，平滑遗忘收益缺数据。</li>
+        <li><b>固定频率振荡器表达上限</b>：无法像 Mamba 按输入内容选择记忆；表达力换实现简洁性的取舍在更难任务上是否划算未检验。</li>
+        <li><b>大批次显存压力</b>：cumsum 前端物化全分辨率复旋转张量；融合算子列为未完成的下一步。</li>
+        <li><b>反向传播未分析</b>：只论证了前向等价，长序列（完整 ASR）下 cumsum 反向的内存与稳定性没有分析。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>全部单种子</b>，无方差报告；0.49 点的 cumsum 对 scan 优势缺乏显著性支撑。</li>
+        <li><b>本地 36K 训练集</b>，少于社区常用 85K 划分；97.3% 等绝对数字与外部文献不可直接横比。</li>
+        <li><b>基线面窄</b>：只与本地受控 MelCNNMaxPool 比；未对 DS-CNN、TC-ResNet、BC-ResNet、小 Conformer 等标准优化基线。</li>
+        <li><b>clip 级指标</b>：缺误接受/误拒率、检测延迟等触发式指标——论文自己诚实标注的缺口。</li>
+        <li><b>单 GPU 环境</b>：scan 基线用本地研究实现而非优化官方内核，未必代表 scan 最优水平；自称 draft。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:18px">
+    <b>值得跟进的方向</b>：① 三种子复跑 + 扩展到 CPU / Apple Silicon / 嵌入式目标的墙钟-显存-吞吐剖析；② 与标准优化基线（DS-CNN / TC-ResNet / BC-ResNet / 小 Conformer）对比；③ 事件触发式命令起始检测，在延迟和稀疏触发上检验；④ 扰动套件（音高偏移 / 混响 / 编解码 / 说话人留出）；⑤ 块衰减转正并量化平滑遗忘收益；⑥ 不同层不同 hop 的多分辨率记忆金字塔——比单纯加宽加深更符合该架构本性的扩容路径。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2026/Cumsum-Composable_Phase_Transport_For_Low-Cost_Streaming_Keyword_Spotting.md">📝 深读笔记（Markdown）</a>
+    <a class="pill" href="/papers/2026/Cumsum-Composable_Phase_Transport_For_Low-Cost_Streaming_Keyword_Spotting.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2607.20086" target="_blank">🔗 arXiv:2607.20086</a>
+  </div>
+  本页所有数字均出自论文表 2/3/4/5/7/8/9 与附录表 11–14；ρ<sup>−τ</sup> 尺度曲线为按公式趋势绘制的示意图（论文以反例论证，未给数值表）。深读笔记与可视化页同源生成，转载请注明出处。
+</footer>
+
+</div>
+</body>
+</html>
