@@ -1,7 +1,7 @@
 # 可视化精读计划（VIZ_PLAN）
 
 > 逐篇把 305 篇深读笔记重写为 HTML+SVG 可视化页（2026→2018 倒序）。每篇流程：读笔记 → python 算图表坐标 → 手绘机制 SVG → 自包含 HTML → 更新 manifest+plan → commit+push。
-**进度：37 / 305**
+**进度：38 / 305**
 > 进度以本文件为准；`viz_manifest.json` 是机器可读版（站点 viz 按钮按它门控）。
 
 ## 2026（24/24）
@@ -31,7 +31,7 @@
 - [✅] ProKWS: Personalized Keyword Spotting via Collaborative Le…
 - [✅] Scalable Keyword Spotting via Modular Network Expansion：冻结…
 
-## 2025（13/36）
+## 2025（14/36）
 
 - [✅] ASAP-FE：面向边缘处理器多通道关键词检出的节能特征提取前端
 - [✅] 免乘法器 MFCC 特征提取器的低功耗关键词检测芯片
@@ -46,7 +46,7 @@
 - [✅] Efficient Continual Learning in Keyword Spotting using Bin…
 - [✅] 端到端效率的关键词检测：面向嵌入式微控制器的系统级方法
 - [✅] 通过预训练自监督语音模型增强少样本关键词检测性能
-- [⬜] GraphemeAug：一种系统化合成关键词检测难负例的方法
+- [✅] GraphemeAug：一种系统化合成关键词检测难负例的方法
 - [⬜] "Hello Afrika!"：基尼阿万达语语音命令语料与端侧关键词检测的全流程实践
 - [⬜] Identity Lock: Locking API Fine-tuned LLMs With Identity-b…
 - [⬜] 在集成 NPU 的微控制器上实现关键词检测：MCXN947 落地全流程深读
