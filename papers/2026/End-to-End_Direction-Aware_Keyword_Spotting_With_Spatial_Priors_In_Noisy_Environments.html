@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>方向感知多通道 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:30px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15.5px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .grid2{grid-template-columns:1fr;} }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2026/End-to-End_Direction-Aware_Keyword_Spotting_With_Spatial_Priors_In_Noisy_Environments.md">深读笔记</a>
+    <a href="/papers/2026/End-to-End_Direction-Aware_Keyword_Spotting_With_Spatial_Priors_In_Noisy_Environments.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2603.09505" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2026 №6</p>
+  <h1>端到端方向感知关键词检测<br>把空间建模搬进识别器，方向先验做成可插拔令牌</h1>
+  <p class="sub">End-to-End Direction-Aware Keyword Spotting with Spatial Priors in Noisy Environments</p>
+  <p class="meta"><b>作者</b>：Rui Wang, Zhifei Zhang, Yu Gao, Xiaofeng Mou, Yi Xu —— 美的集团（上海）AI 研究中心</p>
+  <p class="meta"><b>发表</b>：2026.03 · arXiv:2603.09505 · 工业界（家电语音入口）</p>
+  <div class="chips">
+    <span class="chip">空间先验</span><span class="chip">多通道端到端</span><span class="chip">DOA 方向离散化</span>
+    <span class="chip">复数谱 IPD/ILD</span><span class="chip">流式 MDTC 骨干</span><span class="chip">麦克风阵列</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>痛点：传统「波束成形 → 识别器」级联管线<b>目标错配</b>——前端优化增强质量，不是唤醒准确率，处理伪影识别器只能被动接受。</li>
+      <li>方案：可学习空间编码器直接吃多通道<b>复数谱</b>（保留 IPD/ILD 空间线索，不合成波束）+ 离散 DOA 方向先验以「词表嵌入」<b>加性注入</b>（标签 0 = 无先验可随时关掉）+ 流式 MDTC 骨干，全部端到端联合训练。</li>
+      <li>结果：0 dB 下 77.67%（2ch）比级联高 5.48 点、比单通道相对提升 11.18%；参数 279k vs 基线 164k。</li>
+      <li>最有信息量的发现：<b>先验粒度要与噪声强度匹配</b>——粗先验（6 区）全程小正收益；细先验（12 区）低 SNR 特征-先验失配倒扣，10 dB 才兑现（89.61% 全场最高）。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">级联的病灶：前端不为唤醒负责</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 260" role="img">
+      <!-- 级联 -->
+      <rect x="20" y="30" width="420" height="180" rx="12" fill="#fbf3ec" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="230" y="58" text-anchor="middle" font-size="14.5" font-weight="700" fill="#b0631d">传统级联：解耦 + 目标错配</text>
+      <g>
+        <rect x="45" y="80" width="130" height="60" rx="10" fill="#fff" stroke="#c9a87f"/>
+        <text x="110" y="106" text-anchor="middle" font-size="12.5" fill="#47536a">波束成形前端</text>
+        <text x="110" y="126" text-anchor="middle" font-size="10.5" fill="#8a93a5">优化 SNR / 增强质量</text>
+        <line x1="175" y1="110" x2="205" y2="110" stroke="#c0392b" stroke-width="2.5"/><polygon points="205,110 197,105 197,115" fill="#c0392b"/>
+        <text x="190" y="98" text-anchor="middle" font-size="10" fill="#c0392b">伪影</text>
+        <rect x="210" y="80" width="130" height="60" rx="10" fill="#fff" stroke="#c9a87f"/>
+        <text x="275" y="106" text-anchor="middle" font-size="12.5" fill="#47536a">KWS 识别器</text>
+        <text x="275" y="126" text-anchor="middle" font-size="10.5" fill="#8a93a5">只要唤醒准确率</text>
+      </g>
+      <text x="230" y="172" text-anchor="middle" font-size="11.5" fill="#c0392b">前端引入的处理伪影，识别器只能被动接受，无法联合优化</text>
+      <text x="230" y="194" text-anchor="middle" font-size="12" fill="#8a93a5">（通道堆叠也类似：网络要凭空自己学出相位差，无方向注入机制）</text>
+
+      <!-- 端到端 -->
+      <rect x="470" y="30" width="430" height="180" rx="12" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="685" y="58" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0a6b4e">本文：空间建模进识别器，联合优化</text>
+      <g>
+        <rect x="495" y="80" width="130" height="60" rx="10" fill="#fff" stroke="#7fbfa6"/>
+        <text x="560" y="104" text-anchor="middle" font-size="12.5" fill="#0a6b4e" font-weight="600">可学习空间编码器</text>
+        <text x="560" y="126" text-anchor="middle" font-size="10.5" fill="#5f8a76">复数谱 · 保留 IPD/ILD</text>
+        <text x="632" y="114" text-anchor="middle" font-size="16" fill="#0e8a66" font-weight="700">+</text>
+        <rect x="650" y="80" width="110" height="60" rx="10" fill="#fff" stroke="#7fbfa6"/>
+        <text x="705" y="104" text-anchor="middle" font-size="12.5" fill="#0a6b4e" font-weight="600">流式 KWS 骨干</text>
+        <text x="705" y="126" text-anchor="middle" font-size="10.5" fill="#5f8a76">MDTC + 多头</text>
+        <text x="685" y="172" text-anchor="middle" font-size="11.5" fill="#0a6b4e">无「增强后单通道」中间产物，梯度从唤醒损失直达空间第一层</text>
+        <text x="685" y="194" text-anchor="middle" font-size="12" fill="#5f8a76">方向知识 = 离散标签嵌入，可插拔（标签 0 = 无先验）</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="formula">
+    四条互相牵制的子问题：① 多通道信息<b>可学习地</b>利用（不做手工波束、避免目标错配）；② 目标方向以<b>离散标签</b>注入（噪声下偏向目标，不可靠时能退化为无先验）；③ 严格<b>流式</b>（因果卷积、缓存左上下文、不用未来帧）+ 小参数预算；④ 先验<b>粒度 K</b> 与噪声强度的关系——部署时「选几区先验」的决策依据。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">双路条件：音频路学空间，标签路给方向</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 400" role="img">
+      <!-- 阵列与 DOA 离散化 -->
+      <rect x="20" y="26" width="250" height="180" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="145" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">麦克风阵列 + DOA 离散化</text>
+      <!-- 半圆 6 区 -->
+      <g transform="translate(80,175)">
+        <path d="M 0 0 L 60 -8 A 60 60 0 0 0 52 -30 Z" fill="#0e8a66" opacity=".18"/>
+        <path d="M 0 0 L 52 -30 A 60 60 0 0 0 30 -52 Z" fill="#0e8a66" opacity=".35"/>
+        <path d="M 0 0 L 30 -52 A 60 60 0 0 0 0 -60 Z" fill="#0e8a66" opacity=".52"/>
+        <path d="M 0 0 L 0 -60 A 60 60 0 0 0 -30 -52 Z" fill="#0e8a66" opacity=".69"/>
+        <path d="M 0 0 L -30 -52 A 60 60 0 0 0 -52 -30 Z" fill="#0e8a66" opacity=".86"/>
+        <path d="M 0 0 L -52 -30 A 60 60 0 0 0 -60 -8 Z" fill="#0e8a66"/>
+        <circle cx="-6" cy="0" r="5" fill="#1c2430"/><circle cx="6" cy="0" r="5" fill="#1c2430"/>
+      </g>
+      <text x="80" y="118" font-size="11" fill="#47536a">2ch：3cm 线阵</text>
+      <text x="80" y="136" font-size="11" fill="#47536a">前半球 180° · 6 区×30°</text>
+      <!-- 全圆 12 区 -->
+      <g transform="translate(215,120)">
+        <circle r="38" fill="none" stroke="#0e8a66" stroke-dasharray="4 3"/>
+        <circle cx="0" cy="-40" r="3.2" fill="#1c2430"/><circle cx="34" cy="20" r="3.2" fill="#1c2430"/><circle cx="-34" cy="20" r="3.2" fill="#1c2430"/>
+        <line x1="0" y1="0" x2="27" y2="-27" stroke="#c0392b" stroke-width="2"/>
+        <circle cx="27" cy="-27" r="4" fill="#c0392b"/>
+      </g>
+      <text x="215" y="186" font-size="11" fill="#47536a">3ch：全 360° · 12 区×30°</text>
+      <text x="145" y="206" font-size="10.5" fill="#8a93a5">标签 0 保留 = 无先验（基线/退化模式）</text>
+
+      <!-- 输入 -->
+      <line x1="145" y1="206" x2="145" y2="230" stroke="#0e8a66" stroke-width="2"/>
+      <rect x="300" y="150" width="120" height="80" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="360" y="180" text-anchor="middle" font-size="13" font-weight="600" fill="#1c2430">多通道复数谱</text>
+      <text x="360" y="202" text-anchor="middle" font-size="11" fill="#8a93a5">X_m(f,t)：保相位</text>
+      <text x="360" y="218" text-anchor="middle" font-size="11" fill="#5f8a76">IPD 时延差 + ILD 电平差</text>
+      <text x="360" y="138" text-anchor="middle" font-size="11" fill="#0a6b4e" font-weight="600">为什么不用 Fbank？取模丢相位=断线索</text>
+
+      <line x1="420" y1="190" x2="446" y2="190" stroke="#0e8a66" stroke-width="2.5"/><polygon points="446,190 438,185 438,195" fill="#0e8a66"/>
+      <!-- 空间编码器 -->
+      <rect x="450" y="150" width="140" height="80" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="520" y="176" text-anchor="middle" font-size="13" font-weight="700" fill="#0a6b4e">空间编码器</text>
+      <text x="520" y="196" text-anchor="middle" font-size="10.5" fill="#47536a">复数 Conv2D → 实数 Conv2D</text>
+      <text x="520" y="214" text-anchor="middle" font-size="10.5" fill="#5f8a76">输出 H ∈ R^d，无波束合成</text>
+
+      <!-- DOA 嵌入 -->
+      <rect x="300" y="26" width="290" height="90" rx="10" fill="#f3ede2" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="445" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#b0631d">方向先验路：e_θ = Emb(θ), θ ∈ {0,1,…,K}</text>
+      <text x="445" y="76" text-anchor="middle" font-size="11" fill="#47536a">两层 MLP + ReLU + Dropout + LayerNorm（稳定条件化）</text>
+      <text x="445" y="98" text-anchor="middle" font-size="11" fill="#8a93a5">部署时接任意 DOA 估计器输出；θ=0 即即插即拔</text>
+      <line x1="520" y1="116" x2="520" y2="146" stroke="#d97a2b" stroke-width="2.5"/><polygon points="520,146 515,138 525,138" fill="#d97a2b"/>
+      <!-- 融合 -->
+      <circle cx="592" cy="190" r="14" fill="#0e8a66"/>
+      <text x="592" y="196" text-anchor="middle" font-size="16" fill="#fff" font-weight="700">+</text>
+      <line x1="590" y1="190" x2="576" y2="190" stroke="#0e8a66" stroke-width="2.5"/>
+      <text x="592" y="222" text-anchor="middle" font-size="11" fill="#0a6b4e" font-weight="600">H̃ = H + e_θ</text>
+
+      <line x1="606" y1="190" x2="632" y2="190" stroke="#0e8a66" stroke-width="2.5"/><polygon points="632,190 624,185 624,195" fill="#0e8a66"/>
+      <!-- MDTC -->
+      <rect x="636" y="150" width="150" height="80" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="711" y="176" text-anchor="middle" font-size="13" font-weight="700" fill="#0a6b4e">MDTC 流式骨干</text>
+      <text x="711" y="196" text-anchor="middle" font-size="10.5" fill="#47536a">因果深度可分离时序卷积</text>
+      <text x="711" y="214" text-anchor="middle" font-size="10.5" fill="#5f8a76">变膨胀率扩感受野</text>
+
+      <line x1="786" y1="190" x2="812" y2="190" stroke="#0e8a66" stroke-width="2.5"/><polygon points="812,190 804,185 804,195" fill="#0e8a66"/>
+      <!-- heads -->
+      <rect x="816" y="126" width="88" height="128" rx="10" fill="#0e8a66"/>
+      <text x="860" y="156" text-anchor="middle" font-size="12.5" fill="#fff" font-weight="700">多关键词头</text>
+      <text x="860" y="180" text-anchor="middle" font-size="10.5" fill="#cdeede">每词一个 sigmoid</text>
+      <text x="860" y="196" text-anchor="middle" font-size="10.5" fill="#cdeede">共享编码器</text>
+      <text x="860" y="218" text-anchor="middle" font-size="10" fill="#cdeede">独立阈值触发</text>
+
+      <!-- 底部注解 -->
+      <rect x="20" y="260" width="884" height="122" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="461" y="288" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">加性融合（式 3）的三个「为什么」</text>
+      <text x="40" y="314" font-size="12.5" fill="#47536a">· e_θ 与 H 同维逐时间步广播相加：零额外参数、不改序列形状，对流式骨干完全透明；</text>
+      <text x="40" y="338" font-size="12.5" fill="#47536a">· 加法是「软偏置」不是「硬门控」——先验只把特征往目标方向推一把，判决仍由声学证据主导，方向错了还能靠特征纠偏；</text>
+      <text x="40" y="362" font-size="12.5" fill="#47536a">· 训练目标是标准 C 类交叉熵（有效帧平均）——创新在结构双路条件化，不在损失函数。</text>
+    </svg>
+    <p class="cap"><b>伸缩性即设计收益</b>：从 2ch（6 区）到 3ch（12 区）只需改输入通道维度和嵌入词表大小（6→12），其余网络与训练准则不变——先验粒度 K 因此成为可独立调节的<b>部署旋钮</b>，论文正是靠这个性质完成了粒度-噪声消融。</p>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">端到端九连胜，但先验是锦上添花</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>设置</b>：GSC v1（64,721 条 · 30 词取 10 关键词）逐条 gpuRIR 空间化（房间 3–8m、RT60 0.05–0.8s、距离 0.5–5m）；DEMAND 噪声 17 类（训练 12 / 测试 5，类别隔离）同样空间化后混合；训练 SNR 0–10dB 采样，测试固定 0/5/10dB 各 6,835 条。<b>先验用渲染 RIR 元数据（oracle DOA）</b>——实验清晰但也是最大软肋。
+  </div>
+
+  <h3>主对比（Table 1）</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 330" role="img">
+      <line x1="60" y1="240" x2="860" y2="240" stroke="#f0f1f3"/><text x="52" y="244" text-anchor="end" font-size="12" fill="#9ca3af">65%</text>
+      <line x1="60" y1="206" x2="860" y2="206" stroke="#f0f1f3"/><text x="52" y="210" text-anchor="end" font-size="12" fill="#9ca3af">70%</text>
+      <line x1="60" y1="171" x2="860" y2="171" stroke="#f0f1f3"/><text x="52" y="175" text-anchor="end" font-size="12" fill="#9ca3af">75%</text>
+      <line x1="60" y1="137" x2="860" y2="137" stroke="#f0f1f3"/><text x="52" y="141" text-anchor="end" font-size="12" fill="#9ca3af">80%</text>
+      <line x1="60" y1="103" x2="860" y2="103" stroke="#f0f1f3"/><text x="52" y="107" text-anchor="end" font-size="12" fill="#9ca3af">85%</text>
+      <line x1="60" y1="69" x2="860" y2="69" stroke="#f0f1f3"/><text x="52" y="73" text-anchor="end" font-size="12" fill="#9ca3af">90%</text>
+      <text x="170" y="40" text-anchor="middle" font-size="14" font-weight="700" fill="#111827">SNR = 0 dB</text>
+      <rect x="70" y="207" width="28" height="33" rx="3" fill="#c9ced6"/><text x="84" y="202" text-anchor="middle" font-size="9.5" fill="#374151">69.9</text>
+      <rect x="108" y="191" width="28" height="49" rx="3" fill="#94a3b8"/><text x="122" y="186" text-anchor="middle" font-size="9.5" fill="#374151">72.2</text>
+      <rect x="146" y="158" width="28" height="82" rx="3" fill="#7cc7ad"/><text x="160" y="153" text-anchor="middle" font-size="9.5" fill="#374151">76.9</text>
+      <rect x="184" y="136" width="28" height="104" rx="3" fill="#4fb5a0"/><text x="198" y="131" text-anchor="middle" font-size="9.5" fill="#374151">80.2</text>
+      <rect x="222" y="153" width="28" height="87" rx="3" fill="#0e8a66"/><text x="236" y="148" text-anchor="middle" font-size="9.5" fill="#374151">77.7</text>
+      <rect x="260" y="141" width="28" height="99" rx="3" fill="#0b6e52"/><text x="274" y="136" text-anchor="middle" font-size="9.5" fill="#374151">79.4</text>
+      <text x="430" y="40" text-anchor="middle" font-size="14" font-weight="700" fill="#111827">SNR = 5 dB</text>
+      <rect x="330" y="165" width="28" height="75" rx="3" fill="#c9ced6"/><text x="344" y="160" text-anchor="middle" font-size="9.5" fill="#374151">75.9</text>
+      <rect x="368" y="150" width="28" height="90" rx="3" fill="#94a3b8"/><text x="382" y="145" text-anchor="middle" font-size="9.5" fill="#374151">78.2</text>
+      <rect x="406" y="108" width="28" height="132" rx="3" fill="#7cc7ad"/><text x="420" y="103" text-anchor="middle" font-size="9.5" fill="#374151">84.3</text>
+      <rect x="444" y="97" width="28" height="143" rx="3" fill="#4fb5a0"/><text x="458" y="92" text-anchor="middle" font-size="9.5" fill="#374151">85.8</text>
+      <rect x="482" y="101" width="28" height="139" rx="3" fill="#0e8a66"/><text x="496" y="96" text-anchor="middle" font-size="9.5" fill="#374151">85.2</text>
+      <rect x="520" y="101" width="28" height="139" rx="3" fill="#0b6e52"/><text x="534" y="96" text-anchor="middle" font-size="9.5" fill="#374151">85.2</text>
+      <text x="690" y="40" text-anchor="middle" font-size="14" font-weight="700" fill="#111827">SNR = 10 dB</text>
+      <rect x="590" y="126" width="28" height="114" rx="3" fill="#c9ced6"/><text x="604" y="121" text-anchor="middle" font-size="9.5" fill="#374151">81.7</text>
+      <rect x="628" y="118" width="28" height="122" rx="3" fill="#94a3b8"/><text x="642" y="113" text-anchor="middle" font-size="9.5" fill="#374151">82.9</text>
+      <rect x="666" y="79" width="28" height="161" rx="3" fill="#7cc7ad"/><text x="680" y="74" text-anchor="middle" font-size="9.5" fill="#374151">88.6</text>
+      <rect x="704" y="73" width="28" height="167" rx="3" fill="#4fb5a0"/><text x="718" y="68" text-anchor="middle" font-size="9.5" fill="#374151">89.4</text>
+      <rect x="742" y="73" width="28" height="167" rx="3" fill="#0e8a66"/><text x="756" y="68" text-anchor="middle" font-size="9.5" fill="#374151">89.4</text>
+      <rect x="780" y="71" width="28" height="169" rx="3" fill="#0b6e52"/><text x="794" y="66" text-anchor="middle" font-size="9.5" fill="#374151">89.6</text>
+      <line x1="60" y1="240" x2="860" y2="240" stroke="#9ca3af"/>
+      <rect x="80" y="282" width="13" height="13" rx="3" fill="#c9ced6"/><text x="99" y="293" font-size="12" fill="#374151">单通道 WeKws</text>
+      <rect x="215" y="282" width="13" height="13" rx="3" fill="#94a3b8"/><text x="234" y="293" font-size="12" fill="#374151">GSC 波束级联</text>
+      <rect x="350" y="282" width="13" height="13" rx="3" fill="#7cc7ad"/><text x="369" y="293" font-size="12" fill="#374151">2ch E2E 无先验</text>
+      <rect x="495" y="282" width="13" height="13" rx="3" fill="#4fb5a0"/><text x="514" y="293" font-size="12" fill="#374151">3ch E2E 无先验</text>
+      <rect x="640" y="282" width="13" height="13" rx="3" fill="#0e8a66"/><text x="659" y="293" font-size="12" fill="#374151">2ch+6区先验</text>
+      <rect x="775" y="282" width="13" height="13" rx="3" fill="#0b6e52"/><text x="794" y="293" font-size="12" fill="#374151">3ch+12区先验</text>
+      <text x="60" y="320" font-size="12.5" fill="#9ca3af">参数量：基线/级联 164k，E2E 全系 279k（Table 1）</text>
+    </svg>
+    <p class="cap"><b>读法</b>：E2E 多通道在全部九个（系统×SNR）组合里一致优于非端到端基线；2ch+先验在 2 通道组全 SNR 第一；全场最高是 3ch+12 区先验在 10 dB 的 89.61%。</p>
+  </div>
+
+  <h3>0 dB 增益拆解：钱花在哪了</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 300" role="img">
+      <text x="70" y="30" font-size="13.5" fill="#47536a" font-weight="600">0 dB 准确率瀑布：结构性改动 vs 先验注入 vs 空间采样密度</text>
+      <line x1="70" y1="230" x2="840" y2="230" stroke="#f0f1f3"/><text x="62" y="234" text-anchor="end" font-size="12" fill="#9ca3af">68%</text>
+      <line x1="70" y1="204" x2="840" y2="204" stroke="#f0f1f3"/><text x="62" y="208" text-anchor="end" font-size="12" fill="#9ca3af">70%</text>
+      <line x1="70" y1="179" x2="840" y2="179" stroke="#f0f1f3"/><text x="62" y="183" text-anchor="end" font-size="12" fill="#9ca3af">72%</text>
+      <line x1="70" y1="153" x2="840" y2="153" stroke="#f0f1f3"/><text x="62" y="157" text-anchor="end" font-size="12" fill="#9ca3af">74%</text>
+      <line x1="70" y1="127" x2="840" y2="127" stroke="#f0f1f3"/><text x="62" y="131" text-anchor="end" font-size="12" fill="#9ca3af">76%</text>
+      <line x1="70" y1="101" x2="840" y2="101" stroke="#f0f1f3"/><text x="62" y="105" text-anchor="end" font-size="12" fill="#9ca3af">78%</text>
+      <line x1="70" y1="76" x2="840" y2="76" stroke="#f0f1f3"/><text x="62" y="80" text-anchor="end" font-size="12" fill="#9ca3af">80%</text>
+      <line x1="70" y1="50" x2="840" y2="50" stroke="#f0f1f3"/><text x="62" y="54" text-anchor="end" font-size="12" fill="#9ca3af">82%</text>
+      <rect x="100" y="206" width="90" height="24" rx="4" fill="#c9ced6"/><text x="145" y="198" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">69.86</text>
+      <text x="145" y="252" text-anchor="middle" font-size="12" fill="#374151">单通道基线</text>
+      <rect x="225" y="176" width="90" height="30" rx="4" fill="#94a3b8"/><text x="270" y="168" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">72.19</text>
+      <text x="270" y="252" text-anchor="middle" font-size="12" fill="#374151">+ 波束级联</text>
+      <text x="270" y="270" text-anchor="middle" font-size="11.5" fill="#0a6b4e" font-weight="600">+2.33</text>
+      <rect x="350" y="115" width="90" height="91" rx="4" fill="#7cc7ad"/><text x="395" y="107" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">76.92</text>
+      <text x="395" y="252" text-anchor="middle" font-size="12" fill="#374151">+ 空间编码器进识别器</text>
+      <text x="395" y="270" text-anchor="middle" font-size="11.5" fill="#0a6b4e" font-weight="600">+7.06</text>
+      <rect x="500" y="106" width="90" height="10" rx="3" fill="#0e8a66"/><text x="545" y="98" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">77.67</text>
+      <text x="545" y="252" text-anchor="middle" font-size="12" fill="#374151">+ 6 区方向先验</text>
+      <text x="545" y="270" text-anchor="middle" font-size="11.5" fill="#0a6b4e" font-weight="600">+0.75</text>
+      <rect x="650" y="73" width="90" height="43" rx="4" fill="#4fb5a0"/><text x="695" y="65" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">80.23</text>
+      <text x="695" y="252" text-anchor="middle" font-size="12" fill="#374151">+ 第三支麦克风</text>
+      <text x="695" y="270" text-anchor="middle" font-size="11.5" fill="#0a6b4e" font-weight="600">+3.31</text>
+      <line x1="70" y1="230" x2="840" y2="230" stroke="#9ca3af"/>
+      <text x="70" y="292" font-size="13" fill="#6b7280">0 dB 档的增益拆解（笔者按 Table 1 计算）：大头来自「空间建模搬进识别器」，先验是锦上添花（论文 4.2 节也坦承）</text>
+    </svg>
+  </div>
+
+  <h3>最有信息量的消融：先验粒度 × 噪声强度</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 290" role="img">
+      <text x="80" y="26" font-size="13.5" fill="#47536a" font-weight="600">部署准则：先验粒度应与噪声强度下空间线索的可靠性相匹配</text>
+      <line x1="80" y1="70" x2="840" y2="70" stroke="#f0f1f3"/><text x="72" y="74" text-anchor="end" font-size="12" fill="#9ca3af">+1.5</text>
+      <line x1="80" y1="95" x2="840" y2="95" stroke="#f0f1f3"/><text x="72" y="99" text-anchor="end" font-size="12" fill="#9ca3af">+1.0</text>
+      <line x1="80" y1="120" x2="840" y2="120" stroke="#f0f1f3"/><text x="72" y="124" text-anchor="end" font-size="12" fill="#9ca3af">+0.5</text>
+      <line x1="80" y1="170" x2="840" y2="170" stroke="#f0f1f3"/><text x="72" y="174" text-anchor="end" font-size="12" fill="#9ca3af">−0.5</text>
+      <line x1="80" y1="195" x2="840" y2="195" stroke="#f0f1f3"/><text x="72" y="199" text-anchor="end" font-size="12" fill="#9ca3af">−1.0</text>
+      <text x="235" y="50" text-anchor="middle" font-size="14" font-weight="700" fill="#111827">SNR = 0 dB</text>
+      <rect x="140" y="108" width="52" height="38" rx="4" fill="#0e8a66"/><text x="166" y="100" text-anchor="middle" font-size="12.5" font-weight="700" fill="#374151">+0.75</text>
+      <rect x="230" y="145" width="52" height="42" rx="4" fill="#d97a2b"/><text x="256" y="205" text-anchor="middle" font-size="12.5" font-weight="700" fill="#374151">−0.84</text>
+      <text x="485" y="50" text-anchor="middle" font-size="14" font-weight="700" fill="#111827">SNR = 5 dB</text>
+      <rect x="390" y="96" width="52" height="50" rx="4" fill="#0e8a66"/><text x="416" y="88" text-anchor="middle" font-size="12.5" font-weight="700" fill="#374151">+0.99</text>
+      <rect x="480" y="145" width="52" height="32" rx="4" fill="#d97a2b"/><text x="506" y="194" text-anchor="middle" font-size="12.5" font-weight="700" fill="#374151">−0.63</text>
+      <text x="735" y="50" text-anchor="middle" font-size="14" font-weight="700" fill="#111827">SNR = 10 dB</text>
+      <rect x="640" y="102" width="52" height="42" rx="4" fill="#0e8a66"/><text x="666" y="94" text-anchor="middle" font-size="12.5" font-weight="700" fill="#374151">+0.85</text>
+      <rect x="730" y="134" width="52" height="10" rx="3" fill="#d97a2b"/><text x="756" y="126" text-anchor="middle" font-size="12.5" font-weight="700" fill="#374151">+0.21</text>
+      <line x1="80" y1="145" x2="840" y2="145" stroke="#374151"/>
+      <rect x="330" y="237" width="13" height="13" rx="3" fill="#0e8a66"/><text x="349" y="248" font-size="12.5" fill="#374151">2ch · 6 区粗先验</text>
+      <rect x="530" y="237" width="13" height="13" rx="3" fill="#d97a2b"/><text x="549" y="248" font-size="12.5" fill="#374151">3ch · 12 区细先验</text>
+      <text x="80" y="282" font-size="13" fill="#6b7280">净增益 =（带先验 − 无先验）百分点（笔者按 Table 1 计算）：粗先验全程小正收益；细先验低 SNR 特征-先验失配倒扣，10 dB 才兑现</text>
+    </svg>
+    <p class="cap"><b>发现一（论文 4.2 自承）</b>：先验整体边际偏小，主因是<b>评测里没有干扰说话人</b>——没有方向性竞争者时，多通道声学特征本身已高度信息丰富。这划定了结论边界：方向先验的价值要在有竞争说话人的场景才能充分兑现，而本文恰恰还没测那个场景。细先验低 SNR 被反超的机理：12 区高分辨率先验条件化在「被噪声涂抹」的特征上，增加特征-先验失配风险；无先验基线凭数据驱动的灵活性反而更稳。</p>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">五条可以带走的东西</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>统一端到端框架</b><br><span style="color:var(--ink-2)">可学习空间编码器 + 方向嵌入 + 流式共享骨干，全部在标准交叉熵下联合训练，取消级联系统的中间增强产物。</span></div>
+    <div class="c"><span class="n">2</span><b>双路互补条件化</b><br><span style="color:var(--ink-2)">音频侧隐式空间特征 + 标签侧显式离散方向先验（含标签 0 的退化模式），可插拔。</span></div>
+    <div class="c"><span class="n">3</span><b>实证优势</b><br><span style="color:var(--ink-2)">279k vs 164k 参数预算下，九个（系统×SNR）组合全胜单通道与波束级联；0 dB 相对提升 11.18%。</span></div>
+    <div class="c"><span class="n">4</span><b>粒度-噪声权衡的部署洞察</b><br><span style="color:var(--ink-2)">「干净条件用细先验、重噪声用粗先验或退到标签 0」——超越单点数字的方法论贡献。</span></div>
+    <div class="c"><span class="n">5</span><b>可伸缩可运营</b><br><span style="color:var(--ink-2)">通道数与先验词表独立伸缩；多唤醒词 = 共享编码器 + 独立 sigmoid 头，加减关键词只训小头——对家电运营需求友好。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与展望</p>
+  <h2 class="sec">实验半径明显小于主张半径</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法本身的技术局限</h4>
+      <ul>
+        <li><b>先验是单点硬假设</b>：单一离散区的确定性嵌入，不建模 DOA 不确定性；测试用 oracle DOA，估计出错时如何降级未验证。</li>
+        <li><b>融合方式无对照</b>：加性融合是唯一测试的条件化方式；FiLM 式调制、拼接、cross-attention 均未比。</li>
+        <li><b>空间编码器动机不透明</b>：两级子采样器超参未列出；复数卷积成本数倍于实数，FLOPs/延迟未报告，「轻量」无法核实。</li>
+        <li><b>参数预算非免费</b>：279k 对 164k 约 +70%，MCU 级极端成本敏感部署需论证。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>全仿真数据</b>：gpuRIR + DEMAND，无真实远场阵列录音；sim-to-real 落差未量化。</li>
+        <li><b>缺干扰说话人场景</b>：方向先验设计所针对的核心场景恰恰没测——「目标说话人感知」的实际收益仍是推断而非证据。</li>
+        <li><b>指标单薄</b>：只有 utterance 准确率；无 FRR@FA / AUC / DET / 触发延迟 / 连续流表现。</li>
+        <li><b>无统计显著性</b>：单次结果无方差，0.6 点级差异可能落在随机波动内；摘要「组合最优」表述偏乐观（仅 10dB 成立）。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:18px">
+    <b>值得跟进的方向</b>（论文 Section 5 + 笔者判断）：① 可训练 DOA 估计器集成进多任务框架，替代外部 oracle；② localize–enhance–wake 三合一联合管线缓解高混响下的特征-先验失配；③ 概率化空间嵌入（以 DOA 为条件的连续分布）吸收估计不确定性；④ 产品化最优先补三块实验——真实阵列 + 真实 DOA 误差、竞争说话人场景、FRR@FA 口径；⑤ 先验粒度按 SNR 自适应选择（干净用细、噪声重用粗或退标签 0）。<b>总评</b>：结构清晰、消融诚实的工业界论文——「空间建模进识别器优于级联」证据充分；「方向先验在多说话人噪声场景的价值」仍是一张待兑现的支票。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2026/End-to-End_Direction-Aware_Keyword_Spotting_With_Spatial_Priors_In_Noisy_Environments.md">📝 深读笔记（Markdown）</a>
+    <a class="pill" href="/papers/2026/End-to-End_Direction-Aware_Keyword_Spotting_With_Spatial_Priors_In_Noisy_Environments.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2603.09505" target="_blank">🔗 arXiv:2603.09505</a>
+  </div>
+  本页所有数字均出自论文 Table 1 与 4.1/4.2 节；增益拆解与先验净增益为笔者按 Table 1 计算（正文已标注）。深读笔记与可视化页同源生成，转载请注明出处。
+</footer>
+
+</div>
+</body>
+</html>
