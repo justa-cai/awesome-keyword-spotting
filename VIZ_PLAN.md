@@ -4,7 +4,7 @@
 > 每完成一篇：生成 `papers/<year>/<name>.html` → 更新 `viz_manifest.json` → 本文件勾选 → 分批 commit+push。
 > 状态：✅ 已上线 · ⬜ 待做。进度 = 已完成 / 总数。
 
-**进度：24 / 305**
+**进度：25 / 305**
 
 ## 2026（24/24）
 
@@ -33,11 +33,11 @@
 - [✅] ProKWS: Personalized Keyword Spotting via Collaborative …
 - [✅] Scalable Keyword Spotting via Modular Network Expansion：…
 
-## 2025（0/36）
+## 2025（1/36）
 
 - [⬜] ASAP-FE：面向边缘处理器多通道关键词检出的节能特征提取前端
 - [⬜] 免乘法器 MFCC 特征提取器的低功耗关键词检测芯片
-- [⬜] AdaKWS: Towards Robust Keyword Spotting with Test-Time A…
+- [✅] AdaKWS: Towards Robust Keyword Spotting with Test-Time A…
 - [⬜] 自适应噪声鲁棒关键词检测：用单样本学习实现端侧连续噪声自适应
 - [⬜] 小足迹关键词检测的进展：高效模型与算法全景综述
 - [⬜] ADML：用模态对抗深度度量学习打通开放词表关键词检测的音文跨模态对齐
