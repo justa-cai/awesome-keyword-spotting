@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TDT-KWS · Token-and-Duration Transducer · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2024/TDT-KWS_Fast_And_Accurate_Keyword_Spotting_Using_Token-and-duration_Transducer.md">深读笔记</a>
+    <a href="/papers/2024/TDT-KWS_Fast_And_Accurate_Keyword_Spotting_Using_Token-and-duration_Transducer.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2403.13332" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2024 №38</p>
+  <h1>多数帧与关键词无关，凭什么每帧都做决策？——<br>锁死搜索空间 + 时长跳帧，准与快两端同时受益</h1>
+  <p class="sub">TDT-KWS: Fast and Accurate Keyword Spotting Using Token-and-Duration Transducer</p>
+  <p class="meta"><b>作者</b>：Yu Xi、Hao Li、Baochen Yang、Haoyu Li、Hainan Xu、Kai Yu（通讯）—— 上海交大 X-LANCE · 思必驰 · NVIDIA</p>
+  <p class="meta"><b>发表</b>：arXiv 2403.13332（2024-03）· ~2M 参数端侧配置，TDT 时长头仅占 0.1%</p>
+  <div class="chips">
+    <span class="chip">KWS 专用流式解码</span><span class="chip">δ(t,0)=1 任意起点</span><span class="chip">帧异步跳帧搜索</span>
+    <span class="chip">test-other 召回 57.6→88.1</span><span class="chip">搜索加速 1.4–4.2×</span><span class="chip">噪声下优势拉大</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>痛点：常驻系统的结构性浪费</b>。唤醒词系统是每时每刻都在耗算力的守夜人——误报、召回、计算负担三角张力尖锐。Transducer 性能好但自回归解码计算密集；更结构性的是<b>所有已有 Transducer KWS 都「直接跑 ASR 解码再检查输出里有没有关键词」</b>：搜索空间不加约束（概率质量与算力分配给无关 token 路径）、自回归假设递归推高解码成本、帧同步决策让静音段也逐帧付账——为一个几秒出现一次的词支付逐帧全量搜索代价。</li>
+      <li><b>核心算法（对 RNN-T 与 TDT 通用）三个咬合设计</b>：① 预测器只吃<b>关键词 token 序列</b>（teacher forcing 式）——每帧 DP 开销与关键词长度 U 同阶、与词表大小无关；② <b>δ(t,0)=1</b>——每个 t 都允许「关键词从这帧重新开始」的假设免费入场，DP 自动维护任意起点最优路径（流式唤醒最微妙的起始点问题被一行解决）；③ TDT 分支<b>时长引导跳帧</b>——每步 d=argmax P_D，跳过的帧不产生置信度也不触发搜索。</li>
+      <li><b>收益第一来源是搜索不是模型（Table 2 硬证据）</b>：同一 RNN-T 模型，贪心→本文算法在 test-other 上 57.6→<b>88.1</b>（+30.5 点）、束搜索 60.0→88.1；TDT 上 63.2→87.9。越难的集，锁死搜索空间的收益越大。</li>
+      <li><b>TDT 首次进 KWS</b>：joiner 输出升级为 P(v,d|t,u)=P_T(v)·P_D(d)（条件独立，时长头仅 0.1% 参数）——一次跨多帧，模型调用次数随 Dmax 下降。召回持平或更好（Snips 98.6 vs 基线 98.1；test-other Dmax=4 的 91.9 还超基线 90.2）的前提下，<b>搜索加速 1.4–4.2×、系统级 1.4–3.6×</b>。</li>
+      <li><b>Dmax 甜点由任务难度决定（最有信息量的消融）</b>：Snips（静音+一个短语，模式简单）对大 Dmax 不敏感；LibriKWS-20 甜点在 4–6——<b>适度跳帧意外成为「聚焦关键帧」的正则化</b>，跳过头则漏 token 退化；加速边际递减（静音段长度有上限，无帧可跳）。</li>
+      <li><b>噪声鲁棒</b>：WHAM! 加噪不重训——噪声越大 TDT 相对 RNN-T 优势越大，且各 SNR 下加速保持。机理（笔者推测）：帧同步在噪声下逐帧决策错误累积，TDT 时长机制在时间维聚合证据、跳过不确定帧。</li>
+      <li><b>边界</b>：条件独立假设未做对照实验；置信度未长度归一化（不同长度关键词不宜共用阈值，论文靠固定 FAR 宏平均回避）；跳帧依赖贪心历史不可回溯（大 Dmax 退化的直接体现）；TDT 侧缺束搜索对照；加速只有相对倍数（无硬件、绝对 RTF、功耗）；LibriKWS-20 是自建仿真且误报集仅 ~3 小时（FAR=0.67/h 对应 2 次误报，统计置信度有限）。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">架构层面已有共识，问题出在解码与搜索层面</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>三层不足拆解</b>：① <b>搜索空间不加约束</b>——ASR 解码在整个词表空间搜索完整假设，而 KWS 只关心固定关键词在与不在，把概率质量与算力分配给无关路径「既不有效也不高效」（RNN-T 贪心在 Snips 宏召回只有 79.7、束 10 也只 89.4，约束到关键词后 98.7）；② <b>自回归依赖推高成本</b>——预测器被递归喂部分假设，每个假设 token 都要更新预测器状态再做 joiner 计算，解码计算量随假设长度增长；③ <b>帧同步决策本身是浪费</b>——每帧都必须做一次搜索决策（步长 d≡1），哪怕纯属静音。
+  </div>
+
+  <div class="card">
+    <b>为什么是 TDT</b>：Token-and-Duration Transducer（ICML 2023，同团队前作）联合预测 token 及其时长，在序列建模上同时拿到更好性能与显著加速——KWS 音频里绝大多数帧与关键词无关，恰是时长引导跳帧最能发挥的场景。但 TDT 的默认搜索同样为 ASR 设计、不考虑 KWS 特性，直接搬来照样不行——本文填补的空白：TDT 的潜力需要 KWS 专用解码算法才能释放。三个环环相扣的问题：KWS 专用流式解码（约束搜索空间 + 任意时刻起始）；时长预测换真实可测加速而非纸面理论值；加速不以鲁棒性为代价。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">格点上的动态规划 + 时长跳帧</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg viewBox="0 0 920 660" role="img">
+  <defs>
+    <marker id="da" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#47536a"/></marker>
+    <marker id="dg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0e8a66"/></marker>
+    <marker id="do" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#d97a2b"/></marker>
+  </defs>
+  <text x="30" y="26" font-size="13.5" fill="#47536a" font-weight="600">图 1 复绘：解码格点 (t,u) —— 三个互相咬合的设计让搜索只围着关键词转</text>
+
+  <!-- lattice -->
+  <rect x="30" y="52" width="440" height="330" rx="11" fill="#fff" stroke="#c9c9bd" stroke-width="1.3"/>
+  <text x="46" y="76" font-size="12.5" font-weight="700" fill="#47536a">格点图：u = 关键词 token 位置，t = 声学帧</text>
+  <!-- u=0 row nodes
+  nodes: (t,u) grid 6 cols x 4 rows -->
+  <!-- draw grid nodes -->
+  <circle cx="110" cy="300" r="5" fill="#8a93a5"/><circle cx="180" cy="300" r="5" fill="#8a93a5"/><circle cx="250" cy="300" r="5" fill="#8a93a5"/><circle cx="320" cy="300" r="5" fill="#8a93a5"/><circle cx="390" cy="300" r="5" fill="#8a93a5"/><circle cx="110" cy="240" r="5" fill="#47536a"/><circle cx="180" cy="240" r="5" fill="#47536a"/><circle cx="250" cy="240" r="5" fill="#47536a"/><circle cx="320" cy="240" r="5" fill="#47536a"/><circle cx="390" cy="240" r="5" fill="#47536a"/><circle cx="110" cy="180" r="5" fill="#47536a"/><circle cx="180" cy="180" r="5" fill="#47536a"/><circle cx="250" cy="180" r="5" fill="#47536a"/><circle cx="320" cy="180" r="5" fill="#47536a"/><circle cx="390" cy="180" r="5" fill="#47536a"/><circle cx="110" cy="120" r="5" fill="#0e8a66"/><circle cx="180" cy="120" r="5" fill="#0e8a66"/><circle cx="250" cy="120" r="5" fill="#0e8a66"/><circle cx="320" cy="120" r="5" fill="#0e8a66"/><circle cx="390" cy="120" r="5" fill="#0e8a66"/>
+  <!-- horizontal blank arrows (a few) -->
+  <line x1="116" y1="300" x2="174" y2="300" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#da)"/><line x1="186" y1="300" x2="244" y2="300" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#da)"/><line x1="256" y1="300" x2="314" y2="300" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#da)"/><line x1="326" y1="300" x2="384" y2="300" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#da)"/><line x1="116" y1="240" x2="174" y2="240" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#da)"/><line x1="186" y1="240" x2="244" y2="240" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#da)"/><line x1="256" y1="240" x2="314" y2="240" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#da)"/><line x1="116" y1="180" x2="174" y2="180" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#da)"/><line x1="186" y1="180" x2="244" y2="180" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#da)"/><line x1="256" y1="180" x2="314" y2="180" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#da)"/>
+  <!-- vertical token arrows -->
+  <line x1="110" y1="294" x2="110" y2="246" stroke="#0e8a66" stroke-width="1.6" marker-end="url(#dg)"/><line x1="180" y1="294" x2="180" y2="246" stroke="#0e8a66" stroke-width="1.6" marker-end="url(#dg)"/><line x1="250" y1="234" x2="250" y2="186" stroke="#0e8a66" stroke-width="1.6" marker-end="url(#dg)"/><line x1="320" y1="174" x2="320" y2="126" stroke="#0e8a66" stroke-width="1.6" marker-end="url(#dg)"/><line x1="390" y1="234" x2="390" y2="186" stroke="#0e8a66" stroke-width="1.6" marker-end="url(#dg)"/>
+  <!-- highlight best path: (110,300)->(110,240)->(180,240)? keep simple -->
+  <text x="46" y="330" font-size="11" fill="#8a93a5">u=0（blank 起点）</text>
+  <text x="46" y="270" font-size="11" fill="#47536a">u=1 …</text>
+  <text x="46" y="152" font-size="11" fill="#0a6b4e">u=U（收尾）</text>
+  <text x="400" y="330" font-size="11" fill="#8a93a5">t →</text>
+  <text x="252" y="106" font-size="11.5" font-weight="700" fill="#0a6b4e">Score[t] = δ(t,U) · φ(t,U)</text>
+  <text x="252" y="352" font-size="11" fill="#8a93a5">水平箭头 = 发射 blank（φ），竖直 = 发射关键词 token（y）</text>
+  <rect x="46" y="330" width="0" height="0"/>
+  <rect x="42" y="286" width="96" height="34" rx="8" fill="#e6f4ee" stroke="#0e8a66" stroke-width="1.2"/>
+  <text x="90" y="308" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">δ(t,0)=1 ★</text>
+  <text x="46" y="372" font-size="10.5" fill="#0a6b4e">每个 t 都允许「关键词从这帧重新开始」的假设免费入场——</text>
+  <text x="46" y="372" font-size="0">.</text>
+  <text x="46" y="372" font-size="0">.</text>
+  <text x="240" y="372" font-size="10.5" fill="#0a6b4e">DP 自动维护任意起点的最优路径</text>
+
+  <!-- three designs -->
+  <rect x="500" y="52" width="390" height="330" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.2"/>
+  <text x="516" y="76" font-size="12.5" font-weight="700" fill="#47536a">三个互相咬合的设计（算法 1）</text>
+  <text x="516" y="104" font-size="11.5" font-weight="700" fill="#0a6b4e">① 预测器只吃关键词 token 序列（teacher forcing）</text>
+  <text x="516" y="126" font-size="11" fill="#47536a">vs ASR 解码递归喂部分假设——预测器输入从「长度不确定的</text>
+  <text x="516" y="146" font-size="11" fill="#47536a">假设前缀」固定为「至多 U 的关键词前缀」，(t,u) 概率可系统性</text>
+  <text x="516" y="166" font-size="11" fill="#47536a">算出；每帧 DP 开销与 U 同阶、与词表大小无关（音素级 ~十几个）</text>
+  <text x="516" y="196" font-size="11.5" font-weight="700" fill="#0a6b4e">② δ(t,0)=1：任意时刻开始的关键词检测</text>
+  <text x="516" y="216" font-size="11" fill="#47536a">不需要显式枚举所有可能起始时刻——流式唤醒最微妙的</text>
+  <text x="516" y="236" font-size="11" fill="#47536a">起始点问题被 DP 一行解决</text>
+  <text x="516" y="266" font-size="11.5" font-weight="700" fill="#a35c14">③ TDT 分支：时长引导跳帧（帧异步搜索）</text>
+  <text x="516" y="288" font-size="11" fill="#47536a">RNN-T：步长 d 恒 1（帧同步，每帧都做搜索决策）</text>
+  <text x="516" y="308" font-size="11" fill="#47536a">TDT：每步 d = argmax P_D(d|t,G)，跳过的帧 Score 直接置零、</text>
+  <text x="516" y="328" font-size="11" fill="#47536a">不触发搜索计算——静音段 / 无关帧不再逐帧付账</text>
+  <text x="516" y="352" font-size="10.5" fill="#8a93a5">细节：路径分数以关键词前缀为条件，跳帧决策以贪心历史 G 为条件，两套各司其职</text>
+
+  <!-- network -->
+  <rect x="30" y="402" width="500" height="140" rx="11" fill="#f2faf6" stroke="#9ec9b8" stroke-width="1.2"/>
+  <text x="46" y="426" font-size="12.5" font-weight="700" fill="#0a6b4e">网络骨架（Tiny Transducer 配置 · ~2M 参数）</text>
+  <text x="46" y="450" font-size="11" fill="#47536a">编码器 6 层 DFSMN（隐 512 / 投影 320 · 左右上下文 8/2）</text>
+  <text x="46" y="470" font-size="11" fill="#47536a">预测器：无状态实现（上下文 2 · 嵌入 320）</text>
+  <text x="46" y="490" font-size="11" fill="#47536a">joiner → 256 维 → 70 单音素（cmudict）+ blank</text>
+  <text x="46" y="516" font-size="11" fill="#0a6b4e">TDT 时长头：仅占总参数 0.1%，换搜索步数成倍下降</text>
+  <text x="46" y="536" font-size="10.5" fill="#8a93a5">RNN-T 与 TDT 网络完全一致、只差时长头——Table 3 是干净的控制变量实验</text>
+
+  <!-- fig2 hint -->
+  <rect x="550" y="402" width="340" height="140" rx="11" fill="#f9faf7" stroke="#e6e6df" stroke-width="1.1"/>
+  <text x="566" y="426" font-size="12.5" font-weight="700" fill="#47536a">Fig 2 · 跳帧行为直观证据</text>
+  <text x="566" y="450" font-size="11" fill="#47536a">test-clean 关键词 everything 的例句：(t,u) 格点热图上</text>
+  <text x="566" y="470" font-size="11" fill="#47536a">TDT 的搜索点明显更稀疏——竖直黄虚线为强制对齐词边界</text>
+  <text x="566" y="494" font-size="11" fill="#0a6b4e">帧同步 = 模型调用次数等于帧数；</text>
+  <text x="566" y="514" font-size="11" fill="#0a6b4e">TDT 一次跨多帧，调用次数随 Dmax 增大而下降</text>
+  <text x="566" y="536" font-size="10.5" fill="#8a93a5">训练：速度扰动 {0.9,1.0,1.1} · SpecAugment · 440 维拼接 · 3 倍子采样</text>
+
+  <text x="30" y="572" font-size="11.5" font-weight="700" fill="#47536a">为什么比 ASR 解码更准：搜索空间被限制在关键词本身——模型不必在与任务无关的词表路径上分散概率质量（neither effective nor efficient 的反面）</text>
+  <text x="30" y="596" font-size="11" fill="#8a93a5">为什么真实可加速：两种口径分开报告——相对搜索加速只量推理模块（跳帧作用处），相对运行加速量整个系统（特征提取与编码器开销不变，系统级略低于搜索级），如 Dmax=10 Snips：搜索 4.19× / 系统 3.58×</text>
+  <text x="30" y="620" font-size="11" fill="#8a93a5">指标设计：召回固定在特定 FAR 下报告（Snips FAR=0.02 次/h；LibriKWS-20 宏召回 @ 平均 FAR=0.67 次/h——20 关键词等权，不被单关键词主导）</text>
+</svg>
+    <p class="cap"><b>图 1/2 复绘</b>：格点图上竖直箭头发射关键词 token、水平箭头发射 blank；δ(t,0)=1 让新起点假设每帧免费入场——两个设计合起来把搜索从「全词表 × 全时刻」压缩到「关键词 × DP 自动管理的起点」。</p>
+  </div>
+
+  <div class="formula">
+    P(v, d | t, u) = P<sub>T</sub>(v | t, u) · P<sub>D</sub>(d | t, u)
+    <div class="why">式 1 · TDT 的条件独立假设：token 分布与时长分布解耦、各占一个输出头。工程价值两层：时长头极小（0.1% 参数）、两头并行无串行依赖；代价是 token 身份与时长天然相关（不同音素时长分布差异大），解耦可能损失联合信息——论文未对此假设做对照实验（见 §05）。Dmax 是训练前超参，越大跳帧越激进。</div>
+  </div>
+
+  <div class="formula">
+    δ(t,u) = max( δ(t,u−1)·y(t,u−1),&nbsp; δ(t−d,u)·φ(t−d,u) )；&nbsp; Score[t] = δ(t,U) · φ(t,U)
+    <div class="why">式 2–4 · DP 递推与置信度：y(t,u) 是发射第 u+1 个关键词 token 的概率（竖直箭头），φ(t,u) 是发射 blank 的概率（水平箭头）；Score[t] 取「到 t 时刻恰好完整输出全部 U 个 token 的最优路径分数」再乘该格点继续发 blank 的概率——乘 blank 这一项给置信度加上「关键词在此刻收尾、而非更长词前缀」的收尾约束。注意：路径分数以关键词前缀为条件（teacher forcing），跳帧决策以贪心历史 G 为条件——两套条件各司其职。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与消融</p>
+  <h2 class="sec">固定 FAR 工作点 + 两种加速口径分开报告</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据与指标</b>：Hey Snips（正样本 5876/2504/2588 训练/开发/测试；负样本无转写不进训练，拼成 ~97 小时误报集）；LibriKWS-20（自建：从 LibriSpeech-960h 选 20 个词模拟连续语音流检测，误报集各 ~3 小时）；WHAM! 噪声。指标：固定误报率下的召回（Snips FAR=0.02 次/h；LibriKWS-20 宏召回 @ 平均 FAR=0.67 次/h——20 关键词等权宏平均，不被单关键词主导）；加速分<b>搜索模块级</b>与<b>系统级</b>两种口径（跳帧只作用于搜索端，混报会稀释真实来源——Dmax=10 Snips：搜索 4.19× / 系统 3.58×）。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 420" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 2 · 同一模型只换解码（宏召回 %）：收益的第一来源是搜索空间约束，不是换模型</text>
+<line x1="70" y1="299.8" x2="830" y2="299.8" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="303.8" text-anchor="end" font-size="12" fill="#6b7a72">60</text>
+<line x1="70" y1="239.4" x2="830" y2="239.4" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="243.4" text-anchor="end" font-size="12" fill="#6b7a72">70</text>
+<line x1="70" y1="179.0" x2="830" y2="179.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="183.0" text-anchor="end" font-size="12" fill="#6b7a72">80</text>
+<line x1="70" y1="118.5" x2="830" y2="118.5" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="122.5" text-anchor="end" font-size="12" fill="#6b7a72">90</text>
+<line x1="70" y1="58.1" x2="830" y2="58.1" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="62.1" text-anchor="end" font-size="12" fill="#6b7a72">100</text>
+<line x1="70" y1="330" x2="830" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="261" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">Hey Snips</text>
+<rect x="148.0" y="180.8" width="34" height="149.2" rx="4" fill="#b9c6bd"/>
+<text x="165.0" y="174.8" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">79.7</text>
+<rect x="192.0" y="122.2" width="34" height="207.8" rx="4" fill="#8a93a5"/>
+<text x="209.0" y="116.2" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">89.4</text>
+<rect x="236.0" y="146.3" width="34" height="183.7" rx="4" fill="#d9c9a8"/>
+<text x="253.0" y="140.3" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">85.4</text>
+<rect x="280.0" y="66.0" width="34" height="264.0" rx="4" fill="#0e8a66"/>
+<text x="297.0" y="60.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">98.7</text>
+<rect x="324.0" y="64.8" width="34" height="265.2" rx="4" fill="#0a6b4e"/>
+<text x="341.0" y="58.8" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">98.9</text>
+<text x="165.0" y="348.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">RNN-T</text>
+<text x="165.0" y="361.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">贪心</text>
+<text x="209.0" y="348.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">RNN-T</text>
+<text x="209.0" y="361.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">束10</text>
+<text x="253.0" y="348.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">TDT</text>
+<text x="253.0" y="361.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">贪心</text>
+<text x="297.0" y="348.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">RNN-T</text>
+<text x="297.0" y="361.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">+ 本文 ★</text>
+<text x="341.0" y="348.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">TDT</text>
+<text x="341.0" y="361.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">+ 本文 ★</text>
+<text x="526" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">LibriKWS test-clean</text>
+<rect x="413.0" y="163.9" width="34" height="166.1" rx="4" fill="#b9c6bd"/>
+<text x="430.0" y="157.9" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">82.5</text>
+<rect x="457.0" y="162.6" width="34" height="167.4" rx="4" fill="#8a93a5"/>
+<text x="474.0" y="156.6" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">82.7</text>
+<rect x="501.0" y="151.2" width="34" height="178.8" rx="4" fill="#d9c9a8"/>
+<text x="518.0" y="145.2" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">84.6</text>
+<rect x="545.0" y="73.2" width="34" height="256.8" rx="4" fill="#0e8a66"/>
+<text x="562.0" y="67.2" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">97.5</text>
+<rect x="589.0" y="68.4" width="34" height="261.6" rx="4" fill="#0a6b4e"/>
+<text x="606.0" y="62.4" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">98.3</text>
+<text x="430.0" y="348.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">RNN-T</text>
+<text x="430.0" y="361.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">贪心</text>
+<text x="474.0" y="348.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">RNN-T</text>
+<text x="474.0" y="361.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">束10</text>
+<text x="518.0" y="348.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">TDT</text>
+<text x="518.0" y="361.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">贪心</text>
+<text x="562.0" y="348.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">RNN-T</text>
+<text x="562.0" y="361.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">+ 本文 ★</text>
+<text x="606.0" y="348.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">TDT</text>
+<text x="606.0" y="361.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">+ 本文 ★</text>
+<text x="786" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">LibriKWS test-other</text>
+<rect x="673.0" y="314.3" width="34" height="15.7" rx="4" fill="#b9c6bd"/>
+<text x="690.0" y="308.3" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">57.6</text>
+<rect x="717.0" y="299.8" width="34" height="30.2" rx="4" fill="#8a93a5"/>
+<text x="734.0" y="293.8" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">60.0</text>
+<rect x="761.0" y="280.5" width="34" height="49.5" rx="4" fill="#d9c9a8"/>
+<text x="778.0" y="274.5" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1c2430">63.2</text>
+<rect x="805.0" y="130.0" width="34" height="200.0" rx="4" fill="#0e8a66"/>
+<text x="822.0" y="124.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">88.1</text>
+<rect x="849.0" y="131.2" width="34" height="198.8" rx="4" fill="#0a6b4e"/>
+<text x="866.0" y="125.2" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">87.9</text>
+<text x="690.0" y="348.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">RNN-T</text>
+<text x="690.0" y="361.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">贪心</text>
+<text x="734.0" y="348.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">RNN-T</text>
+<text x="734.0" y="361.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">束10</text>
+<text x="778.0" y="348.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">TDT</text>
+<text x="778.0" y="361.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">贪心</text>
+<text x="822.0" y="348.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">RNN-T</text>
+<text x="822.0" y="361.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">+ 本文 ★</text>
+<text x="866.0" y="348.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">TDT</text>
+<text x="866.0" y="361.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">+ 本文 ★</text>
+<text x="440" y="390" text-anchor="middle" font-size="12" fill="#8c3b2e">test-other 上本文算法比贪心高 30.5 点、比束搜索高 28.1 点（57.6/60.0 → 88.1）——越难的集，锁死搜索空间的收益越大；TDT 束搜索实现写作时不可用（原表注）</text>
+</svg>
+    <p class="cap"><b>Table 2</b>（宏召回，各系统误报水平相近）：同一模型只换解码的受控对比——提升全部来自搜索空间约束；后续实验统一只用 KWS 专用解码。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 470" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 3 · Dmax 扫描：召回持平或更好 + 搜索加速 1.4–4.2×（RNN-T 与 TDT 网络只差时长头）</text>
+<text x="250" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">宏召回%（基线 RNN-T 为虚线）</text>
+<line x1="70" y1="330.0" x2="470" y2="330.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="334.0" text-anchor="end" font-size="11.5" fill="#6b7a72">88</text>
+<line x1="70" y1="262.5" x2="470" y2="262.5" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="266.5" text-anchor="end" font-size="11.5" fill="#6b7a72">91</text>
+<line x1="70" y1="195.0" x2="470" y2="195.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="199.0" text-anchor="end" font-size="11.5" fill="#6b7a72">94</text>
+<line x1="70" y1="127.5" x2="470" y2="127.5" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="131.5" text-anchor="end" font-size="11.5" fill="#6b7a72">97</text>
+<line x1="70" y1="60.0" x2="470" y2="60.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="64.0" text-anchor="end" font-size="11.5" fill="#6b7a72">100</text>
+<line x1="70" y1="330" x2="470" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="110" y="352" text-anchor="middle" font-size="11" fill="#47536a">RNN-T</text>
+<text x="175" y="352" text-anchor="middle" font-size="11" fill="#47536a">2</text>
+<text x="240" y="352" text-anchor="middle" font-size="11" fill="#47536a">4</text>
+<text x="305" y="352" text-anchor="middle" font-size="11" fill="#47536a">6</text>
+<text x="370" y="352" text-anchor="middle" font-size="11" fill="#47536a">8</text>
+<text x="435" y="352" text-anchor="middle" font-size="11" fill="#47536a">10</text>
+<text x="270" y="372" text-anchor="middle" font-size="11.5" fill="#47536a">Dmax（RNN-T 基线 = 帧同步 d≡1）</text>
+<path d="M 110 102.8 110 102.8 L 175 100.5 L 240 105.0 L 305 111.7 L 370 145.5 L 435 91.5" fill="none" stroke="#0e8a66" stroke-width="2.2"/>
+<circle cx="110" cy="102.8" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="175" cy="100.5" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="240" cy="105.0" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="305" cy="111.7" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="370" cy="145.5" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="435" cy="91.5" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<text x="445" y="94.5" font-size="10" font-weight="600" fill="#0e8a66">Snips</text>
+<path d="M 110 82.5 110 82.5 L 175 107.2 L 240 93.8 L 305 80.3 L 370 87.0 L 435 89.2" fill="none" stroke="#3d6fa8" stroke-width="2.6"/>
+<path d="M 110 82.5 L 110 82.5" stroke="#3d6fa8" stroke-width="2" stroke-dasharray="5 3" opacity="0.5"/>
+<circle cx="110" cy="82.5" r="4" fill="#3d6fa8" stroke="#fff" stroke-width="1.1"/>
+<circle cx="175" cy="107.2" r="4" fill="#3d6fa8" stroke="#fff" stroke-width="1.1"/>
+<circle cx="240" cy="93.8" r="4" fill="#3d6fa8" stroke="#fff" stroke-width="1.1"/>
+<circle cx="305" cy="80.3" r="4" fill="#3d6fa8" stroke="#fff" stroke-width="1.1"/>
+<circle cx="370" cy="87.0" r="4" fill="#3d6fa8" stroke="#fff" stroke-width="1.1"/>
+<circle cx="435" cy="89.2" r="4" fill="#3d6fa8" stroke="#fff" stroke-width="1.1"/>
+<text x="445" y="92.2" font-size="10" font-weight="600" fill="#3d6fa8">test-clean</text>
+<path d="M 110 280.5 110 280.5 L 175 300.8 L 240 242.2 L 305 278.3 L 370 264.7 L 435 296.2" fill="none" stroke="#d97a2b" stroke-width="2.6"/>
+<path d="M 110 280.5 L 110 280.5" stroke="#d97a2b" stroke-width="2" stroke-dasharray="5 3" opacity="0.5"/>
+<circle cx="110" cy="280.5" r="4" fill="#d97a2b" stroke="#fff" stroke-width="1.1"/>
+<circle cx="175" cy="300.8" r="4" fill="#d97a2b" stroke="#fff" stroke-width="1.1"/>
+<circle cx="240" cy="242.2" r="4" fill="#d97a2b" stroke="#fff" stroke-width="1.1"/>
+<circle cx="305" cy="278.3" r="4" fill="#d97a2b" stroke="#fff" stroke-width="1.1"/>
+<circle cx="370" cy="264.7" r="4" fill="#d97a2b" stroke="#fff" stroke-width="1.1"/>
+<circle cx="435" cy="296.2" r="4" fill="#d97a2b" stroke="#fff" stroke-width="1.1"/>
+<text x="445" y="299.2" font-size="10" font-weight="600" fill="#d97a2b">test-other</text>
+<text x="240" y="316.5" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">clean 甜点 Dmax=6（99.1）· other 甜点 Dmax=4（91.9）</text>
+<text x="665" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">相对搜索加速（×，相对 RNN-T）</text>
+<line x1="510" y1="330.0" x2="830" y2="330.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="334.0" text-anchor="end" font-size="11.5" fill="#6b7a72">1×</text>
+<line x1="510" y1="268.6" x2="830" y2="268.6" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="272.6" text-anchor="end" font-size="11.5" fill="#6b7a72">2×</text>
+<line x1="510" y1="207.3" x2="830" y2="207.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="211.3" text-anchor="end" font-size="11.5" fill="#6b7a72">3×</text>
+<line x1="510" y1="145.9" x2="830" y2="145.9" stroke="#e8ece9" stroke-width="1"/>
+<text x="502" y="149.9" text-anchor="end" font-size="11.5" fill="#6b7a72">4×</text>
+<line x1="510" y1="330" x2="830" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="550" y="352" text-anchor="middle" font-size="11" fill="#47536a">2</text>
+<text x="607" y="352" text-anchor="middle" font-size="11" fill="#47536a">4</text>
+<text x="664" y="352" text-anchor="middle" font-size="11" fill="#47536a">6</text>
+<text x="721" y="352" text-anchor="middle" font-size="11" fill="#47536a">8</text>
+<text x="778" y="352" text-anchor="middle" font-size="11" fill="#47536a">10</text>
+<text x="690" y="372" text-anchor="middle" font-size="11.5" fill="#47536a">Dmax</text>
+<path d="M 550 303.0 550 303.0 L 607 195.0 L 664 168.6 L 721 140.4 L 778 134.2" fill="none" stroke="#0e8a66" stroke-width="2.6"/>
+<circle cx="550" cy="303.0" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="607" cy="195.0" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="664" cy="168.6" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="721" cy="140.4" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="778" cy="134.2" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<text x="788" y="137.2" font-size="10" font-weight="600" fill="#0e8a66">Snips</text>
+<path d="M 550 295.0 550 295.0 L 607 266.8 L 664 265.0 L 721 265.0 L 778 259.4" fill="none" stroke="#3d6fa8" stroke-width="2.6"/>
+<circle cx="550" cy="295.0" r="4" fill="#3d6fa8" stroke="#fff" stroke-width="1.1"/>
+<circle cx="607" cy="266.8" r="4" fill="#3d6fa8" stroke="#fff" stroke-width="1.1"/>
+<circle cx="664" cy="265.0" r="4" fill="#3d6fa8" stroke="#fff" stroke-width="1.1"/>
+<circle cx="721" cy="265.0" r="4" fill="#3d6fa8" stroke="#fff" stroke-width="1.1"/>
+<circle cx="778" cy="259.4" r="4" fill="#3d6fa8" stroke="#fff" stroke-width="1.1"/>
+<text x="788" y="262.4" font-size="10" font-weight="600" fill="#3d6fa8">test-clean</text>
+<path d="M 550 295.0 550 295.0 L 607 269.9 L 664 266.8 L 721 268.6 L 778 265.6" fill="none" stroke="#d97a2b" stroke-width="2.6"/>
+<circle cx="550" cy="295.0" r="4" fill="#d97a2b" stroke="#fff" stroke-width="1.1"/>
+<circle cx="607" cy="269.9" r="4" fill="#d97a2b" stroke="#fff" stroke-width="1.1"/>
+<circle cx="664" cy="266.8" r="4" fill="#d97a2b" stroke="#fff" stroke-width="1.1"/>
+<circle cx="721" cy="268.6" r="4" fill="#d97a2b" stroke="#fff" stroke-width="1.1"/>
+<circle cx="778" cy="265.6" r="4" fill="#d97a2b" stroke="#fff" stroke-width="1.1"/>
+<text x="788" y="268.6" font-size="10" font-weight="600" fill="#d97a2b">test-other</text>
+<text x="670" y="188.9" text-anchor="middle" font-size="10.5" fill="#8a93a5">系统级加速略低：Dmax=10 时 Snips 搜索 4.19× / 系统 3.58×</text>
+<text x="440" y="398" text-anchor="middle" font-size="12" fill="#0a6b4e">甜点分化：Snips 模式简单（静音+一个短语）对大 Dmax 不敏感；LibriKWS 甜点在 4–6——适度跳帧意外成为「聚焦关键帧」的正则化，跳过头则漏 token 退化</text>
+<text x="440" y="420" text-anchor="middle" font-size="12" fill="#47536a">加速边际递减：静音段长度有上限，Dmax 再大也无帧可跳（clean/other 自 Dmax=4 起平台化在 ~2×）</text>
+</svg>
+    <p class="cap"><b>Table 3</b>（FAR=0.02 次/h 与 0.67 次/h 工作点）：左看召回（甜点 4–6、Snips 不敏感）、右看加速（边际递减、clean/other 平台化 ~2×）。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 320" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Fig 3 · 噪声鲁棒性（结构示意：WHAM! 加噪、不重训、逐点数值原文以曲线图呈现未列表）</text>
+<line x1="70" y1="280.0" x2="560" y2="280.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="284.0" text-anchor="end" font-size="11.5" fill="#6b7a72">60</text>
+<line x1="70" y1="225.0" x2="560" y2="225.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="229.0" text-anchor="end" font-size="11.5" fill="#6b7a72">70</text>
+<line x1="70" y1="170.0" x2="560" y2="170.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="174.0" text-anchor="end" font-size="11.5" fill="#6b7a72">80</text>
+<line x1="70" y1="115.0" x2="560" y2="115.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="119.0" text-anchor="end" font-size="11.5" fill="#6b7a72">90</text>
+<line x1="70" y1="60.0" x2="560" y2="60.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="64.0" text-anchor="end" font-size="11.5" fill="#6b7a72">100</text>
+<line x1="70" y1="280" x2="560" y2="280" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="130" y="300" text-anchor="middle" font-size="11.5" fill="#47536a">0 dB</text>
+<text x="254" y="300" text-anchor="middle" font-size="11.5" fill="#47536a">5 dB</text>
+<text x="378" y="300" text-anchor="middle" font-size="11.5" fill="#47536a">10 dB</text>
+<text x="502" y="300" text-anchor="middle" font-size="11.5" fill="#47536a">15 dB</text>
+<text x="626" y="300" text-anchor="middle" font-size="11.5" fill="#47536a">20 dB</text>
+<text x="750" y="300" text-anchor="middle" font-size="11.5" fill="#47536a">+inf</text>
+<path d="M 130 236.0 130 236.0 L 254 170.0 L 378 120.5 L 502 93.0 L 626 79.2 L 750 70.5" fill="none" stroke="#8a93a5" stroke-width="2.4"/>
+<path d="M 130 192.0 130 192.0 L 254 137.0 L 378 98.5 L 502 79.2 L 626 71.0 L 750 67.7" fill="none" stroke="#0e8a66" stroke-width="2.8"/>
+<circle cx="130" cy="236.0" r="4.5" fill="#8a93a5" stroke="#fff" stroke-width="1.2"/>
+<circle cx="130" cy="192.0" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="254" cy="170.0" r="4.5" fill="#8a93a5" stroke="#fff" stroke-width="1.2"/>
+<circle cx="254" cy="137.0" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="378" cy="120.5" r="4.5" fill="#8a93a5" stroke="#fff" stroke-width="1.2"/>
+<circle cx="378" cy="98.5" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="502" cy="93.0" r="4.5" fill="#8a93a5" stroke="#fff" stroke-width="1.2"/>
+<circle cx="502" cy="79.2" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="626" cy="79.2" r="4.5" fill="#8a93a5" stroke="#fff" stroke-width="1.2"/>
+<circle cx="626" cy="71.0" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="750" cy="70.5" r="4.5" fill="#8a93a5" stroke="#fff" stroke-width="1.2"/>
+<circle cx="750" cy="67.7" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<text x="230" y="120" font-size="11.5" font-weight="700" fill="#8c3b2e">噪声越大差距越大 ↓</text>
+<rect x="90" y="40" width="13" height="13" rx="3" fill="#8a93a5"/><text x="108" y="51" font-size="11.5" fill="#47536a">RNN-T KWS</text>
+<rect x="220" y="40" width="13" height="13" rx="3" fill="#0e8a66"/><text x="238" y="51" font-size="11.5" fill="#0a6b4e">TDT-KWS（Dmax=10）</text>
+<text x="715" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="#47536a">各 SNR 下加速保持</text>
+<text x="600" y="114" font-size="11" fill="#47536a">0 dB</text>
+<rect x="660" y="110" width="150" height="16" rx="4" fill="#0e8a66" opacity="0.75"/>
+<text x="820" y="122" font-size="10.5" fill="#8a93a5">≈ 恒定</text>
+<text x="600" y="140" font-size="11" fill="#47536a">5 dB</text>
+<rect x="660" y="136" width="150" height="16" rx="4" fill="#0e8a66" opacity="0.75"/>
+<text x="820" y="148" font-size="10.5" fill="#8a93a5">≈ 恒定</text>
+<text x="600" y="166" font-size="11" fill="#47536a">10 dB</text>
+<rect x="660" y="162" width="150" height="16" rx="4" fill="#0e8a66" opacity="0.75"/>
+<text x="820" y="174" font-size="10.5" fill="#8a93a5">≈ 恒定</text>
+<text x="600" y="192" font-size="11" fill="#47536a">15 dB</text>
+<rect x="660" y="188" width="150" height="16" rx="4" fill="#0e8a66" opacity="0.75"/>
+<text x="820" y="200" font-size="10.5" fill="#8a93a5">≈ 恒定</text>
+<text x="600" y="218" font-size="11" fill="#47536a">20 dB</text>
+<rect x="660" y="214" width="150" height="16" rx="4" fill="#0e8a66" opacity="0.75"/>
+<text x="820" y="226" font-size="10.5" fill="#8a93a5">≈ 恒定</text>
+<text x="600" y="244" font-size="11" fill="#47536a">+inf</text>
+<rect x="660" y="240" width="150" height="16" rx="4" fill="#0e8a66" opacity="0.75"/>
+<text x="820" y="252" font-size="10.5" fill="#8a93a5">≈ 恒定</text>
+<text x="440" y="318" text-anchor="middle" font-size="11" fill="#8a93a5">曲线形态为示意（原文 Fig 3 只有曲线无表）；笔者推测的机理：帧同步每帧决策在噪声下错误逐帧累积，TDT 时长机制在时间维聚合声学证据、跳过不确定帧，减少错误传播</text>
+</svg>
+    <p class="cap"><b>Fig 3 结构示意</b>：原文只给曲线无逐点数值表——左panel曲线形态与「噪声越大差距越大」的结论有据，具体纵轴读数为示意。</p>
+  </div>
+
+  <div class="card">
+    <b>为什么换关键词不痛</b>：建模单元是 70 个 cmudict 单音素 + blank——任意关键词都能由同一套小词表组合出来（LibriKWS-20 的 20 个词全部覆盖），输出层轻，换关键词不必换输出单元，只需换解码模板的 token 序列。网络骨架沿用 Tiny Transducer（ICASSP 2021）被后续多工作反复确认的低风险配置：DFSMN 编码器（前馈记忆块、参数效率高）+ 无状态预测器 + 线性 joiner，~2M 参数；RNN-T 与 TDT 版本网络完全一致只差时长头——Table 3 因此是干净的控制变量实验。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">三条贡献 + 一条可迁移判断</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>面向 Transducer 的 KWS 专用流式解码算法</b>：δ(t,0)=1 任意起点 + 预测器只喂关键词序列 + DP 显式路径置信度；对常规 Transducer 与 TDT 通用，三个测试集大幅超越 ASR 解码（test-other 57.6→88.1）。</div>
+    <div class="c"><span class="n">2</span><b>首次把 TDT 引入 KWS</b>：持平或更好的召回 + 推理加速 2–4×，时长头参数代价仅 0.1%——极小代价博取大收益的典型。</div>
+    <div class="c"><span class="n">3</span><b>低信噪比鲁棒性验证</b>：WHAM! 加噪下噪声越大优势越大、加速各 SNR 保持——对极端环境压误报守唤醒有实际意义。</div>
+    <div class="c"><span class="n" style="background:#d97a2b">★</span><b>可迁移判断</b>：当任务只关心固定小词表在与不在时，<b>把「约束」写进搜索结构</b>（预测器输入固定、搜索空间锁定、置信度按关键词路径定义）比换更强的模型收益更大、代价更小；而「跳过与任务无关的帧」不仅是省算力——适度跳帧还能当正则化用（聚焦关键帧），甜点位置由任务难度决定。</div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">贪心历史不可回溯，加速只有相对倍数</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>条件独立假设的建模损失</b>：token 与时长解耦换来 0.1% 开销与实现简单，但不同音素时长分布差异大——联合信息损失几何未知，论文未做对照实验。</li>
+        <li><b>置信度未归一化</b>：Score[t] 是路径概率连乘，数值随关键词 token 数 U 增大单调变小——不同长度关键词不宜共用阈值；论文靠固定 FAR 宏平均回避显式阈值标定，多关键词部署时长度偏置可能显现。</li>
+        <li><b>跳帧依赖贪心历史且不可回溯</b>：时长预测以贪心解码历史 G 为条件，贪心错误传导进跳帧决策、被跳的帧无法追回——大 Dmax 下「跳过本该预测的 token」正是无纠错能力的直接体现。</li>
+        <li><b>TDT 侧缺束搜索对照</b>（写作时实现不可用）+ <b>多关键词搜索成本未量化</b>：20 个词靠逐词宏平均；关键词数量增长时每个词各自维护 DP 的代价扩展未报告。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>LibriKWS-20 是自建仿真</b>：朗读语料选词模拟，与真实唤醒词的口语化发音、远场混响、信道差异有距离；误报集 ~3 小时，FAR=0.67/h 只对应 2 次误报——统计置信度有限。</li>
+        <li><b>Hey Snips 负样本未参与训练</b>：97 小时负样本因无转写只用于评测——负例监督缺失可能影响易混淆词抑制，未尝试无监督利用。</li>
+        <li><b>缺非 Transducer 路线对比</b>：不与 cFSMN / DS-CNN / MatchboxNet 等经典小脚印架构比，也不与同为 Transducer 系的 CaTT-KWS 正面对垒——版图位置无法定位。</li>
+        <li><b>单一工作点 + 相对加速</b>：无完整 ROC/DET 曲线，不同误报预算下优劣不可见；无测试硬件、绝对实时率、内存、功耗——端侧真实收益无法直接换算；噪声仅 WHAM! 加性且不重训，未覆盖混响 / 多说话人 / 音乐。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得补的方向</b>：时长头做 token 条件化或联合建模，放宽条件独立假设换精度上限；置信度长度归一化或多关键词统一阈值标定；与量化、剪枝叠加验证复合加速；真实远场多条件训练复验噪声结论；利用无转写负样本做误报抑制训练（对比学习 / 负例微调）压 FAR；解码算法推广到自定义唤醒词与多关键词共享搜索结构，降低关键词数增长的搜索开销。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2024/TDT-KWS_Fast_And_Accurate_Keyword_Spotting_Using_Token-and-duration_Transducer.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2024/TDT-KWS_Fast_And_Accurate_Keyword_Spotting_Using_Token-and-duration_Transducer.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2403.13332" target="_blank">arXiv · 2403.13332</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（Table 1–3、Fig 1–3、算法 1、式 1–4）；Fig 3 复绘为结构示意。错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
