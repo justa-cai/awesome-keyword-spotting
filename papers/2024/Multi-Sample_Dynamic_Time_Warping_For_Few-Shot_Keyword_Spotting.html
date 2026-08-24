@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multi-Sample DTW · 少样本 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2024/Multi-Sample_Dynamic_Time_Warping_For_Few-Shot_Keyword_Spotting.md">深读笔记</a>
+    <a href="/papers/2024/Multi-Sample_Dynamic_Time_Warping_For_Few-Shot_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2404.14903" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2024 №21</p>
+  <h1>均值抹掉变异性、逐样本烧不起 DP——<br>把 min 从「得分层」挪到「代价层」，两头都要</h1>
+  <p class="sub">Multi-Sample Dynamic Time Warping for Few-Shot Keyword Spotting</p>
+  <p class="meta"><b>作者</b>：Kevin Wilkinghoff、Alessia Cornaggia-Urrigshardt —— Fraunhofer FKIE（德国）</p>
+  <p class="meta"><b>发表</b>：2024.04 · arXiv:2404.14903</p>
+  <div class="chips">
+    <span class="chip">少样本开放集 KWS</span><span class="chip">代价张量逐元素 min</span><span class="chip">下界保证不劣</span>
+    <span class="chip">改造 Fréchet 均值（交替结构）</span><span class="chip">单次 DBA 迭代对齐</span><span class="chip">并行 2.4-2.9× 提速</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>两难</b>：少样本开放集 KWS 靠模板匹配（QbyE + DTW）。C 类 × 每类 K 个样本对 10 分钟长序列做子序列 DTW → O(N·M·C·K)，逐样本查询随 K 线性膨胀「可能高度不实用甚至不可行」；每类压缩成一个 Fréchet 均值 → O(N·M·C) 快但「抹平」了类内变异性（不同说话人 / 上下文 / 时长节奏）——HFCC 上均值把 F 值从 58.82 拉到 42.44、召回崩到 36.46%。</li>
+      <li><b>方案（四步）</b>：① 每类求 Fréchet 均值做参考模板（且做「改造」）；② 每个样本经<b>单次 DBA 迭代</b>对齐到参考模板的时间网格（保持个性但时间结构统一，为逐元素合并创造可比性）；③ K 张代价矩阵堆成张量、<b>逐元素取 min</b> 坍缩成一张；④ 每类只跑<b>一次</b>子序列 DTW。</li>
+      <li><b>为什么 min 放代价层</b>：任何单样本的最优路径在合并矩阵中仍可行且逐点代价不增 → <b>D*<sub>multi</sub> ≤ min<sub>k</sub> D*<sub>k</sub></b>（下界保证不劣于逐样本）；且路径可中途换样本 = 用 K 个真实样本隐式编码指数级伪模板（「样本 A 的开头接样本 B 的结尾」）——某些测试发音与重组模板比与任何单一真实样本都近。</li>
+      <li><b>改造 Fréchet 均值</b>：标准 DBA 后再施加一次用子序列 DTW + 非标准步集 {(1,1),(1,2),(2,1)} 的 DBA——隔帧吸收新信息，模板呈「原始条目与新条目交替」结构 = 单模板编码两个可替换模板，<b>零运行时间增量</b>下 HFCC +7.10 点 / 嵌入 +8.47 点。</li>
+      <li><b>结果</b>：KWS-DailyTalk 5-shot，嵌入特征 multi-sample 并行版 F 69.43%（对逐样本 69.48% 实质持平、验证集还反超 1.89 点且精确率召回率同升）、运行 6.5s（对逐样本 18.9s 提速 2.9×、对理论最优均值 4.2s 只慢 1.5×）。</li>
+      <li><b>最有迁移价值的交叉结论</b>：均值策略的伤害与特征判别性成反比——HFCC 掉 16.38 点、嵌入只掉 10.22 点；特征越「生」（免训练手工特征）越不要用均值压缩模板。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">变异性保留 × 计算效率的两难</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>三条既有路线的失效机制</b>：① DTW 加速技术（Sakoe-Chiba 带 / 剪枝 / 对角并行）——优化的都是「一次 DTW」内部的常数与并行度，<b>完全不触及 K 因子的乘性放大</b>；② Fréchet 均值压缩——DTW 度量下求均值是 NP 完全（只能启发式），更致命的是均值是「抹平」而关键词判别恰依赖被抹平的细节；③ 聚类多均值（每簇一个均值）——伪模板数 = 簇数、切换只能在簇均值粒度发生，仍是有损压缩。两条路线之间没有中间形态：「性能与逐样本持平、运行时间与单均值接近」这一档在本文之前是空白。<b>三层挑战</b>：数学上保留全部 K 个样本贡献（非有损压缩）；工程上把 K 因子从串行 DP 转移到可并行部分；配套上需要一个统一时间网格的对齐机制且本身不引入新损失。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">计算负载的重新分配 + 信息保真的下包络</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 440" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">Fig.1 复绘：四步流程 + 为什么串行 DP 是大头</text>
+      <rect x="30" y="56" width="190" height="150" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="125" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#47536a">Step 1 参考模板</text>
+      <text x="48" y="106" font-size="10.5" fill="#47536a">DBA 求 Fréchet 均值</text>
+      <text x="48" y="126" font-size="10.5" fill="#47536a">（Sakoe-Chiba 半径 1）</text>
+      <text x="48" y="150" font-size="10.5" fill="#0a6b4e">+ 第二次 DBA：子序列 DTW +</text>
+      <text x="48" y="170" font-size="10.5" fill="#0a6b4e">非标准步集 →「改造均值」★</text>
+      <text x="48" y="194" font-size="10" fill="#8a93a5">（隔帧吸收 → 交替结构，图 2）</text>
+      <line x1="220" y1="131" x2="252" y2="131" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="252,131 244,126 244,136" fill="#5f8a76"/>
+      <rect x="254" y="56" width="210" height="150" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="359" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#0a6b4e">Step 2 样本转换</text>
+      <text x="272" y="106" font-size="10.5" fill="#47536a">每个样本对参考模板做一次</text>
+      <text x="272" y="126" font-size="10.5" fill="#47536a">DBA 迭代：匹配位置的条目</text>
+      <text x="272" y="146" font-size="10.5" fill="#47536a">被算术平均替换</text>
+      <text x="272" y="172" font-size="10.5" fill="#5f8a76">→ K 个样本落到同一时间网格</text>
+      <text x="272" y="192" font-size="10" fill="#8a93a5">单次迭代不收敛：保个性不抹平</text>
+      <line x1="464" y1="131" x2="496" y2="131" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="496,131 488,126 488,136" fill="#5f8a76"/>
+      <rect x="498" y="56" width="220" height="150" rx="11" fill="#0e8a66"/>
+      <text x="608" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Step 3 代价张量 → min</text>
+      <text x="516" y="106" font-size="10.5" fill="#d8f3e7">K 张代价矩阵（余弦距离，可并行）</text>
+      <text x="516" y="126" font-size="10.5" fill="#d8f3e7">堆成三维张量 → 样本维逐元素</text>
+      <text x="516" y="146" font-size="10.5" fill="#d8f3e7">取最小值 → 坍缩成一张</text>
+      <text x="516" y="172" font-size="10.5" fill="#d8f3e7">→ 路径可在不同样本间切换 ★</text>
+      <text x="516" y="194" font-size="10" fill="#d8f3e7">min 一步「相对昂贵但极易并行」</text>
+      <line x1="718" y1="131" x2="750" y2="131" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="750,131 742,126 742,136" fill="#5f8a76"/>
+      <rect x="752" y="56" width="138" height="150" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="821" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#0a6b4e">Step 4 单次 DTW</text>
+      <text x="770" y="106" font-size="10.5" fill="#47536a">子序列 DTW</text>
+      <text x="770" y="126" font-size="10.5" fill="#47536a">步集 {(1,1),(1,2),(2,1)}</text>
+      <text x="770" y="152" font-size="10.5" fill="#5f8a76">每类只跑一次 ★</text>
+      <text x="770" y="176" font-size="10" fill="#8a93a5">得分 = 最优路径</text>
+      <text x="770" y="192" font-size="10" fill="#8a93a5">累积代价</text>
+      <rect x="30" y="226" width="420" height="200" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="48" y="252" font-size="12.5" font-weight="700" fill="#47536a">计算负载的重新分配</text>
+      <text x="48" y="278" font-size="11" fill="#47536a">DTW 运行时间 = 局部代价（逐元素、无数据依赖、天然可并行）</text>
+      <text x="48" y="298" font-size="11" fill="#47536a">　　　　　　 + DP 累积扫描（每格依赖左/上邻居、严格串行、大头）</text>
+      <text x="48" y="326" font-size="11" fill="#0a6b4e">K 张代价矩阵省不掉（省掉丢变异性）→ 保留但折叠成一张，</text>
+      <text x="48" y="346" font-size="11" fill="#0a6b4e">最昂贵的串行 DP 每类只跑一次：K 因子从「K 次串行 DP」</text>
+      <text x="48" y="366" font-size="11" fill="#0a6b4e">降级为「K 份可并行局部代价 + 一次可并行 min」</text>
+      <text x="48" y="398" font-size="10.5" fill="#8a93a5">诚实账本：名义总复杂度仍 O(N·M·C·K)（常数大减）——</text>
+      <text x="48" y="414" font-size="10.5" fill="#8a93a5">Fréchet 均值的 O(N·M·C) 是理论下界，本方法只能逼近</text>
+      <rect x="470" y="226" width="420" height="200" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="488" y="252" font-size="12.5" font-weight="700" fill="#0a6b4e">改造均值的交替结构（Fig.2 右半）</text>
+      <text x="488" y="278" font-size="11" fill="#47536a">第二次 DBA 用非标准步集——匹配可跳过隔帧条目，</text>
+      <text x="488" y="298" font-size="11" fill="#47536a">更新「每隔一个条目」吸收新信息</text>
+      <text x="488" y="326" font-size="11" fill="#0a6b4e">→ 模板时间轴呈「原始均值条目 / 新条目」交替纹理：</text>
+      <text x="488" y="346" font-size="11" fill="#0a6b4e">偶数位 = 模板一、奇数位 = 模板二——跳帧步可选只走一套</text>
+      <text x="488" y="374" font-size="11" fill="#5f8a76">→「时间复用」把两个候选发音塞进同一模板，容量翻倍，</text>
+      <text x="488" y="394" font-size="11" fill="#5f8a76">　 且跳帧选择性与下游 DTW 步集天然兼容，零解码开销</text>
+      <text x="488" y="418" font-size="10.5" fill="#8a93a5">可独立使用（Table I「改造均值」行）也可做 Step 1 参考模板</text>
+    </svg>
+    <p class="cap"><b>图 A</b>·为什么选 min 而非均值 / 最大值：DTW 找最小代价路径——min 保持解释一致性（合并矩阵仍是合法代价矩阵，DP 零修改）且保证下界性质；均值重新引入抹平，最大值变成「最差样本视角」。Step 2 单次迭代的分寸：目标是「保持个性、时间结构服从参考坐标系」，迭代到收敛会把样本拉向参考模板、重新抹平。</p>
+  </div>
+
+  <div class="formula">
+    c<sub>k</sub>(i,j) = 1 − cos(q<sup>(k)</sup><sub>i</sub>, x<sub>j</sub>)；　C(i,j) = min<sub>k</sub> c<sub>k</sub>(i,j)；　D*<sub>multi</sub> ≤ min<sub>k</sub> D*<sub>k</sub>
+    <div class="why"><b>人话</b>：在模板时间格点 × 目标时间格点的每个交叉位置，代价取 K 个样本里最便宜的那个——类内变异性不是被抹掉而是被完整包进一张「下包络」矩阵供 DP 自由取用。任何单样本的最优路径在合并矩阵里依然可行且逐点代价不增——这就是「不劣于逐样本」的数学保证。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">追平逐样本、逼近均值速度、且验证集反超</h2>
+  <div class="sec-line"></div>
+
+<div class="fig"><svg viewBox="0 0 880 330" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">三种聚合的对比：min 作用的位置决定了变异性保多少、DP 跑几次</text>
+<text x="150" y="60" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">逐样本查询</text>
+<rect x="30" y="78" width="240" height="36" rx="7" fill="#b9c6bd" opacity="0.25"/>
+<text x="150" y="101" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">K 个样本</text>
+<line x1="150" y1="114" x2="150" y2="124" stroke="#9aa79e" stroke-width="1.4"/>
+<rect x="30" y="124" width="240" height="36" rx="7" fill="#b9c6bd" opacity="0.25"/>
+<text x="150" y="147" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">各算一张代价矩阵</text>
+<line x1="150" y1="160" x2="150" y2="170" stroke="#9aa79e" stroke-width="1.4"/>
+<rect x="30" y="170" width="240" height="36" rx="7" fill="#c0563f" opacity="1"/>
+<text x="150" y="193" text-anchor="middle" font-size="11.5" font-weight="600" fill="#fff">K 次完整 DP</text>
+<line x1="150" y1="206" x2="150" y2="216" stroke="#9aa79e" stroke-width="1.4"/>
+<rect x="30" y="216" width="240" height="36" rx="7" fill="#b9c6bd" opacity="0.25"/>
+<text x="150" y="239" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">得分层 min</text>
+<text x="150" y="286" text-anchor="middle" font-size="10.5" fill="#77837b">O(N·M·C·K) 串行 DP × K</text>
+<text x="150" y="304" text-anchor="middle" font-size="10.5" fill="#77837b">精度好但不可行</text>
+<text x="438" y="60" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">Fréchet 均值</text>
+<rect x="318" y="78" width="240" height="36" rx="7" fill="#b9c6bd" opacity="0.25"/>
+<text x="438" y="101" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">K 个样本</text>
+<line x1="438" y1="114" x2="438" y2="124" stroke="#9aa79e" stroke-width="1.4"/>
+<rect x="318" y="124" width="240" height="36" rx="7" fill="#c0563f" opacity="1"/>
+<text x="438" y="147" text-anchor="middle" font-size="11.5" font-weight="600" fill="#fff">特征空间平均（有损）</text>
+<line x1="438" y1="160" x2="438" y2="170" stroke="#9aa79e" stroke-width="1.4"/>
+<rect x="318" y="170" width="240" height="36" rx="7" fill="#b9c6bd" opacity="0.25"/>
+<text x="438" y="193" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">1 张代价矩阵</text>
+<line x1="438" y1="206" x2="438" y2="216" stroke="#9aa79e" stroke-width="1.4"/>
+<rect x="318" y="216" width="240" height="36" rx="7" fill="#0e8a66" opacity="1"/>
+<text x="438" y="239" text-anchor="middle" font-size="11.5" font-weight="600" fill="#fff">1 次 DP</text>
+<text x="438" y="286" text-anchor="middle" font-size="10.5" fill="#77837b">O(N·M·C)</text>
+<text x="438" y="304" text-anchor="middle" font-size="10.5" fill="#77837b">快但变异性被抹平</text>
+<text x="726" y="60" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0a6b4e">multi-sample DTW ★</text>
+<rect x="606" y="78" width="240" height="36" rx="7" fill="#b9c6bd" opacity="0.25"/>
+<text x="726" y="101" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">K 个样本</text>
+<line x1="726" y1="114" x2="726" y2="124" stroke="#9aa79e" stroke-width="1.4"/>
+<rect x="606" y="124" width="240" height="36" rx="7" fill="#7cc0a2" opacity="0.25"/>
+<text x="726" y="147" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">各算一张（可并行）</text>
+<line x1="726" y1="160" x2="726" y2="170" stroke="#9aa79e" stroke-width="1.4"/>
+<rect x="606" y="170" width="240" height="36" rx="7" fill="#0e8a66" opacity="1"/>
+<text x="726" y="193" text-anchor="middle" font-size="11.5" font-weight="600" fill="#fff">代价层逐元素 min</text>
+<line x1="726" y1="206" x2="726" y2="216" stroke="#9aa79e" stroke-width="1.4"/>
+<rect x="606" y="216" width="240" height="36" rx="7" fill="#0e8a66" opacity="1"/>
+<text x="726" y="239" text-anchor="middle" font-size="11.5" font-weight="600" fill="#fff">1 次 DP</text>
+<text x="726" y="286" text-anchor="middle" font-size="10.5" fill="#0a6b4e">名义 O(N·M·C·K) 但串行 DP 每类只一次</text>
+<text x="726" y="304" text-anchor="middle" font-size="10.5" fill="#77837b">两头都要</text>
+<text x="440" y="326" text-anchor="middle" font-size="12" fill="#0a6b4e">下界性质：任何单样本的最优路径在合并矩阵中仍可行且逐点代价不增 → D*multi ≤ min_k D*k —— 路径中途可换样本 = 隐式编码指数级伪模板</text>
+</svg>
+    <p class="cap"><b>图 B</b>·「得分层 min」被移到「代价层 min」——min 作用的位置前移了一整个 DP。这正是与逐样本查询的本质差异：逐样本要 K 次完整串行 DP 才能知道哪个样本最便宜；multi-sample 在 DP 之前就把每个格点的最便宜样本选好了，昂贵的串行部分只剩一次。</p>
+  </div>
+
+  <div class="card">
+    <b>数据</b>：KWS-DailyTalk（少样本开放集基准）——训练 15 词 × 各 5 个孤立样本（共 75 条 / 39 秒），词表为金融出行场景（含 "credit card" 双词关键词——对时间规整更高要求）；验证 / 测试各 156 / 157 句连续语音（约 10 分钟 / 集），每句含零或多个关键词、每词各出现约 12 次；<b>训练样本取自不同对话</b>——说话人与上下文隔离，直接测跨说话人泛化（变异性问题的根源）。<b>指标</b>：事件级微平均 F（须同时命中 onset/offset 与类别——帧级看不到的边界惩罚）；P/R 并列（阈值控制权衡，均值路线的召回崩塌只有 P/R 才暴露）；<b>运行时间作为一等公民指标</b>（特征提取外、i7-8700 实测）。后处理：重叠候选保留得分最高、删除短于模板 50% 的检测。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 400" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table I · 测试 F 值 × 运行时间（KFIT-DailyTalk，5-shot，i7-8700）</text>
+<line x1="70" y1="305.0" x2="830" y2="305.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="309.0" text-anchor="end" font-size="12" fill="#6b7a72">40</text>
+<line x1="70" y1="230.0" x2="830" y2="230.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="234.0" text-anchor="end" font-size="12" fill="#6b7a72">50</text>
+<line x1="70" y1="155.0" x2="830" y2="155.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="159.0" text-anchor="end" font-size="12" fill="#6b7a72">60</text>
+<line x1="70" y1="80.0" x2="830" y2="80.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="84.0" text-anchor="end" font-size="12" fill="#6b7a72">70</text>
+<line x1="70" y1="320" x2="830" y2="320" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="86.0" y="163.8" width="52" height="156.2" rx="4" fill="#b9c6bd"/>
+<text x="112.0" y="156.8" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1c2430">58.8</text>
+<text x="112.0" y="340" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">逐样本</text>
+<text x="112.0" y="355" text-anchor="middle" font-size="10.5" fill="#8a93a5"></text>
+<text x="112.0" y="372" text-anchor="middle" font-size="11" font-weight="600" fill="#77837b">29.5 s</text>
+<rect x="162.0" y="286.7" width="52" height="33.3" rx="4" fill="#c0563f"/>
+<text x="188.0" y="279.7" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1c2430">42.4</text>
+<text x="188.0" y="340" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">标准均值</text>
+<text x="188.0" y="355" text-anchor="middle" font-size="10.5" fill="#8a93a5"></text>
+<text x="188.0" y="372" text-anchor="middle" font-size="11" font-weight="600" fill="#77837b">6.2 s</text>
+<rect x="238.0" y="233.4" width="52" height="86.6" rx="4" fill="#d97a2b"/>
+<text x="264.0" y="226.4" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1c2430">49.5</text>
+<text x="264.0" y="340" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">改造均值</text>
+<text x="264.0" y="355" text-anchor="middle" font-size="10.5" fill="#8a93a5"></text>
+<text x="264.0" y="372" text-anchor="middle" font-size="11" font-weight="600" fill="#77837b">6.2 s</text>
+<rect x="314.0" y="169.4" width="52" height="150.6" rx="4" fill="#7cc0a2"/>
+<text x="340.0" y="162.4" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1c2430">58.1</text>
+<text x="340.0" y="340" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">multi-sample</text>
+<text x="340.0" y="355" text-anchor="middle" font-size="10.5" fill="#8a93a5">（串行）</text>
+<text x="340.0" y="372" text-anchor="middle" font-size="11" font-weight="600" fill="#77837b">20.9 s</text>
+<rect x="390.0" y="169.4" width="52" height="150.6" rx="4" fill="#0e8a66"/>
+<text x="416.0" y="162.4" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1c2430">58.1</text>
+<text x="416.0" y="340" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">multi-sample</text>
+<text x="416.0" y="355" text-anchor="middle" font-size="10.5" fill="#8a93a5">（并行）★</text>
+<text x="416.0" y="372" text-anchor="middle" font-size="11" font-weight="600" fill="#0a6b4e">12.4 s</text>
+<text x="270" y="46" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">HFCC（免训练）</text>
+<rect x="486.0" y="83.9" width="52" height="236.1" rx="4" fill="#b9c6bd"/>
+<text x="512.0" y="76.9" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1c2430">69.5</text>
+<text x="512.0" y="340" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">逐样本</text>
+<text x="512.0" y="355" text-anchor="middle" font-size="10.5" fill="#8a93a5"></text>
+<text x="512.0" y="372" text-anchor="middle" font-size="11" font-weight="600" fill="#77837b">18.9 s</text>
+<rect x="562.0" y="160.6" width="52" height="159.4" rx="4" fill="#c0563f"/>
+<text x="588.0" y="153.6" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1c2430">59.3</text>
+<text x="588.0" y="340" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">标准均值</text>
+<text x="588.0" y="355" text-anchor="middle" font-size="10.5" fill="#8a93a5"></text>
+<text x="588.0" y="372" text-anchor="middle" font-size="11" font-weight="600" fill="#77837b">4.2 s</text>
+<rect x="638.0" y="97.0" width="52" height="223.0" rx="4" fill="#d97a2b"/>
+<text x="664.0" y="90.0" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1c2430">67.7</text>
+<text x="664.0" y="340" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">改造均值</text>
+<text x="664.0" y="355" text-anchor="middle" font-size="10.5" fill="#8a93a5"></text>
+<text x="664.0" y="372" text-anchor="middle" font-size="11" font-weight="600" fill="#77837b">4.2 s</text>
+<rect x="714.0" y="84.3" width="52" height="235.7" rx="4" fill="#7cc0a2"/>
+<text x="740.0" y="77.3" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1c2430">69.4</text>
+<text x="740.0" y="340" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">multi-sample</text>
+<text x="740.0" y="355" text-anchor="middle" font-size="10.5" fill="#8a93a5">（串行）</text>
+<text x="740.0" y="372" text-anchor="middle" font-size="11" font-weight="600" fill="#77837b">10.6 s</text>
+<rect x="790.0" y="84.3" width="52" height="235.7" rx="4" fill="#0e8a66"/>
+<text x="816.0" y="77.3" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1c2430">69.4</text>
+<text x="816.0" y="340" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">multi-sample</text>
+<text x="816.0" y="355" text-anchor="middle" font-size="10.5" fill="#8a93a5">（并行）★</text>
+<text x="816.0" y="372" text-anchor="middle" font-size="11" font-weight="600" fill="#0a6b4e">6.5 s</text>
+<text x="670" y="46" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">判别性嵌入</text>
+<text x="440" y="394" text-anchor="middle" font-size="12" fill="#8a93a5">柱 = 测试 F 值，柱下 = DTW 运行时间。均值快但掉点惨（HFCC −16.4 点、召回崩到 36.5%）；multi-sample 并行版追平逐样本 F 值、提速 2.4-2.9×</text>
+</svg>
+    <p class="cap"><b>表 I 复绘</b>·两种特征（免训练 HFCC / 判别性嵌入）× 四种策略。嵌入特征下 multi-sample 验证集 F 71.07 反超逐样本 69.18，且精确率（82.48 对 80.29）与召回率（62.43 对 60.77）<b>同时上升</b>——不是阈值移动的假象，而是重组模板真的匹配到了逐样本匹配不到的发音（下界 + 组合增益的实证）。并行化只改张量→矩阵的实现，所有性能指标逐位相同。</p>
+  </div>
+
+  <div class="card">
+    <b>Fig.3 shot 数扩展 + 五组消融读数</b>：① 逐样本运行时间随 K（2-10）<b>线性增长</b>——论文据此判其不可行；multi-sample 斜率小得多（最贵的 DP 每类一次）、并行版逼近均值那条几乎水平的线；② 论文点破的微妙耦合：<b>更高的召回率意味着要考察更多 DTW 路径</b>——运行时间与性能不是独立的；③ <b>聚合策略的影响远大于其他因素</b>：HFCC 下最优最差聚合差 15.64 点、嵌入下 10.17 点；④ <b>特征×聚合交互</b>（信息量最大交叉项）：均值对 HFCC 伤 −16.38 对嵌入只伤 −10.22——特征越「生」均值越危险；⑤ 并行化消融：串行 / 并行所有性能指标逐位相同（纯实现优化）——验证「min 极易并行」。<b>缺口</b>：性能随 shot 数的曲线未报（只消融了运行时间）；与聚类多均值的实证对垒缺席。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">可转述的四个判断</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>第三条路线</b><br><span style="color:#47536a;font-size:14.5px">「均值的有损压缩」与「逐样本的线性开销」之外：先算距离、在距离矩阵层面合并、再只做一次 DTW——min 从得分层前移了一整个 DP。</span></div>
+    <div class="c"><span class="n">2</span><b>下界保证 + 组合增益</b><br><span style="color:#47536a;font-size:14.5px">D*multi ≤ min_k D*k 保证不劣；可切换路径空间 = 用 K 个真实样本隐式编码指数级伪模板——「捕获变异性」的数学化表达。</span></div>
+    <div class="c"><span class="n">3</span><b>交替结构 = 免费容量翻倍</b><br><span style="color:#47536a;font-size:14.5px">改造 Fréchet 均值用时间复用把两个候选发音塞进同一模板——零运行时间增量买回大部分被均值抹掉的变异性，且可独立使用。</span></div>
+    <div class="c"><span class="n">4</span><b>均值伤害与特征判别性成反比</b><br><span style="color:#47536a;font-size:14.5px">手工特征（HFCC −16.4 点、召回崩）绝对不要用均值压缩；判别性嵌入的代价才勉强可接受——超出 KWS 的工程指导。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">名义复杂度没变；嵌合体路径的误报无理论约束</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>方法局限</h4>
+      <ul>
+        <li><b>名义复杂度没变</b>：K 因子留在代价张量的计算与存储（内存随 K 线性涨，数字未报）；单线程低端 MCU 上串行版优势缩水（HFCC 20.9s 对 29.5s 只快 29%）。</li>
+        <li><b>嵌合体误报风险无理论约束</b>：「A 的开头拼 B 的结尾」这类真实语音不存在的模板可能造误报——实验精确率未受损但只是单一数据集经验、无对抗压力测试。</li>
+        <li><b>不可微</b>：硬 min + 精确 DP 保了精确性但进不了训练回路——特征与匹配割裂两阶段，无法端到端联合优化。</li>
+        <li><b>参考模板依赖启发式</b>：Fréchet 均值本身 NP 完全的近似；模板长度固定为「平均长度」对长度方差大的类可能次优；初始化敏感性未比较。</li>
+        <li><b>阈值依赖</b>：决策阈值在验证集逐类调优——域偏移下失配风险与所有模板匹配系统相同，重校准成本未讨论。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>单一数据集单语言单域</b>：全部结论来自 KWS-DailyTalk（英文对话 / 15 金融出行词）——作者自认在 Speech Commands 上复验是未来工作；10 分钟测试集 + 每词约 12 次出现，0.05 点级差异（69.43 对 69.48）无统计意义、无显著性检验。</li>
+        <li><b>性能-shot 曲线缺失</b>：few-shot 方法的核心卖点之一是 K=1→10 的性能爬坡——只有运行时间曲线，论证少了半边。</li>
+        <li><b>聚类均值基线缺席</b>：引言重点讨论却没实现——「聚类 + multi-sample 组合是否更强」无从判断。</li>
+        <li><b>对比局限 DTW 家族</b>：无度量学习分类器 / 原型网络等非 DTW 少样本方案——「路线内最优」≠「任务最优」。</li>
+        <li><b>并行细节不透明</b>：线程数 / 框架 / SIMD 未报——12.4s / 6.5s 可复现性打折；GPU 未测。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得追的方向</b>：① 跨数据集跨任务验证（Speech Commands + 生物声学 / 多基频估计——方法不依赖语音特性，任何「多模板对长序列」场景适用）；② <b>软最小值化</b>：min 换带温度 soft-min（借鉴 soft-DTW）→ 张量聚合变可微算子，端到端训练「适配」聚合目标的嵌入，甚至学每样本的注意力式加权 min；③ 与正交加速叠加（带约束 / 剪枝 / GPU 对角并行——论文明说对所有方法影响相同，可叠加）；④ 超大 K 的分层结构（先聚类、簇内 multi-sample、簇间取优）缓解张量的线性内存；⑤ <b>嵌合体误报控制</b>：切换罚项或限制每路径切换次数——保留重组增益同时约束非自然模板，为精确率给理论保障；⑥ 改造均值推广到「一个模板编码 N 个可替换模板」（更细步集 / 更高维结构）+ 有效容量与误报率权衡的理论分析。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2024/Multi-Sample_Dynamic_Time_Warping_For_Few-Shot_Keyword_Spotting.md">深读笔记</a>
+    <a href="/papers/2024/Multi-Sample_Dynamic_Time_Warping_For_Few-Shot_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2404.14903" target="_blank">arXiv</a>
+    <a class="pill" href="/">返回总目录</a>
+  </div>
+  <p>深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table I / Fig. 1-3）；「交叉项 / 推断」标注处为笔记给出的分析。</p>
+</footer>
+
+</div>
+</body>
+</html>
