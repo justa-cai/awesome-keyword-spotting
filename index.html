@@ -23,6 +23,10 @@
     .ksearch-title { font-size: 13px; color: #364149; line-height: 1.4; }
     .ksearch-snippet { font-size: 12px; color: #888; line-height: 1.4; margin-top: 2px; }
     .ksearch-snippet mark { background: #fff3a0; padding: 0; }
+    .lang-switch { position: fixed; top: 10px; right: 16px; z-index: 100;
+      background: #fff; border: 1px solid #e3e3e3; border-radius: 14px; padding: 2px 12px;
+      font-size: 13px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+    .lang-switch a { text-decoration: none; color: #42b983; }
     /* 顶部小徽章 */
     .badge-wrap { text-align: center; margin-top: 8px; }
     .badge { display: inline-block; padding: 2px 10px; border-radius: 10px; background: #42b98322; color: #2c8c5f; font-size: 13px; margin: 0 3px; }
@@ -31,6 +35,19 @@
 <body>
   <div id="app">正在加载论文库……</div>
   <script>
+    /* EN→ZH fallback: /en/papers/x.md 404 时改取 /papers/x.md（中文原文），须先于 docsify 加载 */
+    (function () {
+      var of = window.fetch;
+      window.fetch = function (u, o) {
+        var url = typeof u === 'string' ? u : (u && u.url) || '';
+        return of.apply(this, arguments).then(function (r) {
+          if (r.status === 404 && /\/en\/(papers\/[^?#]+)/.test(url)) {
+            return of(url.replace('/en/', '/'), o);
+          }
+          return r;
+        });
+      };
+    })();
     window.$docsify = {
       name: 'Awesome Keyword Spotting',
       nameLink: '#/',
@@ -39,19 +56,38 @@
       subMaxLevel: 3,
       auto2top: true,
       externalLinkTarget: '_blank',
-      alias: { '/.*/_sidebar.md': '/_sidebar.md' },
+      alias: {
+        '/en/papers/.*/_sidebar.md': '/en/_sidebar.md',
+        '/.*/_sidebar.md': '/_sidebar.md'
+      },
       search: false,
       sidebarDisplayLevel: 1,
       plugins: [
         function (hook) {
           hook.afterEach(function (html, next) {
-            var m = location.hash.match(/^#\/(papers\/\d{4}\/.+?)(?:\?.*)?$/);
+            var m = location.hash.match(/^#\/(?:en\/)?(papers\/[^/]+\/.+?)(?:\?.*)?$/);
             if (m && !/\.pdf$/.test(m[1])) {
               html = '<p style="margin:0 0 18px"><a href="' + m[1] + '.pdf" target="_blank" '
                 + 'style="display:inline-block;padding:4px 14px;border:1px solid #42b983;border-radius:16px;'
-                + 'color:#42b983;font-size:14px;text-decoration:none">📄 打开论文 PDF</a></p>' + html;
+                + 'color:#42b983;font-size:14px;text-decoration:none">📄 Open paper PDF</a></p>' + html;
             }
             next(html);
+          });
+        },
+        function (hook) {
+          hook.doneEach(function () {
+            if (document.querySelector('.lang-switch')) return;
+            var el = document.createElement('div');
+            el.className = 'lang-switch';
+            el.innerHTML = '<a href="#">…</a>';
+            var a = el.querySelector('a');
+            a.addEventListener('click', function (e) {
+              e.preventDefault();
+              var path = location.hash.replace(/^#\/(en\/)?/, '');
+              var isEn = /^#\/en\//.test(location.hash);
+              location.hash = (isEn ? '#/' : '#/en/') + path;
+            });
+            document.body.appendChild(el);
           });
         }
       ]
