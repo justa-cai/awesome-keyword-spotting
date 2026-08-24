@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>单样本噪声自适应 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2025/Adaptive_Noise_Resilient_Keyword_Spotting_Using_One-Shot_Learning.md">深读笔记</a>
+    <a href="/papers/2025/Adaptive_Noise_Resilient_Keyword_Spotting_Using_One-Shot_Learning.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2505.09304" target="_blank">arXiv</a>
+    <a href="https://github.com/lucianomrau/NoiseRobustKeywordSpottingMCU" target="_blank">代码</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2025 №2</p>
+  <h1>端侧连续噪声自适应<br>12 条样本 · 1 个 epoch · 只调末层 FC</h1>
+  <p class="sub">Adaptive Noise-Resilient Keyword Spotting Using One-Shot Learning</p>
+  <p class="meta"><b>作者</b>：Luciano Sebastian Martinez-Rau 等 —— 中瑞典大学（瑞典松兹瓦尔）</p>
+  <p class="meta"><b>发表</b>：2025.05（v2 2025.08）· arXiv:2505.09304 · ©2025 IEEE · 代码开源</p>
+  <div class="chips">
+    <span class="chip">单样本学习</span><span class="chip">噪声自适应</span><span class="chip">迁移学习</span>
+    <span class="chip">设备端学习</span><span class="chip">tinyML</span><span class="chip">低功耗 MCU</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>定位：「独立且自治」的 KWS——隐私要求不联网，鲁棒性必须落在设备本地固件层面。真实工况头号敌人是背景噪声；竞品 Cioflan 系列的端侧适应要 <b>5.81 J 能耗 + ≥14 秒延迟</b>，不实用。</li>
+      <li>方案：只微调<b>最后一个全连接层</b>（卷积骨干全冻结），每类 1 条带噪样本共 12 条、只训 1 个 epoch——反向传播在 FC 输入截断，无需保存骨干梯度、无需为骨干维护优化器状态（Adam 动量在 MCU 上是致命内存）。</li>
+      <li>最有价值的反直觉结论：彩色+室内噪声的<b>加噪预训练不能把鲁棒性迁移到现场噪声</b>（汽车喇叭/狗叫上干净模型反而更鲁棒）——部署用干净预训练即可，把鲁棒性交给运行时适应。</li>
+      <li>结果：适应后模型在全部噪声源×全部 SNR 上一致超过适应前，SNR≤18dB 时提升 <b>+4.9%~+46.0%</b>。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">鲁棒性从云端兜底变成固件级问题</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 250" role="img">
+      <rect x="20" y="26" width="880" height="86" rx="12" fill="#fbf3ec" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="460" y="52" text-anchor="middle" font-size="14" font-weight="700" fill="#b0631d">「独立且自治」的 KWS（standalone &amp; autonomous）</text>
+      <text x="45" y="78" font-size="12.5" fill="#47536a">隐私要求不依赖互联网——所有可靠性设计必须落在设备本地的固件和硬件层面</text>
+      <text x="45" y="102" font-size="12.5" fill="#47536a">实验室干净测试集高准确率的模型，部署到厨房、街道、车厢里显著退化——真实噪声还是非平稳的</text>
+
+      <rect x="20" y="130" width="880" height="104" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="460" y="156" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">四条既有路线的短板</text>
+      <text x="45" y="182" font-size="12" fill="#47536a">· <tspan font-weight="700" fill="#c0392b">精度导向 SOTA</tspan>：计算密集跑不上低功耗设备　· <tspan font-weight="700" fill="#c0392b">一次性噪声鲁棒训练</tspan>：部署后定型，噪声一变保证即失效</text>
+      <text x="45" y="206" font-size="12" fill="#47536a">· <tspan font-weight="700" fill="#c0392b">Cioflan 端上域适应</tspan>：单次 5.81 J + 最小 14 秒延迟，MCU 上不实用；后续 MCU 版只在 0dB 单点评估，无视 SNR 失配盲区</text>
+      <text x="45" y="228" font-size="11.5" fill="#8a93a5">四个子问题：适应样本少到极致 · 反传参数少到极致 · 适应后要全 SNR 稳健（真实噪声非平稳）· 要回答「什么时候值得适应」</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">两阶段：预训练对照 + 现场极轻适应</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 360" role="img">
+      <rect x="20" y="40" width="420" height="130" rx="12" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="230" y="66" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0a6b4e">第一阶段：预训练两个模型（对照假设）</text>
+      <text x="45" y="92" font-size="12" fill="#47536a">· baseline-model：纯干净语音训练</text>
+      <text x="45" y="114" font-size="12" fill="#47536a">· noise-aware-model：干净 + 20~100% 均衡带噪</text>
+      <text x="45" y="136" font-size="11.5" fill="#5f8a76">待检验：加噪预训练是否为动态适应提供更好起点？</text>
+      <text x="45" y="158" font-size="10.5" fill="#8a93a5">Adam 1e-4 · batch 16 · 50 epochs · 25 次重复取平均</text>
+
+      <rect x="470" y="40" width="430" height="130" rx="12" fill="#f3ede2" stroke="#d97a2b" stroke-width="2"/>
+      <text x="685" y="66" text-anchor="middle" font-size="13.5" font-weight="700" fill="#b0631d">第二阶段：现场噪声适应（核心）</text>
+      <text x="495" y="92" font-size="12" fill="#47536a">· few-shot 迁移学习到特定噪声（源 + SNR）</text>
+      <text x="495" y="114" font-size="12.5" fill="#b0631d" font-weight="600">· 只微调末层 FC：12 类 × 每类 1 条 · 1 epoch</text>
+      <text x="495" y="136" font-size="11.5" fill="#a67c4b">卷积骨干全冻结 → 反向传播在 FC 输入截断</text>
+      <text x="495" y="158" font-size="10.5" fill="#8a93a5">SGD 1e-4 · 交叉熵 · 无需骨干优化器状态（MCU 致命内存省掉）</text>
+
+      <line x1="440" y1="105" x2="470" y2="105" stroke="#8a93a5" stroke-width="2.5"/><polygon points="470,105 462,100 462,110" fill="#8a93a5"/>
+
+      <rect x="20" y="190" width="880" height="156" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="460" y="216" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">模型结构与三笔账（Fig. 2）</text>
+      <text x="45" y="242" font-size="12" fill="#47536a">5~6 层 CNN（64→128→128→192→192 通道，BN + ReLU）→ <tspan font-weight="700" fill="#0a6b4e">通道平均池化</tspan> → 12 类 FC softmax</text>
+      <text x="45" y="266" font-size="12" fill="#47536a">通道平均池化三重好处：FC 输入极小（每通道 1 值）· 参数计算量骤减 · 对关键词时间偏移天然鲁棒（均值对平移不敏感）</text>
+      <text x="45" y="290" font-size="12" fill="#47536a">三笔账：<tspan font-weight="700" fill="#0a6b4e">内存</tspan> 存 12 条 1 秒样本 + 只为 W 维护优化器　<tspan font-weight="700" fill="#0a6b4e">计算</tspan> 反向只剩一层矩阵运算</text>
+      <text x="45" y="314" font-size="12" fill="#47536a"><tspan font-weight="700" fill="#0a6b4e">特征保护</tspan>：骨干通用声学特征完全不动——天然规避小样本微调的灾难遗忘与 12 条样本的过拟合</text>
+      <text x="45" y="338" font-size="11.5" fill="#8a93a5">隐含赌注：噪声漂移经过冻结骨干后大部分仍可被线性决策层重新加权吸收——实验给出了有力背书</text>
+    </svg>
+  </div>
+
+  <div class="formula">
+    p = softmax(W·φ(x) + b)，L_CE 交叉熵；适应更新 W ← W − η∇_W L_CE（η=10⁻⁴）
+    <div class="why">∇_W 只需前向缓存的 φ(x)——不需要任何卷积层梯度。<b>评估协议（第三创新）</b>：只在 −3dB 与 24dB 两个极端 SNR 锚定适应，然后全 SNR 扫描——实测中间 SNR 的结果一致落在两条边界曲线围成的区间内，两次实验即可估计全部适应条件的性能包络。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">两个故事：预训练不是答案，适应才是</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据</b>：GSC v2 12 类基准；噪声三层级——彩色噪声（White/Pink）→ 室内噪声（Babble/Office/Kitchen/Living room，DEMAND）→ 现场噪声（Car horn/Dog bark/Street music，城市声数据集）；SNR −3~24dB 十档。统计严谨：25 次权重初始化重复 + Wilcoxon/Friedman/Holm 全套检验——KWS 端侧论文少见。
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 290" role="img">
+      <text x="80" y="32" font-size="13.5" fill="#47536a" font-weight="600">noise-aware 预训练的干净代价（表：25 次重复平均）</text>
+      <line x1="80" y1="215" x2="860" y2="215" stroke="#f0f1f3"/><text x="72" y="219" text-anchor="end" font-size="12" fill="#9ca3af">95.4</text>
+      <line x1="80" y1="183" x2="860" y2="183" stroke="#f0f1f3"/><text x="72" y="187" text-anchor="end" font-size="12" fill="#9ca3af">95.6</text>
+      <line x1="80" y1="151" x2="860" y2="151" stroke="#f0f1f3"/><text x="72" y="155" text-anchor="end" font-size="12" fill="#9ca3af">95.8</text>
+      <line x1="80" y1="119" x2="860" y2="119" stroke="#f0f1f3"/><text x="72" y="123" text-anchor="end" font-size="12" fill="#9ca3af">96.0</text>
+      <line x1="80" y1="87" x2="860" y2="87" stroke="#f0f1f3"/><text x="72" y="91" text-anchor="end" font-size="12" fill="#9ca3af">96.2</text>
+      <line x1="80" y1="55" x2="860" y2="55" stroke="#f0f1f3"/><text x="72" y="59" text-anchor="end" font-size="12" fill="#9ca3af">96.4</text>
+      <rect x="100" y="76" width="96" height="139" rx="5" fill="#0e8a66"/><text x="148" y="69" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">96.27</text>
+      <text x="148" y="238" text-anchor="middle" font-size="12" fill="#374151">0%（干净）</text>
+      <rect x="228" y="113" width="96" height="102" rx="5" fill="#94a3b8"/><text x="276" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">96.04</text>
+      <text x="276" y="238" text-anchor="middle" font-size="12" fill="#374151">20%</text>
+      <rect x="356" y="122" width="96" height="93" rx="5" fill="#94a3b8"/><text x="404" y="115" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">95.98</text>
+      <text x="404" y="238" text-anchor="middle" font-size="12" fill="#374151">40%</text>
+      <rect x="484" y="127" width="96" height="88" rx="5" fill="#94a3b8"/><text x="532" y="120" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">95.95</text>
+      <text x="532" y="238" text-anchor="middle" font-size="12" fill="#374151">60%</text>
+      <rect x="612" y="149" width="96" height="66" rx="5" fill="#94a3b8"/><text x="660" y="142" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">95.81</text>
+      <text x="660" y="238" text-anchor="middle" font-size="12" fill="#374151">80%</text>
+      <rect x="740" y="162" width="96" height="53" rx="5" fill="#94a3b8"/><text x="788" y="155" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">95.73</text>
+      <text x="788" y="238" text-anchor="middle" font-size="12" fill="#374151">100%</text>
+      <line x1="80" y1="215" x2="860" y2="215" stroke="#9ca3af"/>
+      <text x="80" y="264" font-size="13" fill="#47536a" font-weight="600">干净准确率单调下降（全部降幅 &lt;0.54%，p&lt;0.001）；但带噪测试 100% 实例最优（Friedman χ²=1126.9）→ 选入适应实验</text>
+      <text x="80" y="286" font-size="12.5" fill="#9ca3af">关键转折在下方：到了训练时未见过的现场噪声，加噪预训练的优势消失了</text>
+    </svg>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 250" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">三个现场噪声上的适应前对比（Fig. 5 蓝线）</text>
+      <rect x="30" y="40" width="580" height="56" rx="10" fill="#fbf3ec" stroke="#c0392b" stroke-width="1.5"/>
+      <text x="55" y="64" font-size="14" font-weight="700" fill="#1c2430">Car horn 汽车喇叭</text>
+      <text x="55" y="85" font-size="12.5" fill="#47536a">baseline 更鲁棒</text>
+      <text x="640" y="75" text-anchor="middle" font-size="15" font-weight="700" fill="#c0392b">❌ 不迁移</text>
+      <rect x="30" y="110" width="580" height="56" rx="10" fill="#fbf3ec" stroke="#c0392b" stroke-width="1.5"/>
+      <text x="55" y="134" font-size="14" font-weight="700" fill="#1c2430">Dog bark 狗叫</text>
+      <text x="55" y="155" font-size="12.5" fill="#47536a">baseline 更鲁棒</text>
+      <text x="640" y="145" text-anchor="middle" font-size="15" font-weight="700" fill="#c0392b">❌ 不迁移</text>
+      <rect x="30" y="180" width="580" height="56" rx="10" fill="#fbf3ec" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="55" y="204" font-size="14" font-weight="700" fill="#1c2430">Street music 街头音乐</text>
+      <text x="55" y="225" font-size="12.5" fill="#47536a">两模型都崩</text>
+      <text x="640" y="215" text-anchor="middle" font-size="15" font-weight="700" fill="#d97a2b">⚠️ 都不行</text>
+      <text x="30" y="256" font-size="13" fill="#47536a" font-weight="600">反直觉结论：加噪预训练的鲁棒性不能迁移到未见噪声——部署用干净预训练即可，把鲁棒性交给运行时适应</text>
+    </svg>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 280" role="img">
+      <text x="80" y="30" font-size="13.5" fill="#47536a" font-weight="600">适应收益：12 条样本 · 1 个 epoch · 只调末层 FC</text>
+      <line x1="80" y1="215" x2="860" y2="215" stroke="#f0f1f3"/><text x="72" y="219" text-anchor="end" font-size="12" fill="#9ca3af">0</text>
+      <line x1="80" y1="183" x2="860" y2="183" stroke="#f0f1f3"/><text x="72" y="187" text-anchor="end" font-size="12" fill="#9ca3af">10</text>
+      <line x1="80" y1="151" x2="860" y2="151" stroke="#f0f1f3"/><text x="72" y="155" text-anchor="end" font-size="12" fill="#9ca3af">20</text>
+      <line x1="80" y1="119" x2="860" y2="119" stroke="#f0f1f3"/><text x="72" y="123" text-anchor="end" font-size="12" fill="#9ca3af">30</text>
+      <line x1="80" y1="87" x2="860" y2="87" stroke="#f0f1f3"/><text x="72" y="91" text-anchor="end" font-size="12" fill="#9ca3af">40</text>
+      <line x1="80" y1="55" x2="860" y2="55" stroke="#f0f1f3"/><text x="72" y="59" text-anchor="end" font-size="12" fill="#9ca3af">50</text>
+      <rect x="200" y="199" width="180" height="16" rx="6" fill="#7cc7ad"/><text x="290" y="189" text-anchor="middle" font-size="20" font-weight="700" fill="#374151">+4.9%</text>
+      <text x="290" y="240" text-anchor="middle" font-size="13" fill="#374151">最小提升</text>
+      <rect x="580" y="68" width="180" height="147" rx="6" fill="#0e8a66"/><text x="670" y="58" text-anchor="middle" font-size="20" font-weight="700" fill="#374151">+46.0%</text>
+      <text x="670" y="240" text-anchor="middle" font-size="13" fill="#374151">最大提升</text>
+      <line x1="80" y1="215" x2="860" y2="215" stroke="#9ca3af"/>
+      <text x="80" y="264" font-size="13" fill="#0a6b4e" font-weight="600">SNR ≤ 18 dB 时提升区间 +4.9% ~ +46.0%（摘要），全部噪声源 × 全部 SNR 上一致超过适应前</text>
+    </svg>
+    <p class="cap"><b>适应协议发现</b>：−3dB 下适应的模型在 SNR≲18dB 段占优（重噪适应样本信息量更大）；SNR≳18dB 时适应前的预训练模型本身已超 90%——此时做适应的边际价值存疑，<b>「何时适应」是独立决策问题</b>。<b>消融四轴</b>：加噪比例（100% 最优但噪声源相关）；epoch 数（1 轮起步、重噪多训几轮、SNR&gt;9dB 后恒定）；1-shot vs 5-shot（只训 1 epoch 时接近；Car horn 加样本无改善、Street music 1-shot 反而更高、Dog bark 重噪时 5-shot 更好——加样本不保证提升却一定要求五倍存储）；适应 SNR 与预训练选择（适应会部分抹平预训练质量差距）。</p>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">五条可以带走的东西</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>已知最轻量的 KWS 连续噪声适应</b><br><span style="color:var(--ink-2)">末层 FC + 每类 1 条 + 1 epoch——数据与计算开销同时压到工程可承受量级。</span></div>
+    <div class="c"><span class="n">2</span><b>证伪「加噪预训练助适应」直觉</b><br><span style="color:var(--ink-2)">25 次重复 + 全套检验的对照：多风格预训练不迁移到现场噪声，还轻微损失干净准确率。</span></div>
+    <div class="c"><span class="n">3</span><b>极端 SNR 锚定评估协议</b><br><span style="color:var(--ink-2)">中间 SNR 被两条边界曲线包络——两次实验估计全部条件的性能区间；识别「何时适应」为前置决策。</span></div>
+    <div class="c"><span class="n">4</span><b>三个开销旋钮的定量刻画</b><br><span style="color:var(--ink-2)">epoch/shots/适应 SNR 与收益的关系——默认配置 1-shot、1 epoch、重噪条件下适应。</span></div>
+    <div class="c"><span class="n">5</span><b>开源可复现</b><br><span style="color:var(--ink-2)">GSC v2 + 8 种三层级噪声源 + Python/PyTorch 全栈——MCU 后续部署研究的基线。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与展望</p>
+  <h2 class="sec">立论是「轻量可部署」，证据只在设计层</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法本身的技术局限</h4>
+      <ul>
+        <li><b>末层 FC 的容量天花板</b>：赌「噪声漂移可被线性层吸收」——频谱结构被严重破坏时（Street music）冻结骨干本身成瓶颈，再加权也难补偿。</li>
+        <li><b>适应样本来源未闭环</b>：实验用离线制备的 1-shot 带噪样本；真实设备要么预存干净语音混噪（仍占存储）要么等真实带噪关键词被采集（标注与 12 类覆盖未讨论）。</li>
+        <li><b>「何时适应」仍悬而未决</b>：目前协议依赖人工选择适应时机。</li>
+        <li><b>适应的遗忘代价未报告</b>：适应拉向特定噪声后，安静环境或其他噪声源下是否回落，没有数据。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>无目标硬件实测</b>（最主缺口）：全部在 i9 + RTX 3080 上；立论「轻量可部署」只有设计论证没有测量证据（竞品有 5.81J/14s 实测可查）。</li>
+        <li><b>参数量/存储未报告</b>：无法独立核算「轻量」程度。</li>
+        <li><b>匹配条件评估的乐观风险</b>：Fig. 6 消融在适应训练同噪声源同 SNR 上评估；跨噪声源泛化未检验。</li>
+        <li><b>噪声只覆盖加性单源</b>：无混响、无多源叠加、无噪声-说话人耦合。</li>
+        <li><b>指标只有整体准确率</b>：缺每类准确率、误/漏唤醒、延迟。</li>
+        <li><b>适应阶段无重复与显著性</b>（25 次只用于预训练）；4.9~46.0% 区间无按条件分解表；与竞品无同框架头对头。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:18px">
+    <b>值得跟进的方向</b>：① 真正部署到资源受限设备实测能耗/延迟/内存（论文自列第一后续）；② 自动检测何时适应——置信度跌落或 VAD 统计特征当触发信号，让「何时适应」从人工变成系统自治；③ 跨噪声源泛化与适应后灾难遗忘测量；④ 末层之外的极小参数化（低秩/偏置-only）突破线性层容量限制；⑤ 适应触发与 SNR 监测联动——「重噪才适应、安静不花算力」的事件驱动策略；⑥ 产品级 KWS 指标（误/漏唤醒率）上复验 1-shot 有效性。<b>总评</b>：价值不在模型结构，而在把「端侧噪声适应的最小充分条件」切得极干净——12 条样本、1 个 epoch、1 层参数、两端锚定评估，加一个诚实的否定结论：加噪预训练替代不了运行时适应。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2025/Adaptive_Noise_Resilient_Keyword_Spotting_Using_One-Shot_Learning.md">📝 深读笔记（Markdown）</a>
+    <a class="pill" href="/papers/2025/Adaptive_Noise_Resilient_Keyword_Spotting_Using_One-Shot_Learning.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2505.09304" target="_blank">🔗 arXiv:2505.09304</a>
+    <a class="pill" href="https://github.com/lucianomrau/NoiseRobustKeywordSpottingMCU" target="_blank">💻 开源代码</a>
+  </div>
+  本页数字均出自论文摘要、第 3–4 节与 Fig. 3–6；加噪公式为该标准过程通常形式（论文以文字描述）。深读笔记与可视化页同源生成，转载请注明出处。
+</footer>
+
+</div>
+</body>
+</html>
