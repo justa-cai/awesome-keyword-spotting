@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multitaper Mel · 多锥频谱图 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2024/Multitaper_Mel-spectrograms_For_Keyword_Spotting.md">深读笔记</a>
+    <a href="/papers/2024/Multitaper_Mel-spectrograms_For_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2407.04662" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2024 №22</p>
+  <h1>模型架构卷了十年，特征还停在 1999——<br>换个「谱估计器」，1 到 7 个点白拿</h1>
+  <p class="sub">Multitaper Mel-spectrograms for Keyword Spotting</p>
+  <p class="meta"><b>作者</b>：Douglas Baptista de Souza 等 4 人 —— SiDi（巴西）× 三星巴西亚马逊</p>
+  <p class="meta"><b>发表</b>：SPL 模板（工作完成于 2022）· arXiv:2407.04662（2024.07 挂出）</p>
+  <div class="chips">
+    <span class="chip">多锥谱估计（Thomson 1982）</span><span class="chip">降方差不牺牲偏差</span><span class="chip">弃 DPSS 用 Hermite / SWCE</span>
+    <span class="chip">modified SWCE 锐化</span><span class="chip">2040 用例全因子</span><span class="chip">+1~7 pp 免增强免改模型</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>被冷落的一层</b>：KWS 的方法论演进是一部模型架构史——SOTA 的 TC-ResNet 用的梅尔特征与 1999 年系统一样。单窗（Hann 等）谱估计只能在<b>偏差轴</b>上优化（抑制频谱泄漏），对方差无能为力——每帧加窗周期图的随机涨落与信号本身的随机性同量级；欠训练的小模型没有冗余容量消化高方差特征，加噪场景下决策边界被噪声撑糊。</li>
+      <li><b>方案（multitaper）</b>：对同一帧施加 K 个<b>正交锥</b>各做一次谱估计再加权平均——正交锥的估计近似互不相关，<b>方差压到 1/K 量级且偏差基本不动</b>；与「相邻帧/频点平滑」的本质区别：平滑以牺牲时间/频率分辨率（引入偏差）为代价，多锥两条轴解耦。梅尔域全部随机性来自谱估计器（W 与 M_m 都是确定性算子）——更好的特征严格等价于更好的谱估计器。</li>
+      <li><b>锥族选型</b>：默认答案 DPSS 是为平稳光滑谱设计的，语音谱是尖峰状（谐波 + 共振峰）——DPSS 表现差；改用 Hermite（以刻画瞬时频率变化著称，等权）与 SWCE（正弦窗 + 余弦权重，计算时间与 MSE 双优）。</li>
+      <li><b>结果</b>：2 模型 × 2 数据集 × 17 窗配置 × 5 STFT 参数 × 6 噪声场景共 2040 用例——<b>每个组合都有某个多锥配置超过全部五个单窗基线</b>，+1.1 到 +7.1 pp（最大增益在 TC-ResNet + MSD：0.634→0.708）；推理时间随 K 线性增长（图 2 实测）——「按 K 可预算」取代「历史上嫌贵」。</li>
+      <li><b>两个最重要的边界发现</b>：① <b>modified SWCE 的 K=10 崩盘</b>（锐化版乘常数 α 放大 K 倍对大 K 过敏感——TC-ResNet 上崩到 0.41-0.50，基线以下十几到二十点）；② <b>特征-架构匹配效应</b>：Hermite 在 TC-ResNet 上是负收益（GSC 全部 K 低于最差基线）但在 Tiny-CNN + MSD 上超过全部基线——「多锥一定更好」不成立。</li>
+      <li><b>小数据放大器</b>：同样配置在 MSD（32.7k 条，GSC 的三成）上的增益普遍大于 GSC（+6~7 对 +1~2 点）——欠训练小数据下，特征携带的低方差先验能替代部分数据量。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">为什么特征质量对小模型小数据特别值钱</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>四个层面的缺口</b>：① <b>单窗谱估计的统计缺陷（核心攻击点）</b>——频谱图每个时频点都是对真实功率谱的一次估计；经典窗降偏差但对方差无能为力；② <b>自动特征学习不可部署</b>——HMM-DNN 前端性能可超参数化特征，但体积大 / 海量数据 / 多阶段训练，端侧低功耗芯片承载不了——这就是参数化特征至今是「活问题」的原因；③ <b>数据增强不改特征统计质量</b>——多风格训练与 SpecAugment 都是「接受特征既有缺陷在训练侧补救」，与特征改良正交；④ <b>multitaper 的历史障碍</b>——1982 年就有理论但计算贵（一帧算 K 个谱），现代算力已缓解且说话人检测领域已落地，但从未系统进入 KWS；DPSS 锥族为光滑谱设计、语音尖峰谱上表现差，挡住了直接移植。<b>三个可检验问题</b>：仅动特征层能否普遍提升（不改模型不加增强以隔离变量）；能否降方差不牺牲偏差（不抹平共振峰与辅音瞬态）；开销随 K 如何增长是否端侧可接受。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">把「更好的特征」严格等价为「更好的谱估计器」</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 430" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">式(1)-(8) 复绘：多锥估计的统计原理与三个锥族的对比</text>
+      <rect x="30" y="56" width="420" height="170" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="48" y="82" font-size="12.5" font-weight="700" fill="#47536a">单窗 vs 多锥：两条轴解耦</text>
+      <text x="48" y="108" font-size="11" fill="#8c3b2e">单窗（Hann 等）：换好窗只能在偏差轴优化（抑制泄漏），</text>
+      <text x="48" y="128" font-size="11" fill="#8c3b2e">　 方差与信号随机性同量级——帧间抖动直接进特征</text>
+      <text x="48" y="156" font-size="11" fill="#0a6b4e">多锥：K 个正交锥 → K 个近似不相关的谱估计 → 加权平均</text>
+      <text x="48" y="176" font-size="11" fill="#0a6b4e">　 方差 ≈ 1/K，偏差基本不动（每锥本身旁瓣抑制良好）</text>
+      <text x="48" y="200" font-size="10.5" fill="#8a93a5">对照：相邻帧/频点平滑 = 以牺牲时间/频率分辨率（偏差）为代价</text>
+      <rect x="470" y="56" width="420" height="170" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="488" y="82" font-size="12.5" font-weight="700" fill="#0a6b4e">为什么梅尔特征的全部随机性来自谱估计器</text>
+      <text x="488" y="108" font-size="11" fill="#47536a">s_mel = (1/N_m)·W^H·log(M_m·s)——W（DFT 矩阵）与</text>
+      <text x="488" y="128" font-size="11" fill="#47536a">M_m（梅尔滤波器组）都是确定性算子</text>
+      <text x="488" y="156" font-size="11" fill="#0a6b4e">→ 只能拿到 s 的估计（单窗或多锥）——估计器的方差</text>
+      <text x="488" y="176" font-size="11" fill="#0a6b4e">　 直接决定梅尔特征质量；log 把乘性噪声转加性，</text>
+      <text x="488" y="196" font-size="11" fill="#0a6b4e">　 上游降方差表现为特征图整体「底噪」下降</text>
+      <rect x="30" y="246" width="280" height="170" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="170" y="272" text-anchor="middle" font-size="12" font-weight="700" fill="#47536a">Hermite 锥（式 6）</text>
+      <text x="48" y="298" font-size="10.5" fill="#47536a">w_k(n) = e^(−n²/2)·H_k(n)·√(π^(1/2)·2^k·k!)</text>
+      <text x="48" y="322" font-size="10.5" fill="#47536a">· 以刻画瞬时频率变化著称——语音恰是</text>
+      <text x="48" y="342" font-size="10.5" fill="#47536a">　 瞬时频率持续漂移的非平稳信号</text>
+      <text x="48" y="368" font-size="10.5" fill="#5f8a76">· 权重 λ_k = 1/K（等权）</text>
+      <text x="48" y="398" font-size="10.5" fill="#c0563f">· 在 TC-ResNet 上负收益（匹配效应）</text>
+      <rect x="326" y="246" width="270" height="170" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="461" y="272" text-anchor="middle" font-size="12" font-weight="700" fill="#0a6b4e">SWCE 锥（式 7-8）</text>
+      <text x="344" y="298" font-size="10.5" fill="#47536a">w_k(n) = α·sin(πnk/(N+1))，α = √(2/(N+1))</text>
+      <text x="344" y="318" font-size="10.5" fill="#47536a">λ_k = cos(πkG/N) + β（G = ⌊N/K⌋, β = 1）</text>
+      <text x="344" y="344" font-size="10.5" fill="#5f8a76">· 计算时间与 MSE 双优（引[34]）</text>
+      <text x="344" y="364" font-size="10.5" fill="#5f8a76">· 余弦权重：低阶锥贡献更大（非等权）</text>
+      <text x="344" y="392" font-size="10.5" fill="#0a6b4e">· 全实验「最经常给出最佳结果」★</text>
+      <rect x="612" y="246" width="278" height="170" rx="11" fill="#fdf3ef" stroke="#c0563f" stroke-width="1.4"/>
+      <text x="751" y="272" text-anchor="middle" font-size="12" font-weight="700" fill="#8c3b2e">modified SWCE（经验锐化）</text>
+      <text x="630" y="298" font-size="10.5" fill="#47536a">三点修改：λ_k 取 p=√4 次幂；α 放大 K 倍；β=1→0.5</text>
+      <text x="630" y="322" font-size="10.5" fill="#47536a">· 目的：提高时频图「对比度」——判别性结构</text>
+      <text x="630" y="342" font-size="10.5" fill="#47536a">　 （共振峰轨迹/辅音瞬态）与背景噪声反差更大</text>
+      <text x="630" y="368" font-size="10.5" fill="#8c3b2e">· 作者自认「理论统计性质可能不再成立」</text>
+      <text x="630" y="398" font-size="10.5" fill="#8c3b2e">· α 放大 K 倍 → 对大 K 过敏感 → K=10 崩盘</text>
+    </svg>
+    <p class="cap"><b>图 A</b>·模型侧完全沿用现成架构（&lt;25 万参数门槛）：Tiny-CNN（Google KWS 教程 CNN 瘦身——FC 128→32、删 dropout 因为只训 5 epoch，~22 万参数，大二维卷积核直接吃整张时频图）与 TC-ResNet（66k，把时频图视为「随时间变化的频率通道池」逐频率通道一维卷积）。结构迥异的一对模型检验特征改进是否「模型无关」。训练刻意只 5 epoch——模拟嵌入式「快速训练、端侧注册」的现实，欠训练放大特征差异的可观测性。</p>
+  </div>
+
+  <div class="formula">
+    Ŝ<sup>(K)</sup>(τ,f) = Σ<sub>k=0..K−1</sub> λ<sub>k</sub> · | Σ<sub>n</sub> x(n+Hτ)·w<sub>k</sub>(n)·e<sup>−j2πnf/N</sup> |²；　ŝ<sup>mel</sup> = (1/N<sub>m</sub>)·W<sup>H</sup>·log(M<sub>m</sub>·Ŝ<sup>(K)</sup>)
+    <div class="why"><b>人话</b>：一帧信号过 K 个正交窗各算一次功率谱再加权平均——K 个估计近似互不相关所以方差压到 1/K，每个窗本身旁瓣抑制良好所以偏差不动。特征张量形状完全不变（帧数 × 梅尔通道数），任何吃梅尔图的模型零改动直接换入。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">2040 个用例的全因子实验：每个组合都有多锥配置胜出</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>设置</b>：GSC v2（105,829 条 / 35 词 / 1s）+ Mozilla Spoken Digits（Common Voice 子集，14 词 = 10 数字 + Hey/Yes/No/Firefox，32,726 条，能量阈值裁剪到 1s 保语音活跃段）。<b>噪声只在测试侧</b>：WGN + DCASE 2020 环境噪声（公园 / 商场 / 街道交通）× SNR 5/10/15 dB = 6 场景——这是「特征鲁棒性」测试而非「训练-测试匹配」测试。5 个单窗基线（Hann = TF 默认即工业基线 / Hamming / Bartlett / Boxcar / Kaiser）× 多锥 3 锥族 × K∈{3,5,7,10} = 17 配置 × 5 STFT 参数（表 I 的 Setup A-E）× 2 模型 × 2 数据集 × 6 噪声 = 2040 用例。每配置 3 次运行取平均（无标准差、无显著性检验）。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 420" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table II · 跨噪声平均准确率（Setup C / D）：每个组合都有某个多锥配置超过全部单窗基线</text>
+<line x1="60" y1="275.0" x2="830" y2="275.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="52" y="279.0" text-anchor="end" font-size="12" fill="#6b7a72">0.5</text>
+<line x1="60" y1="200.0" x2="830" y2="200.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="52" y="204.0" text-anchor="end" font-size="12" fill="#6b7a72">0.6</text>
+<line x1="60" y1="125.0" x2="830" y2="125.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="52" y="129.0" text-anchor="end" font-size="12" fill="#6b7a72">0.7</text>
+<line x1="60" y1="320" x2="830" y2="320" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="158" y="46" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">Tiny-CNN · GSC</text>
+<rect x="66" y="103.2" width="40" height="4.3" rx="4" fill="#b9c6bd" opacity="0.5"/>
+<text x="86" y="98.2" text-anchor="middle" font-size="9.5" fill="#77837b">基线 0.729</text>
+<text x="86" y="340" text-anchor="middle" font-size="9.5" fill="#77837b">~0.723</text>
+<rect x="104.0" y="71.5" width="40" height="2.0" rx="4" fill="#0e8a66" opacity="0.45"/>
+<text x="124.0" y="65.5" text-anchor="middle" font-size="10" font-weight="600" fill="#0e8a66">0.771</text>
+<text x="124.0" y="356" text-anchor="middle" font-size="9" fill="#77837b">SWCE ori</text>
+<text x="158" y="378" text-anchor="middle" font-size="11" font-weight="700" fill="#0a6b4e">+4.2 pp</text>
+<text x="354" y="46" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">Tiny-CNN · MSD</text>
+<rect x="262" y="134.9" width="40" height="16.2" rx="4" fill="#b9c6bd" opacity="0.5"/>
+<text x="282" y="129.9" text-anchor="middle" font-size="9.5" fill="#77837b">基线 0.687</text>
+<text x="282" y="340" text-anchor="middle" font-size="9.5" fill="#77837b">~0.665</text>
+<rect x="300.0" y="104.7" width="40" height="14.5" rx="4" fill="#0e8a66" opacity="0.45"/>
+<text x="320.0" y="98.7" text-anchor="middle" font-size="10" font-weight="600" fill="#0e8a66">0.727</text>
+<text x="320.0" y="356" text-anchor="middle" font-size="9" fill="#77837b">SWCE mod</text>
+<rect x="360.0" y="122.1" width="40" height="2.3" rx="4" fill="#7cc0a2" opacity="0.45"/>
+<text x="380.0" y="116.1" text-anchor="middle" font-size="10" font-weight="600" fill="#7cc0a2">0.704</text>
+<text x="380.0" y="356" text-anchor="middle" font-size="9" fill="#77837b">Hermite</text>
+<text x="354" y="378" text-anchor="middle" font-size="11" font-weight="700" fill="#0a6b4e">+2.1~2.6 pp</text>
+<text x="550" y="46" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">TC-ResNet · GSC</text>
+<rect x="458" y="174.4" width="40" height="28.0" rx="4" fill="#b9c6bd" opacity="0.5"/>
+<text x="478" y="169.4" text-anchor="middle" font-size="9.5" fill="#77837b">基线 0.634</text>
+<text x="478" y="340" text-anchor="middle" font-size="9.5" fill="#77837b">~0.597</text>
+<rect x="496.0" y="145.0" width="40" height="16.0" rx="4" fill="#0e8a66" opacity="0.45"/>
+<text x="516.0" y="139.0" text-anchor="middle" font-size="10" font-weight="600" fill="#0e8a66">0.673</text>
+<text x="516.0" y="356" text-anchor="middle" font-size="9" fill="#77837b">SWCE ori</text>
+<rect x="556.0" y="237.7" width="40" height="51.0" rx="4" fill="#c0563f" opacity="0.45"/>
+<text x="576.0" y="231.7" text-anchor="middle" font-size="10" font-weight="600" fill="#c0563f">0.550</text>
+<text x="576.0" y="356" text-anchor="middle" font-size="9" fill="#77837b">Hermite</text>
+<text x="550" y="378" text-anchor="middle" font-size="11" font-weight="700" fill="#0a6b4e">+1.1~1.8 pp</text>
+<text x="746" y="46" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">TC-ResNet · MSD ★最大增益</text>
+<rect x="654" y="174.9" width="40" height="0.0" rx="4" fill="#b9c6bd" opacity="0.5"/>
+<text x="674" y="169.9" text-anchor="middle" font-size="9.5" fill="#77837b">基线 0.633</text>
+<text x="674" y="340" text-anchor="middle" font-size="9.5" fill="#77837b">~0.633</text>
+<rect x="692.0" y="119.2" width="40" height="2.7" rx="4" fill="#0e8a66" opacity="0.45"/>
+<text x="712.0" y="113.2" text-anchor="middle" font-size="10" font-weight="600" fill="#0e8a66">0.708</text>
+<text x="712.0" y="356" text-anchor="middle" font-size="9" fill="#77837b">SWCE ori</text>
+<text x="746" y="378" text-anchor="middle" font-size="11" font-weight="700" fill="#0a6b4e">+6.4~7.1 pp</text>
+<text x="440" y="404" text-anchor="middle" font-size="12" fill="#8a93a5">柱对 = 同一配置在 Setup C（H=640, 100 通道）与 Setup D（40 通道）的准确率区间；基线灰柱 = 五种单窗的落点区间。红柱 = Hermite 在 TC-ResNet 上低于全部基线</text>
+</svg>
+    <p class="cap"><b>表 II 复绘</b>·四个模型×数据集组合，灰柱 = 五种单窗基线（Hann/Hamming/Bartlett/Boxcar/Kaiser）在 Setup C/D 的落点区间，绿/红柱 = 多锥最佳配置。注意「基线被超越」的准确表述：每个组合都<b>存在某个</b>多锥配置超过全部基线，而非每个多锥配置都超过——Hermite 在 TC-ResNet 上的红柱就是反例。绝对准确率 0.60-0.78 必须放在「5 epoch 训练 + 5-15dB 加噪测试」的语境里读。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 340" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">锥数 K 的扫描（Tiny-CNN + GSC + Setup C）：SWCE orig 单调向好，modified 在 K=10 崩盘</text>
+<line x1="80" y1="270.0" x2="800" y2="270.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="274.0" text-anchor="end" font-size="12" fill="#6b7a72">0.45</text>
+<line x1="80" y1="210.0" x2="800" y2="210.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="214.0" text-anchor="end" font-size="12" fill="#6b7a72">0.55</text>
+<line x1="80" y1="150.0" x2="800" y2="150.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="154.0" text-anchor="end" font-size="12" fill="#6b7a72">0.65</text>
+<line x1="80" y1="90.0" x2="800" y2="90.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="94.0" text-anchor="end" font-size="12" fill="#6b7a72">0.75</text>
+<line x1="80" y1="300" x2="800" y2="300" stroke="#9aa79e" stroke-width="1.5"/>
+<polyline points="140.0,90.0 305.7,84.0 471.4,77.8 720.0,77.2" fill="none" stroke="#0e8a66" stroke-width="3"/>
+<circle cx="140.0" cy="90.0" r="5" fill="#0e8a66" stroke="#fff" stroke-width="1.8"/>
+<text x="140.0" y="78.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">0.750</text>
+<circle cx="305.7" cy="84.0" r="5" fill="#0e8a66" stroke="#fff" stroke-width="1.8"/>
+<text x="305.7" y="72.0" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">0.760</text>
+<circle cx="471.4" cy="77.8" r="5" fill="#0e8a66" stroke="#fff" stroke-width="1.8"/>
+<text x="471.4" y="65.8" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">0.770</text>
+<circle cx="720.0" cy="77.2" r="5" fill="#0e8a66" stroke="#fff" stroke-width="1.8"/>
+<text x="720.0" y="65.2" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">0.771</text>
+<polyline points="305.7,86.3 720.0,122.9" fill="none" stroke="#c0563f" stroke-width="3"/>
+<circle cx="305.7" cy="86.3" r="5" fill="#c0563f" stroke="#fff" stroke-width="1.8"/>
+<text x="305.7" y="74.3" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">0.756</text>
+<circle cx="720.0" cy="122.9" r="5" fill="#c0563f" stroke="#fff" stroke-width="1.8"/>
+<text x="720.0" y="110.9" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">0.695</text>
+<text x="140.0" y="322" text-anchor="middle" font-size="12.5" fill="#47536a">K=3</text>
+<text x="305.7" y="322" text-anchor="middle" font-size="12.5" fill="#47536a">K=5</text>
+<text x="471.4" y="322" text-anchor="middle" font-size="12.5" fill="#47536a">K=7</text>
+<text x="720.0" y="322" text-anchor="middle" font-size="12.5" fill="#47536a">K=10</text>
+<line x1="80" y1="102.5" x2="800" y2="102.5" stroke="#8a93a5" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="796" y="96.5" text-anchor="end" font-size="11.5" font-weight="600" fill="#8a93a5">最强基线 Bartlett 0.7291</text>
+<line x1="180" y1="336" x2="202" y2="336" stroke="#0e8a66" stroke-width="3"/><text x="208" y="340" font-size="11.5" fill="#47536a">SWCE original</text>
+<line x1="360" y1="336" x2="382" y2="336" stroke="#c0563f" stroke-width="3"/><text x="388" y="340" font-size="11.5" fill="#47536a">SWCE modified</text>
+</svg>
+    <p class="cap"><b>K 扫描复绘</b>（表 II 内可提取的数值）——SWCE original 从 K=3 到 10 单调向好且持续累加，与「方差随 1/K 压缩」的理论直觉一致；modified 版 K=5 尚可、K=10 跌破最强基线（TC-ResNet 上崩到 0.41-0.50 未入图）。推理时间随 K 线性增长（图 2 实测，i7-8565U 单核 8-20ms 量级）——「按 K 可预算」的工程事实。</p>
+  </div>
+
+  <div class="card">
+    <b>消融五读数</b>：① <b>K 的作用方向取决于锥族</b>——SWCE orig 单调向好（K=3→10 从 0.750 到 0.771，符合 1/K 理论直觉）；modified 反向崩盘（0.756→0.695，TC-ResNet 上更惨到 0.41-0.50）——工程甜点：modified 用 K=5 别上 10；② <b>特征-架构匹配（最重要边界）</b>——Hermite 在 TC-ResNet 上全部 K 低于最差基线、在 Tiny-CNN+MSD 上却超全部基线；SWCE modified 的最佳集中在 Tiny-CNN（大核 + 三倍参数量更能受益于高对比度）——笔记对 Hermite 伤害 TC-ResNet 的推测：TC-ResNet 的结构假设频率轴逐通道对齐，Hermite 高阶锥的时频能量重排可能破坏该对齐（论文未分析）；③ <b>小数据放大器</b>——MSD 增益普遍大于 GSC（+6~7 对 +1~2 点）：欠训练小数据下低方差先验替代部分数据量；④ <b>STFT 参数</b>——Setup D（40 通道粗频率分辨率）在欠训练小模型上普遍更好——更粗的分辨率反而留出冗余；⑤ <b>隔离设计</b>——脚注 1 明确无增强以隔离特征效应（因果干净但外推受限）。Setup A/B/E 与分噪声明细全部沉在补充材料。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">可转述的四个判断</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>更好的特征 = 更好的谱估计器</b><br><span style="color:#47536a;font-size:14.5px">梅尔特征的随机性全部来自谱估计器（W 与 M_m 是确定性算子）——把特征改良严格等价为谱估计器改良，为一切前端改进提供理论抓手。</span></div>
+    <div class="c"><span class="n">2</span><b>降方差不付偏差代价</b><br><span style="color:#47536a;font-size:14.5px">多锥在方差轴做平均（1/K 压缩）、偏差轴不动——与「平滑换分辨率」的既有路线本质不同；对下游完全透明（张量形状不变零改动换入）。</span></div>
+    <div class="c"><span class="n">3</span><b>小模型小数据时特征先验最值钱</b><br><span style="color:#47536a;font-size:14.5px">MSD（三成数据量）增益 +6~7 点对 GSC +1~2 点——欠训练场景下特征携带的低方差先验能替代部分数据量。</span></div>
+    <div class="c"><span class="n">4</span><b>特征改进不能脱离后端单独评价</b><br><span style="color:#47536a;font-size:14.5px">Hermite 伤 TC-ResNet / modified 偏爱大核 CNN——特征-架构匹配效应意味着换特征前先看模型结构的归纳偏置。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">K 倍前端计算没在真 MCU 上验过；5 epoch 欠训练限制外推</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>方法局限</h4>
+      <ul>
+        <li><b>线性开销是双刃剑</b>：K=10 的特征提取计算 ≈ 单窗 10 倍——常驻监听下前端往往比分类网络更耗电（每帧实时算）；推理时间只在笔记本 CPU（i7-8565U）测过，MCU/DSP 实测、功耗、内存全未报。</li>
+        <li><b>modified SWCE 无理论支撑且对 K 敏感</b>：作者自认统计性质可能不成立；K=10 崩盘说明锐化把鲁棒性换了锐度、适用区间窄。</li>
+        <li><b>Hermite 负增益缺机制解释</b>：只报现象无分析——削弱「锥族选型」贡献的可迁移性。</li>
+        <li><b>只覆盖梅尔谱一种特征形态</b>：MFCC 的多锥化（引言讨论过）实验未做、无直接对比。</li>
+        <li><b>指标单一</b>：只有准确率与推理时间——误唤醒 / 漏唤醒权衡（DET、特定虚警下召回）未报。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>5 epoch 欠训练限制外推</b>：绝对准确率压在 0.60-0.78；充分训练后特征差距是否保持同样大小未知（且删 dropout 与短训练绑定）。</li>
+        <li><b>无增强的隔离是双刃剑</b>：现实管线几乎都叠 SpecAugment / 多风格——组合效应与收益抵消未知（论文自留给未来）。</li>
+        <li><b>训练干净测试加噪的单边设计</b>：测的是特征固有鲁棒性；训练侧也加噪（multi-style 更接近真实部署）后优势是否收窄未知。</li>
+        <li><b>统计严谨性</b>：3 次只报均值无标准差——+1.1 pp 级别的提升（TC-ResNet+GSC）无法判断显著性。</li>
+        <li><b>推理时间范围过窄</b>：只测 1 模型 / 1 关键词 / 1 噪声场景，图 2 只有曲线无数值表。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得追的方向</b>：① 多锥 × 数据增强的组合验证（论文自指：SpecAugment 作用在多锥谱图上、多风格训练叠加收益）；② <b>可学习的锥参数</b>（结论明示）——锥族 / K / λ_k 从人工设定变可微分搜索或轻量可学习模块，暗示「参数化特征与端到端学习之间的中间道路」；③ 真实端侧硬件验证——Cortex-M 级 MCU / DSP / 专用加速器上实测功耗与延迟随 K 曲线，把「线性增长」落成毫瓦级预算表；④ 扩指标（DET 类误唤醒权衡）、扩特征（多锥化 MFCC）、扩架构（BC-ResNet 等复验匹配效应、解释 Hermite 与逐频率通道架构的不兼容机制）；⑤ K 自适应策略——SWCE orig 随 K 稳定向好而 modified 大 K 崩溃：按设备电量或场景噪声动态调 K（一次训练多级部署的思路）。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2024/Multitaper_Mel-spectrograms_For_Keyword_Spotting.md">深读笔记</a>
+    <a class="pill" href="/papers/2024/Multitaper_Mel-spectrograms_For_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2407.04662" target="_blank">arXiv</a>
+    <a class="pill" href="/">返回总目录</a>
+  </div>
+  <p>深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（表 I-II / 图 1-2 / 式 1-8）；「笔记推测」标注处为笔记给出的分析。</p>
+</footer>
+
+</div>
+</body>
+</html>
