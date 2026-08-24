@@ -1,7 +1,7 @@
 # 可视化精读计划（VIZ_PLAN）
 
 > 逐篇把 305 篇深读笔记重写为 HTML+SVG 可视化页（2026→2018 倒序）。每篇流程：读笔记 → python 算图表坐标 → 手绘机制 SVG → 自包含 HTML → 更新 manifest+plan → commit+push。
-**进度：45 / 305**
+**进度：46 / 305**
 > 进度以本文件为准；`viz_manifest.json` 是机器可读版（站点 viz 按钮按它门控）。
 
 ## 2026（24/24）
@@ -31,7 +31,7 @@
 - [✅] ProKWS: Personalized Keyword Spotting via Collaborative Le…
 - [✅] Scalable Keyword Spotting via Modular Network Expansion：冻结…
 
-## 2025（21/36）
+## 2025（22/36）
 
 - [✅] ASAP-FE：面向边缘处理器多通道关键词检出的节能特征提取前端
 - [✅] 免乘法器 MFCC 特征提取器的低功耗关键词检测芯片
@@ -54,7 +54,7 @@
 - [✅] Keyword Mamba：用状态空间模型做语音关键词检测
 - [✅] TF-DBPResNet：基于双支广播残差与时频坐标注意力的关键词检测
 - [✅] HyperSpotter：用超网络生成的匹配滤波器做小足迹设备上的开放词表关键词检测
-- [⬜] LLM-Synth4KWS：面向自定义关键词检测的可扩展混淆数据自动生成与合成
+- [✅] LLM-Synth4KWS：面向自定义关键词检测的可扩展混淆数据自动生成与合成
 - [⬜] Low-resource Keyword Spotting using Contrastively trained …
 - [⬜] MFA-KWS: Effective Keyword Spotting with Multi-head Frame-…
 - [⬜] MT-HuBERT：面向混叠语音少样本关键词检测的自监督混合训练预训练框架
