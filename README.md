@@ -24,6 +24,8 @@
 ## Overview
 In speech processing, keyword spotting deals with the identification of keywords in utterances. This repo is a curated list of awesome Speech Keyword Spotting (Wake-Up Word Detection) papers.
 
+> 📚 本站已支持中英双语：305 篇论文深读笔记均有完整英文版 —— [🇬🇧 English version](#/en/README)（或点右上角 **EN** 切换）。
+
 ## Survey
 * [Deep Spoken Keyword Spotting: An Overview](https://arxiv.org/abs/2111.10592), JOHN H.L. HANSEN (Fellow, IEEE), 2021.11
 
