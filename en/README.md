@@ -8,7 +8,7 @@ This repo extends [zycv/awesome-keyword-spotting](https://github.com/zycv/awesom
 
 - Browse by year in the sidebar; click any paper for its deep-reading note and the original PDF.
 - Full-text search supports both Chinese and English.
-- Notes are bilingual: `#/en/...` routes serve the English translation, falling back to the Chinese original where a translation is not yet available.
+- All 305 notes are translated: `#/en/...` routes serve the full English version of every note.
 
 ## Publication index
 
