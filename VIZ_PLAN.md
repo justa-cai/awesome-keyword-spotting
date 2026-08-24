@@ -4,9 +4,9 @@
 > 每完成一篇：生成 `papers/<year>/<name>.html` → 更新 `viz_manifest.json` → 本文件勾选 → 分批 commit+push。
 > 状态：✅ 已上线 · ⬜ 待做。进度 = 已完成 / 总数。
 
-**进度：12 / 305**
+**进度：13 / 305**
 
-## 2026（12/24）
+## 2026（13/24）
 
 - [✅] A Multiplication-Free Feature Extractor for Signal Class…
 - [✅] BEST-STD 2.0：面向口语词检索的均衡高效语音分词器
@@ -20,7 +20,7 @@
 - [✅] Google Speech Commands 基准复测与全新扩展数据集：一次面向可复现性的系统审计
 - [✅] ImKWS: Test-Time Adaptation for Keyword Spotting with Cl…
 - [✅] KFC-KWS: Keyframe Fusion with CTC for User-Defined Keywo…
-- [⬜] Keyword Spotting using Convolutional Neural Network for …
+- [✅] Keyword Spotting using Convolutional Neural Network for …
 - [⬜] MALEFA：面向零样本关键词检测的多粒度学习与高效误报抑制
 - [⬜] MATE：套娃式音频-文本嵌入，面向开放词表关键词检测
 - [⬜] Massive Open-Vocabulary Keyword Spotting
@@ -340,11 +340,3 @@
 - [⬜] Streaming End-to-End Speech Recognition and Keyword Spot…
 - [⬜] Structured Transforms for Small-Footprint Deep Learning
 - [⬜] Trainable Frontend for Robust and Far-Field Keyword Spot…
-## 完成一篇后的固定收尾（脚本）
-
-```bash
-python3 -c "
-import glob, json
-json.dump(sorted(p[:-5]+'.html' for p in glob.glob('papers/*/*.html')), open('viz_manifest.json','w'), indent=0)"
-# 然后重跑本文件的生成脚本更新勾选与计数 → git add 相关文件 → commit+push
-```
