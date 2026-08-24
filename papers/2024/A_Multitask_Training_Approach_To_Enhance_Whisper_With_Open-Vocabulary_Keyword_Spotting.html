@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KWS-Whisper · 开放词表检测喂提示 · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px;: 14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2024/A_Multitask_Training_Approach_To_Enhance_Whisper_With_Open-Vocabulary_Keyword_Spotting.md">深读笔记</a>
+    <a href="/papers/2024/A_Multitask_Training_Approach_To_Enhance_Whisper_With_Open-Vocabulary_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a href="https://doi.org/10.21437/interspeech.2024-104" target="_blank">DOI</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2024 №2</p>
+  <h1>先用 0.2M 的 KWS「听到」实体，<br>再决定往 Whisper 提示里塞什么</h1>
+  <p class="sub">A Multitask Training Approach to Enhance Whisper with Open-Vocabulary Keyword Spotting（KWS-Whisper）</p>
+  <p class="meta"><b>作者</b>：Yuang Li、Min Zhang 等 10 人 —— 华为翻译服务中心</p>
+  <p class="meta"><b>发表</b>：Interspeech 2024（希腊科斯岛）· 中英代码混说技术演讲场景</p>
+  <div class="chips">
+    <span class="chip">开放词表 OV-KWS</span><span class="chip">Whisper 上下文偏置</span><span class="chip">相似度矩阵对角检测</span>
+    <span class="chip">0.2M 四层 CNN</span><span class="chip">多任务 α=3</span><span class="chip">口语化提示</span><span class="chip">冻结即插即用</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>痛点</b>：E2E ASR（Whisper，68 万小时弱监督）对低频实体词（人名 / 术语 / 产品名）识别差；华为技术演讲场景实体词用户临时给定、中英混说——不可能预训进模型，也不可能每个新词重训。</li>
+      <li><b>方案骨架</b>：离线用 TTS 给每个实体「纯文本入职」（合成语音过 Whisper 编码器存特征库）；在线把输入语音的编码器多层加权特征与库中实体算<b>余弦相似度矩阵</b>，实体出现时矩阵浮现<b>对角线纹理</b>，一个 0.2M 四层 CNN 判「出现 / 未出现」→ 检出的实体喂进 Whisper 解码器提示。</li>
+      <li><b>训练</b>：多任务 Loss = L<sub>ASR</sub> + 3·L<sub>KWS</sub>，两阶段（先冻结训 CNN+解码器 10 ep，再解冻全模型 50 ep）。解冻编码器是精度主引擎——冻结时 F1 只有 0.6 档，解冻后 0.9；混合语料（zh+en）换域外泛化。</li>
+      <li><b>微调的坑（诚实暴露）</b>：小数据微调引发<b>灾难性遗忘</b>——内部技术演讲集 MER 从基线 5.9 飙到 14.7（zh 微调）。</li>
+      <li><b>正解是插件</b>：冻结任意尺寸 Whisper 挂 OV-KWS，「口语化提示」（用「呃」「好，那我就继续讲」等不流利标记把实体包成完整句）全面最优——large-v2 上 MER 4.4→2.9、召回 87.3→97.7%，冻结 small 插件甚至全面反超微调版。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">Whisper 有提示通道，但没人回答「提示里该放什么词」</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    Whisper 原生提供注入先验的通道——解码时给一段文本提示，模型据此调整输出，不必像前代方法那样外挂偏置模块。但前提问题没解决：<b>提示里放什么</b>？用户手输实体列表可以，全自动系统就必须先从音频里「知道」哪些实体真的出现了——这正是一个<b>开放词表关键词检测</b>问题。把整张实体清单一股脑塞进提示（朴素提示）在自发口语、代码混说会话里会引发幻觉；清单长而实际只出现一两个词时信噪比也很差。论文整个系统围绕「用极轻量 KWS 前端自动生成 Whisper 提示」展开。
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 300" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">热词偏置两条经典路线的缺陷（论文引言梳理）</text>
+      <g font-size="11.5">
+        <rect x="30" y="50" width="424" height="150" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="242" y="78" text-anchor="middle" font-weight="700" fill="#1c2430">浅融合 shallow fusion</text>
+        <text x="46" y="106" fill="#8c3b2e">✕ 束搜索时给热词分数加权——融合权重是全局</text>
+        <text x="46" y="126" fill="#8c3b2e">　 标量，语种 / 语速 / 热词数一变就得重调</text>
+        <text x="46" y="152" fill="#8c3b2e">✕ 只在解码端加分，声学模型对稀有实体的</text>
+        <text x="46" y="172" fill="#8c3b2e">　 表征并没有变好</text>
+        <text x="46" y="192" fill="#5f8a76">✓ 实现简单</text>
+
+        <rect x="476" y="50" width="414" height="150" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="683" y="78" text-anchor="middle" font-weight="700" fill="#1c2430">深融合 / 适配器 / 指针网络</text>
+        <text x="492" y="106" fill="#8c3b2e">✕ 必须与 ASR 模型从头联合训练——成本高，</text>
+        <text x="492" y="126" fill="#8c3b2e">　 偏置模块与主模型深度耦合</text>
+        <text x="492" y="152" fill="#8c3b2e">✕ 主模型一升级偏置模块就得重训，</text>
+        <text x="492" y="172" fill="#8c3b2e">　 无法迁移到已开源的 Whisper 各尺寸</text>
+        <text x="492" y="192" fill="#5f8a76">✓ 效果上限更高</text>
+      </g>
+      <rect x="30" y="216" width="860" height="68" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="46" y="242" font-size="12.5" font-weight="700" fill="#0a6b4e">本文切入点：复用 Whisper 编码器隐状态做 OV-KWS（零第二声学前端）+ 解码器提示这个原生接口吃先验</text>
+      <text x="46" y="264" font-size="11.5" fill="#47536a">对主模型零结构手术；实体「TTS 合成 + 编码器提特征」免录音入职，实体库与模型解耦，主模型升级库直接复用</text>
+    </svg>
+    <p class="cap"><b>图 A</b>·作者前作 CB-whisper（LREC-COLING 2024）同样用 OV-KWS 做偏置但模块更重；本文定位「更轻（0.2M）、更通用（任意尺寸冻结 Whisper 可挂）、更准」——注意该对比为论文自述，未给量化对照表。</p>
+  </div>
+
+  <div class="card">
+    <b>三个层层递进的挑战</b>：① 如何复用 Whisper 编码器隐状态做开放词表检测——决定额外开销能否压到极致（答案：0.2M 四层 CNN）；② 0.2M 容量有限，要 F1≈0.9 就必须微调编码器，而微调冲击通用识别——如何让 KWS 与 ASR 互相成全而非拆台（灾难性遗忘是论文亲口承认并实测到的失败模式）；③ 微调在真实域出错率回升时，如何退一步做成完全不动主模型的即插即用模块，兼容 small / medium / large-v2 任意冻结尺寸——决定工程落地半径。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">相似度矩阵上的对角线：把「词在不在」变成图像模式识别</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 430" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">Figure 1 复绘：离线建库（a）+ 在线检测喂提示（b/c）</text>
+      <rect x="30" y="50" width="424" height="128" rx="11" fill="#fbfaf6" stroke="#9aa79e" stroke-width="1.4"/>
+      <text x="48" y="76" font-size="12.5" font-weight="700" fill="#47536a">（a）离线：实体「纯文本入职」</text>
+      <rect x="48" y="92" width="120" height="56" rx="8" fill="#fff" stroke="#c9c9bd" stroke-width="1.3"/>
+      <text x="108" y="114" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">实体文本清单</text>
+      <text x="108" y="132" text-anchor="middle" font-size="10" fill="#8a93a5">用户临时给定</text>
+      <line x1="168" y1="120" x2="200" y2="120" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="200,120 192,115 192,125" fill="#5f8a76"/>
+      <rect x="202" y="92" width="110" height="56" rx="8" fill="#fff" stroke="#c9c9bd" stroke-width="1.3"/>
+      <text x="257" y="114" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">TTS 合成</text>
+      <text x="257" y="132" text-anchor="middle" font-size="10" fill="#8a93a5">edge-tts，免真人录音</text>
+      <line x1="312" y1="120" x2="332" y2="120" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="332,120 324,115 324,125" fill="#5f8a76"/>
+      <rect x="334" y="92" width="102" height="56" rx="8" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="385" y="114" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0a6b4e">Whisper 编码器</text>
+      <text x="385" y="132" text-anchor="middle" font-size="10" fill="#5f8a76">抽帧级特征 → 实体库</text>
+
+      <rect x="30" y="196" width="424" height="220" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="48" y="222" font-size="12.5" font-weight="700" fill="#0a6b4e">（b）在线：检测 → 提示 → 解码</text>
+      <rect x="48" y="238" width="150" height="50" rx="8" fill="#fff" stroke="#c9c9bd" stroke-width="1.3"/>
+      <text x="123" y="258" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">输入语音 → Whisper 编码器</text>
+      <text x="123" y="276" text-anchor="middle" font-size="10" fill="#8a93a5">多层隐状态可学习系数加权和</text>
+      <line x1="198" y1="263" x2="228" y2="263" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="228,263 220,258 220,268" fill="#5f8a76"/>
+      <rect x="230" y="238" width="100" height="50" rx="8" fill="#fff" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="280" y="258" text-anchor="middle" font-size="11" font-weight="700" fill="#0a6b4e">余弦相似度</text>
+      <text x="280" y="276" text-anchor="middle" font-size="10" fill="#5f8a76">S ∈ R^(T×T')</text>
+      <line x1="330" y1="263" x2="360" y2="263" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="360,263 352,258 352,268" fill="#5f8a76"/>
+      <rect x="362" y="238" width="76" height="50" rx="8" fill="#0e8a66"/>
+      <text x="400" y="258" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">4 层 CNN</text>
+      <text x="400" y="276" text-anchor="middle" font-size="10" fill="#d8f3e7">0.2M 参数</text>
+      <rect x="48" y="306" width="200" height="44" rx="8" fill="#fff" stroke="#c9c9bd" stroke-width="1.3"/>
+      <text x="148" y="324" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">检出实体 → 解码器提示</text>
+      <text x="148" y="340" text-anchor="middle" font-size="10" fill="#8a93a5">只放真正出现过的实体，信噪比高</text>
+      <line x1="248" y1="328" x2="278" y2="328" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="278,328 270,323 270,333" fill="#5f8a76"/>
+      <rect x="280" y="306" width="158" height="44" rx="8" fill="#fff" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="359" y="324" text-anchor="middle" font-size="11" font-weight="700" fill="#0a6b4e">Whisper 解码器</text>
+      <text x="359" y="340" text-anchor="middle" font-size="10" fill="#5f8a76">束宽 5 → 正确转写</text>
+      <text x="48" y="374" font-size="11" fill="#5f8a76">· 检测挂在编码器之后：完全复用主模型前向，无第二套声学前端</text>
+      <text x="48" y="392" font-size="11" fill="#5f8a76">· 对关键词数量线性复杂度，多词 GPU 并行批处理</text>
+      <text x="48" y="410" font-size="11" fill="#5f8a76">· 困难负样本训练：随机负样本太易，学不到精细判别边界</text>
+
+      <rect x="476" y="196" width="414" height="220" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="494" y="222" font-size="12.5" font-weight="700" fill="#47536a">（c）相似度矩阵的对角模式</text>
+      <g>
+        <rect x="510" y="244" width="180" height="150" rx="4" fill="#fff" stroke="#9aa79e" stroke-width="1.2"/>
+        <g fill="#0e8a66">
+          <rect x="552" y="290" width="26" height="26" rx="2" opacity="0.95"/>
+          <rect x="578" y="316" width="26" height="26" rx="2" opacity="0.9"/>
+          <rect x="526" y="316" width="26" height="26" rx="2" opacity="0.9"/>
+          <rect x="604" y="342" width="26" height="26" rx="2" opacity="0.85"/>
+          <rect x="552" y="342" width="26" height="26" rx="2" opacity="0.85"/>
+          <rect x="526" y="342" width="26" height="26" rx="2" opacity="0.8"/>
+        </g>
+        <text x="600" y="266" text-anchor="middle" font-size="11" fill="#8a93a5">输入帧 h_i</text>
+        <text x="590" y="408" text-anchor="middle" font-size="11" fill="#8a93a5">实体帧 e_j</text>
+        <text x="716" y="286" font-size="11.5" font-weight="700" fill="#0a6b4e">实体出现：</text>
+        <text x="716" y="304" font-size="11.5" fill="#47536a">帧逐对齐 → 沿对角线</text>
+        <text x="716" y="322" font-size="11.5" fill="#47536a">浮出高值带</text>
+        <text x="716" y="352" font-size="11.5" font-weight="700" fill="#8c3b2e">变长序列匹配</text>
+        <text x="716" y="370" font-size="11.5" fill="#47536a">→ 规约为图像局部</text>
+        <text x="716" y="388" font-size="11.5" fill="#47536a">模式检测 → CNN</text>
+      </g>
+    </svg>
+    <p class="cap"><b>图 B</b>·设计借鉴视觉关键词检测（Seeing wake words / 音频-文本对齐学习）：把待检实体与输入语音投影到同一特征空间，「词有没有出现」变成「矩阵上有没有对角纹理」。二分类框架（出现/未出现）而非序列定位是主动降档——对齐信息由对角模式隐式承载，CNN 卷积核天然擅长局部纹理且参数极少。</p>
+  </div>
+
+  <h3>多任务损失与两阶段训练</h3>
+  <div class="formula">
+    Loss = L<sub>ASR</sub> + α · L<sub>KWS</sub>，α = 3
+    <div class="why"><b>人话</b>：为什么必须两个损失同时在场——0.2M 的 CNN 太小，冻结的 Whisper 编码器特征不是为「帧级实体对齐」学的，检测精度上不去（冻结时 F1 仅 0.60–0.68）；必须放开编码器让它朝 KWS 适应，而一旦放开，若没有 L<sub>ASR</sub> 拽着，通用识别能力就流失。α=3（KWS 权重更高）论文直接给定、无敏感性实验。两阶段：先冻结训 CNN+解码器 10 ep（可训练 153.8M），再解冻全模型 50 ep（241.9M，OV-KWS 相关参数从 0.2M 涨到 88.4M）——先让小分类器在固定特征空间收敛，避免训练初期大模型把它「带崩」。微调期间提示里放本句真实出现的词，解码器由此建立「提示词应被优先输出」的条件行为——推理时换成 OV-KWS 预测的实体才能无缝衔接。</div>
+  </div>
+
+  <h3>冻结 Whisper 的两种消费通路：纠错 vs 提示</h3>
+  <div class="fig">
+    <svg viewBox="0 0 920 330" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">Section 2.5 / Table 1 复绘：提示的「文体」本身就是分布内信号</text>
+      <rect x="30" y="52" width="424" height="130" rx="11" fill="#fdf3ef" stroke="#c0563f" stroke-width="1.5"/>
+      <text x="48" y="78" font-size="12.5" font-weight="700" fill="#8c3b2e">朴素提示（书面列表）—— 文体错位</text>
+      <rect x="48" y="92" width="388" height="36" rx="6" fill="#fff" stroke="#c9c9bd" stroke-width="1.2"/>
+      <text x="62" y="115" font-size="12.5" fill="#1c2430" font-family="monospace">实体1, 实体2, 实体3</text>
+      <text x="48" y="152" font-size="11" fill="#8c3b2e">Whisper 提示位的语义是「上一句语音的历史转写」——</text>
+      <text x="48" y="170" font-size="11" fill="#8c3b2e">整洁列表诱导省略语气词、复杂会话里引发幻觉，MER 反升</text>
+
+      <rect x="476" y="52" width="414" height="130" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="494" y="78" font-size="12.5" font-weight="700" fill="#0a6b4e">口语化提示（spoken-form）—— 形貌贴近历史转写</text>
+      <rect x="494" y="92" width="378" height="36" rx="6" fill="#fff" stroke="#0e8a66" stroke-width="1.2"/>
+      <text x="506" y="115" font-size="12" fill="#1c2430">今天演讲的主题是这个呃，实体1、实体2、实体3。好，那我就继续讲。</text>
+      <text x="494" y="152" font-size="11" fill="#47536a">用「呃」「好，那我就继续讲」等不流利标记把实体包成完整句，</text>
+      <text x="494" y="170" font-size="11" fill="#47536a">分布上更接近 Whisper 训练时见过的自发口语转写</text>
+
+      <rect x="30" y="200" width="424" height="110" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="48" y="226" font-size="12.5" font-weight="700" fill="#47536a">纠错通路（改文本，不动解码）</text>
+      <text x="48" y="252" font-size="11.5" fill="#47536a">· 拼音法：中文词与检出实体同音则替换——正打在「同音字</text>
+      <text x="48" y="270" font-size="11.5" fill="#47536a">　 替换是中文实体错误主模式」上；英文用编辑距离</text>
+      <text x="48" y="296" font-size="11.5" fill="#47536a">· LLM 法：ChatGLM3-6B + 少样本模板改写（幻觉风险）</text>
+      <rect x="476" y="200" width="414" height="110" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="494" y="226" font-size="12.5" font-weight="700" fill="#47536a">提示通路（让解码器继续参考声学特征联合决策）</text>
+      <text x="494" y="252" font-size="11.5" fill="#47536a">· 检出实体进提示 → Whisper 自己在解码时对齐声学，</text>
+      <text x="494" y="270" font-size="11.5" fill="#47536a">　 不是在文本空间里盲改</text>
+      <text x="494" y="296" font-size="11.5" fill="#0a6b4e">· 实验结论：提示法整体显著优于纠错法（Table 7）</text>
+    </svg>
+    <p class="cap"><b>图 C</b>·核心洞察：提示不只携带词表信息，其<b>形式本身</b>也是分布内的信号——文体错位会直接推高 MER。</p>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">域内大胜、域外遗忘；冻结插件才是域外正解</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据</b>：训练三份——Aishell-1（中文，150 h）+ LibriSpeech train-clean（英文，100 h）+ TALCS（中英混说教学场景，578 h），对比仅中文（zh）与三语料混合（zh+en）。测试四个：Aishell-dev/test 热词子集（域内热词场景）+ Internal-1/2（华为技术演讲，99 句/41 min/150 实体、112 句/47 min/346 实体，实体人工标注，中文为主夹英文）。<b>指标</b>：F1（OV-KWS，漏检无提示可用、误检污染提示，调和平均对两侧短板都敏感）；MER（混说改造的字符错误率：每汉字与每英文词各一个错误单位——CER 按字母切英文会放大英文权重）；实体召回（业务真正目标——整句 MER 降一点不算数，实体写对与否决定转写稿可用性）。
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 410" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 7（冻结 Whisper-large-v2 + OV-KWS 插件）· 四种消费方式 × 两个内部集</text>
+<line x1="60" y1="263.1" x2="420" y2="263.1" stroke="#e8ece9" stroke-width="1"/>
+<text x="52" y="267.1" text-anchor="end" font-size="12" fill="#6b7a72">3</text>
+<line x1="60" y1="189.2" x2="420" y2="189.2" stroke="#e8ece9" stroke-width="1"/>
+<text x="52" y="193.2" text-anchor="end" font-size="12" fill="#6b7a72">5</text>
+<line x1="60" y1="115.4" x2="420" y2="115.4" stroke="#e8ece9" stroke-width="1"/>
+<text x="52" y="119.4" text-anchor="end" font-size="12" fill="#6b7a72">7</text>
+<line x1="60" y1="300" x2="420" y2="300" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="240" y="50" text-anchor="middle" font-size="13" font-weight="700" fill="#47536a">MER %（越低越好）</text>
+<rect x="66.0" y="211.4" width="32" height="88.6" rx="3" fill="#0e8a66"/>
+<text x="82.0" y="206.4" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">4.4</text>
+<rect x="102.0" y="167.1" width="32" height="132.9" rx="3" fill="#7cc0a2"/>
+<text x="118.0" y="162.1" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">5.6</text>
+<text x="84.0" y="320" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">无处理</text>
+<rect x="136.5" y="215.1" width="32" height="84.9" rx="3" fill="#0e8a66"/>
+<text x="152.5" y="210.1" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">4.3</text>
+<rect x="172.5" y="170.8" width="32" height="129.2" rx="3" fill="#7cc0a2"/>
+<text x="188.5" y="165.8" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">5.5</text>
+<text x="154.5" y="320" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">拼音纠错</text>
+<rect x="207.0" y="152.3" width="32" height="147.7" rx="3" fill="#0e8a66"/>
+<text x="223.0" y="147.3" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">6.0</text>
+<rect x="243.0" y="89.5" width="32" height="210.5" rx="3" fill="#7cc0a2"/>
+<text x="259.0" y="84.5" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">7.7</text>
+<text x="225.0" y="320" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">LLM 纠错</text>
+<rect x="277.5" y="200.3" width="32" height="99.7" rx="3" fill="#0e8a66"/>
+<text x="293.5" y="195.3" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">4.7</text>
+<rect x="313.5" y="130.2" width="32" height="169.8" rx="3" fill="#7cc0a2"/>
+<text x="329.5" y="125.2" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">6.6</text>
+<text x="295.5" y="320" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">朴素提示</text>
+<rect x="348.0" y="266.8" width="32" height="33.2" rx="3" fill="#0e8a66"/>
+<text x="364.0" y="261.8" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">2.9</text>
+<rect x="384.0" y="240.9" width="32" height="59.1" rx="3" fill="#7cc0a2"/>
+<text x="400.0" y="235.9" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">3.6</text>
+<text x="366.0" y="320" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">口语化提示</text>
+<line x1="470" y1="252.0" x2="830" y2="252.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="462" y="256.0" text-anchor="end" font-size="12" fill="#6b7a72">80</text>
+<line x1="470" y1="204.0" x2="830" y2="204.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="462" y="208.0" text-anchor="end" font-size="12" fill="#6b7a72">85</text>
+<line x1="470" y1="156.0" x2="830" y2="156.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="462" y="160.0" text-anchor="end" font-size="12" fill="#6b7a72">90</text>
+<line x1="470" y1="108.0" x2="830" y2="108.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="462" y="112.0" text-anchor="end" font-size="12" fill="#6b7a72">95</text>
+<line x1="470" y1="300" x2="830" y2="300" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="650" y="50" text-anchor="middle" font-size="13" font-weight="700" fill="#47536a">实体召回 %（越高越好）</text>
+<rect x="496.0" y="181.9" width="32" height="118.1" rx="3" fill="#0e8a66"/>
+<text x="512.0" y="176.9" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">87.3</text>
+<rect x="532.0" y="253.0" width="32" height="47.0" rx="3" fill="#7cc0a2"/>
+<text x="548.0" y="248.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">79.9</text>
+<text x="514.0" y="320" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">无处理</text>
+<rect x="561.5" y="166.6" width="32" height="133.4" rx="3" fill="#0e8a66"/>
+<text x="577.5" y="161.6" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">88.9</text>
+<rect x="597.5" y="214.6" width="32" height="85.4" rx="3" fill="#7cc0a2"/>
+<text x="613.5" y="209.6" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">83.9</text>
+<text x="579.5" y="320" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">拼音纠错</text>
+<rect x="627.0" y="157.0" width="32" height="143.0" rx="3" fill="#0e8a66"/>
+<text x="643.0" y="152.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">89.9</text>
+<rect x="663.0" y="203.0" width="32" height="97.0" rx="3" fill="#7cc0a2"/>
+<text x="679.0" y="198.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">85.1</text>
+<text x="645.0" y="320" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">LLM 纠错</text>
+<rect x="692.5" y="85.0" width="32" height="215.0" rx="3" fill="#0e8a66"/>
+<text x="708.5" y="80.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">97.4</text>
+<rect x="728.5" y="107.0" width="32" height="193.0" rx="3" fill="#7cc0a2"/>
+<text x="744.5" y="102.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">95.1</text>
+<text x="710.5" y="320" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">朴素提示</text>
+<rect x="758.0" y="82.1" width="32" height="217.9" rx="3" fill="#0e8a66"/>
+<text x="774.0" y="77.1" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">97.7</text>
+<rect x="794.0" y="89.8" width="32" height="210.2" rx="3" fill="#7cc0a2"/>
+<text x="810.0" y="84.8" text-anchor="middle" font-size="11" font-weight="600" fill="#1c2430">96.9</text>
+<text x="776.0" y="320" text-anchor="middle" font-size="11.5" font-weight="600" fill="#47536a">口语化提示</text>
+<rect x="66" y="352" width="13" height="13" rx="3" fill="#0e8a66"/><text x="84" y="363" font-size="12.5" fill="#47536a">Internal-1（99 句 / 41 min / 150 实体）</text>
+<rect x="350" y="352" width="13" height="13" rx="3" fill="#7cc0a2"/><text x="368" y="363" font-size="12.5" fill="#47536a">Internal-2（112 句 / 47 min / 346 实体）</text>
+<text x="440" y="390" text-anchor="middle" font-size="12" fill="#8a93a5">口语化提示全面最优：MER 4.4→2.9 / 5.6→3.6，召回 87.3→97.7 / 79.9→96.9；LLM 纠错召回↑但 MER 恶化（幻觉）</text>
+</svg>
+    <p class="cap"><b>表 7 复绘（Whisper-large-v2）</b>·四条规律：① 拼音纠错稳定小赢（同音替换先验）但只能修同音错；② LLM 纠错召回更高、MER 反升——改对的实体多，改错的非实体也多（幻觉）；③ 提示法整体优于纠错法——提示让模型继续参考声学特征联合决策，纠错在文本空间盲改；④ 朴素提示 MER 略升（medium Internal-2 从 6.7 恶化到 14.6，最烈），口语化提示双指标全面最优。<b>最硬的横向证据</b>：冻结 small + 口语化提示（4.0/95.9、6.8/91.1）全面优于微调版 KWS-Whisper-small（7.7/86.3、13.2/71.4）——不动主模型反而同时赢得 MER 与召回。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 340" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 6（Internal-1，技术演讲）· 微调的代价：域外 MER 回升、召回先崩后救</text>
+<line x1="70" y1="290.0" x2="420" y2="290.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="294.0" text-anchor="end" font-size="12.5" fill="#6b7a72">0</text>
+<line x1="70" y1="218.1" x2="420" y2="218.1" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="222.1" text-anchor="end" font-size="12.5" fill="#6b7a72">5</text>
+<line x1="70" y1="146.2" x2="420" y2="146.2" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="150.2" text-anchor="end" font-size="12.5" fill="#6b7a72">10</text>
+<line x1="70" y1="74.4" x2="420" y2="74.4" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="78.4" text-anchor="end" font-size="12.5" fill="#6b7a72">15</text>
+<line x1="70" y1="290" x2="420" y2="290" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="245" y="50" text-anchor="middle" font-size="13" font-weight="700" fill="#47536a">MER %（越低越好）</text>
+<rect x="102.0" y="205.2" width="66" height="84.8" rx="5" fill="#b9c6bd"/>
+<text x="135.0" y="197.2" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">5.9</text>
+<text x="135.0" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#47536a">Whisper-small</text>
+<text x="135.0" y="328" text-anchor="middle" font-size="12" font-weight="600" fill="#47536a">基线无提示</text>
+<rect x="257.0" y="78.7" width="66" height="211.3" rx="5" fill="#c0563f"/>
+<text x="290.0" y="70.7" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">14.7</text>
+<text x="290.0" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#47536a">zh 微调</text>
+<text x="290.0" y="328" text-anchor="middle" font-size="12" font-weight="600" fill="#47536a">无提示</text>
+<rect x="412.0" y="179.3" width="66" height="110.7" rx="5" fill="#0e8a66"/>
+<text x="445.0" y="171.3" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">7.7</text>
+<text x="445.0" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#47536a">zh+en 微调</text>
+<text x="445.0" y="328" text-anchor="middle" font-size="12" font-weight="600" fill="#47536a">+预测提示</text>
+<line x1="450" y1="44" x2="450" y2="300" stroke="#dfe5e0" stroke-width="1.5"/>
+<line x1="480" y1="290.0" x2="830" y2="290.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="472" y="294.0" text-anchor="end" font-size="12.5" fill="#6b7a72">40</text>
+<line x1="480" y1="213.3" x2="830" y2="213.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="472" y="217.3" text-anchor="end" font-size="12.5" fill="#6b7a72">60</text>
+<line x1="480" y1="136.7" x2="830" y2="136.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="472" y="140.7" text-anchor="end" font-size="12.5" fill="#6b7a72">80</text>
+<line x1="480" y1="60.0" x2="830" y2="60.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="472" y="64.0" text-anchor="end" font-size="12.5" fill="#6b7a72">100</text>
+<line x1="480" y1="290" x2="830" y2="290" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="655" y="50" text-anchor="middle" font-size="13" font-weight="700" fill="#47536a">实体召回 %（越高越好）</text>
+<rect x="512.0" y="142.4" width="66" height="147.6" rx="5" fill="#b9c6bd"/>
+<text x="545.0" y="134.4" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">78.5</text>
+<rect x="667.0" y="255.5" width="66" height="34.5" rx="5" fill="#c0563f"/>
+<text x="700.0" y="247.5" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">49.0</text>
+<rect x="822.0" y="112.5" width="66" height="177.5" rx="5" fill="#0e8a66"/>
+<text x="855.0" y="104.5" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">86.3</text>
+</svg>
+    <p class="cap"><b>表 6 复绘（Internal-1）</b>·灾难性遗忘的完整暴露：zh 微调 MER 5.9→14.7、召回 78.5→49.0；混合数据 + 预测提示救回召回（86.3）但 MER（7.7）仍差于基线（5.9）。论文归因：微调数据规模小 + 训练域（有声书 / 教学）与测试域（技术演讲）不匹配。<b>域内对照</b>（Aishell）：基线无提示 16.7/6.3 → 基线真值提示 13.3/81.6 → 微调 + 预测提示 9.2/88.4——微调模型用「预测实体」反超原始模型用「人工真值实体」，说明微调让解码器真正学会消费提示；且 88.4/87.7 反超同期 SOTA 热词模型 SeACo-Paraformer（86/87）。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 360" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 4 · 解冻编码器是检测精度主引擎，混合训练换域外泛化（F1）</text>
+<rect x="80" y="213.6" width="750" height="38.4" fill="#f4f0e6" opacity="0.7"/>
+<text x="826" y="207.6" text-anchor="end" font-size="11.5" fill="#b45f1c">冻结编码器档：F1 ≈ 0.60–0.68</text>
+<line x1="80" y1="300.0" x2="830" y2="300.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="304.0" text-anchor="end" font-size="12.5" fill="#6b7a72">0.5</text>
+<line x1="80" y1="252.0" x2="830" y2="252.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="256.0" text-anchor="end" font-size="12.5" fill="#6b7a72">0.6</text>
+<line x1="80" y1="204.0" x2="830" y2="204.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="208.0" text-anchor="end" font-size="12.5" fill="#6b7a72">0.7</text>
+<line x1="80" y1="156.0" x2="830" y2="156.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="160.0" text-anchor="end" font-size="12.5" fill="#6b7a72">0.8</text>
+<line x1="80" y1="108.0" x2="830" y2="108.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="112.0" text-anchor="end" font-size="12.5" fill="#6b7a72">0.9</text>
+<line x1="80" y1="60.0" x2="830" y2="60.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="72" y="64.0" text-anchor="end" font-size="12.5" fill="#6b7a72">1.0</text>
+<line x1="80" y1="300" x2="830" y2="300" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="124.0" y="132.0" width="52" height="168.0" rx="4" fill="#7cc0a2"/>
+<text x="150.0" y="125.0" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">0.85</text>
+<rect x="184.0" y="141.6" width="52" height="158.4" rx="4" fill="#0e8a66"/>
+<text x="210.0" y="134.6" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">0.83</text>
+<text x="180.0" y="322" text-anchor="middle" font-size="13" font-weight="600" fill="#47536a">Aishell-dev</text>
+<rect x="294.0" y="112.8" width="52" height="187.2" rx="4" fill="#7cc0a2"/>
+<text x="320.0" y="105.8" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">0.89</text>
+<rect x="354.0" y="136.8" width="52" height="163.2" rx="4" fill="#0e8a66"/>
+<text x="380.0" y="129.8" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">0.84</text>
+<text x="350.0" y="322" text-anchor="middle" font-size="13" font-weight="600" fill="#47536a">Aishell-test</text>
+<rect x="464.0" y="180.0" width="52" height="120.0" rx="4" fill="#7cc0a2"/>
+<text x="490.0" y="173.0" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">0.75</text>
+<rect x="524.0" y="108.0" width="52" height="192.0" rx="4" fill="#0e8a66"/>
+<text x="550.0" y="101.0" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">0.90</text>
+<text x="520.0" y="322" text-anchor="middle" font-size="13" font-weight="600" fill="#47536a">Internal-1</text>
+<rect x="634.0" y="146.4" width="52" height="153.6" rx="4" fill="#7cc0a2"/>
+<text x="660.0" y="139.4" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">0.82</text>
+<rect x="694.0" y="117.6" width="52" height="182.4" rx="4" fill="#0e8a66"/>
+<text x="720.0" y="110.6" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">0.88</text>
+<text x="690.0" y="322" text-anchor="middle" font-size="13" font-weight="600" fill="#47536a">Internal-2</text>
+<rect x="80" y="336" width="13" height="13" rx="3" fill="#7cc0a2"/><text x="98" y="347" font-size="12.5" fill="#47536a">解冻 · 仅中文（zh）</text>
+<rect x="260" y="336" width="13" height="13" rx="3" fill="#0e8a66"/><text x="278" y="347" font-size="12.5" fill="#47536a">解冻 · 三语料混合（zh+en）</text>
+</svg>
+    <p class="cap"><b>表 4 复绘</b>·两条结论：① 编码器适配是精度主引擎——冻结时 F1 只有 0.60–0.68 档（黄色带），解冻后跃迁到 0.9 档（OV-KWS 相关参数 0.2M→88.4M）；② 域内 zh 略优（0.85/0.89 对 0.83/0.84），域外 zh+en 显著更优（0.90/0.88 对 0.75/0.82）——混合训练用域内微小让步换域外泛化。配套消融（Table 5）：多任务不损害 KWS（域内 0.83/0.84 对单任务 0.86/0.86，域外 0.90 反超 0.87）；Figure 2 层级权重显示第 8–12 深层对 KWS 影响更大、微调后进一步升高——编码器发生了定向适应，事后验证了「加权求和而非取最后一层」的设计。</p>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">可转述的四个判断</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>三件套把 OV-KWS 压进 0.2M</b><br><span style="color:#47536a;font-size:14.5px">TTS 建实体库（纯文本入职）+ 多层加权特征 + 相似度矩阵对角检测，四层 CNN 0.2M 参数，对关键词数线性可扩展——「开放词表能成立」的工程前提是免录音入职。</span></div>
+    <div class="c"><span class="n">2</span><b>多任务微调让解码器学会消费提示</b><br><span style="color:#47536a;font-size:14.5px">L<sub>ASR</sub>+3·L<sub>KWS</sub> + 两阶段解冻，检测 F1 到 0.9；微调模型用「预测实体」的召回反超原始模型用「人工真值实体」——给对提示也用不满，是学出来的能力。</span></div>
+    <div class="c"><span class="n">3</span><b>插件路线 + 口语化提示</b><br><span style="color:#47536a;font-size:14.5px">任意尺寸冻结 Whisper 挂 OV-KWS 即受益（large-v2：MER 4.4→2.9、召回 87.3→97.7）；提示的形式本身是分布内信号——文体错位会推高 MER。</span></div>
+    <div class="c"><span class="n">4</span><b>诚实暴露微调边界</b><br><span style="color:#47536a;font-size:14.5px">完整呈现灾难性遗忘（Internal-1 MER 5.9→14.7）并给出工程结论：域外场景优先冻结模型 + 插件，而非微调——冻结 small 插件全面反超微调版。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">遗忘未根治、实体库押在 TTS 上、内部集只有一百句</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>方法局限</h4>
+      <ul>
+        <li><b>灾难性遗忘只是绕开不是解决</b>：多任务损失缓解后 Internal-1 MER 7.7 仍差于基线 5.9，论文最终建议退回冻结 + 插件——等于承认微调路线在真实域不可用。</li>
+        <li><b>实体库依赖 TTS 合成</b>：合成语音与真实发音在韵律、信道、口音上有系统差，对角对齐质量受影响；未做合成 vs 真人注册特征的对照。</li>
+        <li><b>线性复杂度撞大词表</b>：逐词算相似度矩阵 + CNN 前向，词表上量后成瓶颈——论文把「提升 OV-KWS 效率」列为未来工作，即当前未做索引化 / 子词加速。</li>
+        <li><b>纠错通路硬伤</b>：拼音法只修同音错；LLM 法所有行的 MER 都比基线差（幻觉），且 6B 模型推理成本 / 延迟未报告。</li>
+        <li><b>口语化提示是固定模板</b>：对说话风格、语种的迁移性存疑，对提示长度 / 实体数量的敏感性未消融。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>内部集极小</b>：99 / 112 句，几个百分点的差异统计意义有限，无显著性检验或置信区间。</li>
+        <li><b>微调只在 Whisper-small 上做</b>：medium / large 只出现在插件路线——「更大模型微调能否缓解遗忘」无法回答。</li>
+        <li><b>基线覆盖窄</b>：浅融合 / 深融合 / 适配器 / 指针网络引言综述了但实验没纳入；唯一外部 SOTA 对照 SeACo-Paraformer 只比了 Aishell 召回两项，MER 维度未比。</li>
+        <li><b>关键超参未消融</b>：α=3、困难负样本构造、两阶段 epoch（10+50）、随机拼接、束宽 5。</li>
+        <li><b>与前作 CB-whisper 无量化对照表</b>：「更轻更准」只能作为作者自述看待。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>论文自指的两个方向</b>：① 提升 OV-KWS 效率支撑大规模关键词库（向量检索预筛 / 共享骨干多标签头）；② 用原始 Whisper 蒸馏大规模语音在通用域做多任务微调，从数据规模端解决域外遗忘。<b>笔记延伸</b>：口语化提示从固定模板升级为按目标域风格自适应生成；真人注册音频与 TTS 混合建库弥合声学差距；在 medium / large 上补齐微调实验，检验模型容量与遗忘的关系。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2024/A_Multitask_Training_Approach_To_Enhance_Whisper_With_Open-Vocabulary_Keyword_Spotting.md">深读笔记</a>
+    <a class="pill" href="/papers/2024/A_Multitask_Training_Approach_To_Enhance_Whisper_With_Open-Vocabulary_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a class="pill" href="https://doi.org/10.21437/interspeech.2024-104" target="_blank">DOI</a>
+    <a class="pill" href="/">返回总目录</a>
+  </div>
+  <p>深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table 1-7 / Figure 1-2 / Eq.1）；「笔记交叉比对 / 笔者」标注处为笔记给出的推断。</p>
+</footer>
+
+</div>
+</body>
+</html>
