@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>多通道噪声 KWS · 注意力挑通道 · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2025/Multichannel_Keyword_Spotting_For_Noisy_Conditions.md">深读笔记</a>
+    <a href="/papers/2025/Multichannel_Keyword_Spotting_For_Noisy_Conditions.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2507.15558" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2025 №27</p>
+  <h1>多通道噪声 KWS<br>端侧没有上行带宽限制：让一个 5 万参数的注意力网络逐帧挑「用哪个麦克风」</h1>
+  <p class="sub">Multichannel Keyword Spotting for Noisy Conditions</p>
+  <p class="meta"><b>作者</b>：Dzmitry Saladukha 等 —— Yandex 嵌入式语音输入团队（白俄 / 塞尔维亚 / 俄罗斯）</p>
+  <p class="meta"><b>发表</b>：2025.07 · arXiv:2507.15558 · 七麦环形阵列智能音箱实测</p>
+  <div class="chips">
+    <span class="chip">多通道 KWS</span><span class="chip">注意力聚合</span><span class="chip">三麦 ANC</span>
+    <span class="chip">vs 波束形成</span><span class="chip">端侧单核预算</span><span class="chip">真机实测</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>设备侧独特机会：云端 ASR 用多通道受上行带宽限制不可行——<b>端侧唤醒不存在带宽问题</b>，芯片上所有麦克风通道现成。设备：7 麦阵列（中心全向 + 6 环形 r=4.2cm）。</li>
+      <li>核心发现（单用降噪通道反而更差）：Base+ANC 的 FRR <b>8.8% &gt; 基线 7.5%</b>——ANC 在高 SNR 或用户先说话时把唤醒词当噪声压制；波束则通过失真/压制有用信号降低性能。降噪通道<b>单独不可靠</b>。</li>
+      <li>方案：ANC 通道 + 全向通道 → <b>约 5 万参数的注意力网络</b>（主干的 1/15）逐特征逐帧 softmax 加权 → SVDF 主干（750K / 3.4MB / RTF 0.18）。高 SNR 信全向、低 SNR 信 ANC——加权组合而非二选一。</li>
+      <li>结果：真实测试集（固定 FA/h=0.1）FRR <b>5.5%</b> 全场最低——对基线相对降 27%、优于参数翻倍（7.0）、逻辑或集成（6.4）、六波束注意力（6.7）；开销只加 RTF 0.03 + 0.1MB。</li>
+      <li>前端选择判据：ANC 降噪质量显著优于六静态波束（−20dB：16.8 vs 59.8）且计算更省（RTF 0.070 vs 0.112）——<b>前端选择以下游 KWS 的 FRR 为准绳，不以波束的理论优雅性为准绳</b>。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">四条路线各有软肋，多通道聚合无标准答案</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 350" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">三重工程枷锁 + 四类已有方案的软肋</text>
+      <g font-size="11.5">
+        <rect x="30" y="50" width="860" height="66" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="46" y="74" font-weight="700" fill="#1c2430">三重枷锁</text>
+        <text x="46" y="98" fill="#47536a">常驻单核 CPU（不能休眠）· 远场低 SNR（实测低至 −25dB）· 误唤醒代价极高（统一固定 FA/h=0.1，十小时一次）</text>
+
+        <rect x="30" y="128" width="200" height="120" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="130" y="152" text-anchor="middle" font-weight="700" fill="#1c2430">数据增强</text>
+        <text x="44" y="178" fill="#8c3b2e">噪声只是「被见过」</text>
+        <text x="44" y="200" fill="#8c3b2e">物理上没被消除——</text>
+        <text x="44" y="222" fill="#8c3b2e">仍在单通道失真信号上工作</text>
+        <rect x="246" y="128" width="200" height="120" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="346" y="152" text-anchor="middle" font-weight="700" fill="#1c2430">单通道神经降噪</text>
+        <text x="260" y="178" fill="#8c3b2e">两目标纠缠训练复杂；</text>
+        <text x="260" y="200" fill="#8c3b2e">单麦混合信号分离空间</text>
+        <text x="260" y="222" fill="#8c3b2e">欠定（信息论上不占优）</text>
+        <rect x="462" y="128" width="200" height="120" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="562" y="152" text-anchor="middle" font-weight="700" fill="#1c2430">波束形成 BF</text>
+        <text x="476" y="178" fill="#8c3b2e">指向错 / 用户移动 / 关键词</text>
+        <text x="476" y="200" fill="#8c3b2e">落旁瓣时信号被削弱——</text>
+        <text x="476" y="222" fill="#8c3b2e">通过失真或压制有用信号降性能</text>
+        <rect x="678" y="128" width="212" height="120" rx="10" fill="#fdf6f4" stroke="#c9a9a0" stroke-width="1.4"/>
+        <text x="784" y="152" text-anchor="middle" font-weight="700" fill="#8c3b2e">ANC 自适应噪声消除</text>
+        <text x="692" y="178" fill="#8c3b2e">高 SNR 或用户先哼了句歌——</text>
+        <text x="692" y="200" fill="#8c3b2e">唤醒词被误判为噪声压制</text>
+        <text x="692" y="224" fill="#8a93a5">实测坐实：单用 ANC 反而更差</text>
+      </g>
+      <rect x="30" y="262" width="860" height="66" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="46" y="288" font-size="12.5" font-weight="700" fill="#0a6b4e">多通道聚合本身也无标准答案（论文引言原话）</text>
+      <text x="46" y="312" font-size="11.5" fill="#47536a">集成（各通道各跑一模型 + 逻辑或）只会放宽判定推高误报，需逐通道阈值网格搜索拉回，且推理成本随通道数翻倍（RTF 0.36 vs 注意力 0.21）</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">三层架构：信号前端 → 注意力聚合 → 单通道主干</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 390" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">系统与训练流程（图 2 / 第 6.1 节）：从单通道基线推导多通道模型</text>
+      <g font-size="11.5">
+        <rect x="30" y="60" width="190" height="66" rx="10" fill="#f4f4ee" stroke="#9ca3af" stroke-width="1.4"/>
+        <text x="125" y="84" text-anchor="middle" font-weight="700" fill="#47536a">ANC 通道（三麦克风）</text>
+        <text x="125" y="106" text-anchor="middle" font-size="10" fill="#8a93a5">RTF 0.070 · 降噪质量优</text>
+
+        <rect x="30" y="150" width="190" height="66" rx="10" fill="#f4f4ee" stroke="#9ca3af" stroke-width="1.4"/>
+        <text x="125" y="174" text-anchor="middle" font-weight="700" fill="#47536a">全向（omni）通道</text>
+        <text x="125" y="196" text-anchor="middle" font-size="10" fill="#8a93a5">不失真但含噪 · 高 SNR 可靠</text>
+
+        <rect x="250" y="100" width="220" height="80" rx="10" fill="#0e8a66"/>
+        <text x="360" y="126" text-anchor="middle" font-weight="700" fill="#fff">注意力网络 ≈5 万参数</text>
+        <text x="360" y="148" text-anchor="middle" font-size="10.5" fill="#cdebdf">逐特征逐帧 softmax → 加权求和</text>
+        <text x="360" y="166" text-anchor="middle" font-size="10" fill="#9fd4bd">（主干的 1/15 · SVDF 风格）</text>
+
+        <rect x="500" y="100" width="200" height="80" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="600" y="126" text-anchor="middle" font-weight="700" fill="#1c2430">SVDF 主干 ≈75 万</text>
+        <text x="600" y="148" text-anchor="middle" font-size="10" fill="#8a93a5">3.4MB · RTF 0.18 单核</text>
+        <text x="600" y="166" text-anchor="middle" font-size="10" fill="#8a93a5">流式逐帧 · 40 维 log-Mel</text>
+
+        <rect x="730" y="112" width="160" height="56" rx="10" fill="#1c2430"/>
+        <text x="810" y="136" text-anchor="middle" font-weight="700" fill="#fff">每帧关键词概率</text>
+        <text x="810" y="154" text-anchor="middle" font-size="10" fill="#c9ced6">话语级最大池化损失</text>
+      </g>
+      <g stroke="#8a93a5" stroke-width="1.5" fill="none">
+        <line x1="220" y1="93" x2="246" y2="120"/><polygon points="246,120 240,114 239,121" fill="#8a93a5"/>
+        <line x1="220" y1="183" x2="246" y2="156"/><polygon points="246,156 239,159 240,152" fill="#8a93a5"/>
+        <line x1="470" y1="140" x2="496" y2="140"/><polygon points="496,140 490,137 490,143" fill="#8a93a5"/>
+        <line x1="700" y1="140" x2="726" y2="140"/><polygon points="726,140 720,137 720,143" fill="#8a93a5"/>
+      </g>
+      <rect x="30" y="200" width="424" height="110" rx="10" fill="#fbfaf6" stroke="#e6e6df"/>
+      <text x="46" y="226" font-size="12" font-weight="700" fill="#1c2430">训练三步（数据现实：1000 万全向伪标注 vs 50 万多通道）</text>
+      <text x="46" y="250" font-size="11" fill="#47536a">① 全向 1000 万条伪标注训基线（声学能力练扎实）</text>
+      <text x="46" y="272" font-size="11" fill="#47536a">② 接入注意力网络，50 万条多通道数据微调整个模型</text>
+      <text x="46" y="294" font-size="11" fill="#47536a">③ 集成对照组：复制基线在 ANC 数据微调 + 逻辑或（需逐通道阈值网格搜索）</text>
+      <rect x="474" y="200" width="416" height="110" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.4"/>
+      <text x="490" y="226" font-size="12" font-weight="700" fill="#0a6b4e">为什么不直接学原始多通道</text>
+      <text x="490" y="250" font-size="11" fill="#47536a">先由物理知识明确的信号处理产出降噪通道，网络只做轻量</text>
+      <text x="490" y="272" font-size="11" fill="#47536a">通道选择——比让网络从原始多通道学空间滤波更省参数、</text>
+      <text x="490" y="294" font-size="11" fill="#47536a">更可控、且符合单通道大规模模型的迁移路径</text>
+      <rect x="30" y="324" width="860" height="52" rx="9" fill="#fbfaf6" stroke="#e6e6df"/>
+      <text x="46" y="348" font-size="11.5" fill="#8a93a5">对照的六波束配置：6 个静态定向波束覆盖 360°（每波束 60° 扇区，匹配 7 麦环形物理布局）+ 全向——Table 1 显示其降噪质量逊于三麦 ANC 且计算更贵</text>
+      <text x="46" y="368" font-size="11.5" fill="#8a93a5">本文主张只取两通道（ANC + omni）；六波束信息被完全丢弃——通道数与组合的搜索空间未探索（局限）</text>
+      </g>
+    </svg>
+    <p class="cap"><b>逐特征 softmax 的细粒度：</b>每个梅尔频带、每一帧都有自己的通道权重——网络可以在低频段信全向、高频段信 ANC 这种细粒度上做混合；凸组合保证输出特征数值范围与输入同量级，主干输入分布不漂移（微调稳定收敛的原因之一）。</p>
+  </div>
+
+  <div class="formula">
+    α<sub>ij</sub> = exp(e<sub>ij</sub>) / Σ<sub>i</sub> exp(e<sub>ij</sub>)，z*<sub>j</sub> = Σ<sub>i</sub> α<sub>ij</sub>·z<sub>ij</sub>　（逐特征通道 softmax + 凸组合）
+    <div class="why">话语级损失（式 3–4）：p̂ = ∏<sub>p∈parts</sub> max<sub>t</sub> x<sub>t</sub><sup>p</sup>——<b>时间维取最大</b>允许成分以任意顺序任意位置出现（绕开对齐），<b>乘法</b>要求短语各成分都被检测到（缺一个音素整体得分塌下去）；负样本惩罚任何成分概率偏高，正好对应误唤醒。逐帧输出折叠成话语级判定的干净方案。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">ANC 全程最优 + 三层因果结构</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <h3 style="margin-top:0">双数据集与真机基准</h3>
+    <p style="margin:6px 0"><b>声学实验室</b>：4.5×5.5m 隔音房，设备居中、声源在 2m 圆周——噪声固定 60dB SPL、关键词音量七档扫掠（35–65dB）→ 精确已知 SNR 梯度（−25 到 +5dB 七档），900 条录音、六种噪声（厨房/街道/吸尘器/白噪/粉噪/电视）、男女童声均衡。<b>KWS 数据集</b>：训练 50 万条多通道伪标注 + 1000 万全向伪标注；测试 5 万条人工转写（含 4 万条目标词——正样本占八成，与真实部署分布相差甚远，FRR 可能偏乐观）。<b>降噪质量指标</b>：不评 PESQ/STOI，直接量「该通道让下游 KWS 变好多少」（固定 FRR 下的 SNR 差值）。<b>硬件</b>：Amlogic S905X2（音箱芯片四核 A53 1.8GHz）真机实测。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 340" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">表 1 降噪通道质量（声学实验室，基线 KWS 的 FRR%，按 SNR 分档）：ANC 全程最优</text>
+      <line x1="100" y1="250.0" x2="840" y2="250.0" stroke="#f0f1f3"/>
+      <text x="94" y="254.0" text-anchor="end" font-size="11" fill="#9ca3af">0</text>
+      <line x1="100" y1="202.5" x2="840" y2="202.5" stroke="#f0f1f3"/>
+      <text x="94" y="206.5" text-anchor="end" font-size="11" fill="#9ca3af">25</text>
+      <line x1="100" y1="155.0" x2="840" y2="155.0" stroke="#f0f1f3"/>
+      <text x="94" y="159.0" text-anchor="end" font-size="11" fill="#9ca3af">50</text>
+      <line x1="100" y1="107.5" x2="840" y2="107.5" stroke="#f0f1f3"/>
+      <text x="94" y="111.5" text-anchor="end" font-size="11" fill="#9ca3af">75</text>
+      <line x1="100" y1="60.0" x2="840" y2="60.0" stroke="#f0f1f3"/>
+      <text x="94" y="64.0" text-anchor="end" font-size="11" fill="#9ca3af">100</text>
+      <text x="160" y="272" text-anchor="middle" font-size="11.5" fill="#47536a">−10 dB</text>
+      <text x="360" y="272" text-anchor="middle" font-size="11.5" fill="#47536a">−15 dB</text>
+      <text x="560" y="272" text-anchor="middle" font-size="11.5" fill="#47536a">−20 dB</text>
+      <text x="760" y="272" text-anchor="middle" font-size="11.5" fill="#47536a">−25 dB</text>
+      <polyline points="160,199.3 560,69.3 760,60.0" fill="none" stroke="#c9ced6" stroke-width="2"/>
+      <polyline points="160,248.5 360,224.4 560,136.4 760,73.5" fill="none" stroke="#d97a2b" stroke-width="2"/>
+      <polyline points="160,249.8 360,244.7 560,218.1 760,122.5" fill="none" stroke="#0e8a66" stroke-width="3"/>
+      <circle cx="160" cy="249.8" r="4" fill="#0e8a66"/><circle cx="360" cy="244.7" r="4" fill="#0e8a66"/><circle cx="560" cy="218.1" r="4" fill="#0e8a66"/><circle cx="760" cy="122.5" r="4" fill="#0e8a66"/>
+      <circle cx="160" cy="248.5" r="3.5" fill="#d97a2b"/><circle cx="360" cy="224.4" r="3.5" fill="#d97a2b"/><circle cx="560" cy="136.4" r="3.5" fill="#d97a2b"/><circle cx="760" cy="73.5" r="3.5" fill="#d97a2b"/>
+      <text x="160" y="241.8" text-anchor="middle" font-size="10" font-weight="700" fill="#0a6b4e">0.1</text>
+      <text x="360" y="236.7" text-anchor="middle" font-size="10" font-weight="700" fill="#0a6b4e">2.8</text>
+      <text x="560" y="210.1" text-anchor="middle" font-size="10" font-weight="700" fill="#0a6b4e">16.8</text>
+      <text x="760" y="114.5" text-anchor="middle" font-size="10" font-weight="700" fill="#0a6b4e">67.1</text>
+      <circle cx="160" cy="199.3" r="3.5" fill="#c9ced6"/><circle cx="560" cy="69.3" r="3.5" fill="#c9ced6"/><circle cx="760" cy="60.0" r="3.5" fill="#c9ced6"/>
+      <text x="640" y="180" font-size="10.5" fill="#c9ced6" font-weight="700">全向（omni）</text>
+      <text x="640" y="140" font-size="10.5" fill="#d97a2b" font-weight="700">六波束（oracle 上限）</text>
+      <text x="640" y="120" font-size="10.5" fill="#0a6b4e" font-weight="700">ANC（三麦克风）</text>
+      <text x="70" y="300" font-size="12.5" fill="#0a6b4e" font-weight="600">−20dB：ANC 16.8 vs 波束 59.8（近 4 倍差）vs 全向 95.3；−25dB 极端下 ANC 67.1 仍比全向低 33 pp——但整套方案在此接近失效</text>
+      <text x="70" y="322" font-size="12" fill="#8a93a5">波束还是 oracle（多通道里取 KWS 置信度最高者）——实际非 oracle 只会更差；ANC 对该阵列与该类噪声的降噪质量显著更好且计算成本更低（表 2）</text>
+    </svg>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 360" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">表 4 真实测试集主对比（固定 FA/h=0.1，FRR%）+ 表 3 开销：三层因果结构</text>
+      <line x1="90" y1="230.0" x2="850" y2="230.0" stroke="#f0f1f3"/>
+      <text x="84" y="234.0" text-anchor="end" font-size="11" fill="#9ca3af">4</text>
+      <line x1="90" y1="184.3" x2="850" y2="184.3" stroke="#f0f1f3"/>
+      <text x="84" y="188.3" text-anchor="end" font-size="11" fill="#9ca3af">6</text>
+      <line x1="90" y1="138.6" x2="850" y2="138.6" stroke="#f0f1f3"/>
+      <text x="84" y="142.6" text-anchor="end" font-size="11" fill="#9ca3af">8</text>
+      <line x1="90" y1="92.9" x2="850" y2="92.9" stroke="#f0f1f3"/>
+      <text x="84" y="96.9" text-anchor="end" font-size="11" fill="#9ca3af">10</text>
+      <text x="288" y="60.0" text-anchor="end" font-size="11" fill="#47536a">Base KWS（基线）</text>
+      <rect x="296" y="46.0" width="171.4" height="22" rx="4" fill="#c9ced6"/>
+      <text x="475.4" y="62.0" font-size="11.5" font-weight="700" fill="#374151">7.5</text>
+      <text x="700" y="62.0" font-size="10.5" fill="#8a93a5">RTF 0.18 · 3.4 MB</text>
+      <text x="288" y="91.0" text-anchor="end" font-size="11" fill="#8c3b2e">Base + ANC（单用降噪）</text>
+      <rect x="296" y="77.0" width="228.6" height="22" rx="4" fill="#c0392b"/>
+      <text x="532.6" y="93.0" font-size="11.5" font-weight="700" fill="#374151">8.8</text>
+      <text x="700" y="93.0" font-size="10.5" fill="#9ca3af">（0.07 前端 + 基线）</text>
+      <text x="288" y="122.0" text-anchor="end" font-size="11" fill="#47536a">Base ×2（参数翻倍）</text>
+      <rect x="296" y="108.0" width="150.0" height="22" rx="4" fill="#94a3b8"/>
+      <text x="454.0" y="124.0" font-size="11.5" font-weight="700" fill="#374151">7.0</text>
+      <text x="700" y="124.0" font-size="10.5" fill="#8a93a5">RTF 0.34 · 6.9 MB</text>
+      <text x="288" y="153.0" text-anchor="end" font-size="11" fill="#47536a">Ensemble + ANC（逻辑或）</text>
+      <rect x="296" y="139.0" width="124.3" height="22" rx="4" fill="#94a3b8"/>
+      <text x="428.3" y="155.0" font-size="11.5" font-weight="700" fill="#374151">6.4</text>
+      <text x="700" y="155.0" font-size="10.5" fill="#8a93a5">RTF 0.36 · 6.6 MB</text>
+      <text x="288" y="184.0" text-anchor="end" font-size="11" fill="#47536a">Attention + BF（六波束）</text>
+      <rect x="296" y="170.0" width="137.1" height="22" rx="4" fill="#d97a2b"/>
+      <text x="441.1" y="186.0" font-size="11.5" font-weight="700" fill="#374151">6.7</text>
+      <text x="700" y="186.0" font-size="10.5" fill="#8a93a5">RTF 0.30 · 3.5 MB</text>
+      <text x="288" y="215.0" text-anchor="end" font-size="11" fill="#0a6b4e" font-weight="700">Attention + ANC（本文）</text>
+      <rect x="296" y="201.0" width="85.7" height="22" rx="4" fill="#0e8a66"/>
+      <text x="389.7" y="217.0" font-size="11.5" font-weight="700" fill="#374151">5.5</text>
+      <text x="700" y="217.0" font-size="10.5" fill="#8a93a5">RTF 0.21 · 3.5 MB</text>
+      <text x="90" y="258" font-size="10.5" fill="#8a93a5">RTF = S905X2 音箱芯片（四核 A53 1.8GHz）实测，单核占用</text>
+      <text x="70" y="288" font-size="12.5" fill="#c0392b" font-weight="600">因果一：单用 ANC 反而更差（8.8 &gt; 7.5）——高 SNR / 用户先说话时唤醒词被误判为噪声；降噪通道单独不可靠</text>
+      <text x="70" y="310" font-size="12.5" fill="#0a6b4e" font-weight="600">因果二：两通道组合收益显著（5.5）且优于参数翻倍（7.0）——低 SNR 增益来自多通道信息而非模型容量</text>
+      <text x="70" y="332" font-size="12.5" fill="#47536a">因果三：同样两通道，注意力 5.5 优于集成 6.4 且 RTF 0.21 对 0.36 / 3.5MB 对 6.6MB——软加权能用通道组合，逻辑或只能取判定并集</text>
+    </svg>
+    <p class="cap"><b>四条受控消融轴（§5.1 六方案矩阵）：</b>① 通道选择（omni 7.5 vs ANC 8.8——互补）；② 聚合机制（注意力 5.5 vs 集成 6.4——同时赢效果与开销，且免逐通道阈值调参）；③ 模型容量（翻倍只降 7%——容量是最弱改进方向）；④ 前端类型（ANC 5.5 vs 波束 6.7——差距根源在表 1 降噪质量）。<b>注意：</b>集成+波束组合因计算复杂未研究（对比矩阵缺一格）；波束用 oracle 上限。</p>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">五条可转述的判断</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>ANC + 全向 + 注意力的多通道 KWS</b><br><span style="font-size:14.5px;color:var(--ink-2)">固定 FA/h=0.1 下 FRR 5.5% 全场最低（相对基线 −27%），模型侧开销只加 RTF 0.03 + 0.1MB——多通道收益与端侧预算同时解决。</span></div>
+    <div class="c"><span class="n">2</span><b>单通道基线 → 多通道模型的训练流程</b><br><span style="font-size:14.5px;color:var(--ink-2)">1000 万全向伪标注预训练主干 + 5 万参数注意力网在 50 万多通道数据微调——绕开多通道数据稀缺，产线增量升级的直接工程价值。</span></div>
+    <div class="c"><span class="n">3</span><b>双数据集评估范式</b><br><span style="font-size:14.5px;color:var(--ink-2)">声压级标定的受控 SNR 梯度（−25~+5dB 七档）量通道质量 + 终端用户录音量端到端——两层证据互为支撑。</span></div>
+    <div class="c"><span class="n">4</span><b>真机资源基准</b><br><span style="font-size:14.5px;color:var(--ink-2)">音箱芯片（A53）与桌面 CPU 双平台实测 RTF/体积/RSS——端侧论文可信度的关键；论证注意力对集成的效率优势。</span></div>
+    <div class="c" style="grid-column:1/-1"><span class="n">5</span><b>可迁移的前端选择判据</b><br><span style="font-size:14.5px;color:var(--ink-2)">对该阵列与噪声，三麦 ANC 的降噪质量显著优于六静态波束（−20dB：16.8 vs 59.8）且计算更省——<b>前端选择应以下游 KWS 在各 SNR 下的 FRR 为准绳，而不是波束形成的理论优雅性</b>。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">上限被 ANC 前端封死，特征级线性混合无空间建模</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法的技术局限</h4>
+      <ul>
+        <li><b>上限被 ANC 封死</b>：注意力只能在「失真但降噪」与「干净但含噪」间选择，不能修复两者都失效的区域（−25dB 下整套接近失效）；ANC 高 SNR 误压问题只是被全向兜底，未从机制修复。</li>
+        <li><b>特征级线性混合无空间建模</b>：无法表达「声源在哪个方向」，无时延/相位利用——比 3D 卷积吃原始多通道的方案表达天花板更低。</li>
+        <li><b>只用两通道</b>：六波束信息被完全丢弃；更多通道组合（ANC+最优波束+全向）未探索。</li>
+        <li><b>伪标注传导</b>：50 万多通道训练语料全部伪标注（另 1000 万全向伪标注）——伪标签噪声对最终 FRR 的影响未量化。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>绑定单一设备与阵列几何</b>：七麦 4.2cm 环形——跨阵列跨设备无验证；几何一变 ANC 选麦与波束数都要重推。</li>
+        <li><b>关键细节缺失</b>：唤醒词及语言数量、训练超参、SVDF 层数与记忆块尺寸、真实测试集噪声构成——独立复现困难。</li>
+        <li><b>无统计显著性</b>：1 个上下 pp 的差距无置信区间（注意力 5.5 vs 集成 6.4 是否稳定无法判断）。</li>
+        <li><b>单一工作点</b>：只评 FA/h=0.1 一档，无完整 DET 曲线——更严苛误报要求下是否仍占优未知。</li>
+        <li><b>测试集分布偏置</b>：正样本占八成（4 万/5 万），与真实部署唤醒词极低占比相差甚远——FRR 绝对值可能偏乐观。</li>
+        <li><b>对比矩阵缺格</b>：集成+波束未研究（计算复杂）；波束是 oracle 上限的公平偏差未讨论非 oracle 退化。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">下一步方向（论文展望 + 笔者补充）</h3>
+    <p style="margin:6px 0"><b>论文自指</b>：研究向云端传哪个通道/组合最有效（云端 ASR 吃多通道收益而不增上行带宽）——论文坦白：集成模型此任务容易（各通道置信度现成），注意力模型反而更难（融合成单一特征流后通道级置信度不存在了）。<br>
+    <b>笔者补充</b>：ANC 噪声方向判定做成神经网络并接受 KWS 损失反传（前端「知道」唤醒词不该压）；注意力扩展到更多通道 + 显式空间特征（检验线性混合是否天花板）；用 1000 万全向富余做通道级增广（通道随机丢弃/增益扰动）提升注意力权重泛化；补显著性检验与多工作点；跨阵列几何验证把结论推向方法学。</p>
+  </div>
+</section>
+
+<footer>
+  <p><b>论文精读 · 可视化版</b> · 2025 №27 · 多通道噪声 KWS 注意力聚合（Yandex，arXiv 2025）</p>
+  <p>数据来源：论文表 1–4、图 2–3（经由本库深读笔记核对，含笔记推算标注）。图表坐标由脚本从论文原表计算生成。</p>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2025/Multichannel_Keyword_Spotting_For_Noisy_Conditions.md">📄 深读笔记</a>
+    <a class="pill" href="/papers/2025/Multichannel_Keyword_Spotting_For_Noisy_Conditions.pdf">📕 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2507.15558" target="_blank">🔗 arXiv:2507.15558</a>
+    <a class="pill" href="/">← 返回论文库</a>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>
