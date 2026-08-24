@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SSL 蒸馏少样本 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2025/Enhancing_Few-shot_Keyword_Spotting_Performance_Through_Pre-Trained_Self-supervised_Speech_Models.md">深读笔记</a>
+    <a href="/papers/2025/Enhancing_Few-shot_Keyword_Spotting_Performance_Through_Pre-Trained_Self-supervised_Speech_Models.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2506.17686" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2025 №13</p>
+  <h1>SSL 蒸馏少样本 KWS<br>产品级 1% 误收工作点上，把可用精度从 33.6% 拉到 76.9%</h1>
+  <p class="sub">Enhancing Few-shot Keyword Spotting Performance Through Pre-Trained Self-supervised Speech Models</p>
+  <p class="meta"><b>作者</b>：Alican Gok 等 —— Bogazici 大学 × Analog Devices（伊斯坦布尔）</p>
+  <p class="meta"><b>发表</b>：2025.06（v2 2025.10）· arXiv:2506.17686 · 投稿 IEEE SPL</p>
+  <div class="chips">
+    <span class="chip">少样本 KWS</span><span class="chip">Wav2Vec 2.0 蒸馏</span><span class="chip">Sub-center ArcFace</span>
+    <span class="chip">注意力降维</span><span class="chip">低误收工作点</span><span class="chip">开集原型判别</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>最容易被忽视但最致命的痛点：FS-KWS 方法在<b>产品可用的低误收工作点</b>上精度不够——唤醒场景对误唤醒极敏感，有意义的工作点是 1% FAR，而领先方法（Rusci IEEE Micro 2023）在 GSC 10-shot、1% FAR 下准确率只有 <b>33.6%</b>，三分之二判错。</li>
+      <li>方案三级流水线：冻结的 Wav2Vec 2.0（第 16 层）→ <b>注意力编码器降维</b>（49×1024 → 64 维）+ <b>Sub-center ArcFace</b> 训练教师 → MSE 嵌入蒸馏 + λ·任务损失训练端侧学生 ResNet15。</li>
+      <li>资源对账：教师 218M 参数 / 63.3G MAC，学生 480k / 235M——<b>差三个数量级</b>，教师只在训练期存在，端侧部署形态与基线完全相同（MFCC 输入 + 原型注册 + 余弦阈值拒识）。</li>
+      <li>结果：GSC 10-shot@1%FAR 从 33.6% → <b>76.9%</b>（KD+SCAF，+43.3 pp）；学生逼近教师上限（76.9 vs 82.2）。跨域的关键发现：<b>蒸馏是主收益，KD+Triplet 跨域反而有害，KD+SCAF 全场稳健</b>。</li>
+      <li>SCAF 首次用于音频判别 FS-KWS：角度间隔拉开类间、K=3 子中心容纳类内发音多样性——但脱离 SSL 教师单独用 SCAF 并不灵（弱骨架救不了）。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">度量学习端侧方案在低 FAR 工作点崩溃，SSL 特征又装不下</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 296" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">两条现有路线各缺一半：端侧度量学习跨域崩 / SSL 表征端侧装不下</text>
+      <g font-size="11.5">
+        <rect x="30" y="48" width="420" height="170" rx="12" fill="#fdf6f4" stroke="#c9a9a0" stroke-width="1.5"/>
+        <text x="240" y="74" text-anchor="middle" font-weight="700" fill="#8c3b2e">原型网络 + Triplet（端侧主流）</text>
+        <text x="50" y="100" fill="#47536a">· ResNet15 + Triplet，训练域内表现尚可</text>
+        <text x="50" y="126" fill="#8c3b2e" font-weight="600">· 跨域腰斩：MSWC 1-shot DET1% 72.3 → GSC 23.7</text>
+        <text x="50" y="152" fill="#8c3b2e">· 低 FAR 断崖：FAR 5%→1% 急剧掉点（silence 类）</text>
+        <text x="50" y="178" fill="#47536a">· Triplet 需海量三元组在线挖掘，单一类中心压扁</text>
+        <text x="50" y="200" fill="#47536a">　 类内发音多样性</text>
+
+        <rect x="480" y="48" width="410" height="170" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+        <text x="685" y="74" text-anchor="middle" font-weight="700" fill="#1c2430">SSL 表征（Wav2Vec2 / HuBERT）</text>
+        <text x="500" y="100" fill="#47536a">· 表征信息量极大，跨类泛化强 ✓</text>
+        <text x="500" y="126" fill="#8c3b2e" font-weight="600">· 维度灾难：1 秒语音 = 49 帧 × 1024 维</text>
+        <text x="500" y="152" fill="#8c3b2e">· 论文原话：低功耗边缘处理器上处理不可行</text>
+        <text x="500" y="178" fill="#47536a">· 已有聚合（mean-pooling / 卷积 / 注意力）没有</text>
+        <text x="500" y="200" fill="#47536a">　 针对「少样本注册 + 开集拒识 + 低 FAR」联合设计</text>
+      </g>
+      <rect x="30" y="238" width="860" height="46" rx="9" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="46" y="260" font-size="12.5" fill="#0a6b4e" font-weight="600">本文解法：SSL 只在训练期存在——教师整形嵌入空间，蒸馏给 480k 学生，部署形态不变</text>
+      <text x="46" y="278" font-size="11.5" fill="#5f8a76">挑战本质：直接蒸馏嵌入保几何但缺判别性，直接加度量损失保判别性但过拟合训练域——找平衡点</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">三级流水线：SSL 冻结 → 教师整形 → 蒸馏上端</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 360" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">框架（图 1）：训练期重、部署轻</text>
+      <g font-size="11.5">
+        <rect x="30" y="66" width="170" height="88" rx="10" fill="#f4f4ee" stroke="#9ca3af" stroke-width="1.5"/>
+        <text x="115" y="90" text-anchor="middle" font-weight="700" fill="#47536a">Wav2Vec 2.0 ❄</text>
+        <text x="115" y="110" text-anchor="middle" font-size="10" fill="#8a93a5">冻结 · 第 16 层输出</text>
+        <text x="115" y="132" text-anchor="middle" font-size="10" fill="#8a93a5">218M 参数 · 63.3G MAC</text>
+
+        <rect x="226" y="66" width="170" height="88" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.6"/>
+        <text x="311" y="90" text-anchor="middle" font-weight="700" fill="#0a6b4e">DR 模型（注意力）</text>
+        <text x="311" y="110" text-anchor="middle" font-size="10" fill="#5f8a76">49×1024 → 1×64 嵌入</text>
+        <text x="311" y="132" text-anchor="middle" font-size="10" fill="#5f8a76">SDA → PReLU → Conv1D</text>
+
+        <rect x="422" y="66" width="150" height="88" rx="10" fill="#0e8a66"/>
+        <text x="497" y="90" text-anchor="middle" font-weight="700" fill="#fff">教师</text>
+        <text x="497" y="110" text-anchor="middle" font-size="10" fill="#cdebdf">SCAF 度量学习训练</text>
+        <text x="497" y="132" text-anchor="middle" font-size="10" fill="#cdebdf">MSWC 550 万样本</text>
+
+        <rect x="596" y="66" width="150" height="88" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.6"/>
+        <text x="671" y="90" text-anchor="middle" font-weight="700" fill="#0a6b4e">MSE 嵌入蒸馏</text>
+        <text x="671" y="110" text-anchor="middle" font-size="10" fill="#5f8a76">L = L_KD + λ·L_T</text>
+        <text x="671" y="132" text-anchor="middle" font-size="10" fill="#5f8a76">λ=0.03（T）/ 0.0003（SCAF）</text>
+
+        <rect x="770" y="66" width="120" height="88" rx="10" fill="#1c2430"/>
+        <text x="830" y="90" text-anchor="middle" font-weight="700" fill="#fff">学生 ResNet15</text>
+        <text x="830" y="110" text-anchor="middle" font-size="10" fill="#c9ced6">480k · 235M MAC</text>
+        <text x="830" y="132" text-anchor="middle" font-size="10" fill="#c9ced6">10 维 MFCC 输入</text>
+      </g>
+      <g stroke="#8a93a5" stroke-width="1.6" fill="none">
+        <line x1="200" y1="110" x2="222" y2="110"/><polygon points="222,110 216,107 216,113" fill="#8a93a5"/>
+        <line x1="396" y1="110" x2="418" y2="110"/><polygon points="418,110 412,107 412,113" fill="#8a93a5"/>
+        <line x1="572" y1="110" x2="592" y2="110"/><polygon points="592,110 586,107 586,113" fill="#8a93a5"/>
+        <line x1="746" y1="110" x2="766" y2="110"/><polygon points="766,110 760,107 760,113" fill="#8a93a5"/>
+      </g>
+      <rect x="30" y="182" width="420" height="76" rx="10" fill="#fbfaf6" stroke="#e6e6df"/>
+      <text x="46" y="208" font-size="12" font-weight="700" fill="#1c2430">为什么第 16 层、为什么 MSE</text>
+      <text x="46" y="230" font-size="11" fill="#47536a">层选择依据 Sanabria ICASSP 2023 实证：中层（非最后一层）对词级判别最有效</text>
+      <text x="46" y="250" font-size="11" fill="#47536a">MSE 而非 KL 软标签：迁移的是嵌入几何（谁近谁远），学生输出本身就是 64 维向量</text>
+      <rect x="470" y="182" width="420" height="76" rx="10" fill="#fbfaf6" stroke="#e6e6df"/>
+      <text x="486" y="208" font-size="12" font-weight="700" fill="#1c2430">推断协议（与基线完全一致）</text>
+      <text x="486" y="230" font-size="11" fill="#47536a">注册：K 条样本嵌入取均值 = 类原型 c_k；推理：与各原型算余弦距离</text>
+      <text x="486" y="250" font-size="11" fill="#47536a">最近距离 &lt; 阈值 T 判给该类，否则拒识为 others——扫 T 得 FAR-精度曲线</text>
+      <rect x="30" y="272" width="860" height="70" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.4"/>
+      <text x="46" y="296" font-size="12.5" fill="#0a6b4e" font-weight="600">教师侧两个创新（图 2）：注意力编码器替代平均池化 + SCAF 替代 Triplet</text>
+      <text x="46" y="318" font-size="11.5" fill="#47536a">注意力聚焦判别性音段（辅音爆发段权重更大），平均池化把判别性稀释在静音与过渡帧里</text>
+      <text x="46" y="336" font-size="11.5" fill="#47536a">SCAF：角度间隔 m=28.6° 拉开类间 + 每类 K=3 子中心容纳发音多样性（s=32）——分类式训练，无需三元组挖掘</text>
+    </svg>
+  </div>
+
+  <div class="formula">
+    L = L<sub>KD</sub> + λ·L<sub>T</sub>　（式 1；L<sub>KD</sub> = 师生嵌入 MSE，L<sub>T</sub> ∈ {Triplet, SCAF}）
+    <div class="why">四个 λ 变体构成消融矩阵：KD only（λ=0）、KD+Triplet（λ=0.03）、KD+SCAF（λ=0.0003）、SCAF only（不蒸馏）。两个 λ 差两个数量级论文只说"经验确定"——合理推断：SCAF 内含 s=32 的尺度放大因子、数值天然更大，需要更小权重（笔者注，非论文陈述）。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">跨域才是真战场：蒸馏主收益 + Triplet 有害 + KD+SCAF 最优</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <h3 style="margin-top:0">设置与协议</h3>
+    <p style="margin:6px 0">训练：MSWC 英文 550 万条 / 39000 词。测试一：MSWC test 70 万条 / 8900 个 held-out 词（逐词 1 正 1 负二分判决 × 100,000 次）；测试二：GSC 10 万条，KWS-12 改造——11 类（10 目标词 + silence），25 类拒识，注册 K 条、整个测试集评估、100 次重复取平均。<b>协议故意比基线更难</b>（加 silence 类），基线数字用原作者公开 checkpoint 在新协议下重测——公平但不可与基线原论文自报数字直接对照。稳定性：教师 3 种子、学生 3 次重训，AUC 波动 &lt;0.6%。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 300" role="img">
+      <text x="70" y="26" font-size="13.5" fill="#47536a" font-weight="600">跨域战场（表 1，GSC，ACC@1% FAR）：蒸馏是主收益，Triplet 在跨域有害，KD+SCAF 全场最优</text>
+      <text x="70" y="46" font-size="12.5" fill="#47536a" font-weight="600">GSC 1-shot / 10-shot（ACC1%）</text>
+      <line x1="70" y1="230.0" x2="450" y2="230.0" stroke="#f0f1f3"/>
+      <text x="64" y="234.0" text-anchor="end" font-size="11" fill="#9ca3af">15</text>
+      <line x1="70" y1="201.8" x2="450" y2="201.8" stroke="#f0f1f3"/>
+      <text x="64" y="205.8" text-anchor="end" font-size="11" fill="#9ca3af">30</text>
+      <line x1="70" y1="173.5" x2="450" y2="173.5" stroke="#f0f1f3"/>
+      <text x="64" y="177.5" text-anchor="end" font-size="11" fill="#9ca3af">45</text>
+      <line x1="70" y1="145.3" x2="450" y2="145.3" stroke="#f0f1f3"/>
+      <text x="64" y="149.3" text-anchor="end" font-size="11" fill="#9ca3af">60</text>
+      <line x1="70" y1="117.1" x2="450" y2="117.1" stroke="#f0f1f3"/>
+      <text x="64" y="121.1" text-anchor="end" font-size="11" fill="#9ca3af">75</text>
+      <line x1="70" y1="88.8" x2="450" y2="88.8" stroke="#f0f1f3"/>
+      <text x="64" y="92.8" text-anchor="end" font-size="11" fill="#9ca3af">90</text>
+      <line x1="70" y1="128.4" x2="450" y2="128.4" stroke="#d97a2b" stroke-width="1.4" stroke-dasharray="5 4"/>
+      <text x="446" y="124.4" text-anchor="end" font-size="9.5" fill="#b0631d">1-shot 教师 69.0</text>
+      <line x1="70" y1="103.5" x2="450" y2="103.5" stroke="#d97a2b" stroke-width="1.4" stroke-dasharray="5 4"/>
+      <text x="446" y="99.5" text-anchor="end" font-size="9.5" fill="#b0631d">10-shot 教师 82.2</text>
+      <rect x="80.0" y="213.6" width="26" height="16.4" rx="4" fill="#c9ced6" opacity=".75"/>
+      <text x="93.0" y="208.6" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">23.7</text>
+      <rect x="109.0" y="195.0" width="26" height="35.0" rx="4" fill="#c9ced6" opacity="1"/>
+      <text x="122.0" y="190.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">33.6</text>
+      <text x="108.0" y="248" text-anchor="middle" font-size="10" fill="#374151">基线 Triplet</text>
+      <rect x="156.0" y="220.8" width="26" height="9.2" rx="4" fill="#e8c8be" opacity=".75"/>
+      <rect x="185.0" y="168.1" width="26" height="61.9" rx="4" fill="#e8c8be" opacity="1"/>
+      <text x="184.0" y="248" text-anchor="middle" font-size="10" fill="#374151">SCAF only</text>
+      <rect x="232.0" y="177.5" width="26" height="52.5" rx="4" fill="#94a3b8" opacity=".75"/>
+      <text x="245.0" y="172.5" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">42.9</text>
+      <rect x="261.0" y="118.2" width="26" height="111.8" rx="4" fill="#94a3b8" opacity="1"/>
+      <text x="274.0" y="113.2" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">74.4</text>
+      <text x="260.0" y="248" text-anchor="middle" font-size="10" fill="#374151">KD only</text>
+      <rect x="308.0" y="202.7" width="26" height="27.3" rx="4" fill="#7cc7ad" opacity=".75"/>
+      <rect x="337.0" y="153.2" width="26" height="76.8" rx="4" fill="#7cc7ad" opacity="1"/>
+      <text x="336.0" y="248" text-anchor="middle" font-size="10" fill="#374151">KD+Triplet</text>
+      <rect x="384.0" y="175.4" width="26" height="54.6" rx="4" fill="#0e8a66" opacity=".75"/>
+      <text x="397.0" y="170.4" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">44.0</text>
+      <rect x="413.0" y="113.5" width="26" height="116.5" rx="4" fill="#0e8a66" opacity="1"/>
+      <text x="426.0" y="108.5" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">76.9</text>
+      <text x="412.0" y="248" text-anchor="middle" font-size="10" fill="#374151">KD+SCAF</text>
+      <line x1="70" y1="230" x2="450" y2="230" stroke="#9ca3af"/>
+      <text x="70" y="268" font-size="12" fill="#0a6b4e" font-weight="600">头条：10-shot 从 33.6 → 76.9（+43.3 pp，相对 2.29 倍）</text>
+      <text x="470" y="46" font-size="12.5" fill="#47536a" font-weight="600">MSWC（同域）DET1%</text>
+      <line x1="470" y1="230.0" x2="850" y2="230.0" stroke="#f0f1f3"/>
+      <text x="464" y="234.0" text-anchor="end" font-size="11" fill="#9ca3af">65</text>
+      <line x1="470" y1="161.4" x2="850" y2="161.4" stroke="#f0f1f3"/>
+      <text x="464" y="165.4" text-anchor="end" font-size="11" fill="#9ca3af">80</text>
+      <line x1="470" y1="92.9" x2="850" y2="92.9" stroke="#f0f1f3"/>
+      <text x="464" y="96.9" text-anchor="end" font-size="11" fill="#9ca3af">95</text>
+      <line x1="470" y1="108.4" x2="850" y2="108.4" stroke="#d97a2b" stroke-width="1.4" stroke-dasharray="5 4"/>
+      <text x="846" y="96.4" text-anchor="end" font-size="9.5" fill="#b0631d">1-shot 教师 91.6</text>
+      <line x1="470" y1="84.2" x2="850" y2="84.2" stroke="#d97a2b" stroke-width="1.4" stroke-dasharray="5 4"/>
+      <text x="846" y="70.2" text-anchor="end" font-size="9.5" fill="#b0631d">10-shot 教师 96.9</text>
+      <rect x="480.0" y="196.6" width="26" height="33.4" rx="4" fill="#c9ced6" opacity=".75"/>
+      <text x="493.0" y="191.6" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">72.3</text>
+      <rect x="509.0" y="110.7" width="26" height="119.3" rx="4" fill="#c9ced6" opacity="1"/>
+      <text x="522.0" y="105.7" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">91.1</text>
+      <text x="508.0" y="248" text-anchor="middle" font-size="10" fill="#374151">基线 Triplet</text>
+      <rect x="556.0" y="176.1" width="26" height="53.9" rx="4" fill="#e8c8be" opacity=".75"/>
+      <rect x="585.0" y="111.1" width="26" height="118.9" rx="4" fill="#e8c8be" opacity="1"/>
+      <text x="584.0" y="248" text-anchor="middle" font-size="10" fill="#374151">SCAF only</text>
+      <rect x="632.0" y="144.5" width="26" height="85.5" rx="4" fill="#94a3b8" opacity=".75"/>
+      <text x="645.0" y="139.5" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">83.7</text>
+      <rect x="661.0" y="89.7" width="26" height="140.3" rx="4" fill="#94a3b8" opacity="1"/>
+      <text x="674.0" y="84.7" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">95.7</text>
+      <text x="660.0" y="248" text-anchor="middle" font-size="10" fill="#374151">KD only</text>
+      <rect x="708.0" y="132.6" width="26" height="97.4" rx="4" fill="#7cc7ad" opacity=".75"/>
+      <rect x="737.0" y="90.6" width="26" height="139.4" rx="4" fill="#7cc7ad" opacity="1"/>
+      <text x="736.0" y="248" text-anchor="middle" font-size="10" fill="#374151">KD+Triplet</text>
+      <rect x="784.0" y="132.6" width="26" height="97.4" rx="4" fill="#0e8a66" opacity=".75"/>
+      <text x="797.0" y="127.6" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">86.3</text>
+      <rect x="813.0" y="87.8" width="26" height="142.2" rx="4" fill="#0e8a66" opacity="1"/>
+      <text x="826.0" y="82.8" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">96.1</text>
+      <text x="812.0" y="248" text-anchor="middle" font-size="10" fill="#374151">KD+SCAF</text>
+      <line x1="470" y1="230" x2="850" y2="230" stroke="#9ca3af"/>
+      <text x="470" y="268" font-size="12" fill="#47536a" font-weight="600">同域：KD 系都优于基线，任务损失小幅有益</text>
+      <rect x="70" y="278" width="12" height="12" rx="3" fill="#9ca3af" opacity=".75"/><text x="88" y="289" font-size="10.5" fill="#47536a">1-shot</text>
+      <rect x="150" y="278" width="12" height="12" rx="3" fill="#9ca3af"/><text x="168" y="289" font-size="10.5" fill="#47536a">10-shot</text>
+      <line x1="240" y1="284" x2="268" y2="284" stroke="#d97a2b" stroke-width="1.4" stroke-dasharray="5 4"/><text x="274" y="289" font-size="10.5" fill="#b0631d">教师上限（218M）</text>
+    </svg>
+    <p class="cap"><b>学生训练策略消融的四条发现：</b>① 蒸馏是主收益（KD only 74.4 vs 基线 33.6）；② 同域加任务损失小幅有益；③ <b>跨域加 Triplet 有害</b>（KD+Triplet 1-shot 29.5 vs 纯 KD 42.9——Triplet 把模型过拟合到训练域说话人和录音条件）；④ KD+SCAF 跨域无害且有益（76.9 全表学生最高）。还有第五条藏在表里：<b>SCAF 脱离 SSL 教师并不灵</b>（SCAF only 的 MSWC 1-shot AUROC 92.5 反而低于 Triplet 基线 97.5）——SCAF 的收益建立在 SSL 强表征之上。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 280" role="img">
+      <text x="80" y="30" font-size="13.5" fill="#47536a" font-weight="600">教师消融（III-C 距离统计）：架构与损失各自贡献可测的嵌入空间质量提升</text>
+      <text x="250" y="77.0" text-anchor="end" font-size="12" fill="#47536a">平均池化 + Triplet</text>
+      <rect x="260" y="62.0" width="126.7" height="24" rx="4" fill="#0e8a66"/>
+      <text x="398.7" y="79.0" font-size="12" font-weight="700" fill="#0a6b4e">类间 0.89</text>
+      <rect x="260" y="90.0" width="237.5" height="24" rx="4" fill="#d97a2b" opacity=".85"/>
+      <text x="509.5" y="107.0" font-size="12" font-weight="700" fill="#b0631d">类内 0.27</text>
+      <text x="250" y="139.0" text-anchor="end" font-size="12" fill="#47536a">注意力 + Triplet</text>
+      <rect x="260" y="124.0" width="253.3" height="24" rx="4" fill="#0e8a66"/>
+      <text x="525.3" y="141.0" font-size="12" font-weight="700" fill="#0a6b4e">类间 0.93</text>
+      <rect x="260" y="152.0" width="190.0" height="24" rx="4" fill="#d97a2b" opacity=".85"/>
+      <text x="462.0" y="169.0" font-size="12" font-weight="700" fill="#b0631d">类内 0.26</text>
+      <text x="250" y="201.0" text-anchor="end" font-size="12" fill="#47536a">注意力 + SCAF</text>
+      <rect x="260" y="186.0" width="316.7" height="24" rx="4" fill="#0e8a66"/>
+      <text x="588.7" y="203.0" font-size="12" font-weight="700" fill="#0a6b4e">类间 0.95</text>
+      <rect x="260" y="214.0" width="142.5" height="24" rx="4" fill="#d97a2b" opacity=".85"/>
+      <text x="414.5" y="231.0" font-size="12" font-weight="700" fill="#b0631d">类内 0.25</text>
+      <text x="80" y="252" font-size="12.5" fill="#0a6b4e" font-weight="600">类间 0.89 → 0.93（换注意力编码器）→ 0.95（换 SCAF）；教师质量传导到下游——三种教师训出的学生里注意力+SCAF 的最好</text>
+      <text x="80" y="272" font-size="11.5" fill="#8a93a5">SCAF 首次用于音频判别 FS-KWS：角度间隔拉开类间、K=3 子中心容纳类内发音多样性（m=28.6°、s=32）</text>
+    </svg>
+    <p class="cap"><b>为什么曲线在低 FAR 崩（图 3c）：</b>基线 Triplet 在 FAR=5% 时还排第二，降到 FAR=1% 急剧掉点——论文归因于 silence 类（各种背景噪声录音），但其关键词级分析只在补充材料未展示。由此提出核心假设：<b>来自预训练 SSL 模型的知识蒸馏是未见条件下鲁棒性的关键</b>。</p>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">四条可转述的判断</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>新 FS-KWS 训练框架</b><br><span style="font-size:14.5px;color:var(--ink-2)">冻结 Wav2Vec2（L16）+ 注意力降维 + SCAF 教师 + MSE 蒸馏到 ResNet15——部署形态完全不变（MFCC / 原型注册 / 余弦阈值），低误报工作点可用精度 33.6% → 76.9%。</span></div>
+    <div class="c"><span class="n">2</span><b>SCAF 首次进音频判别</b><br><span style="font-size:14.5px;color:var(--ink-2)">角度间隔拉开类间（0.93→0.95）、K=3 子中心容纳类内发音多样性——从人脸识别迁移到 SSL 语音嵌入，且不需要 Triplet 式三元组挖掘。</span></div>
+    <div class="c"><span class="n">3</span><b>可迁移的工程判断</b><br><span style="font-size:14.5px;color:var(--ink-2)">跨域场景下「纯嵌入蒸馏 + 谨慎选任务损失」优于「直接度量学习」——任务损失要看它是否在训练条件上过拟合（Triplet 会、SCAF 不会）。这条判断不限于 KWS。</span></div>
+    <div class="c"><span class="n">4</span><b>系统性对标 + 工程推荐</b><br><span style="font-size:14.5px;color:var(--ink-2)">基线作者公开 checkpoint + 统一（更难）协议 + {1,5,10}-shot 全矩阵；最终推荐 KD+SCAF——所有设置下稳健，需要低误报率的实际应用首选。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">纸面 235M MAC 与真机之间还差一整步</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法的技术局限</h4>
+      <ul>
+        <li><b>教师绑定单一架构与层</b>：只用 Wav2Vec 2.0 第 16 层，层选择依据外部文献而非自证；HuBERT / WavLM、其他层位与层组合均未消融（作者自述为未来工作）。</li>
+        <li><b>嵌入维度 64 无敏感性分析</b>：32/128/256 会怎样、64 的选择依据均未给。</li>
+        <li><b>无真实部署测量</b>：延迟、内存、功耗未实测——235M MAC 是纸面数字，未落到具体 MCU/DSP。</li>
+        <li><b>评估停留在 1 秒切段</b>：无连续音频流的流式检测、无每小时误唤醒数、无关键词在句中时的检出能力。</li>
+        <li><b>超参经验化</b>：λ 两档差两个数量级无解释准则；m/s/K/epoch 均无敏感性。</li>
+        <li><b>教师训练成本未报</b>：550 万样本过 Wav2Vec2 提特征 + DR 训练的墙钟时间——复现团队的关键成本项缺失。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>仅英文</b>：MSWC 英文 + GSC；跨语言未验证——而「任意语言少样本 KWS」恰是该领域宣言式目标。</li>
+        <li><b>基线单一</b>：只实测对比 Rusci 2023 一个基线；引言点名的同组 Interspeech 2023 开集工作未进实验表。</li>
+        <li><b>关键定义外置</b>：两个度量损失的数学定义、嵌入距离分布图都在补充材料——主文自洽性受损。</li>
+        <li><b>协议改动影响可比性</b>：加 silence 类的新协议比基线原协议难——基线数字是重测的，与原论文自报值不可直接对照。</li>
+        <li><b>前端信息差未消融</b>：教师吃 16kHz 波形、学生吃 10 维 MFCC——两端输入信息量差异巨大，但「MFCC 瓶颈损失多少」无对照组（如学生吃 log-mel），蒸馏收益与前端损失份额未分离。</li>
+        <li><b>silence 类分析未展示</b>：基线低 FAR 崩塌的主因只一句话带过，读者无法核验。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">下一步方向（作者自述 + 笔者补充）</h3>
+    <p style="margin:6px 0"><b>作者自述</b>：多语言扩展；替代 SSL 架构；超低功耗硬件部署优化。<br>
+    <b>笔者补充</b>：嵌入维度 / 教师层位 / 子中心数 K 的系统消融补齐设计空间地图；真机延迟-功耗-精度三维实测；流式连续音频 + 每小时误唤醒数的产品级指标；与开集新方法 [6] 及 WavLM/HuBERT 变体直接对比；噪声/远场/多说话人混杂（唤醒词的真实声学环境）；λ 与损失量纲归一的自动化定参，替代手工两个数量级的试参。</p>
+  </div>
+</section>
+
+<footer>
+  <p><b>论文精读 · 可视化版</b> · 2025 №13 · SSL 蒸馏少样本 KWS（Bogazici × Analog Devices，arXiv 2025）</p>
+  <p>数据来源：论文表 I、图 1–3（经由本库深读笔记核对）。图表坐标由脚本从论文原表计算生成。</p>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2025/Enhancing_Few-shot_Keyword_Spotting_Performance_Through_Pre-Trained_Self-supervised_Speech_Models.md">📄 深读笔记</a>
+    <a class="pill" href="/papers/2025/Enhancing_Few-shot_Keyword_Spotting_Performance_Through_Pre-Trained_Self-supervised_Speech_Models.pdf">📕 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2506.17686" target="_blank">🔗 arXiv:2506.17686</a>
+    <a class="pill" href="/">← 返回论文库</a>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>
