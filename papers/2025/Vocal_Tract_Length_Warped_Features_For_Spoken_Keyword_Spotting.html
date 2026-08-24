@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>声道长度规整特征 · VTL Warped Features for KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2025/Vocal_Tract_Length_Warped_Features_For_Spoken_Keyword_Spotting.md">深读笔记</a>
+    <a href="/papers/2025/Vocal_Tract_Length_Warped_Features_For_Spoken_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2501.03523" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2025 №36</p>
+  <h1>声道长度规整特征<br>不改架构、不估说话人 α，输入侧白拿 0.2~0.6 个点</h1>
+  <p class="sub">Vocal Tract Length Warped Features for Spoken Keyword Spotting</p>
+  <p class="meta"><b>作者</b>：Achintya kr. Sarkar、Priyanka Dwivedi（IIIT Sri City，印度）—— Zheng-Hua Tan（奥尔堡大学，丹麦）</p>
+  <p class="meta"><b>发表</b>：2025.01 · arXiv:2501.03523</p>
+  <div class="chips">
+    <span class="chip">VTL / VTLN 说话人归一化</span><span class="chip">21 档 α 规整</span><span class="chip">分数域等权融合</span>
+    <span class="chip">四后端正交验证</span><span class="chip">GSC 35 类</span><span class="chip">t 检验显著性</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>生理事实</b>：不同人的声道长度不同，同一个词的频谱会沿频率轴整体平移伸缩——S<sub>A</sub>(f)=S<sub>B</sub>(αf)。对 KWS 这是纯粹的类内方差：模型小、数据少，没有余量去消化说话人变异。</li>
+      <li><b>老办法卡在哪</b>：经典 VTLN 要先逐说话人估计 α（多遍对齐解码），常驻监听的端侧场景跑不起；深度 KWS 文献又集体默认「MFCC 直接进网络」，输入侧归一化是空白。</li>
+      <li><b>本文方案</b>：训练期每个 epoch 全局随机抽一个 α（0.80~1.20 共 21 档）规整特征、训同一个 DNN，末 epoch 锚定 α=1.00；测试期两条路——<b>M1</b> 21 视角分数等权平均（+0.31~+0.59），<b>M2</b> 只用常规特征、部署零成本（+0.18~+0.42）。</li>
+      <li><b>四后端一致</b>：GRU-MttAten / TC-ResNet8 / KWT-3 / BCResNet-8 全部超基线 → 增益归因到特征而非结构，与架构演进<b>正交可叠加</b>。</li>
+      <li><b>负结果划界</b>：M3 特征拼接（40 维 × 21 = 840 维）反而掉 0.10~0.74——融合要在<b>分数域</b>做，特征域不可行。</li>
+      <li><b>诚实账单</b>：十种子均值 +0.22 / +0.14（p=3.5×10⁻⁵ / 0.0016，显著但不大）；35 类闭集没有误报口径；f₀=20 Hz 印刷疑点让规整近乎恒等映射，复现前必须核对源码。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">同一个词，不同人的谱会整体挪位——这笔类内方差没人管</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 310" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">声道长度（VTL）差异：共振峰位置近似与声道长度成反比</text>
+      <line x1="60" y1="230" x2="600" y2="230" stroke="#9aa79e" stroke-width="1.5"/>
+      <line x1="60" y1="230" x2="60" y2="55" stroke="#9aa79e" stroke-width="1.5"/>
+      <text x="330" y="256" text-anchor="middle" font-size="12.5" fill="#6b7a72">频率 f →</text>
+      <text x="46" y="52" font-size="12.5" fill="#6b7a72">谱幅</text>
+      <polyline points="100,226 130,86 160,226 230,224 260,118 290,226 360,224 400,138 440,226 600,226"
+        fill="none" stroke="#9aa79e" stroke-width="2.5" stroke-linejoin="round"/>
+      <polyline points="100,226 176,86 206,226 292,224 336,118 366,226 462,224 508,138 548,226 600,226"
+        fill="none" stroke="#0e8a66" stroke-width="2.5" stroke-linejoin="round"/>
+      <line x1="130" y1="70" x2="176" y2="70" stroke="#d97a2b" stroke-width="2"/>
+      <polygon points="176,70 168,65 168,75" fill="#d97a2b"/>
+      <text x="153" y="60" text-anchor="middle" font-size="12" font-weight="700" fill="#d97a2b">α·f₁</text>
+      <line x1="260" y1="104" x2="336" y2="104" stroke="#d97a2b" stroke-width="1.6" stroke-dasharray="4 3"/>
+      <text x="298" y="96" text-anchor="middle" font-size="12" fill="#d97a2b">整体右移</text>
+      <line x1="70" y1="274" x2="86" y2="274" stroke="#9aa79e" stroke-width="3"/>
+      <text x="92" y="278" font-size="12.5" fill="#47536a">说话人 A：声道长 → 共振峰偏低</text>
+      <line x1="70" y1="296" x2="86" y2="296" stroke="#0e8a66" stroke-width="3"/>
+      <text x="92" y="300" font-size="12.5" fill="#47536a">说话人 B：声道短 → 共振峰整体上移（同一个词）</text>
+      <rect x="628" y="50" width="262" height="200" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+      <text x="646" y="82" font-size="13.5" font-weight="700" fill="#1c2430">对 KWS 意味着什么</text>
+      <text x="646" y="112" font-size="12" fill="#47536a">· 谱位移与语义无关 → 纯类内方差，</text>
+      <text x="646" y="132" font-size="12" fill="#47536a">　 模型被迫分容量吸收说话人因素</text>
+      <text x="646" y="162" font-size="12" fill="#47536a">· 端侧 KWS 模型小、训练数据少，</text>
+      <text x="646" y="182" font-size="12" fill="#47536a">　 既无冗余容量也无大语料隐式覆盖</text>
+      <text x="646" y="212" font-size="12" fill="#47536a">· 显式处理 VTL 变异的边际收益，</text>
+      <text x="646" y="232" font-size="12" fill="#47536a">　 反而比大词汇连续识别更可观</text>
+    </svg>
+    <p class="cap"><b>图 A</b>·声道是一根一端受激、一端开口的声管，共振峰频率 ≈ 与声道长度成反比。性别、年龄、体型带来系统性差异，式 (1) 刻画为 S<sub>A</sub>(f) = S<sub>B</sub>(αf)。</p>
+  </div>
+
+  <h3>现有方法的三层不足</h3>
+  <div class="card">
+    <ul>
+      <li><b>经典 VTLN 的结构性代价（1998, Lee &amp; Rose）</b>：收益的前提是先知道每个说话人的 α——多遍对齐与解码搜索（EM 迭代估计 warp 因子）。「估 α → 规整 → 再识别」的三段式对常驻监听、低功耗、流式的 KWS 在延迟和能耗上都不可接受。这是 VTLN 思想 27 年进不了 KWS 的核心障碍。</li>
+      <li><b>深度 KWS 文献的输入侧欠账</b>：TC-ResNet、KWT、BC-ResNet 这些架构演进都默认输入是未经说话人归一化的 MFCC——架构侧收益（更强归纳偏置）和输入侧收益（更干净的类内分布）本是正交的，后者在 KWS 上是空白。</li>
+      <li><b>训练扰动路线（VTLP, Jaitly &amp; Hinton）只做了一半</b>：训练期随机规整扰动、测试期常规特征——只把规整当增强用，没探索测试期多视角融合，也没在 KWS 任务、多种 SOTA 架构下系统评估。特征级拼接路线能否走通（40 维 × 21 = 840 维）本身悬而未决。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <b>论文要回答的核心问题</b>：能不能设计一套<b>不改网络架构、测试期不增加参数、完全不需要估计说话人 α</b> 的方案，把 VTL 规整特征装进 KWS？拆成三个子挑战——① 单一 DNN 如何见到全部规整视角而不偏袒任何 α；② 「精度优先的多视角融合」和「复杂度与基线完全相同的免规整推理」两条路都要给出并证明后者也有收益（否则部署价值为零）；③ 特征级拼接是否可行——负面结果同样有价值，它划定融合抽象层级的边界。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">三种特征用法 × 四种网络后端的正交矩阵</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    设计逻辑是「证明输入侧改造对任意后端普遍有效」，而不是把一个架构调到极致。四个后端覆盖四种归纳偏置：<b>GRU-MttAten</b>（2D 卷积 + 双向 GRU + 四头注意力的时序混合）、<b>TC-ResNet8</b>（纯时域卷积，通道 16/24/32/48）、<b>KWT-3</b>（谱切块进 transformer）、<b>BCResNet-8</b>（广播残差 y = x + BC(f¹(avgpool(f²(x)))，一维时域卷积兼二维卷积之长）。若增益在循环、卷积、注意力、混合四种偏置下方向一致，结论才能归因到特征而非结构。特征配置沿用 GSC 社区标准：40 维 MFCC、30 ms 窗 / 10 ms 移、HTK 提取；训练 AdamW、batch 512、余弦 warmup、最多 100 epoch。
+  </div>
+
+  <h3>规整函数：分段线性、双重锚定</h3>
+  <div class="formula">
+    f<sup>(α)</sup><sub>wrp</sub> = α·f　（0 ≤ f ≤ f₀）；　f<sup>(α)</sup><sub>wrp</sub> = [(f<sub>m</sub> − α·f₀)/(f<sub>m</sub> − f₀)]·(f − f₀) + α·f₀　（f₀ ≤ f ≤ f<sub>m</sub>）
+    <div class="why"><b>人话</b>：f₀ 以下按 α 伸缩（规整的主战场），f₀ 到 f<sub>m</sub> 之间斜率缓慢收回、最终精确落回 f<sub>m</sub>——低频按 α 挪，上边界钉死不动，滤波器组中心频率才不会越界。α ∈ [0.80, 1.20]、步长 0.02，共 21 档，大致覆盖人群声道变异幅度。</div>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 330" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">式 (2) 规整函数（α=1.15，pivot 夸大示意）：低频按 α 抬升，上边界锚回 f_m</text>
+      <line x1="100" y1="290" x2="790" y2="290" stroke="#9aa79e" stroke-width="1.5"/>
+      <line x1="100" y1="290" x2="100" y2="50" stroke="#9aa79e" stroke-width="1.5"/>
+      <text x="450" y="314" text-anchor="middle" font-size="12.5" fill="#6b7a72">原始频率 f →（0 … f_m）</text>
+      <text x="86" y="48" font-size="12.5" fill="#6b7a72">规整后</text>
+      <line x1="100" y1="290" x2="760" y2="50" stroke="#9aa79e" stroke-width="2" stroke-dasharray="6 5"/>
+      <text x="700" y="86" font-size="12" fill="#8a93a5">恒等映射 f→f</text>
+      <polygon points="100,290 760,50 760,50" fill="none"/>
+      <polygon points="100,290 245.5,229.1 760,50 760,50" fill="#e6f4ee" opacity="0.85"/>
+      <polyline points="100,290 245.5,229.1 760,50" fill="none" stroke="#0e8a66" stroke-width="3" stroke-linejoin="round"/>
+      <line x1="245.5" y1="229.1" x2="245.5" y2="290" stroke="#0e8a66" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <line x1="100" y1="237.1" x2="245.5" y2="237.1" stroke="#0e8a66" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <circle cx="245.5" cy="229.1" r="5.5" fill="#0e8a66" stroke="#fff" stroke-width="2"/>
+      <text x="258" y="216" font-size="12" font-weight="700" fill="#0a6b4e">pivot f₀：低频段斜率 = α</text>
+      <text x="258" y="233" font-size="11" fill="#5f8a76">位移上界 (α−1)·f₀，向 f_m 线性衰减到 0</text>
+      <circle cx="760" cy="50" r="6" fill="#d97a2b" stroke="#fff" stroke-width="2"/>
+      <text x="748" y="36" text-anchor="end" font-size="12" font-weight="700" fill="#b45f1c">锚点 (f_m, f_m)：上边界不动</text>
+      <text x="748" y="74" text-anchor="end" font-size="11" fill="#77837b">f_m = 最大频率 × 85%，留滤波器裕量</text>
+      <rect x="618" y="120" width="272" height="150" rx="10" fill="#fdf3ef" stroke="#c0563f" stroke-width="1.4"/>
+      <text x="634" y="148" font-size="12.5" font-weight="700" fill="#8c3b2e">深读疑点：f₀ 印刷值 20 Hz</text>
+      <text x="634" y="174" font-size="11.5" fill="#47536a">代入 f_m=6800 Hz 后第二段斜率≈1，</text>
+      <text x="634" y="192" font-size="11.5" fill="#47536a">pivot 位移至多 4 Hz——规整近乎</text>
+      <text x="634" y="210" font-size="11.5" fill="#47536a">恒等映射，与 Table II 的显著增益</text>
+      <text x="634" y="228" font-size="11.5" fill="#47536a">存在张力。合理怀疑 f₀ 印刷有误</text>
+      <text x="634" y="246" font-size="11.5" fill="#47536a">（常见 VTLN pivot 在数百 Hz~数 kHz），</text>
+      <text x="634" y="264" font-size="11.5" fill="#47536a">复现时以源码或作者确认为准</text>
+    </svg>
+    <p class="cap"><b>图 B</b>·规整强度完全由 f₀ 主导——它是最敏感的超参之一，而论文恰恰没有对 f₀ / f_m / α 网格做任何消融。</p>
+  </div>
+
+  <h3>训练：按 epoch 全局随机 α + 末 epoch 中心锚定</h3>
+  <div class="card">
+    <b>机制</b>：每个 epoch 全局随机抽一个 α，用整个训练集在该 α 下的规整特征训练这个 epoch，单一 DNN 贯穿始终；最后一个 epoch 固定 α=1.00。三个设计理由：
+    <ul>
+      <li><b>BN 统计平稳</b>：TC-ResNet / BCResNet 都带批归一化——若一个 batch 内混 21 种规整，BN 运行统计量要同时追 21 个相关但不同的分布，估计噪声显著变大；按 epoch 切换保证任意时刻 batch 内规整一致。</li>
+      <li><b>21 个相关训练集的课程轮换</b>：100 epoch 扣除末尾锚定 1 个，99 个 epoch 均匀随机落在 21 档 α 上，每档期望被见约 4.7 个 epoch——模型被迫学出对所有规整都稳定的表征。</li>
+      <li><b>末 epoch 锚定的动机是 recency 效应</b>：深度网络最终权重对训练末段数据分布有超比例的敏感性——随机到底意味着最后一个视角纯靠运气，抽到极端 α 会让最终权重偏向该端。钉在几何中心 α=1.00 等于结束前强制刷新一次「中心视角」，对测试期只用 α=1.00 的 M2 尤其关键。</li>
+    </ul>
+    代价也明确：同一 epoch 内所有说话人共享同一个 α，丢掉了「每个说话人自带不同规整」的多样性——VTLP 按条扰动在这点上更强，论文没做两种粒度的对照。
+  </div>
+
+  <h3>测试：分数域等权融合 vs 免规整推理</h3>
+  <div class="formula">
+    M1：FusionScore = (1/#α) · Σ<sub>α</sub> λ<sub>vtl-dnn</sub>(X<sup>α</sup>)　　　M2：Score = λ<sub>vtl-dnn</sub>(X<sup>α=1.00</sup>)
+    <div class="why"><b>人话</b>：M1 把同一条语音的 21 组规整特征各过同一个 DNN，21 组类别分数等权平均再 argmax；M2 干脆只用常规特征。为什么在分数域融合——特征域即 M3 拼接（维度 40→840，实测掉点）；模型域即训 21 个独立 DNN（参数 ×21，端侧不可接受）；<b>分数域是唯一不膨胀参数的层级</b>。等权而非学习权重：训练期 21 档均匀采样、模型对视角无偏好，等权与训练分布自洽，也避免在评测集上调权的信息泄漏。</div>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 440" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">一个训练流程，三条测试路径：M1 融合换精度 / M2 零成本部署 / M3 负结果划界</text>
+      <rect x="30" y="52" width="860" height="104" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.4"/>
+      <text x="48" y="76" font-size="12.5" font-weight="700" fill="#0a6b4e">训练（共用）</text>
+      <rect x="48" y="90" width="150" height="50" rx="8" fill="#fff" stroke="#c9c9bd" stroke-width="1.3"/>
+      <text x="123" y="111" text-anchor="middle" font-size="12" font-weight="600" fill="#1c2430">训练集 84,843 条</text>
+      <text x="123" y="129" text-anchor="middle" font-size="10.5" fill="#8a93a5">40 维 MFCC · ~23.6 h</text>
+      <line x1="198" y1="115" x2="236" y2="115" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="236,115 228,110 228,120" fill="#5f8a76"/>
+      <rect x="238" y="90" width="196" height="50" rx="8" fill="#fff" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="336" y="111" text-anchor="middle" font-size="12" font-weight="700" fill="#0a6b4e">每个 epoch 全局随机抽一个 α</text>
+      <text x="336" y="129" text-anchor="middle" font-size="10.5" fill="#5f8a76">α ∈ {0.80, 0.82, …, 1.20}，21 档</text>
+      <line x1="434" y1="115" x2="472" y2="115" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="472,115 464,110 464,120" fill="#5f8a76"/>
+      <rect x="474" y="90" width="180" height="50" rx="8" fill="#fff" stroke="#c9c9bd" stroke-width="1.3"/>
+      <text x="564" y="111" text-anchor="middle" font-size="12" font-weight="600" fill="#1c2430">该 α 下的规整特征</text>
+      <text x="564" y="129" text-anchor="middle" font-size="10.5" fill="#8a93a5">式 (2) 分段线性规整</text>
+      <line x1="654" y1="115" x2="692" y2="115" stroke="#5f8a76" stroke-width="1.8"/>
+      <polygon points="692,115 684,110 684,120" fill="#5f8a76"/>
+      <rect x="694" y="90" width="176" height="50" rx="8" fill="#fff" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="782" y="111" text-anchor="middle" font-size="12" font-weight="700" fill="#0a6b4e">单一 VTL-DNN ×100 ep</text>
+      <text x="782" y="129" text-anchor="middle" font-size="10.5" fill="#d97a2b">末 epoch 锚定 α=1.00 ★</text>
+
+      <rect x="30" y="184" width="280" height="230" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="48" y="210" font-size="13" font-weight="700" fill="#0a6b4e">M1 · VTL-independent（融合）</text>
+      <rect x="48" y="224" width="244" height="44" rx="8" fill="#fff" stroke="#c9c9bd" stroke-width="1.2"/>
+      <text x="170" y="243" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">测试语音 → 21 组规整特征 X^α</text>
+      <text x="170" y="260" text-anchor="middle" font-size="10.5" fill="#8a93a5">21 次特征提取 + 21 次前向</text>
+      <rect x="48" y="280" width="244" height="44" rx="8" fill="#fff" stroke="#c9c9bd" stroke-width="1.2"/>
+      <text x="170" y="299" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">各自过同一个 VTL-DNN</text>
+      <text x="170" y="316" text-anchor="middle" font-size="10.5" fill="#8a93a5">参数不膨胀——分数域融合</text>
+      <rect x="48" y="336" width="244" height="44" rx="8" fill="#0e8a66"/>
+      <text x="170" y="355" text-anchor="middle" font-size="11.5" font-weight="700" fill="#fff">21 组分数等权平均 → argmax</text>
+      <text x="170" y="372" text-anchor="middle" font-size="10.5" fill="#d8f3e7">四后端 +0.31 ~ +0.59（最高）</text>
+      <text x="170" y="404" text-anchor="middle" font-size="11" fill="#5f8a76">对隐变量「说话人声道多长」做蒙特卡洛边缘化</text>
+
+      <rect x="326" y="184" width="280" height="230" rx="11" fill="#fbfaf6" stroke="#9aa79e" stroke-width="1.4"/>
+      <text x="344" y="210" font-size="13" font-weight="700" fill="#47536a">M2 · 仅训练期规整（α=1.00 测试）</text>
+      <rect x="344" y="224" width="244" height="44" rx="8" fill="#fff" stroke="#c9c9bd" stroke-width="1.2"/>
+      <text x="466" y="243" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">测试语音 → 常规特征（不规整）</text>
+      <text x="466" y="260" text-anchor="middle" font-size="10.5" fill="#8a93a5">1 次特征提取 + 1 次前向</text>
+      <rect x="344" y="280" width="244" height="44" rx="8" fill="#fff" stroke="#c9c9bd" stroke-width="1.2"/>
+      <text x="466" y="299" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">同一个 VTL-DNN 打分</text>
+      <text x="466" y="316" text-anchor="middle" font-size="10.5" fill="#8a93a5">VTL 先验全部压缩进训练期</text>
+      <rect x="344" y="336" width="244" height="44" rx="8" fill="#7cc0a2"/>
+      <text x="466" y="355" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0a4a35">计算复杂度/参数量 = 常规 KWS</text>
+      <text x="466" y="372" text-anchor="middle" font-size="10.5" fill="#0a4a35">四后端 +0.18 ~ +0.42（白拿）</text>
+      <text x="466" y="404" text-anchor="middle" font-size="11" fill="#77837b">本质：VTLN 物理先验当定向增强 + 正则用</text>
+
+      <rect x="622" y="184" width="268" height="230" rx="11" fill="#fdf3ef" stroke="#c0563f" stroke-width="1.5"/>
+      <text x="640" y="210" font-size="13" font-weight="700" fill="#8c3b2e">M3 · 特征拼接（负结果）</text>
+      <rect x="640" y="224" width="232" height="44" rx="8" fill="#fff" stroke="#c9c9bd" stroke-width="1.2"/>
+      <text x="756" y="243" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1c2430">21 组规整特征直接拼接</text>
+      <text x="756" y="260" text-anchor="middle" font-size="10.5" fill="#8a93a5">40 维 × 21 = 840 维输入</text>
+      <rect x="640" y="280" width="232" height="44" rx="8" fill="#fff" stroke="#c0563f" stroke-width="1.3"/>
+      <text x="756" y="299" text-anchor="middle" font-size="11.5" font-weight="600" fill="#8c3b2e">首层参数随输入维线性 ×21</text>
+      <text x="756" y="316" text-anchor="middle" font-size="10.5" fill="#8a93a5">21 个视角高度相关，信息没 ×21</text>
+      <rect x="640" y="336" width="232" height="44" rx="8" fill="#c0563f"/>
+      <text x="756" y="355" text-anchor="middle" font-size="11.5" font-weight="700" fill="#fff">KWT-3 −0.10 / BCResNet-8 −0.74</text>
+      <text x="756" y="372" text-anchor="middle" font-size="10.5" fill="#fbe4dd">训练不充分 · 小数据撑不住</text>
+      <text x="756" y="404" text-anchor="middle" font-size="11" fill="#a05a4a">划界：融合在分数域，不在特征域</text>
+    </svg>
+    <p class="cap"><b>图 C</b>·训练流程对三个方法完全共用；差别只在测试期怎么用特征。M3 的失败还少了一个结构先验——拼接把「该信哪个视角」完全压给网络从零学习，而分数域融合自带「视角平权、证据相加」的显式先验。</p>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">四后端一致超基线，但十种子均值下增益「显著而不大」</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据与设置</b>：Google Speech Commands，35 个指令词全部作为目标词（35 类闭集 Top-1 准确率）。训练 84,843 条 / 评测 11,005 条，每条约 1 秒。训练增强对所有系统统一施加且相当重：时间平移 ±100 ms、重采样 [0.85, 1.15]、时/频掩码、babble / 混响 / MUSAN（15/10/8/5 dB）。<b>一个论文没点破的对照价值</b>：重采样本身就同时缩放时频两轴，与 VTL 的频轴伸缩有重叠——在人人都有重采样的前提下规整仍带来一致增益，说明它提供了速度扰动覆盖不了的纯频轴视角，这反而强化了主张（论文没把这层互补性单独拆开验证）。
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 420" role="img">
+      <text x="440" y="26" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table II · 四后端 × 三用法，35 类闭集准确率（%）</text>
+      <line x1="60" y1="286.2" x2="830" y2="286.2" stroke="#dfe5e0" stroke-width="1"/>
+      <text x="52" y="290.2" text-anchor="end" font-size="13" fill="#6b7a72">94</text>
+      <line x1="60" y1="218.8" x2="830" y2="218.8" stroke="#dfe5e0" stroke-width="1"/>
+      <text x="52" y="222.8" text-anchor="end" font-size="13" fill="#6b7a72">95</text>
+      <line x1="60" y1="151.2" x2="830" y2="151.2" stroke="#dfe5e0" stroke-width="1"/>
+      <text x="52" y="155.2" text-anchor="end" font-size="13" fill="#6b7a72">96</text>
+      <line x1="60" y1="83.8" x2="830" y2="83.8" stroke="#dfe5e0" stroke-width="1"/>
+      <text x="52" y="87.8" text-anchor="end" font-size="13" fill="#6b7a72">97</text>
+      <line x1="60" y1="320" x2="830" y2="320" stroke="#9aa79e" stroke-width="1.5"/>
+      <rect x="80" y="44" width="14" height="14" rx="3" fill="#b9c6bd"/>
+      <text x="99" y="56" font-size="12.5" fill="#47536a">基线 MFCC</text>
+      <rect x="265" y="44" width="14" height="14" rx="3" fill="#0e8a66"/>
+      <text x="284" y="56" font-size="12.5" fill="#47536a">M1 训练+测试融合</text>
+      <rect x="450" y="44" width="14" height="14" rx="3" fill="#7cc0a2"/>
+      <text x="469" y="56" font-size="12.5" fill="#47536a">M2 仅训练期规整</text>
+      <rect x="81.2" y="284.9" width="46" height="35.1" rx="4" fill="#b9c6bd"/>
+      <text x="104.2" y="277.9" text-anchor="middle" font-size="13" font-weight="600" fill="#1c2430">94.02</text>
+      <rect x="133.2" y="245.1" width="46" height="74.9" rx="4" fill="#0e8a66"/>
+      <text x="156.2" y="238.1" text-anchor="middle" font-size="13" font-weight="600" fill="#1c2430">94.61</text>
+      <rect x="185.2" y="266.7" width="46" height="53.3" rx="4" fill="#7cc0a2"/>
+      <text x="208.2" y="259.7" text-anchor="middle" font-size="13" font-weight="600" fill="#1c2430">94.29</text>
+      <text x="156.2" y="344" text-anchor="middle" font-size="15" font-weight="700" fill="#1c2430">TC-ResNet8</text>
+      <text x="156.2" y="366" text-anchor="middle" font-size="12.5" fill="#0a6b4e">M1 增益 +0.59</text>
+      <text x="156.2" y="385" text-anchor="middle" font-size="12" fill="#77837b">M2 增益 +0.27</text>
+      <rect x="273.8" y="174.9" width="46" height="145.1" rx="4" fill="#b9c6bd"/>
+      <text x="296.8" y="167.9" text-anchor="middle" font-size="13" font-weight="600" fill="#1c2430">95.65</text>
+      <rect x="325.8" y="136.4" width="46" height="183.6" rx="4" fill="#0e8a66"/>
+      <text x="348.8" y="129.4" text-anchor="middle" font-size="13" font-weight="600" fill="#1c2430">96.22</text>
+      <rect x="377.8" y="146.5" width="46" height="173.5" rx="4" fill="#7cc0a2"/>
+      <text x="400.8" y="139.5" text-anchor="middle" font-size="13" font-weight="600" fill="#1c2430">96.07</text>
+      <text x="348.8" y="344" text-anchor="middle" font-size="15" font-weight="700" fill="#1c2430">GRU-MttAten</text>
+      <text x="348.8" y="366" text-anchor="middle" font-size="12.5" fill="#0a6b4e">M1 增益 +0.57</text>
+      <text x="348.8" y="385" text-anchor="middle" font-size="12" fill="#77837b">M2 增益 +0.42</text>
+      <rect x="466.2" y="137.7" width="46" height="182.3" rx="4" fill="#b9c6bd"/>
+      <text x="489.2" y="130.7" text-anchor="middle" font-size="13" font-weight="600" fill="#1c2430">96.20</text>
+      <rect x="518.2" y="116.8" width="46" height="203.2" rx="4" fill="#0e8a66"/>
+      <text x="541.2" y="109.8" text-anchor="middle" font-size="13" font-weight="600" fill="#1c2430">96.51</text>
+      <rect x="570.2" y="125.6" width="46" height="194.4" rx="4" fill="#7cc0a2"/>
+      <text x="593.2" y="118.6" text-anchor="middle" font-size="13" font-weight="600" fill="#1c2430">96.38</text>
+      <text x="541.2" y="344" text-anchor="middle" font-size="15" font-weight="700" fill="#1c2430">KWT-3</text>
+      <text x="541.2" y="366" text-anchor="middle" font-size="12.5" fill="#0a6b4e">M1 增益 +0.31</text>
+      <text x="541.2" y="385" text-anchor="middle" font-size="12" fill="#77837b">M2 增益 +0.18</text>
+      <rect x="658.8" y="97.9" width="46" height="222.1" rx="4" fill="#b9c6bd"/>
+      <text x="681.8" y="90.9" text-anchor="middle" font-size="13" font-weight="600" fill="#1c2430">96.79</text>
+      <rect x="710.8" y="71.6" width="46" height="248.4" rx="4" fill="#0e8a66"/>
+      <text x="733.8" y="64.6" text-anchor="middle" font-size="13" font-weight="600" fill="#1c2430">97.18</text>
+      <rect x="762.8" y="79.0" width="46" height="241.0" rx="4" fill="#7cc0a2"/>
+      <text x="785.8" y="72.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1c2430">97.07</text>
+      <text x="733.8" y="344" text-anchor="middle" font-size="15" font-weight="700" fill="#1c2430">BCResNet-8</text>
+      <text x="733.8" y="366" text-anchor="middle" font-size="12.5" fill="#0a6b4e">M1 增益 +0.39</text>
+      <text x="733.8" y="385" text-anchor="middle" font-size="12" fill="#77837b">M2 增益 +0.28</text>
+      <text x="440" y="410" text-anchor="middle" font-size="12" fill="#8a93a5">单次运行（Numpy 种子 0 / PyTorch 种子 42）；M1 = 21 视角分数融合，M2 = 仅用 α=1.00 常规特征测试</text>
+    </svg>
+    <p class="cap"><b>表 II 复绘</b>·12/12 组合全部超基线。深读观察：增益分布不均——GRU-MttAten（+0.57）和 TC-ResNet（+0.59）获益最大，KWT-3 最小（+0.31）。合理解释是容量与表达力越强的架构自己越能吸收说话人方差，输入侧归一化的边际收益随之摊薄；时序混合模型和小通道数的 TC-ResNet8 更依赖输入特征的类内干净度（推断，论文未讨论）。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 330" role="img">
+      <text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table III · 十种子均值 ± 95% 置信区间（BCResNet-8 后端）</text>
+      <line x1="70" y1="241.7" x2="830" y2="241.7" stroke="#e8ece9" stroke-width="1"/>
+      <text x="62" y="245.7" text-anchor="end" font-size="12.5" fill="#6b7a72">96.7</text>
+      <line x1="70" y1="203.3" x2="830" y2="203.3" stroke="#e8ece9" stroke-width="1"/>
+      <text x="62" y="207.3" text-anchor="end" font-size="12.5" fill="#6b7a72">96.8</text>
+      <line x1="70" y1="165.0" x2="830" y2="165.0" stroke="#e8ece9" stroke-width="1"/>
+      <text x="62" y="169.0" text-anchor="end" font-size="12.5" fill="#6b7a72">96.9</text>
+      <line x1="70" y1="126.7" x2="830" y2="126.7" stroke="#e8ece9" stroke-width="1"/>
+      <text x="62" y="130.7" text-anchor="end" font-size="12.5" fill="#6b7a72">97.0</text>
+      <line x1="70" y1="88.3" x2="830" y2="88.3" stroke="#e8ece9" stroke-width="1"/>
+      <text x="62" y="92.3" text-anchor="end" font-size="12.5" fill="#6b7a72">97.1</text>
+      <line x1="70" y1="280" x2="830" y2="280" stroke="#9aa79e" stroke-width="1.5"/>
+      <line x1="190" y1="195.7" x2="730" y2="195.7" stroke="#b9c6bd" stroke-width="1.2" stroke-dasharray="5 4"/>
+      <line x1="190" y1="195.7" x2="460" y2="142.0" stroke="#c7d4cb" stroke-width="1.5"/>
+      <line x1="460" y1="142.0" x2="730" y2="111.3" stroke="#c7d4cb" stroke-width="1.5"/>
+      <line x1="190" y1="214.8" x2="190" y2="176.5" stroke="#b9c6bd" stroke-width="2"/>
+      <line x1="182" y1="214.8" x2="198" y2="214.8" stroke="#b9c6bd" stroke-width="2"/>
+      <line x1="182" y1="176.5" x2="198" y2="176.5" stroke="#b9c6bd" stroke-width="2"/>
+      <circle cx="190" cy="195.7" r="6" fill="#b9c6bd" stroke="#fff" stroke-width="2"/>
+      <text x="190" y="164.5" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">96.82 ± 0.05</text>
+      <text x="190" y="312" text-anchor="middle" font-size="13.5" font-weight="600" fill="#47536a">基线（常规 MFCC）</text>
+      <line x1="460" y1="168.8" x2="460" y2="115.2" stroke="#7cc0a2" stroke-width="2"/>
+      <line x1="452" y1="168.8" x2="468" y2="168.8" stroke="#7cc0a2" stroke-width="2"/>
+      <line x1="452" y1="115.2" x2="468" y2="115.2" stroke="#7cc0a2" stroke-width="2"/>
+      <circle cx="460" cy="142.0" r="6" fill="#7cc0a2" stroke="#fff" stroke-width="2"/>
+      <text x="460" y="103.2" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">96.96 ± 0.07</text>
+      <text x="460" y="312" text-anchor="middle" font-size="13.5" font-weight="600" fill="#47536a">M2 仅训练期规整</text>
+      <line x1="730" y1="130.5" x2="730" y2="92.2" stroke="#0e8a66" stroke-width="2"/>
+      <line x1="722" y1="130.5" x2="738" y2="130.5" stroke="#0e8a66" stroke-width="2"/>
+      <line x1="722" y1="92.2" x2="738" y2="92.2" stroke="#0e8a66" stroke-width="2"/>
+      <circle cx="730" cy="111.3" r="6" fill="#0e8a66" stroke="#fff" stroke-width="2"/>
+      <text x="730" y="80.2" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">97.04 ± 0.05</text>
+      <text x="730" y="312" text-anchor="middle" font-size="13.5" font-weight="600" fill="#47536a">M1 训练+测试融合</text>
+      <text x="325" y="112" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2f7f5f">+0.14 · p = 0.00162</text>
+      <text x="325" y="128" text-anchor="middle" font-size="11.5" fill="#77837b">十种子 Student t 检验，显著</text>
+      <text x="595" y="82" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0a6b4e">+0.22 · p = 3.47×10⁻⁵</text>
+      <text x="595" y="98" text-anchor="middle" font-size="11.5" fill="#77837b">约置信区间半宽的 3-4 倍：显著但不大</text>
+    </svg>
+    <p class="cap"><b>表 III 复绘</b>·KWS 文献少见的严谨动作：十个随机初始化种子、Student t 检验、95% 置信区间。注意跨表口径——Table II 是单次运行（97.18），Table III 是十种子均值（97.04±0.05），文中未加说明，粗读容易高估增益。按诚实口径，BCResNet-8 上 M2 的边际贡献是 +0.14，量级判断对工程性价比很重要。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 350" role="img">
+      <text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Fig. 2 · 测试期只用单个 α 的扫描曲线（示意复绘）</text>
+      <line x1="90" y1="255.7" x2="810" y2="255.7" stroke="#e8ece9" stroke-width="1"/>
+      <text x="82" y="259.7" text-anchor="end" font-size="12.5" fill="#6b7a72">92</text>
+      <line x1="90" y1="187.1" x2="810" y2="187.1" stroke="#e8ece9" stroke-width="1"/>
+      <text x="82" y="191.1" text-anchor="end" font-size="12.5" fill="#6b7a72">94</text>
+      <line x1="90" y1="118.6" x2="810" y2="118.6" stroke="#e8ece9" stroke-width="1"/>
+      <text x="82" y="122.6" text-anchor="end" font-size="12.5" fill="#6b7a72">96</text>
+      <line x1="90" y1="50.0" x2="810" y2="50.0" stroke="#e8ece9" stroke-width="1"/>
+      <text x="82" y="54.0" text-anchor="end" font-size="12.5" fill="#6b7a72">98</text>
+      <line x1="90.0" y1="290" x2="90.0" y2="296" stroke="#9aa79e" stroke-width="1.5"/>
+      <text x="90.0" y="314" text-anchor="middle" font-size="13" fill="#47536a">0.80</text>
+      <line x1="270.0" y1="290" x2="270.0" y2="296" stroke="#9aa79e" stroke-width="1.5"/>
+      <text x="270.0" y="314" text-anchor="middle" font-size="13" fill="#47536a">0.90</text>
+      <line x1="450.0" y1="290" x2="450.0" y2="296" stroke="#9aa79e" stroke-width="1.5"/>
+      <text x="450.0" y="314" text-anchor="middle" font-size="13" fill="#47536a">1.00</text>
+      <line x1="630.0" y1="290" x2="630.0" y2="296" stroke="#9aa79e" stroke-width="1.5"/>
+      <text x="630.0" y="314" text-anchor="middle" font-size="13" fill="#47536a">1.10</text>
+      <line x1="810.0" y1="290" x2="810.0" y2="296" stroke="#9aa79e" stroke-width="1.5"/>
+      <text x="810.0" y="314" text-anchor="middle" font-size="13" fill="#47536a">1.20</text>
+      <line x1="90" y1="290" x2="810" y2="290" stroke="#9aa79e" stroke-width="1.5"/>
+      <text x="450" y="336" text-anchor="middle" font-size="13" fill="#6b7a72">测试期规整因子 α</text>
+      <polyline points="90.0,272.9 126.0,237.0 162.0,205.0 198.0,176.7 234.0,152.2 270.0,131.4 306.0,114.5 342.0,101.3 378.0,91.8 414.0,86.2 450.0,84.3 486.0,85.5 522.0,89.1 558.0,95.1 594.0,103.5 630.0,114.3 666.0,127.5 702.0,143.1 738.0,161.1 774.0,181.5 810.0,204.3" fill="none" stroke="#0e8a66" stroke-width="3" stroke-linejoin="round"/>
+      <line x1="450" y1="84.3" x2="450" y2="290" stroke="#0e8a66" stroke-width="1.2" stroke-dasharray="5 4"/>
+      <circle cx="450" cy="84.3" r="7" fill="#0e8a66" stroke="#fff" stroke-width="2.5"/>
+      <text x="470" y="72.3" font-size="13" font-weight="700" fill="#0a6b4e">峰值 α=1.00 ≈ M2 水平（97 附近）</text>
+      <text x="115" y="252.3" font-size="11.5" fill="#77837b">低频端掉得深</text>
+      <text x="660" y="186.0" font-size="11.5" fill="#77837b">高频端回落浅</text>
+      <text x="560" y="228" font-size="12" fill="#8a93a5">原文仅图示、未给逐点数值，</text>
+      <text x="560" y="246" font-size="12" fill="#8a93a5">此处为形状示意；每个视角</text>
+      <text x="560" y="264" font-size="12" fill="#8a93a5">单独都不占优 → 等权融合有理</text>
+    </svg>
+    <p class="cap"><b>图 2 复绘（示意）</b>·对最强的 VTL-independent-BCResNet-8，测试时每次只用一个 α。三层读法：① 峰值居中说明模型没有过拟合到某个极端规整；② 单视角峰值即接近 M2 水平，融合增益来自互补视角的边缘化而非某个「神视角」；③ 既然每个视角单独都不占优，等权融合就没有理由给任何视角特权——曲线反过来支撑了等权设计。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 310" role="img">
+      <text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">M3 特征拼接（840 维）反而掉点 —— 负结果</text>
+      <line x1="80" y1="252.0" x2="800" y2="252.0" stroke="#e8ece9" stroke-width="1"/>
+      <text x="72" y="256.0" text-anchor="end" font-size="12.5" fill="#6b7a72">95.5</text>
+      <line x1="80" y1="197.6" x2="800" y2="197.6" stroke="#e8ece9" stroke-width="1"/>
+      <text x="72" y="201.6" text-anchor="end" font-size="12.5" fill="#6b7a72">96.0</text>
+      <line x1="80" y1="143.2" x2="800" y2="143.2" stroke="#e8ece9" stroke-width="1"/>
+      <text x="72" y="147.2" text-anchor="end" font-size="12.5" fill="#6b7a72">96.5</text>
+      <line x1="80" y1="88.9" x2="800" y2="88.9" stroke="#e8ece9" stroke-width="1"/>
+      <text x="72" y="92.9" text-anchor="end" font-size="12.5" fill="#6b7a72">97.0</text>
+      <line x1="80" y1="252" x2="800" y2="252" stroke="#9aa79e" stroke-width="1.5"/>
+      <rect x="177" y="175.8" width="72" height="76.2" rx="4" fill="#b9c6bd"/>
+      <text x="213" y="168.8" text-anchor="middle" font-size="13.5" font-weight="600" fill="#1c2430">96.20</text>
+      <rect x="277" y="186.7" width="72" height="65.3" rx="4" fill="#c0563f"/>
+      <text x="313" y="179.7" text-anchor="middle" font-size="13.5" font-weight="600" fill="#1c2430">96.10</text>
+      <text x="263" y="278" text-anchor="middle" font-size="14.5" font-weight="700" fill="#1c2430">KWT-3</text>
+      <text x="263" y="299" text-anchor="middle" font-size="13" font-weight="700" fill="#c0563f">拼接 vs 基线：-0.10</text>
+      <rect x="482" y="111.6" width="72" height="140.4" rx="4" fill="#b9c6bd"/>
+      <text x="518" y="104.6" text-anchor="middle" font-size="13.5" font-weight="600" fill="#1c2430">96.79</text>
+      <rect x="582" y="192.1" width="72" height="59.9" rx="4" fill="#c0563f"/>
+      <text x="618" y="185.1" text-anchor="middle" font-size="13.5" font-weight="600" fill="#1c2430">96.05</text>
+      <text x="568" y="278" text-anchor="middle" font-size="14.5" font-weight="700" fill="#1c2430">BCResNet-8</text>
+      <text x="568" y="299" text-anchor="middle" font-size="13" font-weight="700" fill="#c0563f">拼接 vs 基线：-0.74</text>
+      <rect x="688" y="52" width="14" height="14" rx="3" fill="#b9c6bd"/><text x="707" y="64" font-size="12.5" fill="#47536a">基线</text>
+      <rect x="762" y="52" width="14" height="14" rx="3" fill="#c0563f"/><text x="781" y="64" font-size="12.5" fill="#47536a">拼接</text>
+    </svg>
+    <p class="cap"><b>M3 负结果</b>·论文归因是「模型规模显著增大、可能训练不充分」。深读再挖三层：① 21 个视角是同一条谱的 21 次重采样，高度相关——信息没涨 21 倍，输入维度实打实涨 21 倍；② 8.4 万条约 23.6 小时的训练量在百万级参数首层面前是小数据；③ 拼接把「视角间怎么加权」完全交给网络从零学，缺了分数域融合自带的「平权相加」结构先验。</p>
+  </div>
+
+  <h3>消融的四个发现（论文无正式消融表，四组准消融）</h3>
+  <div class="card">
+    <ul>
+      <li><b>训练规整 vs 测试融合贡献分解</b>：两者都超基线且可加——BCResNet-8 上 M1（97.18）比 M2（97.07）只高 +0.11，<b>增益主体来自训练期的多规整视角本身</b>，测试期融合再贴约 0.1 个点。</li>
+      <li><b>单 α 扫描</b>（Fig. 2）：准确率随 α 上升、在 1.00 达峰、之后回落——峰值居中 = 无过拟合到极端规整。</li>
+      <li><b>融合抽象层级对照</b>：特征级拼接掉 0.10~0.74，划定「分数域可行、特征域不可行」。</li>
+      <li><b>缺失项</b>：α 网格本身（范围 / 步长 / 非对称）、f₀ / f_m 敏感性全部未消融——而 f₀ 恰是规整强度最敏感的超参。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">可转述的四个判断</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>输入侧归一化在 KWS 上成立且与架构正交</b><br><span style="color:#47536a;font-size:14.5px">三种用法 × 四种 SOTA 后端的正交矩阵验证——改「网络看什么」可以和改「网络怎么算」（TC-ResNet → KWT → BC-ResNet 演进线）直接叠加。</span></div>
+    <div class="c"><span class="n">2</span><b>零部署成本路线（M2）</b><br><span style="color:#47536a;font-size:14.5px">训练期改造、测试期复杂度与参数量和常规 KWS 完全相同，换 +0.18~+0.42——VTLN 物理先验当定向增强和正则用，是端侧最友好的贡献形态。</span></div>
+    <div class="c"><span class="n">3</span><b>融合层级的正反对照划界</b><br><span style="color:#47536a;font-size:14.5px">分数域等权融合涨、特征域拼接跌——「融合应在分数域做」这条设计边界对后来者可直接复用，比只报成功方法多给了一块知识。</span></div>
+    <div class="c"><span class="n">4</span><b>方法学：显著性检验协议 + 训练小技巧</b><br><span style="color:#47536a;font-size:14.5px">十种子、Student t、95% CI 把「提升是真实的」从直觉升级为检验结论；按 epoch 随机 α + 末 epoch 中心锚定是把先验转成训练期正则的可复用配方。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">闭集口径、单数据集、f₀ 疑点——离真实唤醒词还差三层验证</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>方法局限</h4>
+      <ul>
+        <li><b>M1 测试期 21 次前向</b>：流式端侧不可行；论文未报告推理延迟 / 计算量，适用边界（离线 / 云端批处理）只能读者自己推断。</li>
+        <li><b>等权融合是最朴素的融合</b>：没有学习权重、没有与 max / top-k 平均等策略对比，也没有「粗网格扫 + 细网格精」的省算力两段式。</li>
+        <li><b>按 epoch 选 α 的多样性弱于按条扰动</b>（VTLP），两种粒度孰优孰劣无对照。</li>
+        <li><b>规整超参未消融且印刷疑点未澄清</b>：f₀=20 Hz 代入后规整近乎恒等，与增益存在张力——复现者必须先核对源码。</li>
+        <li><b>只在特征层作用</b>：没探索网络层配套（如对 α 条件化的归一化），物理先验没被结构化利用。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>单数据集 + 闭集口径</b>：GSC 是约 1 秒干净读词、35 类闭集，没有 unknown / silence 拒识、没有误报率——而唤醒词产品的第一指标恰恰是误报工作点；无噪声 / 远场 / 多说话人测试，与「说话人异质场景收益最大」的动机不匹配。</li>
+        <li><b>M3 只试了两个后端</b>，「拼接不可行」的普适性打折。</li>
+        <li><b>增益幅度小且无代价收益分析</b>：同样的训练预算投给模型放大或更长训练能否拿到更大收益，无从比较。</li>
+        <li><b>缺最直接竞品对照</b>：VTLP 按条扰动、速度扰动单独消融均未纳入。</li>
+        <li><b>逐类只有图无数值表</b>（Fig. 1）；男 / 女 / 儿童分组分析完全缺失——而这恰是 VTL 方法的理论作用点；跨表口径（单次 vs 十种子）文中未说明。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>论文自指的方向</b>：VTL-dependent 个性化 KWS——通用模型学到了对所有规整不变的表征，下一步反其道：用注册语音估计个体 α，或以 α 为条件做说话人条件化推理，把「平均掉说话人」升级为「定位说话人」。深读延伸：按条 / 按说话人采样补齐与 VTLP 的对照；学习式或 top-k 融合压 M1 开销；与更强后端（conformer、SSL 特征）叠加检验高基线上收益是否仍在；在带误报口径的真实 KWS 基准上重估并报告延迟；最后给出 f₀ / f_m / α 网格敏感性分析，澄清印刷疑点，让这套零成本训练技巧能被社区放心复用。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2025/Vocal_Tract_Length_Warped_Features_For_Spoken_Keyword_Spotting.md">深读笔记</a>
+    <a class="pill" href="/papers/2025/Vocal_Tract_Length_Warped_Features_For_Spoken_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2501.03523" target="_blank">arXiv</a>
+    <a class="pill" href="/">返回总目录</a>
+  </div>
+  <p>深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table I-III / Fig. 1-2）；Fig. 2 为形状示意已标注；「深读推断」处均为笔记标注的推断内容。</p>
+</footer>
+
+</div>
+</body>
+</html>

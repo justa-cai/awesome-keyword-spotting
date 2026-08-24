@@ -1,7 +1,7 @@
 # 可视化精读计划（VIZ_PLAN）
 
 > 逐篇把 305 篇深读笔记重写为 HTML+SVG 可视化页（2026→2018 倒序）。每篇流程：读笔记 → python 算图表坐标 → 手绘机制 SVG → 自包含 HTML → 更新 manifest+plan → commit+push。
-**进度：59 / 305**
+**进度：60 / 305**
 > 进度以本文件为准；`viz_manifest.json` 是机器可读版（站点 viz 按钮按它门控）。
 
 ## 2026（24/24）
@@ -31,7 +31,7 @@
 - [✅] ProKWS: Personalized Keyword Spotting via Collaborative Le…
 - [✅] Scalable Keyword Spotting via Modular Network Expansion：冻结…
 
-## 2025（35/36）
+## 2025（36/36）
 
 - [✅] ASAP-FE：面向边缘处理器多通道关键词检出的节能特征提取前端
 - [✅] 免乘法器 MFCC 特征提取器的低功耗关键词检测芯片
@@ -68,7 +68,7 @@
 - [✅] Synaspot：面向音频-文本协同的轻量级流式多模态关键词检测框架
 - [✅] 用脉冲时间差编码器实现高效关键词检测
 - [✅] TsetlinKWS：65nm 工艺下 16.58µW、0.63mm² 的状态驱动卷积 Tsetlin Machin…
-- [⬜] Vocal Tract Length Warped Features for Spoken Keyword Spot…
+- [✅] Vocal Tract Length Warped Features for Spoken Keyword Spot…
 
 ## 2024（0/44）
 
@@ -78,7 +78,7 @@
 - [⬜] CTC对齐的音频-文本嵌入：面向流式开放词表关键词检测
 - [⬜] Contrastive Augmentation：面向关键词检测的对比增强无监督学习方法
 - [⬜] Contrastive Learning with Audio Discrimination for Customi…
-- [⬜] Dark Experience for Incremental Keyword Spotting（DE-KWS）：把…
+- [⬜] Dark Experience for Incremental Keyword Spotting：把"暗经验"引入关…
 - [⬜] DeltaKWS：65nm 36nJ/决策、仿生时间稀疏感知的数字关键词检测芯片
 - [⬜] Disentangled Training with Adversarial Examples for Robust…
 - [⬜] ED-sKWS：面向快速与低能耗关键词检测的早决策脉冲神经网络
