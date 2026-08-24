@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>单通道增强 × KWS 案例研究 · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2023/Does_Single-channel_Speech_Enhancement_Improve_Keyword_Spotting_Accuracy_A_Case_Study.md">深读笔记</a>
+    <a href="/papers/2023/Does_Single-channel_Speech_Enhancement_Improve_Keyword_Spotting_Accuracy_A_Case_Study.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2309.16060" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2023 №7</p>
+  <h1>SDR 提升 5.35dB，准确率反掉 3 个点——信号更干净 ≠ 分类器更准，<br>负结果 + 机制分析的案例研究</h1>
+  <p class="sub">Does Single-channel Speech Enhancement Improve Keyword Spotting Accuracy? A Case Study</p>
+  <p class="meta"><b>作者</b>：Avamarie Brueggeman（UT Dallas · Apple 实习）；Takuya Higuchi、Masood Delfarah、Stephen Shum、Vineet Garg —— Apple</p>
+  <p class="meta"><b>发表</b>：arXiv 2309.16060（2023-09，v2 2024-02，ICASSP 格式短文）· Conv-TasNet × BC-ResNet-8 × GSC+WHAM!</p>
+  <div class="chips">
+    <span class="chip">SOTA 前端 × SOTA 后端受控对照</span><span class="chip">M1/M2 切开训练分布变量</span><span class="chip">直接级联全面倒退</span>
+    <span class="chip">唯一成功：干净后端 + 微调</span><span class="chip">软开关 SDRi 9.19 任务最差</span><span class="chip">「负结果 + 机制分析」型研究</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>被系统验证的假设缺口</b>：「SE 前端 + 下游任务」的级联研究几乎全以 ASR 为下游——完整句子 vs 1 秒关键词、离线批处理 vs 流式因果，结论不能直接搬。单通道 SE 无空间信息可依赖，只能靠学习到的统计差异分离，非线性处理引入伪影——<b>「信号更干净」和「分类器更准」之间隔着一层没被系统验证过的假设</b>。</li>
+      <li><b>受控实验设计（方法论贡献）</b>：前端因果 Conv-TasNet（流式约束）、后端 BC-ResNet-8 官方最大模型（<b>给 SE 最好的机会</b>——排除「SE 没用是因为后端差」的替代解释）、M1/M2 双后端（唯一差异 = 训练数据有无噪声）——把「SE 有没有用」拆解成「在什么训练条件下有多少收益」的条件矩阵。</li>
+      <li><b>结果一：直接级联全面倒退</b>：SDRi +5.35dB，M1 带噪 94.3→92.1、M2 96.0→93.0——<b>代理指标与任务指标脱钩最直接的证据</b>：处理伪影对分类器的伤害超过了噪声本身的伤害。</li>
+      <li><b>结果二：唯一成功组合 = M1（干净训练后端）+ 微调后端</b>：带噪 94.3→95.4（+1.1）——机制：M1 没见过噪声、带噪输入是分布外，SE 前端扮演<b>「域适配器」</b>把带噪输入拉回干净训练分布附近，后端再在增强信号上微调适应残留伪影。</li>
+      <li><b>结果三：M2（带噪训练后端）怎么救都无效</b>：最好 95.8%（混合损失双端微调）仍低于基线 96.0%——M2 已在训练中学到内建噪声鲁棒表征，增强信号的伪影反而是<b>新的分布外输入</b>。<b>数据增强与 SE 前端是替代关系：前者免费、后者付前端算力</b>。</li>
+      <li><b>结果四：软开关最讽刺</b>：逐语句预测 α 让 SDRi 高达 9.19dB（信号全场最好），带噪准确率 95.0%（表 4 最差）——<b>它学会了挑「听上去更干净」的混合比例，却不会挑「分类器更喜欢」的</b>。</li>
+      <li><b>联合训练的损失经验</b>：纯 CE 会把前端带崩（SDRi 崩到 −3.66dB——分类损失只要求可分不要求干净，前端可通过扭曲波形拟合边界）；加 β=0.01 的 SDR 正则拉回到 4.96——<b>信号级约束只需百分之一权重就能当前则器</b>，但即便如此仍追平不了无 SE 基线。</li>
+      <li><b>α 扫描的验证 / 测试分裂</b>：微调后在验证集上高 α 区间明显超基线，测试集上全部消失——典型过拟合；论文据此推断 GSC（~29 小时量级）撑不起联合训练的参数规模。</li>
+      <li><b>边界</b>：一秒输入砍掉 SE 的上下文（因果非因果仅差 0.21dB——膨胀卷积感受野没吃到，<b>所有结论严格限定短输入条件</b>）；只测非语音噪声（WHAM! 无可懂语音——语音噪声未测）；前端被迫用仿真数据训练（干净-带噪配对依赖）与后端分布错位；计算开销零报告（Conv-TasNet 量级前端对唤醒设备的可行性存疑）；关键差距 0.1–0.4 点无显著性检验。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">一个受控实验问题：什么时候能、什么时候不能</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>四个挑战</b>：构造公平可控可复现的测试床（噪声类型 / SNR 范围 / 数据划分）；区分「后端训练分布」这个关键变量（M1/M2 显式切开）；如果级联不行，联合训练与音频注入两种补救是否有效；解释失败——为什么 SNR 更干净的信号反而让分类器更不准（上下文长度 / 数据量 / 伪影 / 训练测试失配的机制层原因）。这是「负结果 + 机制分析」型研究——价值不在新模型，而在<b>一条可转述的工程判断</b>。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">可以任意组合开关的级联链路</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg viewBox="0 0 920 640" role="img">
+  <defs>
+    <marker id="ka" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" marker-height="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#47536a"/></marker>
+  </defs>
+  <text x="30" y="26" font-size="13.5" fill="#47536a" font-weight="600">管线与受控设计：后端选最强（排除「SE 没用是因为后端差」）、M1/M2 切开训练分布变量</text>
+
+  <!-- pipeline -->
+  <rect x="30" y="52" width="860" height="120" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.2"/>
+  <g font-size="10.5" text-anchor="middle">
+    <rect x="52" y="76" width="120" height="66" rx="9" fill="#fbf2f0" stroke="#c9a08e" stroke-width="1.2"/><text x="112" y="100" font-weight="700" fill="#8c3b2e">带噪语音 x</text><text x="112" y="118" fill="#47536a" font-size="9.5">1 秒 · 16kHz 单通道</text><text x="112" y="134" fill="#47536a" font-size="9.5">WHAM! 0–15dB</text>
+    <rect x="196" y="76" width="180" height="66" rx="9" fill="#e6f4ee" stroke="#0e8a66" stroke-width="1.3"/><text x="286" y="98" font-weight="700" fill="#0a6b4e">Conv-TasNet（因果）</text><text x="286" y="116" fill="#47536a" font-size="9.5">可学习编码器→膨胀卷积掩码→解码器</text><text x="286" y="132" fill="#47536a" font-size="9.5">时域端到端可微 · SDRi 5.35dB</text>
+    <rect x="404" y="76" width="150" height="66" rx="9" fill="#fdf7f0" stroke="#e0bc94" stroke-width="1.2"/><text x="479" y="98" font-weight="700" fill="#a35c14">音频注入（可选）</text><text x="479" y="116" fill="#47536a" font-size="9.5">x" = α·x′ + (1−α)·x</text><text x="479" y="132" fill="#47536a" font-size="9.5">伪影与噪声做凸组合稀释</text>
+    <rect x="582" y="76" width="150" height="66" rx="9" fill="#eaf3fc" stroke="#3d6fa8" stroke-width="1.3"/><text x="657" y="98" font-weight="700" fill="#2a5580">BC-ResNet-8</text><text x="657" y="116" fill="#47536a" font-size="9.5">官方最大模型（给 SE 最好的</text><text x="657" y="132" fill="#47536a" font-size="9.5">机会——排除后端弱的混淆）</text>
+    <rect x="760" y="76" width="110" height="66" rx="9" fill="#f4f5f8" stroke="#c9c9bd" stroke-width="1.1"/><text x="815" y="102" font-weight="700" fill="#47536a">12 类输出</text><text x="815" y="122" fill="#47536a" font-size="9.5">10 词 + unknown</text><text x="815" y="136" fill="#47536a" font-size="9.5">+ silence</text>
+  </g>
+  <line x1="172" y1="109" x2="192" y2="109" stroke="#47536a" stroke-width="1.4" marker-end="url(#ka)"/>
+  <line x1="376" y1="109" x2="400" y2="109" stroke="#47536a" stroke-width="1.4" marker-end="url(#ka)"/>
+  <line x1="554" y1="109" x2="578" y2="109" stroke="#47536a" stroke-width="1.4" marker-end="url(#ka)"/>
+  <line x1="732" y1="109" x2="756" y2="109" stroke="#47536a" stroke-width="1.4" marker-end="url(#ka)"/>
+
+  <!-- M1/M2 -->
+  <rect x="30" y="194" width="420" height="150" rx="11" fill="#eaf3fc" stroke="#3d6fa8" stroke-width="1.3"/>
+  <text x="46" y="218" font-size="12.5" font-weight="700" fill="#2a5580">M1：干净 GSC v2 训练的后端</text>
+  <text x="46" y="244" font-size="10.5" fill="#47536a">干净测试 98.7%（SOTA 水平）· 带噪 94.3% —— 带噪输入是分布外</text>
+  <text x="46" y="270" font-size="10.5" fill="#2a5580">SE 前端对它扮演「域适配器」：把带噪输入拉回干净训练分布附近，</text>
+  <text x="46" y="290" font-size="10.5" fill="#2a5580">再让后端在增强信号上微调适应残留伪影</text>
+  <text x="46" y="318" font-size="11" font-weight="700" fill="#0a6b4e">唯一成功组合：M1 + 微调后端 → 带噪 94.3→95.4（+1.1）</text>
+
+  <rect x="470" y="194" width="420" height="150" rx="11" fill="#e6f4ee" stroke="#0e8a66" stroke-width="1.3"/>
+  <text x="486" y="218" font-size="12.5" font-weight="700" fill="#0a6b4e">M2：WHAM! 噪声增强 GSC v2 训练的后端</text>
+  <text x="486" y="244" font-size="10.5" fill="#47536a">干净 98.4% · 带噪 96.0% —— 已学到内建的噪声鲁棒表征</text>
+  <text x="486" y="270" font-size="10.5" fill="#0a6b4e">增强信号带训练时从未见过的伪影模式——对 M2 反而是新的分布外输入</text>
+  <text x="486" y="294" font-size="10.5" fill="#47536a">数据增强与 SE 前端在此是<b>替代关系</b>：前者免费、后者付前端算力</text>
+  <text x="486" y="322" font-size="11" font-weight="700" fill="#8c3b2e">任何 SE 配置都救不回：最好 95.8% &lt; 基线 96.0%</text>
+
+  <!-- joint training -->
+  <rect x="30" y="364" width="420" height="150" rx="11" fill="#f9faf7" stroke="#e6e6df" stroke-width="1.1"/>
+  <text x="46" y="388" font-size="12" font-weight="700" fill="#47536a">联合训练的损失设计（式 1）</text>
+  <text x="46" y="414" font-size="12.5" font-family="Georgia,serif" fill="#1c2430">L = L_CE + β · L_SDR，β = 0.01</text>
+  <text x="46" y="440" font-size="10.5" fill="#47536a">纯 CE：前端完全可通过扭曲波形拟合类别边界——SDRi 崩到 −3.66dB（波形崩坏）</text>
+  <text x="46" y="464" font-size="10.5" fill="#0a6b4e">加 0.01 倍 SDR：信号级正则把前端拴在「信号仍像语音」的流形附近——</text>
+  <text x="46" y="484" font-size="10.5" fill="#0a6b4e">SDRi 回到 4.96，带噪 95.5→95.8（但仍追不平无 SE 的 96.0）</text>
+  <text x="46" y="506" font-size="10" fill="#8a93a5">分类梯度与信号梯度尺度悬殊——信号正则只需百分之一权重</text>
+
+  <rect x="470" y="364" width="420" height="150" rx="11" fill="#f4f5f8" stroke="#c9c9bd" stroke-width="1.1"/>
+  <text x="486" y="388" font-size="12" font-weight="700" fill="#47536a">软开关（soft switching）从 ASR 迁移</text>
+  <text x="486" y="414" font-size="10.5" fill="#47536a">256 维 log-Mel → 3 层 BiLSTM(128) → 注意力池化 → FC → softmax 预测逐语句 α</text>
+  <text x="486" y="438" font-size="10.5" fill="#47536a">假设：不同语句受污染不同，SE 对有些帮忙有些帮倒忙——逐语句门控应更优</text>
+  <text x="486" y="464" font-size="10.5" fill="#8c3b2e">KWS 上的负结果：预测的 α 让 SDRi 高达 9.19dB（全场信号最好）</text>
+  <text x="486" y="484" font-size="10.5" fill="#8c3b2e">但带噪准确率 95.0%（表 4 最差）——学会了挑「听上去更干净」，</text>
+  <text x="486" y="504" font-size="10.5" fill="#8c3b2e">不会挑「分类器更喜欢」</text>
+
+  <!-- missing block -->
+  <rect x="30" y="530" width="860" height="86" rx="11" fill="#fdf7f0" stroke="#e0bc94" stroke-width="1.1"/>
+  <text x="46" y="554" font-size="12" font-weight="700" fill="#a35c14">文献版图上缺的那块（本文来补）</text>
+  <text x="46" y="578" font-size="10.5" fill="#47536a">多通道 SE+KWS 的提升含空间信息红利（单麦设备无份）；噪声鲁棒训练路线（ConvMixer 课程学习 / MatchboxNet）从头到尾无 SE 模块——两条路线孰优孰负无正面比较；</text>
+  <text x="46" y="600" font-size="10.5" fill="#47536a">早期单通道结论（2018/2019）在前端换代（时域 Conv-TasNet）后端换代（BC-ResNet）后必须重验；ASR 结论不可迁移（完整句子 vs 1 秒词 · 离线 vs 流式因果）</text>
+</svg>
+    <p class="cap"><b>管线与受控设计复绘</b>：后端选官方最大模型是干净的对照设计——如果连最强后端都救不回 SE 引入的失真，「SE 无效」就不是后端太弱造成的混淆。</p>
+  </div>
+
+  <div class="formula">
+    x″ = α·x′ + (1−α)·x，α ∈ [0,1]；全局固定 α 或逐语句预测（软开关）
+    <div class="why">式 2 · 音频注入的物理直觉：SE 的非线性伪影与残留噪声都可通过与原始信号的线性混合稀释——在「噪声污染」与「处理失真」两种损伤之间做凸组合找折中。α=1 即直接用 SE 输出、α=0 即不做 SE；实测最优固定 α=0.1（10% 增强 + 90% 直通——本质是 SE 的伤害被稀释掉，勉强不亏）。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与发现</p>
+  <h2 class="sec">「训练分布 × 增强手段」二维矩阵</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据与指标</b>：GSC v2（10.6 万条 1 秒语句 · 35 词取 10 词 12 类 · 官方划分）+ WHAM! 城市噪声（2.8 万文件 · 无可懂语音 · 0–15dB 随机 · 在线增强且只增强 80% 语句保证见干净）。指标：KWS 准确率（干净 / 带噪 / 平均——立论基础就是「代理指标不能替代任务指标」）；SDRi 验证前端在工作 + 监控联合训练的波形崩坏；α 注入权重。未报告：参数量 / FLOPS / 延迟 / 显著性 / 逐类错误 / 预测 α 分布。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 460" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">表 2/3 · 带噪测试集准确率（%）：直接级联全面倒退，M1+微调后端是唯一成功，M2 怎么救都无效</text>
+<line x1="70" y1="356.2" x2="830" y2="356.2" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="360.2" text-anchor="end" font-size="12" fill="#6b7a72">92</text>
+<line x1="70" y1="268.8" x2="830" y2="268.8" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="272.8" text-anchor="end" font-size="12" fill="#6b7a72">94</text>
+<line x1="70" y1="181.2" x2="830" y2="181.2" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="185.2" text-anchor="end" font-size="12" fill="#6b7a72">96</text>
+<line x1="70" y1="93.8" x2="830" y2="93.8" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="97.8" text-anchor="end" font-size="12" fill="#6b7a72">98</text>
+<line x1="70" y1="400" x2="830" y2="400" stroke="#9aa79e" stroke-width="1.5"/>
+<line x1="70" y1="255.6" x2="430" y2="255.6" stroke="#3d6fa8" stroke-width="1.3" stroke-dasharray="6 4"/>
+<text x="426" y="250.6" text-anchor="end" font-size="10" font-weight="600" fill="#3d6fa8">M1 基线 94.3</text>
+<line x1="440" y1="181.2" x2="830" y2="181.2" stroke="#0e8a66" stroke-width="1.3" stroke-dasharray="6 4"/>
+<text x="826" y="176.2" text-anchor="end" font-size="10" font-weight="600" fill="#0a6b4e">M2 基线 96.0</text>
+<rect x="95.0" y="255.6" width="46" height="144.4" rx="4" fill="#3d6fa8"/>
+<text x="118.0" y="248.6" text-anchor="middle" font-size="11" font-weight="700" fill="#1c2430">94.3</text>
+<text x="118.0" y="418.0" text-anchor="middle" font-size="9" font-weight="600" fill="#47536a">M1 基线</text>
+<text x="118.0" y="430.0" text-anchor="middle" font-size="9" font-weight="600" fill="#47536a">（无 SE）</text>
+<rect x="191.0" y="351.9" width="46" height="48.1" rx="4" fill="#c0563f"/>
+<text x="214.0" y="344.9" text-anchor="middle" font-size="11" font-weight="700" fill="#8c3b2e">92.1</text>
+<text x="214.0" y="418.0" text-anchor="middle" font-size="9" font-weight="600" fill="#8c3b2e">M1 + 级联 SE</text>
+<text x="214.0" y="430.0" text-anchor="middle" font-size="9" font-weight="600" fill="#8c3b2e">（冻结）</text>
+<rect x="287.0" y="207.5" width="46" height="192.5" rx="4" fill="#0e8a66"/>
+<text x="310.0" y="200.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0a6b4e">95.4</text>
+<text x="310.0" y="418.0" text-anchor="middle" font-size="9" font-weight="700" fill="#0a6b4e">M1 + 微调后端</text>
+<text x="310.0" y="430.0" text-anchor="middle" font-size="9" font-weight="700" fill="#0a6b4e">★ 唯一成功</text>
+<rect x="383.0" y="181.2" width="46" height="218.8" rx="4" fill="#0e8a66"/>
+<text x="406.0" y="174.2" text-anchor="middle" font-size="11" font-weight="700" fill="#1c2430">96.0</text>
+<text x="406.0" y="418.0" text-anchor="middle" font-size="9" font-weight="600" fill="#47536a">M2 基线</text>
+<text x="406.0" y="430.0" text-anchor="middle" font-size="9" font-weight="600" fill="#47536a">（无 SE）</text>
+<rect x="479.0" y="312.5" width="46" height="87.5" rx="4" fill="#c0563f"/>
+<text x="502.0" y="305.5" text-anchor="middle" font-size="11" font-weight="700" fill="#8c3b2e">93.0</text>
+<text x="502.0" y="418.0" text-anchor="middle" font-size="9" font-weight="600" fill="#8c3b2e">M2 + 级联 SE</text>
+<text x="502.0" y="430.0" text-anchor="middle" font-size="9" font-weight="600" fill="#8c3b2e">（冻结）</text>
+<rect x="575.0" y="220.6" width="46" height="179.4" rx="4" fill="#7cc0a2"/>
+<text x="598.0" y="213.6" text-anchor="middle" font-size="11" font-weight="700" fill="#1c2430">95.1</text>
+<text x="598.0" y="418.0" text-anchor="middle" font-size="9" font-weight="600" fill="#47536a">M2 + 微调后端</text>
+<rect x="671.0" y="203.1" width="46" height="196.9" rx="4" fill="#7cc0a2"/>
+<text x="694.0" y="196.1" text-anchor="middle" font-size="11" font-weight="700" fill="#1c2430">95.5</text>
+<text x="694.0" y="418.0" text-anchor="middle" font-size="9" font-weight="600" fill="#47536a">M2 + 双端微调</text>
+<rect x="767.0" y="190.0" width="46" height="210.0" rx="4" fill="#5aa88a"/>
+<text x="790.0" y="183.0" text-anchor="middle" font-size="11" font-weight="700" fill="#1c2430">95.8</text>
+<text x="790.0" y="418.0" text-anchor="middle" font-size="9" font-weight="600" fill="#47536a">M2 + 双端 + 混合损失</text>
+<text x="790.0" y="430.0" text-anchor="middle" font-size="9" font-weight="600" fill="#47536a">（M2 最好）</text>
+<text x="440" y="456" text-anchor="middle" font-size="12" fill="#8c3b2e">读法：级联 SE 让 M1 掉 2.2 点、M2 掉 3.0 点（SDRi 却 +5.35dB——代理指标与任务指标脱钩最直接的证据）；干净端（表 2/3）M1 98.7→98.1 级联也掉</text>
+</svg>
+    <p class="cap"><b>表 2/3（带噪准确率）</b>：八组配置的完整读法——级联双双掉点、M1+微调后端唯一成功（域适配器机制）、M2 任何配置都追不平 96.0 基线。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 400" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">表 4 · 信号度量与任务度量的脱钩：SDRi 9.19dB 换来全场最差的准确率</text>
+<line x1="70" y1="310.0" x2="830" y2="310.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="314.0" text-anchor="end" font-size="12" fill="#6b7a72">92</text>
+<line x1="70" y1="230.0" x2="830" y2="230.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="234.0" text-anchor="end" font-size="12" fill="#6b7a72">94</text>
+<line x1="70" y1="150.0" x2="830" y2="150.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="154.0" text-anchor="end" font-size="12" fill="#6b7a72">96</text>
+<line x1="70" y1="330" x2="830" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<line x1="120.0" y1="330" x2="120.0" y2="336" stroke="#9aa79e" stroke-width="1.2"/>
+<line x1="450.0" y1="330" x2="450.0" y2="336" stroke="#9aa79e" stroke-width="1.2"/>
+<line x1="726.5" y1="330" x2="726.5" y2="336" stroke="#9aa79e" stroke-width="1.2"/>
+<text x="120.0" y="352" text-anchor="middle" font-size="11.5" fill="#6b7a72">0</text>
+<text x="473.1" y="352" text-anchor="middle" font-size="11.5" fill="#6b7a72">5.35</text>
+<text x="726.5" y="352" text-anchor="middle" font-size="11.5" fill="#6b7a72">9.19</text>
+<text x="475" y="376" text-anchor="middle" font-size="13" fill="#47536a">SDRi（dB）——增强信号质量 →</text>
+<circle cx="120.0" cy="150.0" r="6" fill="#0e8a66" stroke="#fff" stroke-width="1.4"/>
+<text x="132.0" y="144.0" text-anchor="start" font-size="10.5" font-weight="600" fill="#0e8a66">M2 基线（无 SE）</text>
+<text x="132.0" y="160.0" text-anchor="start" font-size="9.5" fill="#8a93a5">信号没动，任务最好</text>
+<circle cx="158.9" cy="150.0" r="6" fill="#5aa88a" stroke="#fff" stroke-width="1.4"/>
+<text x="170.9" y="144.0" text-anchor="start" font-size="10.5" font-weight="600" fill="#5aa88a">注入 α=0.1（冻结）</text>
+<text x="170.9" y="160.0" text-anchor="start" font-size="9.5" fill="#8a93a5">10% 增强 + 90% 原始</text>
+<circle cx="138.5" cy="162.0" r="6" fill="#7cc0a2" stroke="#fff" stroke-width="1.4"/>
+<text x="150.5" y="156.0" text-anchor="start" font-size="10.5" font-weight="600" fill="#7cc0a2">注入 α=0.05 + 双端微调</text>
+<circle cx="473.1" cy="270.0" r="6" fill="#c0563f" stroke="#fff" stroke-width="1.4"/>
+<text x="485.1" y="264.0" text-anchor="start" font-size="10.5" font-weight="600" fill="#c0563f">级联 SE（M2 冻结）</text>
+<circle cx="473.1" cy="306.0" r="6" fill="#c0563f" stroke="#fff" stroke-width="1.4"/>
+<text x="485.1" y="300.0" text-anchor="start" font-size="10.5" font-weight="600" fill="#c0563f">级联 SE（M1 冻结）</text>
+<circle cx="726.5" cy="190.0" r="14" fill="#8c3b2e" opacity="0.14"/>
+<circle cx="726.5" cy="190.0" r="8" fill="#8c3b2e" stroke="#fff" stroke-width="1.4"/>
+<text x="712.5" y="184.0" text-anchor="end" font-size="10.5" font-weight="700" fill="#8c3b2e">软开关（预测 α）</text>
+<text x="712.5" y="200.0" text-anchor="end" font-size="9.5" fill="#8a93a5">信号最好，任务最差 ★</text>
+<path d="M 120.0 150.0 Q 417.0 230.0 726.5 190.0" fill="none" stroke="#8a93a5" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="397.2" y="286.0" text-anchor="middle" font-size="11" fill="#8a93a5">信号质量与任务准确率无正相关</text>
+<text x="440" y="396" text-anchor="middle" font-size="11.5" fill="#8c3b2e">软开关以 KWS 交叉熵训练却失败——未报告预测 α 的分布（整体偏大 α 还是逐句失准？机制留谜）；固定小 α 无害微益的本质是信号几乎直通</text>
+</svg>
+    <p class="cap"><b>表 4 脱钩散点</b>：横轴 SDRi（信号质量）纵轴带噪准确率——无正相关；软开关（右上）信号最好任务最差是本文最锋利的一个数据点。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 360" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">图 1/2 复绘（结构示意）· α 扫描的验证/测试分裂：微调收益只存在于验证分布</text>
+<line x1="70" y1="252.0" x2="410" y2="252.0" stroke="#e8ece9" stroke-width="1"/>
+<line x1="480" y1="252.0" x2="830" y2="252.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="256.0" text-anchor="end" font-size="10.5" fill="#6b7a72">93</text>
+<text x="472" y="256.0" text-anchor="end" font-size="10.5" fill="#6b7a72">93</text>
+<line x1="70" y1="204.0" x2="410" y2="204.0" stroke="#e8ece9" stroke-width="1"/>
+<line x1="480" y1="204.0" x2="830" y2="204.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="208.0" text-anchor="end" font-size="10.5" fill="#6b7a72">94</text>
+<text x="472" y="208.0" text-anchor="end" font-size="10.5" fill="#6b7a72">94</text>
+<line x1="70" y1="156.0" x2="410" y2="156.0" stroke="#e8ece9" stroke-width="1"/>
+<line x1="480" y1="156.0" x2="830" y2="156.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="160.0" text-anchor="end" font-size="10.5" fill="#6b7a72">95</text>
+<text x="472" y="160.0" text-anchor="end" font-size="10.5" fill="#6b7a72">95</text>
+<line x1="70" y1="300" x2="410" y2="300" stroke="#9aa79e" stroke-width="1.4"/>
+<line x1="480" y1="300" x2="830" y2="300" stroke="#9aa79e" stroke-width="1.4"/>
+<text x="130" y="318" text-anchor="middle" font-size="10.5" fill="#47536a">0.0</text>
+<text x="540" y="318" text-anchor="middle" font-size="10.5" fill="#47536a">0.0</text>
+<text x="270" y="318" text-anchor="middle" font-size="10.5" fill="#47536a">0.2</text>
+<text x="680" y="318" text-anchor="middle" font-size="10.5" fill="#47536a">0.2</text>
+<text x="410" y="318" text-anchor="middle" font-size="10.5" fill="#47536a">0.4</text>
+<text x="820" y="318" text-anchor="middle" font-size="10.5" fill="#47536a">0.4</text>
+<text x="550" y="318" text-anchor="middle" font-size="10.5" fill="#47536a">0.6</text>
+<text x="960" y="318" text-anchor="middle" font-size="10.5" fill="#47536a">0.6</text>
+<text x="690" y="318" text-anchor="middle" font-size="10.5" fill="#47536a">0.8</text>
+<text x="1100" y="318" text-anchor="middle" font-size="10.5" fill="#47536a">0.8</text>
+<text x="830" y="318" text-anchor="middle" font-size="10.5" fill="#47536a">1.0</text>
+<text x="1240" y="318" text-anchor="middle" font-size="10.5" fill="#47536a">1.0</text>
+<text x="240" y="338" text-anchor="middle" font-size="12" fill="#47536a">带噪验证集</text>
+<text x="655" y="338" text-anchor="middle" font-size="12" fill="#47536a">带噪测试集</text>
+<line x1="70" y1="108.0" x2="410" y2="108.0" stroke="#0e8a66" stroke-width="1.3" stroke-dasharray="6 4"/>
+<text x="406" y="103.0" text-anchor="end" font-size="9.5" fill="#0a6b4e">α=0 基线（无 SE）</text>
+<line x1="480" y1="108.0" x2="830" y2="108.0" stroke="#0e8a66" stroke-width="1.3" stroke-dasharray="6 4"/>
+<text x="826" y="103.0" text-anchor="end" font-size="9.5" fill="#0a6b4e">α=0 基线</text>
+<path d="M 130 108.0 130 108.0 L 340 117.6 L 550 141.6 L 830 228.0" fill="none" stroke="#8a93a5" stroke-width="2.2"/>
+<circle cx="130" cy="108.0" r="4" fill="#8a93a5" stroke="#fff" stroke-width="1.1"/>
+<circle cx="340" cy="117.6" r="4" fill="#8a93a5" stroke="#fff" stroke-width="1.1"/>
+<circle cx="550" cy="141.6" r="4" fill="#8a93a5" stroke="#fff" stroke-width="1.1"/>
+<circle cx="830" cy="228.0" r="4" fill="#8a93a5" stroke="#fff" stroke-width="1.1"/>
+<path d="M 130 108.0 130 108.0 L 340 98.4 L 550 79.2 L 830 88.8" fill="none" stroke="#c0563f" stroke-width="2.4"/>
+<circle cx="130" cy="108.0" r="4" fill="#c0563f" stroke="#fff" stroke-width="1.1"/>
+<circle cx="340" cy="98.4" r="4" fill="#c0563f" stroke="#fff" stroke-width="1.1"/>
+<circle cx="550" cy="79.2" r="4" fill="#c0563f" stroke="#fff" stroke-width="1.1"/>
+<circle cx="830" cy="88.8" r="4" fill="#c0563f" stroke="#fff" stroke-width="1.1"/>
+<path d="M 540 108.0 540 108.0 L 750 112.8 L 960 122.4 L 1240 136.8" fill="none" stroke="#c0563f" stroke-width="2.4"/>
+<circle cx="540" cy="108.0" r="4" fill="#c0563f" stroke="#fff" stroke-width="1.1"/>
+<circle cx="750" cy="112.8" r="4" fill="#c0563f" stroke="#fff" stroke-width="1.1"/>
+<circle cx="960" cy="122.4" r="4" fill="#c0563f" stroke="#fff" stroke-width="1.1"/>
+<circle cx="1240" cy="136.8" r="4" fill="#c0563f" stroke="#fff" stroke-width="1.1"/>
+<path d="M 540 108.0 540 108.0 L 750 117.6 L 960 141.6 L 1240 228.0" fill="none" stroke="#8a93a5" stroke-width="2.2"/>
+<circle cx="540" cy="108.0" r="4" fill="#8a93a5" stroke="#fff" stroke-width="1.1"/>
+<circle cx="750" cy="117.6" r="4" fill="#8a93a5" stroke="#fff" stroke-width="1.1"/>
+<circle cx="960" cy="141.6" r="4" fill="#8a93a5" stroke="#fff" stroke-width="1.1"/>
+<circle cx="1240" cy="228.0" r="4" fill="#8a93a5" stroke="#fff" stroke-width="1.1"/>
+<text x="290" y="120" font-size="10.5" font-weight="700" fill="#8c3b2e">微调后高 α 区间超基线</text>
+<text x="700" y="130" font-size="10.5" font-weight="700" fill="#8c3b2e">测试集上提升全部消失</text>
+<rect x="80" y="40" width="12" height="12" rx="3" fill="#c0563f"/><text x="96" y="51" font-size="10.5" fill="#8c3b2e">微调后</text>
+<rect x="160" y="40" width="12" height="12" rx="3" fill="#8a93a5"/><text x="176" y="51" font-size="10.5" fill="#47536a">不微调</text>
+<text x="440" y="356" text-anchor="middle" font-size="11.5" fill="#8c3b2e">典型的过拟合信号：调出的 α 与微调参数只对验证分布有效——论文据此推断 GSC 数据量撑不起联合训练参数规模（约 29 小时量级）</text>
+</svg>
+    <p class="cap"><b>图 1/2 复绘（结构示意）</b>：验证 / 测试分裂——微调收益只存在于验证分布，GSC 数据量撑不起联合训练参数规模的核心证据。</p>
+  </div>
+
+  <div class="card">
+    <b>因果性消融的自我限定</b>：非因果 Conv-TasNet 只比因果高 0.21dB（5.56 vs 5.35）——一秒语句上非因果能看的未来帧极少、膨胀卷积长感受野施展不开；预实验缩小编码器核 SDR 也不变，佐证上下文不是当前设置的主导变量。<b>所有「SE 无效」结论严格限定在一秒短输入</b>，不能外推到真实设备持续流式长上下文监听。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">五条贡献</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>首个系统性受控研究</b>：SOTA 时域前端 × SOTA 后端 × 标准噪声协议下覆盖级联 / 联合训练 / 音频注入 / 软开关全部主流用法——结论不是单点而是一张条件矩阵。</div>
+    <div class="c"><span class="n">2</span><b>切开「后端训练分布」决定性变量</b>：SE 收益完全取决于后端有没有见过噪声——干净后端可借 SE 域适配 +1.1 点，带噪后端从任何 SE 配置拿不到收益。</div>
+    <div class="c"><span class="n">3</span><b>量化信号度量与任务度量的脱钩</b>：SDRi +5.35 级联掉点、软开关 SDRi 9.19 任务最差、纯 CE 训练 SDRi −3.66——三组数据共同说明波形指标不能预测 KWS 收益。</div>
+    <div class="c"><span class="n">4</span><b>KWS 联合训练的损失设计经验</b>：分类损失必须配小权重（β=0.01）信号级正则，否则前端波形崩坏。</div>
+    <div class="c"><span class="n" style="background:#d97a2b">★</span><b>指明后续硬约束</b>：数据规模（GSC 太小）、上下文长度（1 秒限制）、仿真-真实失配、语音噪声未测——每个方向都附机制层原因而非泛泛 future work。</div>
+  </div>
+
+  <div class="card">
+    <b>一句话可转述判断</b>：<b>增强模块的价值必须在任务指标上验收，不能在 SDR 上自我安慰</b>；对 KWS 而言，把预算花在噪声训练数据上比花在 SE 前端上更划算——至少在一秒短输入与中小数据规模条件下如此；唯一例外是后端没法用噪声数据重训时，SE + 后端微调做域适配能拿到一点收益。
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">短输入限定 + 计算开销零报告</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>一秒输入砍掉 SE 上下文</b>：膨胀卷积的长感受野红利没吃到——结论不能外推到真实流式长上下文监听。</li>
+        <li><b>伪影是单通道非线性处理的内生缺陷</b>：只要后端训练数据没有同源伪影就无解——除非联合训练，而联合训练又受制于数据量。</li>
+        <li><b>软开关机制留谜</b>：以 KWS 交叉熵训练却失效，未报告预测 α 分布（整体偏大 α 还是逐句失准？）。</li>
+        <li><b>计算开销完全未报告</b>：SE 前端参数量 / FLOPS / 流式延迟一个数字都没有——KWS 恰是算力最紧的任务，Conv-TasNet 量级前端的工程可行性存疑。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>数据规模与真实性双重受限</b>：~29 小时量级撑不起双端联合训练（验证 / 测试分裂是直接证据）；噪声全部仿真混合，与真实远场混响有本质差距。</li>
+        <li><b>SE 训练被迫失配</b>：前端需要干净-带噪配对 → 无法用带关键词标注的真实带噪录音 → 只能仿真训练前端——前后端训练分布错位。</li>
+        <li><b>只测非语音噪声</b>：语音噪声（背景人声、电视）恰是语音助手最常面对的干扰——KWS 理论上可「直接忽略」非关键词语音，SE 在语音噪声下的必要性是另一个未验证问题。</li>
+        <li><b>缺显著性与误差分析</b>：多数关键差距 0.1–0.4 点无置信区间——统计强度无法判断。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得补的方向</b>：更大更真实的 KWS 数据集（联合训练与软开关的失败可能只是数据量问题——百万级真实标注上重跑是验证外推性的第一步）；摆脱配对依赖的 SE 训练（MixIT / RemixIT / 无监督域自适应 SE——让前端直接吃真实带噪录音）；长上下文流式 SE（让感受野真正发挥作用，检验结论是否反转）；语音噪声 + 目标说话人分离（唤醒词通常由固定用户说出——VoiceFilter 类可能比通用增强更贴合）；任务导向的软开关重设计（以冻结后端分类置信度为反馈门控，或按噪声类型而非语句级预测 α）。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2023/Does_Single-channel_Speech_Enhancement_Improve_Keyword_Spotting_Accuracy_A_Case_Study.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2023/Does_Single-channel_Speech_Enhancement_Improve_Keyword_Spotting_Accuracy_A_Case_Study.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2309.16060" target="_blank">arXiv · 2309.16060</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（表 1–4、图 1/2、式 1/2）；α 扫描曲线为结构示意。错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
