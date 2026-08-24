@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>卷积自编码器特征提取 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2023/Automatic_Audio_Feature_Extraction_For_Keyword_Spotting.md">深读笔记</a>
+    <a href="/papers/2023/Automatic_Audio_Feature_Extraction_For_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a href="https://doi.org/10.1109/LSP.2023.3346280" target="_blank">DOI</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2023 №3</p>
+  <h1>特征提取是 KWS 管线里唯一「非神经网络」的环节——<br>训完丢掉解码器，用 1/5 算子换可比精度 + 噪声反超</h1>
+  <p class="sub">Automatic Audio Feature Extraction for Keyword Spotting</p>
+  <p class="meta"><b>作者</b>：Paola Vitolo、Rosalba Liguori、Luigi Di Benedetto、Alfredo Rubino、Gian Domenico Licciardo —— 萨勒诺大学工业工程系（意大利）</p>
+  <p class="meta"><b>发表</b>：IEEE Signal Processing Letters（2023-12）· GSCD 12 类 · MLCommons/tiny 参考分类器</p>
+  <div class="chips">
+    <span class="chip">卷积自编码器当特征提取器</span><span class="chip">FFT-MAE 频域损失</span><span class="chip">训完丢解码器</span>
+    <span class="chip">1/4.88 算子 · 零 Log</span><span class="chip">0dB 反超 MFCC 5.2 点</span><span class="chip">全 NN 端到端拼图</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>矛头精确指向中间那一块</b>：预处理 → 特征提取 → NN 分类器的三段管线里，特征提取是唯一非 NN 环节。梅尔家族（MFCC / mel 频谱图 / PNCC）绕不开 FT + 梅尔滤波器组 + Log + DCT——微控制器上出名的算子与功耗大户（MFCC 每帧 14192 加 / 12529 乘 / 50 次 Log）；且选哪种特征、滤波器几个、帧长多少全靠专家调参——自定义唤醒词 / 多语言 / 多变部署下是持续人力成本。</li>
+      <li><b>轻量化路线打在要害上的一句批评</b>：特征量化 / 压缩维度这些方法<b>仍然依赖 FT 流程</b>——优化的是 FT 之后的产物，每帧还是要先付一遍完整 FFT + 梅尔 + Log + DCT 成本。本文不动某一级，而是<b>整条流水线连同心理声学先验一起换掉</b>。</li>
+      <li><b>方法：卷积自编码器</b>：编码器四级 Conv+MaxPool 把 16000 点原始波形压到 50×16 瓶颈，解码器训练期负责重建、训完丢弃——推理期只部署 2740 参数的编码器。两阶段训练：MAE 时域预训练 → FFT-MAE 频域微调（只约束幅度谱、放松相位——判别信息全住幅度谱里，时域 MAE 会被半个采样点的对齐差主导）。</li>
+      <li><b>单通道折叠（笔记从参数量反推的架构关键）</b>：Conv2 参数 1040=16×(8×8×1)+16 说明输入是单通道——每级卷积只在单通道「图」上滑窗、配 Reshape 折叠，乘法随通道数的增长被消掉，这是算子能压到 1/5 的架构原因。</li>
+      <li><b>结果四件套</b>：干净条件 90.36%（MFCC 91.04 / mel 90.69 / PNCC 88.29——「可比但不超过」，比 MFCC 低 0.68）；<b>0dB 噪声下 81.84% 反超 MFCC 的 76.64%（+5.2 点）</b>，两曲线在干净端与噪声端排序翻转（针对性的抗噪增益而非全局平移）；算子 5488 vs 26771（1/4.88，零 Log——Log 在无 FPU MCU 上靠查表实现是隐藏坑）；单位算子准确率约 5 倍且全 SNR 一致。</li>
+      <li><b>抗噪机理是副产品不是显式约束</b>：有损压缩的最优解保留方差大、可预测的成分（谱包络类），与信号不相关的噪声在「信号可重建、噪声不可重建」的竞争里处于劣势——没有对抗项、没有 DAE 式噪声注入，鲁棒性更多来自特征本身的平滑性。</li>
+      <li><b>体系愿景</b>：与同组的 NN 版 PDM-to-PCM 转换器、NN 分类器拼接 → 从麦克风码流到分类输出<b>全程无传统 DSP</b> 的端到端 KWS。</li>
+      <li><b>边界</b>：重建目标不直接优化判别性（干净条件 0.33–0.68 点差距可能就是分开训练的账，联合微调未做）；50×16 黑盒码不可解释、跨词迁移性未验证；Conv1 输出 16000×32=512K 元素中间张量——几百 KB SRAM 的 MCU 无法整块驻留（算子优势 ≠ 内存可行性）；只测 AWGN（「白噪声是性能下界」论断有争议）；无系统性消融（两阶段损失无对照数字、瓶颈尺寸无扫描）；模型体积 / 时延 / 功耗 / 内存全未报告、网络停在浮点口径（同组其他工作都做了二值化）。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">三个互相牵制的目标</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>张力在哪</b>：自动化——特征由网络从数据里学出来，把专家从选型调参里解放；算子预算低一个量级——替换 FT 族且不需要 Log 这类低位宽硬件上昂贵的非线性；精度不能塌——干净条件差距 1 个点以内、噪声条件反超。难点：把特征提取压成极小编码器（2740 参数、50×16 瓶颈）后信息瓶颈很紧，无监督重建目标又不直接优化判别性——学到的表示必须<b>恰好同时</b>满足「可重建、够紧凑、对分类器有用、抗噪」四个性质。
+  </div>
+
+  <div class="card">
+    <b>隐含承认的三个不足</b>：特征选择仍是「从人工候选里挑」，缺乏数据驱动自动化；NAS 虽有进展但「确定最优架构仍依赖具体案例和专家知识」；手工频谱特征在噪声下的退化是系统性弱点（Fig 7a 的衰减斜率差），不只是绝对精度问题。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">范式差异：学习 vs 设计</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg viewBox="0 0 920 620" role="img">
+  <defs>
+    <marker id="fa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#47536a"/></marker>
+    <marker id="fg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0e8a66"/></marker>
+  </defs>
+  <text x="30" y="26" font-size="13.5" fill="#47536a" font-weight="600">图 2/3 复绘：不是在 MFCC 流水线里换掉某一级，而是整条流水线连同心理声学先验一起换掉</text>
+
+  <!-- traditional -->
+  <rect x="30" y="52" width="400" height="130" rx="11" fill="#fbf2f0" stroke="#c9a08e" stroke-width="1.2"/>
+  <text x="46" y="76" font-size="12" font-weight="700" fill="#8c3b2e">传统：手工特征流水线（设计问题）</text>
+  <g font-size="10" fill="#47536a" font-weight="600" text-anchor="middle">
+    <rect x="50" y="94" width="76" height="44" rx="7" fill="#fff" stroke="#c9a08e" stroke-width="1"/><text x="88" y="112">FFT</text><text x="88" y="128" font-size="8.5" fill="#8a93a5">+取模</text>
+    <rect x="138" y="94" width="80" height="44" rx="7" fill="#fff" stroke="#c9a08e" stroke-width="1"/><text x="178" y="112">梅尔滤波器组</text><text x="178" y="128" font-size="8.5" fill="#8a93a5">9950 加/10000 乘</text>
+    <rect x="230" y="94" width="60" height="44" rx="7" fill="#fff" stroke="#c9a08e" stroke-width="1"/><text x="260" y="112">Log</text><text x="260" y="128" font-size="8.5" fill="#8a93a5">50 次</text>
+    <rect x="302" y="94" width="60" height="44" rx="7" fill="#fff" stroke="#c9a08e" stroke-width="1"/><text x="332" y="112">DCT</text><text x="332" y="128" font-size="8.5" fill="#8a93a5">→ MFCC</text>
+  </g>
+  <line x1="126" y1="116" x2="136" y2="116" stroke="#8c3b2e" stroke-width="1.2" marker-end="url(#fa)"/>
+  <line x1="218" y1="116" x2="228" y2="116" stroke="#8c3b2e" stroke-width="1.2" marker-end="url(#fa)"/>
+  <line x1="290" y1="116" x2="300" y2="116" stroke="#8c3b2e" stroke-width="1.2" marker-end="url(#fa)"/>
+  <text x="46" y="164" font-size="10.5" fill="#8c3b2e">每步都是人工先验：窗长 / 滤波器个数与形状 / 压缩 / 基——需要专家按任务挑选与调参</text>
+
+  <!-- proposed -->
+  <rect x="460" y="52" width="430" height="130" rx="11" fill="#e6f4ee" stroke="#0e8a66" stroke-width="1.4"/>
+  <text x="476" y="76" font-size="12" font-weight="700" fill="#0a6b4e">本文：卷积自编码器（学习问题）</text>
+  <text x="476" y="102" font-size="10.5" fill="#0a6b4e">训练期：编码器压缩 + 解码器重建（监督 = 重建误差）→ 训完丢解码器，只部署编码器</text>
+  <text x="476" y="126" font-size="10.5" fill="#47536a">两阶段：MAE 时域预训练 → FFT-MAE 频域微调（课程学习：先粗重建后细化谱包络）</text>
+  <text x="476" y="150" font-size="10.5" fill="#47536a">编码器仅 2740 参数 · 最终特征 50×16 · 先验载体从「人的经验」换成「训练数据」</text>
+  <text x="476" y="172" font-size="10.5" fill="#8a93a5">体系拼图：与同组 NN 版 PDM-to-PCM 转换器 + NN 分类器拼接 → 全 NN 端到端 KWS</text>
+
+  <!-- encoder structure -->
+  <rect x="30" y="204" width="860" height="170" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.2"/>
+  <text x="46" y="228" font-size="12" font-weight="700" fill="#47536a">编码器四级 Conv+MaxPool（表 I）：16000 点原始波形 → 50×16 瓶颈</text>
+  <g font-size="9.5" text-anchor="middle">
+    <rect x="50" y="246" width="140" height="56" rx="8" fill="#fff" stroke="#9ec9b8" stroke-width="1.1"/><text x="120" y="266" font-weight="700" fill="#0a6b4e">Conv1 核32×1·32ch</text><text x="120" y="282" fill="#47536a">1056 参数 → 16000×32</text><text x="120" y="296" fill="#8a93a5">MaxPool 4×4 → 4000×8</text>
+    <rect x="204" y="246" width="140" height="56" rx="8" fill="#fff" stroke="#9ec9b8" stroke-width="1.1"/><text x="274" y="266" font-weight="700" fill="#0a6b4e">Conv2 核8×8·16ch</text><text x="274" y="282" fill="#47536a">1040 参数（单通道!）</text><text x="274" y="296" fill="#8a93a5">MaxPool 4×2</text>
+    <rect x="358" y="246" width="140" height="56" rx="8" fill="#fff" stroke="#9ec9b8" stroke-width="1.1"/><text x="428" y="266" font-weight="700" fill="#0a6b4e">Conv3 核16×16·2ch</text><text x="428" y="282" fill="#47536a">514 参数</text><text x="428" y="296" fill="#8a93a5">MaxPool 4×4</text>
+    <rect x="512" y="246" width="140" height="56" rx="8" fill="#fff" stroke="#9ec9b8" stroke-width="1.1"/><text x="582" y="266" font-weight="700" fill="#0a6b4e">Conv4 核8×8·2ch</text><text x="582" y="282" fill="#47536a">130 参数</text><text x="582" y="296" fill="#8a93a5">MaxPool 5×4</text>
+    <rect x="666" y="246" width="100" height="56" rx="8" fill="#e6f4ee" stroke="#0e8a66" stroke-width="1.3"/><text x="716" y="270" font-weight="700" fill="#0a6b4e">输出 50×16</text><text x="716" y="288" fill="#47536a">→ 分类器</text>
+  </g>
+  <line x1="190" y1="274" x2="202" y2="274" stroke="#47536a" stroke-width="1.2" marker-end="url(#fa)"/>
+  <line x1="344" y1="274" x2="356" y2="274" stroke="#47536a" stroke-width="1.2" marker-end="url(#fa)"/>
+  <line x1="498" y1="274" x2="510" y2="274" stroke="#47536a" stroke-width="1.2" marker-end="url(#fa)"/>
+  <line x1="652" y1="274" x2="664" y2="274" stroke="#47536a" stroke-width="1.2" marker-end="url(#fa)"/>
+  <text x="46" y="330" font-size="10.5" fill="#0a6b4e">单通道折叠（笔记反推）：参数量 1040=16×(8×8×1)+16 等 → 每级卷积只在单通道图上滑窗，配 Reshape 折叠——乘法随通道数的增长被消掉，这是算子能压到 1/5 的架构原因</text>
+  <text x="46" y="354" font-size="10.5" fill="#47536a">激活统一 tanh · 步长 1 · same padding；架构设计 = 迭代试错（非 NAS，论文坦率交代）；重建指标：MAE 0.0338 / MSE 0.00828 / FFT-MAE 2.8</text>
+
+  <!-- FFT-MAE -->
+  <rect x="30" y="394" width="420" height="130" rx="11" fill="#f2faf6" stroke="#9ec9b8" stroke-width="1.2"/>
+  <text x="46" y="418" font-size="12" font-weight="700" fill="#0a6b4e">FFT-MAE：只约束幅度谱，放松相位</text>
+  <text x="46" y="444" font-size="11.5" font-family="Georgia,serif" fill="#1c2430">FFT-MAE = (1/n) Σ | FFT(Y)| − |FFT(Ŷ)| |</text>
+  <text x="46" y="470" font-size="10.5" fill="#47536a">时域 MAE 会被微小相位偏移主导——听感与判别完全相同的两段语音</text>
+  <text x="46" y="490" font-size="10.5" fill="#47536a">可因半个采样点对齐差天差地别；判别信息（共振峰、能量包络）</text>
+  <text x="46" y="510" font-size="10.5" fill="#0a6b4e">几乎全住幅度谱里——频域损失 =「能量分布学对就行，别背相位」</text>
+
+  <rect x="470" y="394" width="420" height="130" rx="11" fill="#f9faf7" stroke="#e6e6df" stroke-width="1.1"/>
+  <text x="486" y="418" font-size="12" font-weight="700" fill="#47536a">抗噪机理（重建目标的副产品，非显式约束）</text>
+  <text x="486" y="444" font-size="10.5" fill="#47536a">有损压缩的最优解保留方差大、可预测的成分（谱包络类慢变成分）；</text>
+  <text x="486" y="464" font-size="10.5" fill="#47536a">加性噪声中与信号不相关的部分在「信号可重建、噪声不可重建」</text>
+  <text x="486" y="484" font-size="10.5" fill="#47536a">的竞争里处于劣势——噪声鲁棒更多来自特征本身的平滑性</text>
+  <text x="486" y="510" font-size="10.5" fill="#8a93a5">注意：未加对抗项或 DAE 式噪声注入——这个归因是解释性的</text>
+
+  <!-- classifier + data -->
+  <rect x="30" y="544" width="860" height="58" rx="10" fill="#f4f5f8" stroke="#c9c9bd" stroke-width="1.1"/>
+  <text x="46" y="566" font-size="10.5" fill="#47536a">分类器：MLCommons/tiny 参考网络（10×4·64ch 卷积 + 4×DSConv 3×3/1×1·64ch + MaxPool + 12 神经元 FC + softmax）——用社区标准分类器做「特征竞技场」，排除分类器差异污染</text>
+  <text x="46" y="588" font-size="10.5" fill="#8a93a5">数据：GSCD 12 类（以最少的 Up 类 3723 条为准平衡，共 44,676 条）· 16kHz/1s · AWGN 0–40dB（论文引述：白噪声是「所有噪声类型的性能下界」——该论断本身有争议）</text>
+</svg>
+    <p class="cap"><b>图 2/3 复绘</b>：替换的粒度是整条流水线而非某一级；「训完丢一半」是 AE 做特征提取的全部经济性来源——推理期解码器的算子一分钱不用付。</p>
+  </div>
+
+  <div class="formula">
+    FFT-MAE = (1/n) Σ<sub>i</sub> | |FFT(Y<sub>i</sub>)| − |FFT(Ŷ<sub>i</sub>)| |
+    <div class="why">式 4 · 频域重建损失（承自同组 PDM-to-PCM 与量化 ID-CNN 工作，首次用在「特征提取器」位置）：对输出与标签分别做 FFT 取幅度谱再算 MAE——只约束能量在频率轴上的分布，不背相位。两阶段 = 课程学习：先在波形域学会粗略重建（收敛稳定），再在频域细化谱包络保真度。完成时重建指标 MAE 0.0338 / MSE 0.00828 / FFT-MAE 2.8——纯监督分类方法没有的中间可观测指标。</div>
+  </div>
+
+  <div class="card">
+    <b>为什么用社区标准分类器做「特征竞技场」</b>：分类器直接复用 MLCommons/tiny 参考网络（卷积 + 4×DSConv + FC + softmax）——排除分类器差异对特征对比的污染，结果也能与 MLPerf/Tiny 生态直接对话。代价是「特征 × 分类器」交互效应未探索（本文特征配更深分类器是否更优，未知）。
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与结果</p>
+  <h2 class="sec">四件套：稳定性 · 干净对比 · 噪声翻转 · 算子账本</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据与指标</b>：GSCD 按 MLCommons/tiny 选 12 类（含 Background / Unknown），以最少的 Up 类 3723 条为准平衡共 44,676 条；AE 80/10/10 划分，分类器 80/20 + 4 折交叉验证。三层指标：重建层（MAE/MSE/FFT-MAE——无监督训练的无标签验收口径）、分类层（accuracy/precision/recall/f-score + CV 均值±标准差）、效率层（每帧算子数 + 「按每帧运算数加权的准确率」——边缘部署的真正决策变量是每单位算子买到多少精度）。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 300" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table II · 特征竞技场（同一分类器 · GSCD 12 类 · 干净测试集准确率 %）</text>
+<line x1="70" y1="210.0" x2="830" y2="210.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="214.0" text-anchor="end" font-size="12" fill="#6b7a72">88</text>
+<line x1="70" y1="170.0" x2="830" y2="170.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="174.0" text-anchor="end" font-size="12" fill="#6b7a72">89</text>
+<line x1="70" y1="130.0" x2="830" y2="130.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="134.0" text-anchor="end" font-size="12" fill="#6b7a72">90</text>
+<line x1="70" y1="90.0" x2="830" y2="90.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="94.0" text-anchor="end" font-size="12" fill="#6b7a72">91</text>
+<line x1="70" y1="250" x2="830" y2="250" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="137.0" y="198.4" width="66" height="51.6" rx="5" fill="#b9c6bd"/>
+<text x="170.0" y="190.4" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">88.29</text>
+<text x="170.0" y="272" text-anchor="middle" font-size="12" font-weight="600" fill="#47536a">PNCC</text>
+<rect x="307.0" y="115.6" width="66" height="134.4" rx="5" fill="#0e8a66"/>
+<text x="340.0" y="107.6" text-anchor="middle" font-size="13" font-weight="700" fill="#0a6b4e">90.36</text>
+<text x="340.0" y="272" text-anchor="middle" font-size="12" font-weight="700" fill="#0a6b4e">本文 AE ★</text>
+<text x="340.0" y="290" text-anchor="middle" font-size="9.5" fill="#8a93a5">4 折 CV 89.69±0.57</text>
+<rect x="477.0" y="102.4" width="66" height="147.6" rx="5" fill="#d9c9a8"/>
+<text x="510.0" y="94.4" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">90.69</text>
+<text x="510.0" y="272" text-anchor="middle" font-size="12" font-weight="600" fill="#47536a">mel 频谱图</text>
+<rect x="647.0" y="88.4" width="66" height="161.6" rx="5" fill="#8a93a5"/>
+<text x="680.0" y="80.4" text-anchor="middle" font-size="13" font-weight="700" fill="#1c2430">91.04</text>
+<text x="680.0" y="272" text-anchor="middle" font-size="12" font-weight="600" fill="#47536a">MFCC</text>
+<text x="680.0" y="290" text-anchor="middle" font-size="9.5" fill="#8a93a5">最强手工特征</text>
+<text x="440" y="290" text-anchor="middle" font-size="12" fill="#8c3b2e">干净条件下「可比但不超过」：比 PNCC +2.07、比 MFCC 低 0.68、比 mel 低 0.33——这是用噪声与算子两块长板换的短板（0.33–0.68 点很可能就是分开训练、未联合优化的账）</text>
+</svg>
+    <p class="cap"><b>Table II</b>：特征竞技场——干净条件下与最强手工特征同档但不超过，这正是论文用噪声与算子两块长板去换的短板。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 360" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Fig 7a · 噪声行为（AWGN）：干净端和噪声端排序翻转——优势是针对性的抗噪增益，不是全局平移</text>
+<line x1="70" y1="310.0" x2="830" y2="310.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="314.0" text-anchor="end" font-size="12" fill="#6b7a72">75</text>
+<line x1="70" y1="237.8" x2="830" y2="237.8" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="241.8" text-anchor="end" font-size="12" fill="#6b7a72">80</text>
+<line x1="70" y1="165.6" x2="830" y2="165.6" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="169.6" text-anchor="end" font-size="12" fill="#6b7a72">85</text>
+<line x1="70" y1="93.3" x2="830" y2="93.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="97.3" text-anchor="end" font-size="12" fill="#6b7a72">90</text>
+<line x1="70" y1="310" x2="830" y2="310" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="130" y="330" text-anchor="middle" font-size="11.5" fill="#47536a">0 dB</text>
+<text x="258" y="330" text-anchor="middle" font-size="11.5" fill="#47536a">10 dB</text>
+<text x="386" y="330" text-anchor="middle" font-size="11.5" fill="#47536a">20 dB</text>
+<text x="514" y="330" text-anchor="middle" font-size="11.5" fill="#47536a">30 dB</text>
+<text x="642" y="330" text-anchor="middle" font-size="11.5" fill="#47536a">40 dB</text>
+<text x="770" y="330" text-anchor="middle" font-size="11.5" fill="#47536a">干净</text>
+<path d="M 130 286.3 130 286.3 L 258 195.3 L 386 172.2 L 770 78.3" fill="none" stroke="#8a93a5" stroke-width="2.6"/>
+<circle cx="130" cy="286.3" r="4.5" fill="#8a93a5" stroke="#fff" stroke-width="1.2"/>
+<circle cx="258" cy="195.3" r="4.5" fill="#8a93a5" stroke="#fff" stroke-width="1.2"/>
+<circle cx="386" cy="172.2" r="4.5" fill="#8a93a5" stroke="#fff" stroke-width="1.2"/>
+<circle cx="770" cy="78.3" r="4.5" fill="#8a93a5" stroke="#fff" stroke-width="1.2"/>
+<path d="M 130 211.2 130 211.2 L 258 142.9 L 386 126.7 L 770 88.1" fill="none" stroke="#0e8a66" stroke-width="2.8"/>
+<circle cx="130" cy="211.2" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="258" cy="142.9" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="386" cy="126.7" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<circle cx="770" cy="88.1" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<text x="130" y="197.2" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0a6b4e">+5.2 点 ★</text>
+<rect x="90" y="38" width="13" height="13" rx="3" fill="#0e8a66"/><text x="108" y="49" font-size="11.5" fill="#0a6b4e">本文 AE（0–40dB 区间 81.84–90.36）</text>
+<rect x="380" y="38" width="13" height="13" rx="3" fill="#8a93a5"/><text x="398" y="49" font-size="11.5" fill="#47536a">MFCC（衰减更快）</text>
+<text x="640" y="49" font-size="10.5" fill="#8a93a5">30dB 处为插值示意</text>
+<text x="440" y="354" text-anchor="middle" font-size="11.5" fill="#8c3b2e">手工频谱特征在噪声下的退化是系统性弱点——MFCC 衰减斜率明显更陡；但注意：只测了 AWGN，白噪声「性能下界」论断有争议，未测真实噪声 / 混响</text>
+</svg>
+    <p class="cap"><b>Fig 7a</b>：最有说服力的一张图——两条曲线在干净端与噪声端排序翻转，证明优势是针对性的抗噪增益而非全局平移。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 400" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table III · 算子账本（每帧）：约 1/5 运算量 + 零 Log；单位算子准确率约 5×</text>
+<text x="235" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">总量对比（每帧运算次数）</text>
+<line x1="70" y1="330.0" x2="470" y2="330.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="334.0" text-anchor="end" font-size="11" fill="#6b7a72">0</text>
+<line x1="70" y1="233.3" x2="470" y2="233.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="237.3" text-anchor="end" font-size="11" fill="#6b7a72">5000</text>
+<line x1="70" y1="136.7" x2="470" y2="136.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="140.7" text-anchor="end" font-size="11" fill="#6b7a72">10000</text>
+<line x1="70" y1="40.0" x2="470" y2="40.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="44.0" text-anchor="end" font-size="11" fill="#6b7a72">15000</text>
+<line x1="70" y1="330" x2="470" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<rect x="120" y="55.6" width="60" height="274.4" fill="#8a93a5"/>
+<rect x="120" y="-186.6" width="60" height="242.2" fill="#b9c6bd"/>
+<text x="150" y="-194.6" text-anchor="middle" font-size="11" font-weight="700" fill="#1c2430">26,771</text>
+<text x="150" y="352" text-anchor="middle" font-size="11" fill="#47536a">MFCC</text>
+<text x="150" y="368" text-anchor="middle" font-size="9" fill="#8a93a5">14192 加 + 12529 乘 + 50 Log</text>
+<rect x="300" y="275.9" width="60" height="54.1" fill="#0e8a66"/>
+<rect x="300" y="223.9" width="60" height="52.0" fill="#7cc0a2"/>
+<text x="330" y="215.9" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0a6b4e">5,488</text>
+<text x="330" y="352" text-anchor="middle" font-size="11" font-weight="700" fill="#0a6b4e">本文 AE ★</text>
+<text x="330" y="368" text-anchor="middle" font-size="9" fill="#8a93a5">2800 加 + 2688 乘 + 0 Log</text>
+<text x="240" y="120" text-anchor="middle" font-size="11.5" font-weight="700" fill="#8c3b2e">1/4.88 运算量 · Log 归零</text>
+<text x="680" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">编码器逐级加减法分解</text>
+<rect x="530" y="76" width="194.9" height="24" rx="4" fill="#0e8a66"/>
+<text x="522" y="93" text-anchor="end" font-size="10.5" fill="#47536a">L1 Conv+MP1</text>
+<text x="732.9" y="93" font-size="10.5" font-weight="600" fill="#47536a">1072</text>
+<rect x="530" y="112" width="190.5" height="24" rx="4" fill="#5aa88a"/>
+<text x="522" y="129" text-anchor="end" font-size="10.5" fill="#47536a">L2</text>
+<text x="728.5" y="129" font-size="10.5" font-weight="600" fill="#47536a">1048</text>
+<rect x="530" y="148" width="96.4" height="24" rx="4" fill="#7cc0a2"/>
+<text x="522" y="165" text-anchor="end" font-size="10.5" fill="#47536a">L3</text>
+<text x="634.4" y="165" font-size="10.5" font-weight="600" fill="#47536a">530</text>
+<rect x="530" y="184" width="27.3" height="24" rx="4" fill="#b9e0cd"/>
+<text x="522" y="201" text-anchor="end" font-size="10.5" fill="#47536a">L4</text>
+<text x="565.3" y="201" font-size="10.5" font-weight="600" fill="#47536a">150</text>
+<text x="680" y="240" text-anchor="middle" font-size="10.5" fill="#8c3b2e">前两级合计占加减的 75.6%——再压算子应从 L1/L2 下手（笔记推论）</text>
+<text x="680" y="268" text-anchor="middle" font-size="10.5" fill="#8a93a5">单位算子准确率（Fig 7b）：本文 ~14.9–16.5 vs MFCC ~2.9–3.4</text>
+<text x="680" y="290" text-anchor="middle" font-size="10.5" fill="#0a6b4e">≈ 每千次运算换来的准确率为 MFCC 的 5 倍，全 SNR 档一致</text>
+<text x="440" y="330" text-anchor="middle" font-size="11" fill="#8a93a5">口径提醒：MFCC 一侧按 2002 年芯片实现文献 [29] 折算（帧长/滤波器个数等配置未报）——公平性无法独立复核；</text>
+<text x="440" y="352" text-anchor="middle" font-size="11" fill="#8a93a5">「低一个数量级」的说法与实际比值 4.7–5.1 倍之间有夸大；且 Table III 只数特征块算子——模型体积 / 实测时延 / 功耗 / 内存占用全未报告</text>
+<text x="440" y="380" text-anchor="middle" font-size="11" fill="#8c3b2e">内存隐患（笔记推算）：Conv1 输出 16000×32 = 512K 元素中间张量，几百 KB SRAM 的 MCU 无法整块驻留——算子优势 ≠ 内存可行性，需流式分块设计</text>
+</svg>
+    <p class="cap"><b>Table III</b>：算子账本与逐级分解——前两级占 75.6% 加减法是下一步压缩的靶点（笔记推论）；口径提醒见底部文字。</p>
+  </div>
+
+  <div class="card">
+    <b>消融缺口（信件级短文的代价）</b>：最接近消融的是三块——特征族受控对比（Table II，单一特征变量）、SNR 扫描（Fig 7a 单变量）、逐级算子分解（Table III，前两级占加减的 75.6%——再压算子应从 L1/L2 下手，但论文自己没做这个推论）。<b>缺失</b>：两阶段损失无对照（只训 MAE / 只训 FFT-MAE / 两阶段的对比数字一个没有）；瓶颈 50×16 无扫描；层级数增减无实验；架构靠迭代试错、试错过程数据零披露。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">五条贡献</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>范式贡献</b>：首次（作者检索范围内）把卷积 AE 用作 KWS 特征提取器——特征提取从手工设计转为数据驱动学习，训完丢解码器只部署编码器。</div>
+    <div class="c"><span class="n">2</span><b>算子效率</b>：每帧 2800 加 / 2688 乘 / 0 Log，约 MFCC 的 1/5，消除对数这一硬件不友好操作；单位算子准确率全 SNR 档约 5 倍。</div>
+    <div class="c"><span class="n">3</span><b>噪声鲁棒</b>：0dB 下 81.84% 对 MFCC 的 76.64%（+5.2 点），0–40dB 全程区间 81.84–90.36%——学习型特征在低 SNR 区退化更平缓。</div>
+    <div class="c"><span class="n">4</span><b>可比精度 + 稳定性</b>：干净 90.36% 与 MFCC/mel 同档、高于 PNCC 2.07 点；4 折 CV 标准差 ≤0.59。</div>
+    <div class="c"><span class="n" style="background:#d97a2b">★</span><b>体系贡献</b>：为全 NN 端到端 KWS 补上第二块拼图——PDM-to-PCM（NN）+ 特征提取（NN）+ 分类器（NN）= 从麦克风码流到分类全程无传统 DSP。</div>
+  </div>
+
+  <div class="card">
+    <b>可迁移判断</b>：当管线里存在「非 NN 的先验环节」时，把它替换成<b>训完可减半部署</b>的学习模块（AE 丢解码器），能把先验载体从人的经验换成训练数据，还顺带获得重建误差这个免费的中间验收指标；监督信号搬到<b>下游实际消费的域</b>（幅度谱）比时域逐点匹配更对齐任务。
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">重建目标的天花板与内存隐患</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>精度上限受重建目标制约</b>：监督是「重建输入」不是「有利分类」——有损压缩最优解保留方差大的成分，与判别性高度相关但不等同；特征提取器与分类器<b>分开训练</b>，联合端到端微调未做（0.33–0.68 点差距很可能就是这笔账）。</li>
+        <li><b>特征不可解释、不可迁移验证</b>：50×16 黑盒码——未分析学到的滤波器是否收敛到类梅尔结构；未验证换数据集 / 换唤醒词还能不能用（跨词迁移性对自定义唤醒词场景是决定成败的性质）。</li>
+        <li><b>中间张量内存压力</b>：Conv1 输出 16000×32 = 512K 元素——几百 KB SRAM 的目标 MCU 无法整块驻留，必须流式分块；整段 1 秒处理 vs 连续流式低延迟检测之间有工程鸿沟（唤醒延迟、窗滑动状态管理，零时延数字）。</li>
+        <li><b>数值细节粗糙</b>：Fig 3 与 Table I 中间张量尺寸对不上（疑笔误，复现以代码为准）；「一个数量级」说法 vs 实际 4.7–5.1 倍有夸大；全精度 tanh 无量化版本——同组其他工作都做了二值化，本文停在浮点。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>噪声模型单一</b>：只测 AWGN——白噪声「性能下界」论断本身有争议（粉红噪声、混响、突发干扰与语音的统计耦合方式完全不同）；无真实噪声 / 混响结果。</li>
+        <li><b>对比面窄</b>：只圈定手工特征族——不与原始波形端到端模型（SampleCNN 类）、可学习滤波器组前端（SincNet 类）、其他自监督音频表示比；分类器只有一个，「特征×分类器」交互未探索；单数据集单语言。</li>
+        <li><b>效率口径不完整</b>：Table III 只数特征块算子——模型体积 / 实测时延 / 功耗 / 内存占用全未报告；MFCC 一侧按 2002 年芯片文献 [29] 口径折算（帧长 / 滤波器配置未报），公平性无法独立复核。</li>
+        <li><b>统计与配置缺失</b>：测试集单次无多折（验证集却有）；早停 patience 写作 0.6 单位含义不明疑笔误；学习率 / 优化器未报告，复现要猜。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得补的方向</b>：特征提取器与分类器联合微调（把判别性信号引入特征学习，弥合干净差距）；编码器量化 / 二值化（沿用同组 [26][11] 经验，把算子优势放大为位宽优势 + 实测功耗时延）；更真实的噪声与多数据集验证（真实环境噪声、混响、非英语、自定义唤醒词迁移）；学到的滤波器 vs 梅尔滤波器组的对照分析（收敛到类梅尔 → 机理上解释精度可比；没收敛 → 存在心理声学之外的更好先验——两种结论都有价值）；把 trial-and-error 换成系统化架构搜索（层数 / 瓶颈尺寸缩放 / 池化配置），补上消融链条。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2023/Automatic_Audio_Feature_Extraction_For_Keyword_Spotting.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2023/Automatic_Audio_Feature_Extraction_For_Keyword_Spotting.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://doi.org/10.1109/LSP.2023.3346280" target="_blank">DOI · IEEE SPL</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（表 I–III、图 1–7、式 1–4）；30dB 曲线点与单通道折叠为笔记推算。错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
