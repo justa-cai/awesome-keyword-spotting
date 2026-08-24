@@ -39,12 +39,16 @@
 <body>
   <div id="app">正在加载论文库……</div>
   <script>
-    /* EN→ZH fallback: /en/papers/x.md 404 时改取 /papers/x.md（中文原文），须先于 docsify 加载 */
+    /* EN→ZH fallback: /en/papers/x.md 404 时改取 /papers/x.md（中文原文）；
+       /en/README.md 404 时改取 /README.en.md（英文版首页）。须先于 docsify 加载 */
     (function () {
       var of = window.fetch;
       window.fetch = function (u, o) {
         var url = typeof u === 'string' ? u : (u && u.url) || '';
         return of.apply(this, arguments).then(function (r) {
+          if (r.status === 404 && /\/en\/README\.md/.test(url)) {
+            return of('/README.en.md', o);
+          }
           if (r.status === 404 && /\/en\/(papers\/[^?#]+)/.test(url)) {
             return of(url.replace('/en/', '/'), o);
           }
@@ -62,7 +66,7 @@
       externalLinkTarget: '_blank',
       alias: {
         '/en/papers/.*/_sidebar.md': '/en/_sidebar.md',
-        '/.*/_sidebar.md': '/_sidebar.md'
+        '/(?!en/).*_sidebar.md': '/_sidebar.md'
       },
       search: false,
       sidebarDisplayLevel: 1,
@@ -101,6 +105,10 @@
             var isEn = /^#\/en\//.test(location.hash);
             el.querySelector('a[data-lang="zh"]').classList.toggle('active', !isEn);
             el.querySelector('a[data-lang="en"]').classList.toggle('active', isEn);
+            /* docsify 不解析 ../，把 EN 首页里的 ../README.md 链接改写为站点根路由 */
+            [].slice.call(document.querySelectorAll('#main a[href="#/../README"]')).forEach(function (a) {
+              a.setAttribute('href', '#/README');
+            });
           });
         }
       ]

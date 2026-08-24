@@ -1,35 +1,36 @@
-# Awesome Keyword Spotting
+**中文** | [English](en/README.md)
 
-## Table of contents
-- [Awesome Keyword Spotting](#awesome-keyword-spotting)
-  - [Table of contents](#table-of-contents)
-  - [Overview](#overview)
-  - [Publications](#publications)
-    - [2026](#2026)
-    - [2025](#2025)
-    - [2024](#2024)
-    - [2023](#2023)
-    - [2022](#2022)
-    - [2021](#2021)
-    - [2020](#2020)
-    - [2019](#2019)
-    - [2018](#2018)
-    - [Others](#others)
-  - [OpenSource Code](#opensource-code)
-  - [Software](#software)
-  - [Datesets](#datesets)
-  - [Challenge](#challenge)
-  - [Leaderboard](#leaderboard)
+# Awesome Keyword Spotting（语音关键词检测论文库）
 
-## Overview
-In speech processing, keyword spotting deals with the identification of keywords in utterances. This repo is a curated list of awesome Speech Keyword Spotting (Wake-Up Word Detection) papers.
+## 目录
+- [简介](#简介)
+- [综述](#综述)
+- [论文列表](#论文列表)
+  - [2026](#2026)
+  - [2025](#2025)
+  - [2024](#2024)
+  - [2023](#2023)
+  - [2022](#2022)
+  - [2021](#2021)
+  - [2020](#2020)
+  - [2019](#2019)
+  - [2018](#2018)
+  - [Others](#others)
+- [开源代码](#开源代码)
+- [软件](#软件)
+- [数据集](#数据集)
+- [竞赛](#竞赛)
+- [排行榜](#排行榜)
 
-> 📚 本站已支持中英双语：305 篇论文深读笔记均有完整英文版 —— [🇬🇧 English version](#/en/README)（或点右上角 **EN** 切换）。
+## 简介
+语音处理领域里，关键词检测（Keyword Spotting，KWS，即唤醒词检测）研究如何从连续语音流中检出预设关键词。本仓库是一个精选的语音关键词检测论文清单，覆盖 2018–2026 年经典与前沿工作，并为其中 305 篇配套了逐篇中文深读笔记（问题 → 方法 → 实验 → 贡献 → 局限，全部数字可回溯论文原表）。
 
-## Survey
+> 🌐 英文版见 [README.en.md](README.en.md)。在线论文库站点（305 篇双语深读笔记 + 中英全文搜索）：<https://justa-cai.github.io/awesome-keyword-spotting/>
+
+## 综述
 * [Deep Spoken Keyword Spotting: An Overview](https://arxiv.org/abs/2111.10592), JOHN H.L. HANSEN (Fellow, IEEE), 2021.11
 
-## Publications
+## 论文列表
 ### 2026
 * [A Collaborative Multi-Compression Acceleration Mechanism for Neural Networks in Keyword Spotting](https://doi.org/10.3390/sym18081387), 2026.08
 * [A Multiplication-Free Feature Extractor for Signal Classification: Keyword Spotting Case Study](https://arxiv.org/abs/2608.17108), 2026.08
@@ -657,7 +658,7 @@ In speech processing, keyword spotting deals with the identification of keywords
 * [Structured Transforms for Small-Footprint Deep Learning](https://arxiv.org/pdf/1510.01722), Google, 2015.10
 * [Small-footprint keyword spotting using deep neural networks](https://research.google/pubs/pub42537.pdf), Guoguo Chen, 2014
 
-## OpenSource Code
+## 开源代码
 * [Github: Wav2KWS: Transfer Learning from Speech Representations for Keyword Spotting](https://github.com/qute012/Wav2Keyword) ( **State-of-the-Art** )
 * [Github: Mining Effective Negative Training Samples for Keyword Spotting](https://github.com/jingyonghou/KWS_Max-pooling_RHE)
 * [Github: A depthwise separable convolutional neural network for keyword spotting on an embedded system](https://github.com/PeterMS123/KWS-DS-CNN-for-embedded)
@@ -673,7 +674,7 @@ In speech processing, keyword spotting deals with the identification of keywords
 * [Github: Temporal Convolution for Real-time Keyword Spotting on Mobile Devices](https://github.com/hyperconnect/TC-ResNet)
 * [Github: Benchmarking Keyword Spotting Efficiency on Neuromorphic Hardware](https://github.com/abr/power_benchmarks/)
 
-## Software
+## 软件
 1. [WeKws (Production First and Production Ready End-to-End Keyword Spotting Toolkit)](https://github.com/wenet-e2e/wekws)
 
     Small footprint keyword spotting (KWS), or specifically wake-up word (WuW) detection is a typical and important module in internet of things (IoT) devices. It provides a way for users to control IoT devices with a hands-free experience. A WuW detection system usually runs locally and persistently on IoT devices, which requires low consumptional power, less model parameters, low computational comlexity and to detect predefined keyword in a streaming way, i.e., requires low latency.
@@ -695,7 +696,7 @@ In speech processing, keyword spotting deals with the identification of keywords
 
     Precise is a wake word listener. The software monitors an audio stream ( usually a microphone ) and when it recognizes a specific phrase it triggers an event. For example, at Mycroft AI the team has trained Precise to recognize the phrase "Hey, Mycroft". When the software recognizes this phrase it puts the rest of Mycroft's software into command mode and waits for a command from the person using the device. Mycroft Precise is fully open source and can be trined to recognize anything from a name to a cough.
 
-## Datesets
+## 数据集
 
 1. Speech Commands
     * Homepage: [Speech Commands: A Dataset for Limited-Vocabulary Speech Recognition](https://arxiv.org/abs/1804.03209)
@@ -724,7 +725,7 @@ In speech processing, keyword spotting deals with the identification of keywords
 
     * Download: [HI-MIA](http://openslr.org/85/)
 
-## Challenge
+## 竞赛
 1. [AutoSpeech 2020 Challenge](https://www.4paradigm.com/content/details_85_1870.html)
 
    In this challenge, we further propose the Automated Speech (AutoSpeech) competition which aims at proposing automated solutions for speech-related tasks. This challenge is restricted to multi-label classification problems, which come from different speech classification domains. The provided solutions are expected to discover various kinds of paralinguistic speech attribute information, such as speaker, language, emotion, etc, when only raw data (speech features) and meta information are provided. There are two kinds of datasets, which correspond to public and private leaderboard respectively. Five public datasets (without labels in the testing part) are provided to the participants for developing AutoSpeech solutions. Afterward, solutions will be evaluated on private datasets without human intervention. The results of these private datasets determine the final ranking.
@@ -740,7 +741,7 @@ In speech processing, keyword spotting deals with the identification of keywords
 
    Officical Code: [PVTC2020](https://github.com/lenovo-voice/THE-2020-PERSONALIZED-VOICE-TRIGGER-CHALLENGE-BASELINE-SYSTEM)
 
-## Leaderboard
+## 排行榜
 
 1. [Keyword Spotting on Google Speech Commands
 ](https://paperswithcode.com/sota/keyword-spotting-on-google-speech-commands)
