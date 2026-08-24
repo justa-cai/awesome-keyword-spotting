@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SparkNet · 稀疏二值化快速 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2024/Sparse_Binarization_For_Fast_Keyword_Spotting.md">深读笔记</a>
+    <a href="/papers/2024/Sparse_Binarization_For_Fast_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2406.06634" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2024 №35</p>
+  <h1>判别信息浓缩进一张 0/1 门控图，分类器退化成一层线性——<br>MACs 只要同档 SOTA 的四分之一</h1>
+  <p class="sub">Sparse Binarization for Fast Keyword Spotting（SparkNet）</p>
+  <p class="meta"><b>作者</b>：Jonathan Svirsky、Uri Shaham、Ofir Lindenbaum —— 巴伊兰大学（以色列）</p>
+  <p class="meta"><b>发表</b>：arXiv 2406.06634（2024-06）· 代码开源 github.com/jsvir/sparknet（NeMo 实现）</p>
+  <div class="chips">
+    <span class="chip">表示级二值化（非权重）</span><span class="chip">高斯伯努利随机门</span><span class="chip">erf 闭式 L0 稀疏</span>
+    <span class="chip">免逐元素乘法推断</span><span class="chip">454.5K MACs · SC2 95.7</span><span class="chip">最小 1.4K 参数仍 83%</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>场景与硬约束</b>：KWS 是 MCU 级（STM32：SRAM 20–512KB、Cortex-M 72–216MHz）上的<b>全天候常驻</b>负载——单次推理多出的每一笔乘加都被运行时间放大成功耗与发热。现有端侧模型（MatchboxNet / DS-ResNet / BC-ResNet / TinySpeech）2.7K–19.9K 参数量级的 MACs 普遍 2.6M–10.9M，对常驻负载仍是重担；且把全部时频单元一视同仁送进特征抽取器，从未在表示层回答「哪些 MFCC 时频格真正携带判别信息」。</li>
+      <li><b>核心赌注（全文最反直觉）</b>：让一个小网络为每个输入预测一张<b>二值化时频门控图 z</b>，判别信息直接浓缩进 0/1 模式，分类器退化为一层线性投影——骨干极小、分类头近乎为零的「倒挂」结构，全部算力收益都从这个倒挂里来。</li>
+      <li><b>可微二值化</b>：μ∈[−1,1] 经 z = clamp(0.5+μ+ε, 0, 1)、ε~N(0, 0.5²) 的高斯伯努利松弛——重参数化让梯度绕过离散化；0.5 偏移使「开门是默认（μ=0 时开门概率 ~84%），关门要主动压 μ 到 −0.5 以下」。<b>二值化的是表示不是权重</b>（与 BNN 方向不同），不依赖特殊位运算内核即可部署。</li>
+      <li><b>损失一压一拉</b>：erf 闭式近似的 L0 稀疏项（恰等于期望开门率，无需采样）关门 + 交叉熵（λ=100）为关键特征开门，收敛到「只保留判别必需的最少时频支撑」。</li>
+      <li><b>对前作 SG-VAD 的关键简化</b>：分类器直接吃 z 本身（而非 z⊙x 喂辅助分类器）——砍掉一整条逐元素乘法路径；z 的身份从「输入的掩码」升级为「输入的<b>充分统计量</b>」。消融证明辅助分类器（95.6）与重建解码器（95.5）都冗余——完整版 95.7，差异全在波动区内。</li>
+      <li><b>结果</b>：小量级对局 SparkNet[C=16]（4,636 参数）对 BC-ResNet-0.625（4,585 参数）：SC1 95.3 vs 95.2、SC2 95.7 vs 95.4，<b>MACs 454.5K vs 1.9M（↓4×）</b>；C=32 版 1.2M MACs 比 BC-ResNet-1 快 3×、比 DS-ResNet10 快 5×。噪声鲁棒性 0–20dB 六条件全部占优（10dB +0.69、15dB +0.91 最明显）。缩放下界：<b>C=4 仅 1.4K 参数、105K MACs 仍有 ~83%</b>。</li>
+      <li><b>边界要诚实</b>：SC1 上 C=32（96.2）仍低于 BC-ResNet-1（96.6）0.4 点；效率结论完全建立在 MACs 代理指标上（无真机时延 / 内存 / 能耗）；推断时 z 的 0/1 语义（去噪后硬阈值？）未说清——免乘法累加的硬件红利没有兑现实验；稀疏度无定量统计；C=4 断崖说明门控表示的判别容量在极小通道下先耗尽。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">批评的焦点不是「不准」，是「计算形态不必要地贵」</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>为什么 KWS 对「每个准确率百分点的 MACs 价格」最敏感</b>：KWS 常驻监听（不像拍照识别偶发触发），检测到唤醒词后才激活更重的本地 / 云端 ASR——这带来功耗、带宽、隐私、可靠性、成本、响应六重收益，也意味着单次推理的每笔乘加都被全天候运行时间放大。MCU 两条硬约束——片上 SRAM 要同时放输入输出 / 权重 / 激活（20–512KB）、Cortex-M 每秒运算数受限（72–216MHz）——最终都压到「参数量与运算次数必须同时极小」。
+  </div>
+
+  <div class="card">
+    <b>三层不足</b>：① 小足迹 CNN/RNN 与注意力路线（MatchboxNet 的 TCS、res8-narrow 深残差、DS-ResNet、BC-ResNet 二维卷积、TinySpeech attention condenser）为达 SOTA 精度依赖二维卷积或注意力块，MACs 2.6M–10.9M 仍是重担；② 结构性缺陷——全部输入时频单元一视同仁送进特征抽取器，从未在表示层回答「哪些时频格真正携带判别信息、哪些是噪声」；量化 / 剪枝是训练后补救，同样不改变「每个时频格都要被完整计算」；③ 特征选择一系（locally sparse networks、SG-VAD）学会了样本自适应的门，但推断与训练都要把门与输入<b>逐元素相乘</b>（z⊙x）再喂辅助分类器——这笔逐元素乘法是可以省掉的冗余。
+  </div>
+
+  <div class="card">
+    <b>三个具体挑战</b>：二值化是离散操作，硬阈值切断梯度——需要可微训练机制把「开门 / 关门」变成可优化的连续量；信息充分性——一张 0/1 门控图 + 一层线性投影，容量是否足以支撑 SOTA 级精度（全文最反直觉的赌注，消融正面回答）；稀疏性必须显式优化，否则门全开、选择效应消失。定量目标：与此前端侧兼容 SOTA 同参数量、同精度量级，MACs 缩到四分之一。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">骨干极小、分类头近乎为零的倒挂结构</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg viewBox="0 0 920 600" role="img">
+  <defs>
+    <marker id="pa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#47536a"/></marker>
+  </defs>
+  <text x="30" y="26" font-size="13.5" fill="#47536a" font-weight="600">图 1/Table 1 复绘：小型二值化器骨干 + 单层线性分类头的「倒挂」结构——全部算力收益都从这个倒挂里来</text>
+
+  <rect x="30" y="56" width="480" height="150" rx="11" fill="#f2faf6" stroke="#9ec9b8" stroke-width="1.3"/>
+  <text x="46" y="80" font-size="12.5" font-weight="700" fill="#0a6b4e">二值化器骨干（4 块 · 一维 TCS 时间-通道可分离卷积）</text>
+  <text x="46" y="103" font-size="11" fill="#47536a">深度卷积（逐通道跨时间）→ 逐点卷积（逐帧跨通道），时间 / 通道完全解耦</text>
+  <text x="46" y="125" font-size="11" fill="#47536a">核宽 K = 11 → 15 → 19 → 29 递增：不加深网络的前提下逐级放大感受野</text>
+  <text x="46" y="147" font-size="11" fill="#47536a">后三块带残差连接——稀疏正则持续把输出往「关」压，残差捷径保住梯度通路</text>
+  <text x="46" y="169" font-size="11" fill="#47536a">1×1 卷积 + BN + tanh → μ ∈ [−1,1] 的 F×T 连续潜变量（F=32 梅尔频带）</text>
+  <text x="46" y="194" font-size="10" fill="#8a93a5">不加深的原因：层数一多参数与激活内存同步增长，撞 SRAM 墙（20–512KB）</text>
+
+  <line x1="270" y1="206" x2="270" y2="232" stroke="#47536a" stroke-width="1.5" marker-end="url(#pa)"/>
+
+  <rect x="30" y="236" width="480" height="150" rx="11" fill="#e6f4ee" stroke="#0e8a66" stroke-width="1.6"/>
+  <text x="46" y="260" font-size="12.5" font-weight="700" fill="#0a6b4e">式 1 · 高斯伯努利松弛（随机门）★</text>
+  <text x="46" y="286" font-size="13" font-family="Georgia,serif" fill="#1c2430">z = clamp( 0.5 + μ + ε , 0, 1 )，ε ~ N(0, 0.5²)</text>
+  <text x="46" y="310" font-size="11" fill="#0a6b4e">0.5 偏移：μ=0（网络「无意见」）时开门概率约 84%——开门是默认，关门要把</text>
+  <text x="46" y="330" font-size="11" fill="#0a6b4e">μ 主动压到 −0.5 以下；截断把 z 夹成 [0,1] 内的近似二值稀疏门控图</text>
+  <text x="46" y="352" font-size="11" fill="#47536a">重参数化：随机性挪到加性噪声上，梯度绕过离散化直接对 μ 求导</text>
+  <text x="46" y="374" font-size="10" fill="#8a93a5">与 BNN 不同：二值化的是「表示」不是「权重」——骨干权重仍是实数</text>
+
+  <line x1="270" y1="386" x2="270" y2="412" stroke="#47536a" stroke-width="1.5" marker-end="url(#pa)"/>
+
+  <rect x="30" y="416" width="480" height="100" rx="11" fill="#eaf3fc" stroke="#3d6fa8" stroke-width="1.4"/>
+  <text x="46" y="440" font-size="12.5" font-weight="700" fill="#2a5580">分类端（近乎为零）</text>
+  <text x="46" y="463" font-size="11" fill="#47536a">时间维平均池化 F×T → F×1 → 一层线性投影到 12 类（10 词 + unknown + silence）</text>
+  <text x="46" y="485" font-size="11" fill="#47536a">线性层 = 每类学一张频带模板做模板匹配；unknown/silence 兜底近似开集现实</text>
+  <text x="46" y="507" font-size="10" fill="#8a93a5">C=16 全模型 4,636 参数 · 454.5K MACs（Table 3）</text>
+
+  <rect x="540" y="56" width="350" height="220" rx="11" fill="#f9faf7" stroke="#e6e6df" stroke-width="1.2"/>
+  <text x="556" y="80" font-size="12.5" font-weight="700" fill="#47536a">损失：一压一拉（式 2）</text>
+  <text x="556" y="106" font-size="13" font-family="Georgia,serif" fill="#1c2430">L = L_sparse(μ) + 100 · L_ce(ŷ, y)</text>
+  <text x="556" y="132" font-size="11" fill="#47536a">L_sparse 用 erf 闭式近似 L0：恰等于 F×T 个门的</text>
+  <text x="556" y="152" font-size="11" fill="#47536a">开启概率均值（期望开门率）——无需采样即可对 μ 求导；</text>
+  <text x="556" y="174" font-size="11" fill="#0a6b4e">稀疏项关门、判别项为关键特征开门，收敛到</text>
+  <text x="556" y="194" font-size="11" fill="#0a6b4e">「只保留判别必需的最少时频支撑」。</text>
+  <text x="556" y="222" font-size="11" fill="#47536a">交叉熵梯度穿过线性头直接作用在门上——</text>
+  <text x="556" y="242" font-size="11" fill="#47536a">判别监督不缺位，这解释了消融里辅助头无事可做。</text>
+  <text x="556" y="266" font-size="10" fill="#8a93a5">λ=100、σ=0.5 全程固定（无敏感性扫描，见 §05）</text>
+
+  <rect x="540" y="296" width="350" height="220" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.2"/>
+  <text x="556" y="320" font-size="12.5" font-weight="700" fill="#47536a">与直接灵感 SG-VAD 的关键差别</text>
+  <text x="556" y="346" font-size="11" fill="#8c3b2e">SG-VAD（同作者前作，VAD）：辅助分类器吃 z ⊙ x</text>
+  <text x="556" y="366" font-size="11" fill="#8c3b2e">（门与输入逐元素相乘）——门只是「选通输入」的掩码</text>
+  <text x="556" y="392" font-size="11" fill="#0a6b4e">SparkNet：分类器直接吃 z 本身，单层线性到目标空间，</text>
+  <text x="556" y="412" font-size="11" fill="#0a6b4e">全程不需要门与输入的逐元素乘法——砍掉一整条计算路径</text>
+  <text x="556" y="438" font-size="11" fill="#47536a">身份转变：z 从「输入的掩码」变成「输入的充分统计量」，</text>
+  <text x="556" y="458" font-size="11" fill="#47536a">二值化器把类判别信息直接编码进 0/1 模式本身。</text>
+  <text x="556" y="486" font-size="10.5" fill="#8a93a5">先证伪再定稿：Table 5 消融证明辅助分类器 / 重建解码器冗余、</text>
+  <text x="556" y="504" font-size="10.5" fill="#8a93a5">门控净贡献约 1 个点——架构是实验筛出的最小充分结构</text>
+
+  <text x="30" y="548" font-size="11" fill="#0a6b4e">训练：SGD momentum 0.9 · Warmup-Hold-Decay · 200 epoch · batch 128 · GTX 1080 Ti · NeMo 实现 · 输入增强时间平移 + 白噪声（−90~−46dB）</text>
+  <text x="30" y="570" font-size="11" fill="#8a93a5">Figure 2 定性佐证：5 个词类的 MFCC 与预测二值表示——模型学会定位有信息量的特征、产出样本特异的二值模式（门控即判别模板）</text>
+</svg>
+    <p class="cap"><b>图 1/Table 1 复绘</b>：作者先在实验里验证「线性头 + 门控图」可行（Table 5）再把它定成架构——不是先验拍脑袋；z 的身份从「输入的掩码」变成「输入的充分统计量」是全部简化的枢纽。</p>
+  </div>
+
+  <div class="formula">
+    z = max(0, min(1, 0.5 + μ + ε))，&nbsp; ε ~ N(0, σ²)，σ = 0.5
+    <div class="why">式 1 · 随机门的高斯伯努利松弛（沿 Yamada 等特征选择随机门 + 重参数化技巧）。两个拆开讲的设计：0.5 偏移——μ=0（tanh 中点、网络「无意见」）时开门概率约 84%，开门是默认、关门需显式决策，迫使网络对每个时频格做出主动关闭；[0,1] 截断——z 成为值域受限的近似二值稀疏图，即摘要所说「把输入信号硬压缩成 [0,1] 内取值有限的稀疏表示」。</div>
+  </div>
+
+  <div class="formula">
+    L<sub>sparse</sub>(μ) = (1/F·T) Σ [ ½ − ½·erf( −(μ<sub>f,t</sub>+0.5) / (√2·σ) ) ] &nbsp;=&nbsp; E[开门率]；&nbsp; L = L<sub>sparse</sub> + 100·L<sub>ce</sub>
+    <div class="why">L0 不可微，用 erf 给出<b>闭式</b>近似——方括号内恰是该门开启概率 Φ((μ+0.5)/σ)，整个 L_sparse 就是 F×T 个门开启概率的均值。闭式意味着无需蒙特卡洛采样即可对 μ 求导；最小化它等于把期望支撑压小，模型被逼着丢弃与噪声和无关内容相关的时频格。</div>
+  </div>
+
+  <div class="card">
+    <b>架构细节各自的设计理由</b>：核宽 11→15→19→29 递增——不加深（撞 SRAM 墙）的前提下逐级放大感受野覆盖唤醒词时长；后三块残差——稀疏项持续把输出往「关」压，没有残差捷径的深路径更容易被压塌；时间平均池化 + 1 秒定长匹配——池化后每个频带得到「整段内的平均开门强度」，线性层随即是每类一张频带模板的模板匹配；unknown + silence 两个兜底类让封闭集评测近似开集现实。
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与消融</p>
+  <h2 class="sec">两个量级对局 + 六档噪声 + 缩放曲线</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据与协议</b>：Google Speech Commands v1（1,881 说话人 / 64,727 条 / 30 词）与 v2（2,618 说话人 / 105,829 条 / 35 词），1 秒 16kHz，12 分类（10 目标词 + unknown + silence，unknown/silence 按目标类平均条数重平衡）。特征 F=32 梅尔 MFCC。指标 top-1 准确率 + MACs（pytorch-OpCounter）——选 MACs 因它是 Cortex-M「每秒运算数受限」的直接负担项、跨硬件可比；<b>未报告任何真机时延 / 内存 / 能耗</b>。噪声协议：双方训练均不加噪声增强，Freesound 35 类 ~2,100 段噪声按 0–20dB 混入，10 个随机种子生成 10 版测试集报均值±标准差（短篇论文里值得肯定的做法）。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 440" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 3 · 精度–算力帕累托（SC1 准确率 % vs MACs 对数轴，圆点大小 ∝ 参数量）</text>
+<line x1="120" y1="311.3" x2="810" y2="311.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="112" y="315.3" text-anchor="end" font-size="12" fill="#6b7a72">90</text>
+<line x1="120" y1="236.7" x2="810" y2="236.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="112" y="240.7" text-anchor="end" font-size="12" fill="#6b7a72">92</text>
+<line x1="120" y1="162.0" x2="810" y2="162.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="112" y="166.0" text-anchor="end" font-size="12" fill="#6b7a72">94</text>
+<line x1="120" y1="87.3" x2="810" y2="87.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="112" y="91.3" text-anchor="end" font-size="12" fill="#6b7a72">96</text>
+<line x1="120" y1="330" x2="810" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<line x1="120" y1="46" x2="120" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<line x1="197.7" y1="330" x2="197.7" y2="336" stroke="#9aa79e" stroke-width="1.2"/>
+<text x="197.7" y="352" text-anchor="middle" font-size="12" fill="#6b7a72">454K</text>
+<line x1="345.2" y1="330" x2="345.2" y2="336" stroke="#9aa79e" stroke-width="1.2"/>
+<text x="345.2" y="352" text-anchor="middle" font-size="12" fill="#6b7a72">1M</text>
+<line x1="550.7" y1="330" x2="550.7" y2="336" stroke="#9aa79e" stroke-width="1.2"/>
+<text x="550.7" y="352" text-anchor="middle" font-size="12" fill="#6b7a72">3M</text>
+<line x1="775.9" y1="330" x2="775.9" y2="336" stroke="#9aa79e" stroke-width="1.2"/>
+<text x="775.9" y="352" text-anchor="middle" font-size="12" fill="#6b7a72">10M</text>
+<text x="465" y="384" text-anchor="middle" font-size="13" fill="#47536a">MACs（对数轴，越左越快）</text>
+<circle cx="792.0" cy="139.6" r="7.7" fill="#b9c6bd" stroke="#fff" stroke-width="1.4"/>
+<text x="802.0" y="105.6" font-size="11.5" font-weight="600" fill="#47536a">TinySpeech-X</text>
+<text x="802.0" y="119.6" font-size="10" fill="#8a93a5">10.8K 参数</text>
+<circle cx="669.1" cy="307.6" r="10.0" fill="#b9c6bd" stroke="#fff" stroke-width="1.4"/>
+<text x="679.1" y="307.6" font-size="11.5" font-weight="600" fill="#47536a">res8-narrow</text>
+<text x="679.1" y="321.6" font-size="10" fill="#8a93a5">19.9K 参数</text>
+<circle cx="674.0" cy="117.2" r="7.5" fill="#b9c6bd" stroke="#fff" stroke-width="1.4"/>
+<text x="686.0" y="123.2" font-size="11.5" font-weight="600" fill="#47536a">DS-ResNet10</text>
+<text x="686.0" y="137.2" font-size="10" fill="#8a93a5">10.0K 参数</text>
+<circle cx="584.8" cy="64.9" r="7.3" fill="#d9c9a8" stroke="#fff" stroke-width="1.4"/>
+<text x="594.8" y="30.9" font-size="11.5" font-weight="600" fill="#47536a">BC-ResNet-1</text>
+<text x="594.8" y="44.9" font-size="10" fill="#8a93a5">9.2K 参数 · SC2 96.9</text>
+<circle cx="523.9" cy="221.7" r="5.7" fill="#b9c6bd" stroke="#fff" stroke-width="1.4"/>
+<text x="533.9" y="221.7" font-size="11.5" font-weight="600" fill="#47536a">TinySpeech-Z</text>
+<text x="533.9" y="235.7" font-size="10" fill="#8a93a5">2.7K 参数</text>
+<circle cx="465.3" cy="117.2" r="6.1" fill="#d9c9a8" stroke="#fff" stroke-width="1.4"/>
+<text x="475.3" y="83.2" font-size="11.5" font-weight="600" fill="#47536a">BC-ResNet-0.625</text>
+<text x="475.3" y="97.2" font-size="10" fill="#8a93a5">4.6K 参数 · SC2 95.4</text>
+<circle cx="379.3" cy="79.9" r="14.9" fill="#0e8a66" opacity="0.16"/>
+<circle cx="379.3" cy="79.9" r="7.9" fill="#0e8a66" stroke="#fff" stroke-width="1.4"/>
+<text x="389.3" y="85.9" font-size="11.5" font-weight="700" fill="#0a6b4e">SparkNet C=32 ★</text>
+<text x="389.3" y="99.9" font-size="10" fill="#8a93a5">11.5K 参数 · SC2 97.0</text>
+<circle cx="197.7" cy="113.5" r="13.2" fill="#0a6b4e" opacity="0.16"/>
+<circle cx="197.7" cy="113.5" r="6.2" fill="#0a6b4e" stroke="#fff" stroke-width="1.4"/>
+<text x="207.7" y="79.5" font-size="11.5" font-weight="700" fill="#0a6b4e">SparkNet C=16 ★</text>
+<text x="207.7" y="93.5" font-size="10" fill="#8a93a5">4.6K 参数 · SC2 95.7</text>
+<path d="M 465.3 125.2 L 197.7 121.5" stroke="#0e8a66" stroke-width="1.6" stroke-dasharray="6 4"/>
+<text x="331.5" y="149.2" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0a6b4e">同参数量 · MACs ↓4× · 精度略优</text>
+<text x="440" y="424" text-anchor="middle" font-size="12" fill="#8c3b2e">诚实的读数：SC1 上 SparkNet C=32（96.2）仍低于 BC-ResNet-1（96.6）0.4 点——「同档或略好」主要由 SC2（97.0 vs 96.9）和小量级对局支撑</text>
+</svg>
+    <p class="cap"><b>Table 3</b>（v2 训练 · 官方测试集 · 12 目标）：小量级对局 C=16 与 BC-ResNet-0.625 参数几乎持平（4,636 vs 4,585）而 MACs ↓4×；大量级 C=32 比 BC-ResNet-1 快 3×、DS-ResNet10 快 5×。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 360" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 2 · 噪声鲁棒性（双方 ~4.6K 参数 · 训练不加噪声增强 · Freesound 35 类噪声 · 10 种子均值±标准差）</text>
+<line x1="70" y1="280.0" x2="830" y2="280.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="284.0" text-anchor="end" font-size="12" fill="#6b7a72">75</text>
+<line x1="70" y1="230.0" x2="830" y2="230.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="234.0" text-anchor="end" font-size="12" fill="#6b7a72">80</text>
+<line x1="70" y1="180.0" x2="830" y2="180.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="184.0" text-anchor="end" font-size="12" fill="#6b7a72">85</text>
+<line x1="70" y1="130.0" x2="830" y2="130.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="134.0" text-anchor="end" font-size="12" fill="#6b7a72">90</text>
+<line x1="70" y1="80.0" x2="830" y2="80.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="84.0" text-anchor="end" font-size="12" fill="#6b7a72">95</text>
+<line x1="70" y1="300" x2="830" y2="300" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="130" y="322" text-anchor="middle" font-size="12" fill="#47536a">0 dB</text>
+<text x="254" y="322" text-anchor="middle" font-size="12" fill="#47536a">5 dB</text>
+<text x="378" y="322" text-anchor="middle" font-size="12" fill="#47536a">10 dB</text>
+<text x="502" y="322" text-anchor="middle" font-size="12" fill="#47536a">15 dB</text>
+<text x="626" y="322" text-anchor="middle" font-size="12" fill="#47536a">20 dB</text>
+<text x="750" y="322" text-anchor="middle" font-size="12" fill="#47536a">干净</text>
+<path d="M 130.0 272.8 130.0 272.8 L 254.0 185.3 L 378.0 123.2 L 502.0 103.3 L 626.0 88.2 L 750.0 76.0" fill="none" stroke="#b9c6bd" stroke-width="2.4"/>
+<path d="M 130.0 270.2 130.0 270.2 L 254.0 179.5 L 378.0 116.3 L 502.0 94.2 L 626.0 83.7 L 750.0 73.0" fill="none" stroke="#0e8a66" stroke-width="2.6"/>
+<circle cx="130" cy="272.8" r="4.5" fill="#b9c6bd" stroke="#fff" stroke-width="1.2"/>
+<circle cx="130" cy="270.2" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<text x="130" y="262.8" text-anchor="middle" font-size="10.5" fill="#6b7a72">75.72</text>
+<text x="130" y="290.2" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">75.98</text>
+<circle cx="254" cy="185.3" r="4.5" fill="#b9c6bd" stroke="#fff" stroke-width="1.2"/>
+<circle cx="254" cy="179.5" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<text x="254" y="175.3" text-anchor="middle" font-size="10.5" fill="#6b7a72">84.47</text>
+<text x="254" y="199.5" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">85.05</text>
+<circle cx="378" cy="123.2" r="4.5" fill="#b9c6bd" stroke="#fff" stroke-width="1.2"/>
+<circle cx="378" cy="116.3" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<text x="378" y="113.2" text-anchor="middle" font-size="10.5" fill="#6b7a72">90.68</text>
+<text x="378" y="136.3" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">91.37</text>
+<circle cx="502" cy="103.3" r="4.5" fill="#b9c6bd" stroke="#fff" stroke-width="1.2"/>
+<circle cx="502" cy="94.2" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<text x="502" y="93.3" text-anchor="middle" font-size="10.5" fill="#6b7a72">92.67</text>
+<text x="502" y="114.2" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">93.58</text>
+<circle cx="626" cy="88.2" r="4.5" fill="#b9c6bd" stroke="#fff" stroke-width="1.2"/>
+<circle cx="626" cy="83.7" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<text x="626" y="78.2" text-anchor="middle" font-size="10.5" fill="#6b7a72">94.18</text>
+<text x="626" y="103.7" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">94.63</text>
+<circle cx="750" cy="76.0" r="4.5" fill="#b9c6bd" stroke="#fff" stroke-width="1.2"/>
+<circle cx="750" cy="73.0" r="4.5" fill="#0e8a66" stroke="#fff" stroke-width="1.2"/>
+<text x="750" y="66.0" text-anchor="middle" font-size="10.5" fill="#6b7a72">95.40</text>
+<text x="750" y="93.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a6b4e">95.70</text>
+<text x="412" y="92.3" font-size="11.5" font-weight="700" fill="#0a6b4e">Δ+0.69</text>
+<text x="530" y="64.2" font-size="11.5" font-weight="700" fill="#0a6b4e">Δ+0.91 最大</text>
+<rect x="90" y="40" width="13" height="13" rx="3" fill="#b9c6bd"/><text x="108" y="51" font-size="11.5" fill="#47536a">BC-ResNet-0.625</text>
+<rect x="240" y="40" width="13" height="13" rx="3" fill="#0e8a66"/><text x="258" y="51" font-size="11.5" fill="#0a6b4e">SparkNet[C=16] ★（六条件全部占优）</text>
+<text x="440" y="348" text-anchor="middle" font-size="12" fill="#47536a">形状符合门控预期：中段信噪比噪声占据的时频格多、「只看有指示区域」的溢价最大；0 dB 语音本身重度污染双方一起跌到 75–76（差距坐在标准差 2.7 阴影里，偏趋势性）</text>
+</svg>
+    <p class="cap"><b>Table 2</b>：同一批加噪测试集上同量级对局——六个条件全部占优且干净条件下方差更小（0.17 vs 0.31）。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 400" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 4 缩放曲线 + Table 5 消融：门控表示的判别容量在极小通道下先耗尽</text>
+<line x1="70" y1="330.0" x2="500" y2="330.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="334.0" text-anchor="end" font-size="12" fill="#6b7a72">80</text>
+<line x1="70" y1="260.0" x2="500" y2="260.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="264.0" text-anchor="end" font-size="12" fill="#6b7a72">85</text>
+<line x1="70" y1="190.0" x2="500" y2="190.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="194.0" text-anchor="end" font-size="12" fill="#6b7a72">90</text>
+<line x1="70" y1="120.0" x2="500" y2="120.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="124.0" text-anchor="end" font-size="12" fill="#6b7a72">95</text>
+<line x1="70" y1="330" x2="500" y2="330" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="285" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">通道缩放（SC2 准确率 %）</text>
+<rect x="112.0" y="281.0" width="46" height="49.0" rx="4" fill="#e0b089"/>
+<text x="135.0" y="273.0" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1c2430">83.5</text>
+<text x="135.0" y="352" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">C=4 | 1.4K · 105K</text>
+<rect x="227.0" y="160.6" width="46" height="169.4" rx="4" fill="#d9c9a8"/>
+<text x="250.0" y="152.6" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1c2430">92.1</text>
+<text x="250.0" y="352" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">C=8 | 2.3K · 190K</text>
+<rect x="342.0" y="110.2" width="46" height="219.8" rx="4" fill="#7cc0a2"/>
+<text x="365.0" y="102.2" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1c2430">95.7</text>
+<text x="365.0" y="352" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">C=16 | 4.6K · 454K</text>
+<rect x="457.0" y="90.6" width="46" height="239.4" rx="4" fill="#0e8a66"/>
+<text x="480.0" y="82.6" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1c2430">97.1</text>
+<text x="480.0" y="352" text-anchor="middle" font-size="10.5" font-weight="600" fill="#47536a">C=32 | 11.5K · 1.2M</text>
+<text x="235" y="239.0" font-size="11" font-weight="700" fill="#8c3b2e">C=8→C=4 断崖 −8.8：表示瓶颈先于算子瓶颈</text>
+<text x="680" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">消融（SC2，C=16）</text>
+<rect x="560" y="70" width="144.5" height="26" rx="5" fill="#0e8a66"/>
+<text x="556" y="88" text-anchor="end" font-size="10.5" font-weight="600" fill="#47536a">完整 SparkNet</text>
+<text x="712.5" y="88" font-size="10" fill="#8a93a5">95.7±0.17</text>
+<rect x="560" y="136" width="136.0" height="26" rx="5" fill="#b9c6bd"/>
+<text x="556" y="154" text-anchor="end" font-size="10.5" font-weight="600" fill="#47536a">+ 辅助分类器（吃 x⊙z）</text>
+<text x="704.0" y="154" font-size="10" fill="#8a93a5">95.6±0.26 · 冗余</text>
+<rect x="560" y="202" width="127.5" height="26" rx="5" fill="#b9c6bd"/>
+<text x="556" y="220" text-anchor="end" font-size="10.5" font-weight="600" fill="#47536a">+ 自编码重建（x⊙z→x）</text>
+<text x="695.5" y="220" font-size="10" fill="#8a93a5">95.5±0.32 · 冗余</text>
+<rect x="560" y="268" width="59.5" height="26" rx="5" fill="#c0563f"/>
+<text x="556" y="286" text-anchor="end" font-size="10.5" font-weight="600" fill="#47536a">去伯努利门控（缩小版 MatchboxNet）</text>
+<text x="627.5" y="286" font-size="10" fill="#8a93a5">94.7±0.13 · 门控净贡献 ~1 点</text>
+</svg>
+    <p class="cap"><b>Table 4 + Table 5</b>：缩放曲线给出精度-算力全景（C=32→C=8 缓降、C=4 断崖）；消融三个对照全部落在完整版波动区内或更差——最小充分结构是筛出来的。</p>
+  </div>
+
+  <div class="card">
+    <b>消融的三条发现（Table 5，SC2，C=16）</b>：① 把 SG-VAD 式联合训练搬来没有收益——配吃 x⊙z 的 MatchboxNet 辅助分类器 95.6±0.26 对完整版 95.7±0.17，差异全在波动区；② 重建正则同样没有收益（95.5±0.32）——生成式约束「保留重建输入所需的充分信号」与判别目标「只留最少必需支撑」方向冲突；③ 去掉整个伯努利近似（不加噪声、不截断、去 L_sparse，退化为缩小版 MatchboxNet）掉到 94.7±0.13——门控机制净贡献约 1 个点。三条合起来支撑最反直觉的主张：<b>一张稀疏 0/1 门控图 + 一层线性投影，就是充分且近乎最优的分类结构</b>。机制解释：交叉熵梯度已穿过线性头直接作用在门上，判别监督不缺位，辅助头自然无事可做。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">四条贡献</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>SparkNet 极简架构</b>：一维 TCS 骨干学样本自适应稀疏二值化表示 + 单层线性头完成 KWS——同参数量做到此前 SOTA（BC-ResNet-0.625）约 1/4 的 MACs（454.5K vs 1.9M）且精度略优（SC2 95.7 vs 95.4）。</div>
+    <div class="c"><span class="n">2</span><b>证明门控表示本身可判别</b>：辅助分类器与重建解码器均不带来增益——为「免逐元素相乘的门控推断」提供实验依据，是对 SG-VAD 范式在 KWS 上的实质简化。</div>
+    <div class="c"><span class="n">3</span><b>噪声鲁棒性 + 机制归因</b>：0–20dB 五档 SNR 一致优于同量级 BC-ResNet；归因于只聚焦有指示性的时频区域（宽带噪声落不进被判别模式占据的少数时频格）。</div>
+    <div class="c"><span class="n">4</span><b>缩放下界</b>：完整精度-算力曲线把可用 KWS 模型压到 1.4K 参数、105K MACs 仍 ~83% 准确率——门控表示的下探空间被明确量化（C=4 断崖标出下界）。</div>
+  </div>
+
+  <div class="card">
+    <b>可迁移的工程判断</b>：当任务输入里判别信息天然稀疏（唤醒词只占少数时频格），<b>把「特征选择」本身做成可学习的模型输出、让分类端退化到线性</b>，比「大特征抽取器 + 训练后压缩」更接近算力下界；而「先证伪、再定稿」的消融驱动设计（辅助头 / 重建头逐一证伪冗余）让最终架构是实验筛出的最小充分结构，不是组件堆叠的产物。
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">MACs 少四倍 ≠ 快四倍</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>效率结论建立在代理指标上</b>：无任何真实 Cortex-M/STM32 上的墙钟时延、SRAM 峰值、能耗测量——实际速度还取决于算子是否落到高效内核、访存模式、BN 与池化开销。</li>
+        <li><b>推断路径的二值化语义没说清</b>：训练时 z 是加噪截断的近似伯努利变量，推断时是否去噪硬阈值化未报告——这直接关系到 0/1 取值能否兑现成免乘法累加（表示级二值化相对低比特量化的潜在硬件红利，未展开）。</li>
+        <li><b>稀疏性只有定性证据</b>：未报告门控图实际开门率 / 稀疏度统计；「稀疏到什么程度、稀疏度与精度和鲁棒性的定量关系」没有数据。</li>
+        <li><b>关键超参无敏感性分析</b>：λ=100、σ=0.5 全程固定，两者直接控制开门率与梯度噪声量级——结果的脆弱性无从判断。C=4 断崖与 C=8 落差提示门控表示的判别容量在极小通道下先耗尽，缩放下界明确存在。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>任务覆盖窄</b>：只有 Speech Commands 1 秒封闭集 12 分类——没有流式检测（连续音频上的唤醒词发现、误报 / 漏报曲线）、没有多词或自定义唤醒词场景，而这些才是产品的真实负载。</li>
+        <li><b>基线覆盖不完整</b>：Table 3 里 TinySpeech-X / res8-narrow / DS-ResNet10 / TinySpeech-Z 的 SC2 一栏全空；噪声实验只对比一个对手；缺 int8 量化与权重二值化（BNN）对照——它们乘法本身已被换成低位宽运算，用 MACs 口径比不完全公平。</li>
+        <li><b>训练协议小不一致</b>：背景噪声增强只加在 C=32 上（自家版本训练条件不对齐）；学习率日程比例相加超 100% 疑为笔误；Table 3 与 Table 4 同配置数字略有出入（不同批次运行未说明）。</li>
+        <li><b>噪声优势幅度有限</b>：0 dB 下 75.98 对 75.72 坐在标准差 2.7 的阴影里——中低信噪比段的结论偏趋势性而非压倒性。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得补的方向</b>：论文自指——用 SparkNet 式可学习掩码替换 Masked Autoencoders that Listen 的随机掩码（随机遮蔽无差别、可学习掩码带语义选择遮哪里，与掩码自监督天然契合）。工程侧还值得追四条：补真机验证闭环，把 z 的 0/1 语义落实到免乘法累加内核，实测相对 int8 的时延能耗优势，把「4 倍少 MACs」兑换成「4 倍快」；把开门率做成显式部署旋钮（λ / σ 扫描），画稀疏度-精度-鲁棒性权衡面；扩展到流式多词检测与自定义唤醒词，检验门控表示在开放时间轴和新词类的迁移；与权重二值化正交叠加（二值骨干 + 门控表示），进一步压算力。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2024/Sparse_Binarization_For_Fast_Keyword_Spotting.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2024/Sparse_Binarization_For_Fast_Keyword_Spotting.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2406.06634" target="_blank">arXiv · 2406.06634</a>
+    <a class="pill" href="https://github.com/jsvir/sparknet" target="_blank">🔧 代码 sparknet</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（Table 1–5、Figure 2、式 1/2）；错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
