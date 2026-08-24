@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NAS-GNN FPGA 端到端 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15.5px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .grid2{grid-template-columns:1fr;} }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2026/End-to-End_Keyword_Spotting_On_FPGA_Using_Graph_Neural_Networks_With_A_Neuromorphic_Auditory_Sensor.md">深读笔记</a>
+    <a href="/papers/2026/End-to-End_Keyword_Spotting_On_FPGA_Using_Graph_Neural_Networks_With_A_Neuromorphic_Auditory_Sensor.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2605.09570" target="_blank">arXiv</a>
+    <a href="https://github.com/vision-agh/NAS-GNN-KWS" target="_blank">代码/数据</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2026 №8</p>
+  <h1>神经形态听觉传感器 + GNN<br>单颗 FPGA 上的端到端事件驱动 KWS</h1>
+  <p class="sub">End-to-End Keyword Spotting on FPGA Using Graph Neural Networks with a Neuromorphic Auditory Sensor</p>
+  <p class="meta"><b>作者</b>：Wiktor Matykiewicz 等（AGH 大学，克拉科夫）；Tomás Muñoz 等（塞维利亚大学）</p>
+  <p class="meta"><b>发表</b>：2026.05 · arXiv:2605.09570 · 数据/代码/硬件模块全开源</p>
+  <div class="chips">
+    <span class="chip">神经形态听觉传感器</span><span class="chip">图神经网络</span><span class="chip">FPGA 单芯片</span>
+    <span class="chip">事件驱动 AER</span><span class="chip">类 LIF 过滤</span><span class="chip">每 10ms 出预测</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>范式：传统 KWS 固定采样率搬整张量，静默时也在算；神经形态传感器只在频谱变化时发<b>稀疏事件</b>，计算量随声学活动量缩放。</li>
+      <li>系统：<b>单颗 FPGA</b> 上打通「物理 NAS 传感器 → 类 LIF 事件过滤（移位衰减，零除法器）→ 图构建 → PointNetConv×4 → 每 10ms 输出 class + 词结束置信度」，零 CPU 参与。</li>
+      <li>关键改造：乘法器并行度 4→2（省 LUT/DSP）、背压调度 + 时间戳传播（保 10ms 窗语义）、极性作为免费输入特征。</li>
+      <li>实测：87.43%（INT8）、端到端延迟 25–35 µs、1.12 W；数据集是 <b>GSCv2 全量过物理传感器</b>录制的六个配置版本——摆脱该领域对仿真事件数据的依赖。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">常开场景下，固定采样 = 为静默付费</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 230" role="img">
+      <rect x="20" y="30" width="400" height="150" rx="12" fill="#fbf3ec" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="220" y="58" text-anchor="middle" font-size="14" font-weight="700" fill="#b0631d">传统管线：均匀密集采样</text>
+      <g fill="#d9a06b">
+        <rect x="45" y="80" width="30" height="60" rx="3"/><rect x="80" y="80" width="30" height="60" rx="3" opacity=".55"/>
+        <rect x="115" y="80" width="30" height="60" rx="3" opacity=".9"/><rect x="150" y="80" width="30" height="60" rx="3" opacity=".5"/>
+        <rect x="185" y="80" width="30" height="60" rx="3" opacity=".65"/><rect x="220" y="80" width="30" height="60" rx="3" opacity=".45"/>
+        <rect x="255" y="80" width="30" height="60" rx="3" opacity=".8"/><rect x="290" y="80" width="30" height="60" rx="3" opacity=".4"/>
+        <rect x="325" y="80" width="30" height="60" rx="3" opacity=".6"/><rect x="360" y="80" width="30" height="60" rx="3" opacity=".5"/>
+      </g>
+      <text x="220" y="164" text-anchor="middle" font-size="12" fill="#8a93a5">静默时也搬完整张量——冗余在常开场景被无限放大</text>
+
+      <rect x="480" y="30" width="420" height="150" rx="12" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="690" y="58" text-anchor="middle" font-size="14" font-weight="700" fill="#0a6b4e">神经形态：事件驱动稀疏脉冲</text>
+      <g fill="#0e8a66">
+        <rect x="505" y="100" width="9" height="40" rx="2" opacity=".35"/><rect x="519" y="88" width="9" height="52" rx="2" opacity=".8"/>
+        <rect x="533" y="108" width="9" height="32" rx="2" opacity=".5"/><rect x="547" y="82" width="9" height="58" rx="2"/>
+        <rect x="620" y="96" width="9" height="44" rx="2" opacity=".45"/><rect x="634" y="104" width="9" height="36" rx="2" opacity=".6"/>
+        <rect x="730" y="86" width="9" height="54" rx="2" opacity=".85"/><rect x="744" y="100" width="9" height="40" rx="2" opacity=".5"/>
+        <rect x="758" y="78" width="9" height="62" rx="2" opacity=".95"/><rect x="772" y="98" width="9" height="42" rx="2" opacity=".4"/>
+        <rect x="840" y="94" width="9" height="46" rx="2" opacity=".55"/>
+      </g>
+      <text x="690" y="164" text-anchor="middle" font-size="12" fill="#5f8a76">只在频谱能量变化时产生事件——计算量随实际声学活动缩放</text>
+    </svg>
+    <p class="cap"><b>SSP 范式</b>：把信息表示整个搬进脉冲域——加法变计数、滤波变门逻辑。传感器侧功耗仅 <b>29.7 mW</b>；整条管线的功耗大头（约 0.5 W 动态）落在 GNN 推理侧，所以架构优化火力全部对准网络模块。</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h3 style="margin-top:0">三个缺口</h3>
+      <ul>
+        <li><b>事件音频方法依赖合成数据</b>：SNN/SSM 路线普遍在 SHD/SSC 仿真数据上评测——仿真事件的统计分布与真实硅上传感器输出不同，「仿真调好、真机是否 work」无人回答。</li>
+        <li><b>传感器与网络分离部署</b>：前身 GNN-KWS 只部署网络侧，事件来自离线仿真，端到端只到网络输入为止。</li>
+        <li><b>事件率过高且通道不均衡</b>：128-parallel 平均 92 kEv/s、峰值 519 kEv/s；低通道号（高频）事件远多于低频——直接建图会被高活动通道带偏。</li>
+      </ul>
+    </div>
+    <div class="card"><h3 style="margin-top:0">四个子问题</h3>
+      <ul>
+        <li>传感器拓扑与通道数怎么选（频率分辨率 × 事件吞吐 × 资源功耗）；</li>
+        <li>事件率怎么压到网络吞吐之内还不伤精度；</li>
+        <li>为仿真数据和大资源余量设计的基线 GNN 怎么塞进目标器件；</li>
+        <li>怎么评「词什么时候说完」而不只是分类准确率。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">三段式数据流，全在一颗 FPGA 的可重构逻辑里</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 400" role="img">
+      <text x="30" y="24" font-size="13.5" fill="#8a93a5" font-weight="600">零 CPU 参与：原始音频进 → 每 10 ms 出 class + conf</text>
+      <!-- 音频输入 -->
+      <rect x="20" y="48" width="96" height="96" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <polyline points="32,96 42,90 50,102 58,88 66,100 74,92 82,98 90,86 100,100" fill="none" stroke="#47536a" stroke-width="1.8"/>
+      <text x="68" y="122" text-anchor="middle" font-size="11.5" fill="#47536a">I2S 音频</text>
+      <text x="68" y="138" text-anchor="middle" font-size="10" fill="#8a93a5">codec → FPGA</text>
+
+      <line x1="116" y1="96" x2="140" y2="96" stroke="#0e8a66" stroke-width="2.5"/><polygon points="140,96 132,91 132,101" fill="#0e8a66"/>
+      <!-- NAS -->
+      <rect x="144" y="38" width="168" height="116" rx="12" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="228" y="64" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0a6b4e">NAS 传感器（29.7 mW）</text>
+      <text x="228" y="88" text-anchor="middle" font-size="11" fill="#47536a">PCM → PFM 脉冲串</text>
+      <text x="228" y="108" text-anchor="middle" font-size="11" fill="#47536a">脉冲域滤波器组 → AER</text>
+      <text x="228" y="130" text-anchor="middle" font-size="10.5" fill="#5f8a76">µs 时间戳模块 → (t,c,p)</text>
+      <text x="228" y="146" text-anchor="middle" font-size="10.5" fill="#8a93a5">cascade / parallel × 32/64/128ch</text>
+
+      <line x1="312" y1="96" x2="336" y2="96" stroke="#0e8a66" stroke-width="2.5"/><polygon points="336,96 328,91 328,101" fill="#0e8a66"/>
+      <!-- 过滤 -->
+      <rect x="340" y="38" width="170" height="116" rx="12" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="425" y="64" text-anchor="middle" font-size="13" font-weight="700" fill="#0a6b4e">类 LIF 事件过滤</text>
+      <text x="425" y="88" text-anchor="middle" font-size="11" fill="#47536a">v ← max(0, v − ⌊Δt/q⌋ + w)</text>
+      <text x="425" y="108" text-anchor="middle" font-size="11" fill="#47536a">v &lt; θ_c 丢弃；q=2^div → 右移</text>
+      <text x="425" y="130" text-anchor="middle" font-size="10.5" fill="#5f8a76">每通道：计数器+比较器+加法器</text>
+      <text x="425" y="146" text-anchor="middle" font-size="10.5" fill="#5f8a76">事件减半，精度反升</text>
+
+      <line x1="510" y1="96" x2="534" y2="96" stroke="#0e8a66" stroke-width="2.5"/><polygon points="534,96 526,91 526,101" fill="#0e8a66"/>
+      <!-- 图构建 + GNN -->
+      <rect x="538" y="38" width="240" height="116" rx="12" fill="#0e8a66"/>
+      <text x="658" y="64" text-anchor="middle" font-size="13.5" font-weight="700" fill="#fff">图构建 + GNN 推理</text>
+      <text x="658" y="88" text-anchor="middle" font-size="11" fill="#e6f4ee">事件=节点，R_c×R_t 半球邻域建边</text>
+      <text x="658" y="108" text-anchor="middle" font-size="11" fill="#e6f4ee">PointNetConv ×4（72 特征/层）</text>
+      <text x="658" y="128" text-anchor="middle" font-size="11" fill="#cdeede">max 聚合天然适配不定长邻居</text>
+      <text x="658" y="146" text-anchor="middle" font-size="10.5" fill="#cdeede">背压调度 + 时间戳传播</text>
+
+      <line x1="778" y1="96" x2="802" y2="96" stroke="#0e8a66" stroke-width="2.5"/><polygon points="802,96 794,91 794,101" fill="#0e8a66"/>
+      <!-- 输出 -->
+      <rect x="806" y="48" width="96" height="96" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="854" y="78" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1c2430">每 10 ms</text>
+      <text x="854" y="100" text-anchor="middle" font-size="12" fill="#47536a">class（词+unknown）</text>
+      <text x="854" y="120" text-anchor="middle" font-size="12" fill="#47536a">conf（词结束置信）</text>
+
+      <!-- 硬件化改造 -->
+      <rect x="20" y="190" width="884" height="190" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="461" y="218" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">四项架构改造：每项都有明确因果链</text>
+      <g font-size="12.5" fill="#47536a">
+        <text x="40" y="248">① <tspan font-weight="700" fill="#0a6b4e">极性作输入特征</tspan>：NAS 原生提供 ON/OFF 极性，基线仿真数据没有——免费引入「能量增/减方向」判别维度；</text>
+        <text x="40" y="276">② <tspan font-weight="700" fill="#0a6b4e">乘法器 4→2 组</tspan>：PointNetConv 向量乘法器是 LUT 大头；按过滤后实测事件率推导吞吐需求，砍半省 LUT/DSP，</text>
+        <text x="40" y="298">　　整个系统（含 NAS）才塞得进目标器件；</text>
+        <text x="40" y="326">③ <tspan font-weight="700" fill="#0a6b4e">背压调度 + 模块间缓冲</tspan>：基线按最坏邻居数锁死固定接纳间隔；改为下游就绪才接纳——延迟变事件相关、自适应负载；</text>
+        <text x="40" y="354">④ <tspan font-weight="700" fill="#0a6b4e">时间戳传播</tspan>：调度破坏固定吞吐后，把每个 10ms 窗内最后事件的时间戳传给 MaxPool，按事件不按时钟关窗——保窗语义。</text>
+      </g>
+    </svg>
+    <p class="cap"><b>硬件感知设计的细节</b>：72 特征/层是消融「硬选」的——9×8bit = 72bit 恰好与 BRAM 存储字宽对齐、零浪费；conf 输出（词结束时刻定位）是面向流式的关键设计：下游真正要的是「什么时候说完」，不是每秒一个标签。</p>
+  </div>
+
+  <h3>传感器拓扑怎么选：cascade vs parallel（Table 1）</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 300" role="img">
+      <text x="80" y="32" font-size="13.5" fill="#47536a" font-weight="600">六个传感器配置的实测事件统计：分辨率 ↑ = 吞吐压力 ↑</text>
+      <line x1="80" y1="220" x2="860" y2="220" stroke="#f0f1f3"/><text x="72" y="224" text-anchor="end" font-size="12" fill="#9ca3af">0</text>
+      <line x1="80" y1="187" x2="860" y2="187" stroke="#f0f1f3"/><text x="72" y="191" text-anchor="end" font-size="12" fill="#9ca3af">20</text>
+      <line x1="80" y1="154" x2="860" y2="154" stroke="#f0f1f3"/><text x="72" y="158" text-anchor="end" font-size="12" fill="#9ca3af">40</text>
+      <line x1="80" y1="121" x2="860" y2="121" stroke="#f0f1f3"/><text x="72" y="125" text-anchor="end" font-size="12" fill="#9ca3af">60</text>
+      <line x1="80" y1="88" x2="860" y2="88" stroke="#f0f1f3"/><text x="72" y="92" text-anchor="end" font-size="12" fill="#9ca3af">80</text>
+      <line x1="80" y1="55" x2="860" y2="55" stroke="#f0f1f3"/><text x="72" y="59" text-anchor="end" font-size="12" fill="#9ca3af">100</text>
+      <rect x="120" y="195" width="48" height="25" rx="4" fill="#b9c2d0"/><text x="144" y="189" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">15.0</text>
+      <rect x="182" y="174" width="48" height="46" rx="4" fill="#0e8a66"/><text x="206" y="168" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">28.1</text>
+      <text x="175" y="242" text-anchor="middle" font-size="13" fill="#374151" font-weight="600">32 通道</text>
+      <rect x="370" y="179" width="48" height="41" rx="4" fill="#b9c2d0"/><text x="394" y="173" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">24.6</text>
+      <rect x="432" y="131" width="48" height="89" rx="4" fill="#0e8a66"/><text x="456" y="125" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">54.0</text>
+      <text x="425" y="242" text-anchor="middle" font-size="13" fill="#374151" font-weight="600">64 通道</text>
+      <rect x="620" y="145" width="48" height="75" rx="4" fill="#b9c2d0"/><text x="644" y="139" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">45.5</text>
+      <rect x="682" y="68" width="48" height="152" rx="4" fill="#0e8a66"/><text x="706" y="62" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">92.2</text>
+      <text x="675" y="242" text-anchor="middle" font-size="13" fill="#374151" font-weight="600">128 通道</text>
+      <line x1="80" y1="220" x2="860" y2="220" stroke="#9ca3af"/>
+      <rect x="560" y="56" width="13" height="13" rx="3" fill="#b9c2d0"/><text x="579" y="67" font-size="12.5" fill="#374151">cascade 级联（逐级串联）</text>
+      <rect x="560" y="76" width="13" height="13" rx="3" fill="#0e8a66"/><text x="579" y="87" font-size="12.5" fill="#374151">parallel 并行（独立带通）</text>
+      <text x="80" y="270" font-size="13" fill="#6b7280">平均事件率 kEv/s（GSCv2 全量过物理传感器）；parallel ≈ cascade 两倍；峰值最高 518.69 kEv/s（128-parallel）</text>
+      <text x="80" y="292" font-size="12" fill="#9ca3af">cascade 的累积延迟逐级复合还拖累时间定位（Ts-acc 指标）——parallel 事件多一倍但信息更完整、无频率依赖延迟</text>
+    </svg>
+  </div>
+
+  <h3>事件过滤：降噪与误删的权衡</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 300" role="img">
+      <text x="80" y="32" font-size="13.5" fill="#47536a" font-weight="600">过滤 div factor：降噪与误删信息的权衡（柱上 = 准确率，柱下 = 事件率）</text>
+      <line x1="80" y1="220" x2="860" y2="220" stroke="#f0f1f3"/><text x="72" y="224" text-anchor="end" font-size="12" fill="#9ca3af">70%</text>
+      <line x1="80" y1="179" x2="860" y2="179" stroke="#f0f1f3"/><text x="72" y="183" text-anchor="end" font-size="12" fill="#9ca3af">75%</text>
+      <line x1="80" y1="138" x2="860" y2="138" stroke="#f0f1f3"/><text x="72" y="142" text-anchor="end" font-size="12" fill="#9ca3af">80%</text>
+      <line x1="80" y1="96" x2="860" y2="96" stroke="#f0f1f3"/><text x="72" y="100" text-anchor="end" font-size="12" fill="#9ca3af">85%</text>
+      <line x1="80" y1="55" x2="860" y2="55" stroke="#f0f1f3"/><text x="72" y="59" text-anchor="end" font-size="12" fill="#9ca3af">90%</text>
+      <rect x="120" y="184" width="90" height="36" rx="5" fill="#c0392b"/><text x="165" y="177" text-anchor="middle" font-size="13.5" font-weight="700" fill="#374151">74.36%</text>
+      <text x="165" y="242" text-anchor="middle" font-size="12.5" fill="#374151">无过滤</text>
+      <text x="165" y="262" text-anchor="middle" font-size="11.5" fill="#5f8a76">24.6 kEv/s</text>
+      <rect x="300" y="108" width="90" height="112" rx="5" fill="#d97a2b"/><text x="345" y="101" text-anchor="middle" font-size="13.5" font-weight="700" fill="#374151">83.59%</text>
+      <text x="345" y="242" text-anchor="middle" font-size="12.5" fill="#374151">div=6</text>
+      <text x="345" y="262" text-anchor="middle" font-size="11.5" fill="#5f8a76">7.9 kEv/s</text>
+      <rect x="480" y="101" width="90" height="119" rx="5" fill="#0e8a66"/><text x="525" y="94" text-anchor="middle" font-size="13.5" font-weight="700" fill="#374151">84.46%</text>
+      <text x="525" y="242" text-anchor="middle" font-size="12.5" fill="#374151">div=8（选用）</text>
+      <text x="525" y="262" text-anchor="middle" font-size="11.5" fill="#5f8a76">11.2 kEv/s</text>
+      <rect x="660" y="97" width="90" height="123" rx="5" fill="#7cc7ad"/><text x="705" y="90" text-anchor="middle" font-size="13.5" font-weight="700" fill="#374151">84.93%</text>
+      <text x="705" y="242" text-anchor="middle" font-size="12.5" fill="#374151">div=10</text>
+      <text x="705" y="262" text-anchor="middle" font-size="11.5" fill="#5f8a76">12.1 kEv/s</text>
+      <line x1="80" y1="220" x2="860" y2="220" stroke="#9ca3af"/>
+      <text x="80" y="292" font-size="13" fill="#6b7280">类 LIF 事件过滤消融（64-cascade）：被滤掉的大多是噪声/冗余——事件率减半多，精度反升 10 个点</text>
+    </svg>
+    <p class="cap"><b>其他消融结论</b>：时间半径——紧邻的过去事件信息量最大（R_t^low 从 0 增到 500/1000，F1 掉 1.93%/5.53%）；邻域——小而密（R_c=10/skip1，85.89%）优于大而稀疏；模型宽度——126 特征最优但参数 179.56k，72 特征只低 0.75 点而参数 59.84k（硬件预算甜点）。阈值消融最优是线性 48→16，但最终配置统一用指数 64→32——论文未解释这一差异。</p>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">资源降三成，精度升一档</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 260" role="img">
+      <text x="30" y="22" font-size="13.5" fill="#47536a" font-weight="600">ZCU104 @200MHz 实测（Table 5）：资源 −30~41%，精度 +13.9 点</text>
+      <text x="160" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#111827">LUT（越低越好）</text>
+      <rect x="85" y="73" width="58" height="112" rx="5" fill="#94a3b8"/><text x="114" y="66" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">125.1k</text>
+      <text x="114" y="206" text-anchor="middle" font-size="11.5" fill="#374151">基线 GNN[14]</text>
+      <rect x="161" y="106" width="58" height="79" rx="5" fill="#7cc7ad"/><text x="190" y="99" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">88.4k</text>
+      <text x="190" y="206" text-anchor="middle" font-size="11.5" fill="#374151">64-par</text>
+      <rect x="237" y="111" width="58" height="74" rx="5" fill="#0e8a66"/><text x="266" y="104" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">82.7k</text>
+      <text x="266" y="206" text-anchor="middle" font-size="11.5" fill="#374151">32-par</text>
+      <line x1="70" y1="185" x2="270" y2="185" stroke="#c9c9bd"/>
+      <text x="450" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#111827">DSP</text>
+      <rect x="375" y="76" width="58" height="109" rx="5" fill="#94a3b8"/><text x="404" y="69" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">140</text>
+      <text x="404" y="206" text-anchor="middle" font-size="11.5" fill="#374151">基线</text>
+      <rect x="451" y="120" width="58" height="65" rx="5" fill="#7cc7ad"/><text x="480" y="113" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">83</text>
+      <text x="480" y="206" text-anchor="middle" font-size="11.5" fill="#374151">64-par</text>
+      <rect x="527" y="120" width="58" height="65" rx="5" fill="#0e8a66"/><text x="556" y="113" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">83</text>
+      <text x="556" y="206" text-anchor="middle" font-size="11.5" fill="#374151">32-par</text>
+      <line x1="360" y1="185" x2="560" y2="185" stroke="#c9c9bd"/>
+      <text x="740" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#111827">精度 %（INT8 量化后）</text>
+      <rect x="665" y="165" width="58" height="20" rx="5" fill="#94a3b8"/><text x="694" y="158" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">73.50</text>
+      <text x="694" y="206" text-anchor="middle" font-size="11.5" fill="#374151">基线</text>
+      <rect x="741" y="89" width="58" height="96" rx="5" fill="#7cc7ad"/><text x="770" y="82" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">86.90</text>
+      <text x="770" y="206" text-anchor="middle" font-size="11.5" fill="#374151">64-par</text>
+      <rect x="817" y="86" width="58" height="99" rx="5" fill="#0e8a66"/><text x="846" y="79" text-anchor="middle" font-size="13" font-weight="700" fill="#374151">87.43</text>
+      <text x="846" y="206" text-anchor="middle" font-size="11.5" fill="#374151">32-par</text>
+      <line x1="650" y1="185" x2="850" y2="185" stroke="#c9c9bd"/>
+      <text x="30" y="232" font-size="12.5" fill="#9ca3af">另有：BRAM 75.5→55.5（−26.5%）；延迟 10.53→25–42 µs（仍比 10ms 决策窗小两个数量级）；功耗 1.18→1.12 W；32-par 端到端 25–35 µs</text>
+      <text x="30" y="252" font-size="12.5" fill="#9ca3af">精度列注意：基线 73.5% 是其部署配置数字（原论文最高报到 84.3%），且两者数据集不同</text>
+    </svg>
+    <p class="cap"><b>延迟与功耗分解</b>：网络头延迟典型 2.11 µs（最坏 18.62）；NAS 输入到事件 23 µs；吞吐 245 kEv/s–2.1 MEv/s 均高于实测事件率（余量约 1.66×）。功耗：静态 0.595 W 是 UltraScale+ 的物理底盘；动态 0.49–0.54 W + NAS 29.7 mW。8-bit QAT 量化损失 0.6–0.97 点。<b>与 SNN/SSM 路线对比（Table 4，注意基线在 SSC、本文在自建 NAS 数据集）</b>：六配置 83.15–88.03% 超过全部 SNN（72.0–80.7%）和 GNN 前身（78.4–84.3%），唯一 Event-SSM 峰值 88.4% 略高——但本文模型更小且面向单 FPGA 端到端。</p>
+  </div>
+
+  <div class="card">
+    <b>时间定位指标 Ts-acc</b>：类别正确且词结束时刻落在 ±k 个 10ms bin 内才算对——类别对但时间错的操作后果等同于误报/漏报。64-parallel 的 Ts-acc₁ 最高 75.12%（Ts-acc₃ 81.85%）；parallel 全面优于 cascade（事件多一倍但无频率依赖延迟），cascade 的累积延迟直接拖累时间定位。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">四条可以带走的东西</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>首个单 FPGA 端到端事件音频 KWS</b><br><span style="color:var(--ink-2)">物理 NAS 与 GNN 同芯片集成，原始音频进、每 10ms 出 class+conf，零 CPU、无常规信号预处理。</span></div>
+    <div class="c"><span class="n">2</span><b>公开真实神经形态录音数据集</b><br><span style="color:var(--ink-2)">GSCv2 六个 NAS 配置版本（含完整统计）——把该方向从仿真数据依赖中拉出来的基础设施。</span></div>
+    <div class="c"><span class="n">3</span><b>硬件友好的事件过滤</b><br><span style="color:var(--ink-2)">类 LIF、移位衰减、逐通道阈值：事件削减约一半且精度不降反升（74.36%→84%+）。</span></div>
+    <div class="c"><span class="n">4</span><b>消融驱动的 GNN 架构改造方法论</b><br><span style="color:var(--ink-2)">极性特征、乘法器减半、背压调度、时间戳传播——可迁移到其他事件驱动加速器设计。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与展望</p>
+  <h2 class="sec">精度天花板、瓦级功耗、数值一致性瑕疵</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法本身的技术局限</h4>
+      <ul>
+        <li><b>精度天花板明显</b>：88.03%（FP32）显著低于常规 FPGA KWS 的 95–97%；「原始音频直入 + 10ms 分辨率」的差异化辩护成立，但对误报率敏感的产品场景是真实成本。</li>
+        <li><b>功耗仍为瓦级</b>：静态 0.595 W 是器件底盘；动态约 0.5 W 远高于传感器的 29.7 mW——瓶颈在网络，与 MCU 毫瓦方案不同量级。</li>
+        <li><b>吞吐余量有限</b>：最坏 245 kEv/s 对 64-par 峰值只有 1.66× 余量，靠 FIFO 吸突发；持续超载行为未报告。</li>
+        <li><b>图存储深度有限</b>（128 通道深 1024 条目），长邻域上下文间接受限。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>SOTA 对比不同数据集</b>：基线在 SSC、本文在自建数据集，严格说不构成同基准比较。</li>
+        <li><b>数值一致性问题</b>：Table 3/4 同名配置数字略有出入；87.43% 在第 5 节被归错配置；「约 47% 事件削减」与各配置实际的 33–55% 口径不一；消融最优阈值未被采用且无解释。</li>
+        <li><b>关键细节缺席</b>：关键词集合与类别数、数据划分、每推理能耗（功耗是 40kEv/s 负载下的仿真估计非实测）。</li>
+        <li><b>鲁棒性评测缺位</b>：干净 GSCv2 过传感器的单条件录音，无加噪/远场/多说话人——恰是论文自己指出的仿真数据短板的镜像。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:18px">
+    <b>值得跟进的方向</b>：① 真实机器人 HMI 场景验证；② ASIC 实现突破 FPGA 静态功耗地板；③ 事件域噪声鲁棒训练与数据增广补泛化证据；④ 过滤参数可学习并与网络联合训练（当前纯手工消融）；⑤ 更低比特（二值化）特征与权重压缩 LUT/DSP；⑥ 利用 NAS 双耳实现做声源方向联合建模，服务机器人空间听觉。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2026/End-to-End_Keyword_Spotting_On_FPGA_Using_Graph_Neural_Networks_With_A_Neuromorphic_Auditory_Sensor.md">📝 深读笔记（Markdown）</a>
+    <a class="pill" href="/papers/2026/End-to-End_Keyword_Spotting_On_FPGA_Using_Graph_Neural_Networks_With_A_Neuromorphic_Auditory_Sensor.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2605.09570" target="_blank">🔗 arXiv:2605.09570</a>
+    <a class="pill" href="https://github.com/vision-agh/NAS-GNN-KWS" target="_blank">💻 代码与数据</a>
+  </div>
+  本页所有数字均出自论文 Table 1–5 与第 3–5 节；「约 47% 事件削减」的口径差异在局限部分如实标注。深读笔记与可视化页同源生成，转载请注明出处。
+</footer>
+
+</div>
+</body>
+</html>
