@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FPGA 行缓冲 KWS 加速器 · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15.5px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .grid2{grid-template-columns:1fr;} }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2026/FPGA-based_Keyword_Spotting_Accelerator_With_Data_Reuse_Optimization.md">深读笔记</a>
+    <a href="/papers/2026/FPGA-based_Keyword_Spotting_Accelerator_With_Data_Reuse_Optimization.pdf">PDF 原稿</a>
+    <a href="https://doi.org/10.54097/4btbhd09" target="_blank">DOI</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2026 №9</p>
+  <h1>数据复用优化的 FPGA KWS 加速器<br>9 次读存 → 1 次读 + 8 次片上复用</h1>
+  <p class="sub">FPGA-based Keyword Spotting Accelerator with Data Reuse Optimization</p>
+  <p class="meta"><b>作者</b>：Yutong Zhu —— 东南大学集成电路学院</p>
+  <p class="meta"><b>发表</b>：2026.03 · 会议短文（pp. 742–747）· DOI:10.54097/4btbhd09</p>
+  <div class="chips">
+    <span class="chip">FPGA 加速器</span><span class="chip">行缓冲 line buffer</span><span class="chip">数据复用</span>
+    <span class="chip">访存优化</span><span class="chip">TinyML</span><span class="chip">SystemVerilog</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>瓶颈定位：FPGA 上 KWS 加速器的真瓶颈不是「卷积算不动」，是「数据喂不饱、喂得贵」——DSP 一拍做完乘累加，存储端口要好几拍才凑齐操作数。</li>
+      <li>核心事实：3×3 滑窗每移动一格，9 个读取里最多 8 个是上一步读过、值完全没变的<b>重复读</b>。</li>
+      <li>方案：寄存器级行缓冲——每个时钟只从外部读 <b>1 个</b>新元素，其余 8 个靠缓冲区内部移位复用；卷积/ReLU/FC 挂在单一 FSM 下流水，中间数据不落片外。</li>
+      <li>结果：每周期读次数 9 → 1（<b>−88.89% = 8/9</b>），端到端延迟 100,000 → 50,000 ns（<b>−50%</b>）；不动模型精度，与量化/剪枝正交可叠加。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">常驻在线的 KWS，每次推理烧多少能量才是关键</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 235" role="img">
+      <rect x="20" y="25" width="880" height="80" rx="12" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="460" y="55" text-anchor="middle" font-size="14" font-weight="700" fill="#0a6b4e">两个刚性约束叠加</text>
+      <text x="460" y="82" text-anchor="middle" font-size="13" fill="#47536a">常驻在线（always-on 监听连续语音流）　×　严格能量预算 —— 问题本质是「每次推理烧多少能量/时间」</text>
+
+      <rect x="20" y="125" width="880" height="94" rx="12" fill="#fbf3ec" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="460" y="153" text-anchor="middle" font-size="14" font-weight="700" fill="#b0631d">真正的瓶颈：访存，不是算力</text>
+      <text x="50" y="180" font-size="13" fill="#47536a">· DSP 硬核一拍做完乘累加；存储端口可能要好几拍才把操作数凑齐 —— 计算单元饥饿的根源在访存路径；</text>
+      <text x="50" y="206" font-size="13" fill="#47536a">· 片外 DRAM 事务能耗显著高于片上访问；朴素滑窗的实现每次窗口移动都重读 9 个元素 —— 访存次数随输出分辨率成倍放大。</text>
+    </svg>
+    <p class="cap"><b>论文切入的缝隙</b>：已有访存优化（ROMANet/Shortcut Fusion 一脉）面向通用 DNN，调度框架复杂；KWS 是「卷积+激活+FC」三层小模型，需要的是<b>足够轻、单一状态机能统一起来</b>的访存优化——把最通用的行缓冲做进小而完整的 RTL 数据通路，并量化收益。</p>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">滑窗重叠：8/9 冗余的数学结构</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 330" role="img">
+      <text x="30" y="26" font-size="13.5" fill="#47536a" font-weight="600">3×3 窗口右移一格：9 个元素里 6 个完全相同，只有最右列 3 个是新的</text>
+      <!-- 网格 -->
+      <g>
+        <!-- 旧窗口 9 cells (cols 1-3, rows 1-3), grid 5x3, cell 44px at x=40 -->
+        <!-- grid cells -->
+        <g font-size="12" text-anchor="middle">
+          <!-- row1 -->
+          <rect x="40" y="50" width="44" height="44" rx="5" fill="#0e8a66" opacity=".85"/><text x="62" y="77" fill="#fff">a</text>
+          <rect x="88" y="50" width="44" height="44" rx="5" fill="#0e8a66" opacity=".85"/><text x="110" y="77" fill="#fff">b</text>
+          <rect x="136" y="50" width="44" height="44" rx="5" fill="#0e8a66" opacity=".85"/><text x="158" y="77" fill="#fff">c</text>
+          <rect x="184" y="50" width="44" height="44" rx="5" fill="#d97a2b" opacity=".9"/><text x="206" y="77" fill="#fff">新</text>
+          <rect x="232" y="50" width="44" height="44" rx="5" fill="#eef0ec"/><text x="254" y="77" fill="#9ca3af">·</text>
+          <!-- row2 -->
+          <rect x="40" y="98" width="44" height="44" rx="5" fill="#0e8a66" opacity=".85"/><text x="62" y="125" fill="#fff">d</text>
+          <rect x="88" y="98" width="44" height="44" rx="5" fill="#0e8a66" opacity=".85"/><text x="110" y="125" fill="#fff">e</text>
+          <rect x="136" y="98" width="44" height="44" rx="5" fill="#0e8a66" opacity=".85"/><text x="158" y="125" fill="#fff">f</text>
+          <rect x="184" y="98" width="44" height="44" rx="5" fill="#d97a2b" opacity=".9"/><text x="206" y="125" fill="#fff">新</text>
+          <rect x="232" y="98" width="44" height="44" rx="5" fill="#eef0ec"/><text x="254" y="125" fill="#9ca3af">·</text>
+          <!-- row3 -->
+          <rect x="40" y="146" width="44" height="44" rx="5" fill="#0e8a66" opacity=".85"/><text x="62" y="173" fill="#fff">g</text>
+          <rect x="88" y="146" width="44" height="44" rx="5" fill="#0e8a66" opacity=".85"/><text x="110" y="173" fill="#fff">h</text>
+          <rect x="136" y="146" width="44" height="44" rx="5" fill="#0e8a66" opacity=".85"/><text x="158" y="173" fill="#fff">i</text>
+          <rect x="184" y="146" width="44" height="44" rx="5" fill="#d97a2b" opacity=".9"/><text x="206" y="173" fill="#fff">新</text>
+          <rect x="232" y="146" width="44" height="44" rx="5" fill="#eef0ec"/><text x="254" y="173" fill="#9ca3af">·</text>
+        </g>
+      </g>
+      <text x="160" y="216" text-anchor="middle" font-size="12.5" fill="#0a6b4e" font-weight="600">绿 = 与旧窗口完全相同（6 个）</text>
+      <text x="160" y="236" text-anchor="middle" font-size="12.5" fill="#b0631d" font-weight="600">橙 = 本步真正的新元素（3 个）</text>
+
+      <!-- 行缓冲示意 -->
+      <rect x="340" y="46" width="250" height="160" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="465" y="74" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">3×3 行缓冲（寄存器堆）</text>
+      <g>
+        <rect x="365" y="90" width="40" height="32" rx="4" fill="#0e8a66"/><rect x="409" y="90" width="40" height="32" rx="4" fill="#0e8a66"/><rect x="453" y="90" width="40" height="32" rx="4" fill="#0e8a66"/>
+        <rect x="365" y="126" width="40" height="32" rx="4" fill="#0e8a66"/><rect x="409" y="126" width="40" height="32" rx="4" fill="#0e8a66"/><rect x="453" y="126" width="40" height="32" rx="4" fill="#0e8a66"/>
+        <rect x="365" y="162" width="40" height="32" rx="4" fill="#0e8a66"/><rect x="409" y="162" width="40" height="32" rx="4" fill="#0e8a66"/><rect x="453" y="162" width="40" height="32" rx="4" fill="#0e8a66"/>
+      </g>
+      <path d="M 497 106 Q 512 106 512 142 Q 512 178 497 178" fill="none" stroke="#0a6b4e" stroke-width="2" stroke-dasharray="4 3"/>
+      <text x="530" y="146" font-size="11.5" fill="#5f8a76">内部移位</text>
+      <text x="465" y="224" text-anchor="middle" font-size="11.5" fill="#8a93a5">移位即寻址，零地址逻辑</text>
+
+      <!-- 复用统计 -->
+      <rect x="620" y="46" width="280" height="160" rx="12" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="760" y="76" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0a6b4e">每个时钟的读取账本</text>
+      <g font-size="13.5">
+        <rect x="645" y="92" width="230" height="28" rx="14" fill="#c0392b"/><text x="760" y="111" text-anchor="middle" fill="#fff" font-weight="600">朴素：片外读 9 次</text>
+        <rect x="645" y="128" width="230" height="28" rx="14" fill="#0e8a66"/><text x="760" y="147" text-anchor="middle" fill="#fff" font-weight="600">行缓冲：片外读 1 次</text>
+        <text x="760" y="180" text-anchor="middle" fill="#0a6b4e" font-weight="700">+ 8 次片上复用</text>
+      </g>
+      <text x="30" y="270" font-size="13.5" fill="#47536a">读取降低率 = (9 − 1) / 9 = <tspan font-weight="700" fill="#0a6b4e">8/9 ≈ 88.89%</tspan>（步长 1 时每个输入元素最多被 3×3=9 个窗口使用——朴素实现平均每数据重复读约 9 次）</text>
+      <text x="30" y="298" font-size="12.5" fill="#8a93a5">为什么用寄存器不用 BRAM：活跃数据只有 9 个字，寄存器实现寻址逻辑退化为零（移位即寻址），天然匹配流水节拍；BRAM 反而要付端口时序与初始化开销。</text>
+    </svg>
+  </div>
+
+  <h3>架构：三个异构算子，一个状态机</h3>
+  <div class="fig">
+    <svg viewBox="0 0 920 240" role="img">
+      <rect x="20" y="40" width="120" height="90" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="80" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">Top Module</text>
+      <text x="80" y="102" text-anchor="middle" font-size="11" fill="#8a93a5">系统接口 / testbench</text>
+
+      <line x1="140" y1="85" x2="170" y2="85" stroke="#0e8a66" stroke-width="2.5"/><polygon points="170,85 162,80 162,90" fill="#0e8a66"/>
+      <rect x="174" y="30" width="150" height="110" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="249" y="60" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0a6b4e">conv2dreuse.sv</text>
+      <text x="249" y="84" text-anchor="middle" font-size="11" fill="#47536a">DSP slice 乘累加</text>
+      <text x="249" y="104" text-anchor="middle" font-size="11" fill="#5f8a76">+ 行缓冲复用</text>
+      <text x="249" y="126" text-anchor="middle" font-size="10.5" fill="#8a93a5">本文主创新点</text>
+
+      <line x1="324" y1="85" x2="354" y2="85" stroke="#0e8a66" stroke-width="2.5"/><polygon points="354,85 346,80 346,90" fill="#0e8a66"/>
+      <rect x="358" y="40" width="110" height="90" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="413" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">relu.sv</text>
+      <text x="413" y="102" text-anchor="middle" font-size="11" fill="#8a93a5">逐元素 · 流水一级</text>
+
+      <line x1="468" y1="85" x2="498" y2="85" stroke="#0e8a66" stroke-width="2.5"/><polygon points="498,85 490,80 490,90" fill="#0e8a66"/>
+      <rect x="502" y="40" width="120" height="90" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="562" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1c2430">fc.sv</text>
+      <text x="562" y="102" text-anchor="middle" font-size="11" fill="#8a93a5">矩阵向量乘 · 分类</text>
+
+      <line x1="622" y1="85" x2="652" y2="85" stroke="#0e8a66" stroke-width="2.5"/><polygon points="652,85 644,80 644,90" fill="#0e8a66"/>
+      <rect x="656" y="40" width="120" height="90" rx="10" fill="#0e8a66"/>
+      <text x="716" y="78" text-anchor="middle" font-size="13.5" font-weight="700" fill="#fff">分类得分</text>
+      <text x="716" y="102" text-anchor="middle" font-size="11" fill="#cdeede">output_valid 置位</text>
+
+      <!-- FSM -->
+      <rect x="20" y="160" width="756" height="64" rx="12" fill="#f3ede2" stroke="#d97a2b" stroke-width="1.5"/>
+      <text x="398" y="186" text-anchor="middle" font-size="13.5" font-weight="700" fill="#b0631d">中央 FSM：start / output_valid 握手调度</text>
+      <text x="398" y="210" text-anchor="middle" font-size="12" fill="#47536a">KWS 推理是单线程确定性数据流（conv→ReLU→FC 顺序永不变）——一个状态机就够，时序好验证、竞争条件好看护</text>
+
+      <rect x="796" y="160" width="104" height="64" rx="12" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="848" y="186" text-anchor="middle" font-size="12.5" fill="#0a6b4e" font-weight="700">中间数据</text>
+      <text x="848" y="208" text-anchor="middle" font-size="12" fill="#5f8a76">全程片上不落 DRAM</text>
+    </svg>
+    <p class="cap"><b>为什么 ReLU 也要进流水线</b>：它本身几乎没有计算量，但不在流水线里就会在卷积和 FC 之间形成停顿气泡。FC 不做并行展开：论文未报告权衡，从工程常识推断（笔者注）——FC 只有一层且本文重心在访存，先保功能正确和数值完整。</p>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">双实例同输入并行仿真：差异完全归因于行缓冲</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>设置</b>：Vivado 2017 行为级仿真；testbench 产生时钟/复位、初始化特征与权重（数据来源、维度、数值分布论文未报告）；baseline（u_base）与复用版（u_reuse）在<b>逐比特相同的激励</b>下同时仿真——性能差异可完全归因于行缓冲单一变量。<b>没有语音数据集、没有识别准确率</b>：实验对象是数据通路，不是语音。
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 330" role="img">
+      <text x="225" y="30" text-anchor="middle" font-size="14.5" font-weight="700" fill="#111827">每周期存储读取次数</text>
+      <rect x="90" y="76" width="120" height="144" rx="6" fill="#c0392b"/><text x="150" y="68" text-anchor="middle" font-size="20" font-weight="700" fill="#374151">9</text>
+      <text x="150" y="244" text-anchor="middle" font-size="12.5" fill="#374151">Baseline 朴素滑窗</text>
+      <rect x="250" y="204" width="120" height="16" rx="6" fill="#0e8a66"/><text x="310" y="196" text-anchor="middle" font-size="20" font-weight="700" fill="#374151">1</text>
+      <text x="310" y="244" text-anchor="middle" font-size="12.5" fill="#374151">Reuse 行缓冲</text>
+      <text x="225" y="272" text-anchor="middle" font-size="13.5" fill="#0a6b4e" font-weight="700">−88.89%（= 8/9）</text>
+      <text x="660" y="30" text-anchor="middle" font-size="14.5" font-weight="700" fill="#111827">端到端延迟（ns）</text>
+      <rect x="510" y="75" width="110" height="145" rx="6" fill="#c0392b"/><text x="565" y="67" text-anchor="middle" font-size="15" font-weight="700" fill="#374151">100,000</text>
+      <text x="565" y="244" text-anchor="middle" font-size="12.5" fill="#374151">Baseline</text>
+      <rect x="660" y="147" width="110" height="73" rx="6" fill="#0e8a66"/><text x="715" y="139" text-anchor="middle" font-size="15" font-weight="700" fill="#374151">50,000</text>
+      <text x="715" y="244" text-anchor="middle" font-size="12.5" fill="#374151">Reuse</text>
+      <text x="660" y="272" text-anchor="middle" font-size="13.5" fill="#0a6b4e" font-weight="700">−50.00%</text>
+      <text x="30" y="304" font-size="13.5" fill="#47536a" font-weight="600">张力解读（笔者）：读次数降 8/9 而延迟只降 1/2 —— 另一半延迟在卷积读端口之外</text>
+      <text x="30" y="324" font-size="12" fill="#9ca3af">波形自洽：start 于 60,000 ns；output_valid 分别在 160,000 / 110,000 ns —— 差值恰为表列延迟；波形无信号重叠与竞争条件</text>
+    </svg>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 170" role="img">
+      <text x="30" y="26" font-size="13.5" fill="#47536a" font-weight="600">Baseline 延迟的去向（按 50% 端到端降幅反推，笔者推断，论文未做分解）</text>
+      <rect x="30" y="50" width="410" height="44" rx="6" fill="#0e8a66"/>
+      <text x="235" y="78" text-anchor="middle" font-size="13.5" fill="#fff" font-weight="700">卷积段（含滑窗读）≈ 50%</text>
+      <rect x="440" y="50" width="410" height="44" rx="6" fill="#b9c2d0"/>
+      <text x="645" y="78" text-anchor="middle" font-size="13.5" fill="#374151" font-weight="600">FC 嵌套循环 + FSM + 握手 ≈ 50%（未优化）</text>
+      <text x="30" y="126" font-size="12.5" fill="#9ca3af">行缓冲只消灭了前一半——后一半是后续「FC 权重驻留 + 输出分块复用」的机会空间；同理「读次数 −88.9%」≠「能耗 −88.9%」（计算、FC 权重搬运、时钟树都没变，论文未报功耗）</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">四条可以带走的东西</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>一个可复现的最小验证</b><br><span style="color:var(--ink-2)">三层小模型上仅靠行缓冲：读次数 9→1（−88.89%）、延迟 −50%——访存中心的优化在 TinyML 负载上立竿见影，代价只是寄存器级极小缓冲。</span></div>
+    <div class="c"><span class="n">2</span><b>统一 FSM 的三算子流水线</b><br><span style="color:var(--ink-2)">conv/ReLU/FC 在单一状态机和握手信号下连续流动，中间数据全程片上驻留，层间访存清零。</span></div>
+    <div class="c"><span class="n">3</span><b>参数化模块化的框架姿态</b><br><span style="color:var(--ink-2)">模块可按模型规模与位宽重配置（正文未兑现参数扫描，停在声明层面）。</span></div>
+    <div class="c"><span class="n">4</span><b>方法论解耦</b><br><span style="color:var(--ink-2)">「不动精度、只动访存」的对照设计，说明访存优化与量化/剪枝正交、可叠加——为「行缓冲 + 低比特」组合留出接口。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与展望</p>
+  <h2 class="sec">一篇仿真级短文的所有留白</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法本身的技术局限</h4>
+      <ul>
+        <li><b>只优化了卷积层</b>：行缓冲的前提是滑窗重叠；FC 的稠密矩阵向量乘无重叠可复用，完全未优化——延迟只降一半暗示 FC 与控制段占相当份额。</li>
+        <li><b>单通道/浅层量级</b>：自认聚焦 3×3 三通道量级；真实 KWS 网络（DS-CNN/MatchboxNet）多通道多层；多通道下每通道一条行缓冲还是分时复用未讨论。</li>
+        <li><b>无数值格式处理</b>：未量化、未归一化——与低比特方案相比没拿到本可拿的存储带宽收益。</li>
+        <li><b>停在行为级仿真</b>：无综合后时序/资源/功耗报告；88.9% 在真实 DRAM 控制器与总线仲裁下的表现未知。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>无数据集无准确率</b>：testbench 合成数据，规模/位宽/分布均未报告。</li>
+        <li><b>baseline 是自实现</b>：88.9%/50% 是「相对自身朴素版」的幅度，不是相对业界基线。</li>
+        <li><b>关键参数缺位</b>：器件型号、时钟频率、LUT/FF/BRAM/DSP、每推理能耗均未报告。</li>
+        <li><b>引文标注混乱</b>（笔者核对）：[13] 两处归属不一致；正文多处英文转写痕迹（MFCC 误写、race conditions 误写）；引用二层数字前应回原文核对。</li>
+        <li><b>无消融无扫描</b>：单次仿真单变量对照；承诺的位宽/规模测试未兑现。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:18px">
+    <b>值得跟进的方向</b>：① FC 权重驻留片上 BRAM + 输出分块复用（部分和驻留累加）——吃掉剩下那一半延迟；② 与 8/4bit 量化联合（行缓冲收益与量化正交，配合 DSP 双乘打包存储带宽再降一个量级）；③ 在 Google Speech Commands 上端到端验证准确率 + 综合后资源/能耗——从「仿真验证」走向「可引用基准」；④ 多通道卷积扩展、DVS 与部分重构（论文自列）。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2026/FPGA-based_Keyword_Spotting_Accelerator_With_Data_Reuse_Optimization.md">📝 深读笔记（Markdown）</a>
+    <a class="pill" href="/papers/2026/FPGA-based_Keyword_Spotting_Accelerator_With_Data_Reuse_Optimization.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://doi.org/10.54097/4btbhd09" target="_blank">🔗 DOI:10.54097/4btbhd09</a>
+  </div>
+  本页数字出自论文 Table 1 与 3.3 节；「9 次 MAC」为原文「3 MAC operations」的语义修正（结合九元素上下文）；延迟分解与 88.9% 推导为笔者分析（正文已标注）。深读笔记与可视化页同源生成，转载请注明出处。
+</footer>
+
+</div>
+</body>
+</html>
