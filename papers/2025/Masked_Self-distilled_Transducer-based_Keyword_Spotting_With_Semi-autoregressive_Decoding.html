@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>掩码自蒸馏 Transducer KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2025/Masked_Self-distilled_Transducer-based_Keyword_Spotting_With_Semi-autoregressive_Decoding.md">深读笔记</a>
+    <a href="/papers/2025/Masked_Self-distilled_Transducer-based_Keyword_Spotting_With_Semi-autoregressive_Decoding.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2505.24820" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2025 №24</p>
+  <h1>掩码自蒸馏 Transducer<br>predictor 记住的正是过拟合的病灶：训练时随机废掉它，推理时干脆丢掉它</h1>
+  <p class="sub">Masked Self-distilled Transducer-based Keyword Spotting with Semi-autoregressive Decoding</p>
+  <p class="meta"><b>作者</b>：Yu Xi 等 —— 上海交通大学 X-LANCE × 阿里巴巴淘天</p>
+  <p class="meta"><b>发表</b>：2025.05 · arXiv:2505.24820</p>
+  <div class="chips">
+    <span class="chip">RNN-T Transducer</span><span class="chip">掩码自蒸馏</span><span class="chip">NAR / SAR 解码</span>
+    <span class="chip">过拟合抑制</span><span class="chip">流式推理</span><span class="chip">Recall@FA</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>结构性病灶：KWS 正样本转写只有关键词本身——predictor 面对固定 transcript 训练，<b>过拟合到关键词文本模式</b>；噪声下倾向「无脑输出关键词」，FA 失控。反直觉证据：流式 AR 解码在噪声集 Xiaowen 崩到 <b>26.30</b>，连 Greedy 的 40.28 都不如——受限搜索放大了过拟合偏置。</li>
+      <li>训练解法 MSD：每样本<b>双前向</b>——无掩码输出当教师、随机置零 predictor 输出的掩码输出当学生，KL 自蒸馏对齐 + 三个 RNN-T 损失并训（λ_mask=1、λ_MSD=0.003、γ_mask=0.35）。为什么必须蒸馏：小模型直接掩码学不动（无 MSD 的 NAR test-clean 只有 84.05）。</li>
+      <li>推理解法：MSD 解锁 <b>NAR 解码</b>（predictor 整体预置零，过拟合载体物理移除——Xiaowen 26.30→95.33）；<b>SAR 半自回归</b>（关键词 lattice 上并行跑 AR/NAR 两条递推、逐帧 α 加权融合）。</li>
+      <li>结果：SAR <b>五个测试集全部最优</b>（干净集 98.74 吃到 AR 强度、噪声集 95.68 吃到 NAR 鲁棒）；低 FA 区优势最大（FA=1 时 89.49，AR 只有 5.90）——把「阈值敏感性」一并治了。</li>
+      <li>单模型单阶段：不加架构、不加级联，代价是每样本双前向 + 推理时双 joiner 双 lattice（开销未量化——最大缺口）。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">由数据形态决定的病灶：predictor 的固定 transcript 记忆</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 340" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">问题的因果链与现有对策的代价</text>
+      <g font-size="11.5">
+        <rect x="30" y="50" width="860" height="96" rx="10" fill="#fdf6f4" stroke="#c9a9a0" stroke-width="1.4"/>
+        <text x="46" y="74" font-weight="700" fill="#8c3b2e">因果链：KWS 数据形态 → predictor 过拟合 → 噪声下 FA 失控</text>
+        <text x="46" y="98" fill="#47536a">正样本转写 = 关键词本身 → 每句喂 predictor 的都是同一序列、要预测的也是同一序列——没有任何文本多样性可学</text>
+        <text x="46" y="122" fill="#8c3b2e">引入大规模关键词数据后（鲁棒性惯例），结构极简的 predictor 过拟合到关键词文本模式 → 复杂声学下「无脑输出关键词」→ FA 升高</text>
+
+        <rect x="30" y="162" width="410" height="100" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="235" y="186" text-anchor="middle" font-weight="700" fill="#1c2430">对策一：多阶段 / 混合编码器</text>
+        <text x="46" y="210" fill="#8c3b2e">multi-level detection / CaTT-KWS 级联 / U2-KWS 双分支</text>
+        <text x="46" y="232" fill="#8c3b2e">✕ 复杂性同时塞进训练流程和解码管线——对齐、级联阈值、</text>
+        <text x="46" y="252" fill="#8c3b2e">　 两套分支协调全是手工设计，可能停在次优点</text>
+        <rect x="460" y="162" width="430" height="100" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="675" y="186" text-anchor="middle" font-weight="700" fill="#1c2430">对策二：ASR 式解码 + 关键词匹配</text>
+        <text x="476" y="210" fill="#8c3b2e">greedy/beam search 面向整个词表空间——考虑「说了什么」</text>
+        <text x="476" y="232" fill="#8c3b2e">　 而不是「关键词在不在」，对 KWS 次优</text>
+        <text x="476" y="252" fill="#8a93a5">而 KWS 专用受限解码（lattice）在噪声下反而更脆（表 3 实证）</text>
+      </g>
+      <rect x="30" y="276" width="860" height="48" rx="9" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="46" y="298" font-size="12.5" font-weight="700" fill="#0a6b4e">本文立场：不改架构、不加阶段，只改造训练框架与解码算法——单模型单阶段同时拿到 AR 的精度和 NAR 的抗过拟合</text>
+      <text x="46" y="316" font-size="11" fill="#5f8a76">产品约束注脚：KWS 验收把 FA 钉死比 recall（本文统一 FA=4）——「每天只允许误唤醒几次」的真实部署约束</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">MSD 训练 + SAR 双路解码</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 400" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">训练侧（图 1）：每样本双前向，自己教自己</text>
+      <g font-size="11.5">
+        <rect x="30" y="60" width="130" height="66" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="95" y="84" text-anchor="middle" font-weight="700" fill="#1c2430">encoder</text>
+        <text x="95" y="104" text-anchor="middle" font-size="10" fill="#8a93a5">8 层 DFSMN</text>
+        <text x="95" y="118" text-anchor="middle" font-size="9.5" fill="#8a93a5">440/768/320 · 左右 20/8 帧</text>
+
+        <rect x="30" y="170" width="130" height="70" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="95" y="192" text-anchor="middle" font-weight="700" fill="#1c2430">predictor</text>
+        <text x="95" y="212" text-anchor="middle" font-size="10" fill="#8a93a5">stateless embedding</text>
+        <text x="95" y="228" text-anchor="middle" font-size="9.5" fill="#8c3b2e">病灶所在：固定 transcript 记忆</text>
+
+        <rect x="190" y="52" width="200" height="80" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+        <text x="290" y="76" text-anchor="middle" font-weight="700" fill="#0a6b4e">前向①（教师）：不掩码</text>
+        <text x="290" y="98" text-anchor="middle" font-size="10.5" fill="#5f8a76">p_token = Joiner(h_audio, h_text)</text>
+        <text x="290" y="118" text-anchor="middle" font-size="10.5" fill="#5f8a76">→ 标准 RNN-T 损失（保 AR 能力）</text>
+
+        <rect x="190" y="156" width="200" height="84" rx="10" fill="#fdf6f4" stroke="#c9a9a0" stroke-width="1.5"/>
+        <text x="290" y="180" text-anchor="middle" font-weight="700" fill="#8c3b2e">前向②（学生）：γ=0.35 随机置零</text>
+        <text x="290" y="202" text-anchor="middle" font-size="10.5" fill="#8c3b2e">h_mask = RandomMask(h_text, 0.35)</text>
+        <text x="290" y="222" text-anchor="middle" font-size="10.5" fill="#47536a">→ 掩码 RNN-T 损失（等权 λ=1）</text>
+        <text x="290" y="236" text-anchor="middle" font-size="9.5" fill="#8a93a5">注意：置零的是 predictor 输出隐向量，不是输入 token</text>
+
+        <path d="M 396 118 Q 420 140 396 176" stroke="#8a93a5" stroke-width="1.6" fill="none" stroke-dasharray="4 3"/>
+        <text x="452" y="140" font-size="10.5" fill="#47536a">KL 蒸馏对齐（λ=0.003）</text>
+        <text x="452" y="158" font-size="10" fill="#8a93a5">「牵着掩码分支走的那根绳子」</text>
+
+        <rect x="600" y="120" width="290" height="120" rx="10" fill="#0e8a66"/>
+        <text x="745" y="148" text-anchor="middle" font-weight="700" fill="#fff">推理侧：一套权重三种解码</text>
+        <text x="616" y="174" font-size="11" fill="#cdebdf">AR：predictor 正常 → 干净场景最强</text>
+        <text x="616" y="196" font-size="11" fill="#cdebdf">NAR：predictor 整体预置零 → 过拟合载体物理移除</text>
+        <text x="616" y="218" font-size="11" fill="#fff" font-weight="600">SAR：双 lattice 递推逐帧 α 融合（EN 0.5 / 噪声 0.3）</text>
+      </g>
+      <rect x="30" y="264" width="860" height="118" rx="10" fill="#fbfaf6" stroke="#e6e6df"/>
+      <text x="46" y="290" font-size="12.5" font-weight="700" fill="#1c2430">掩码的两个机理收益（dropout 逻辑落到文本通路）</text>
+      <text x="46" y="314" font-size="11.5" fill="#47536a">· 对 joiner：文本输入不变时 predictor 输出近乎确定——随机掩码注入变异性，把两个共适应模块解耦</text>
+      <text x="46" y="338" font-size="11.5" fill="#47536a">· 对 encoder：遮掉部分语义输入 = 逼模型把注意力放回声学变化本身（录音条件/说话人/口音天然多样），削弱对固定关键词的依赖</text>
+      <text x="46" y="364" font-size="11" fill="#8a93a5">与 HAT（ICLR 2025）的关系：训练侧随机置零受其启发；本文的差异 = KWS 特化（固定 transcript 病灶）+ lattice 上的 SAR 流式解码 + 三套数据验证</text>
+    </svg>
+    <p class="cap"><b>为什么不能只掩码不蒸馏：</b>端侧模型容量有限，直接剥夺部分语义信息 Transducer 难收敛——自蒸馏把「有完整 predictor 信息时应有的输出分布」作为软目标告诉掩码分支。量化证据：无 MSD 的 NAR test-clean/test-other 只有 84.05/68.97，加 MSD 到 97.31/83.13。<b>encoder 为什么用 DFSMN：</b>纯前馈 + 记忆块（左右上下文卷积替代 RNN 状态传递），无自注意力无递归——cFSMN 的直系后代，阿里系端侧 KWS 主力骨架；8 层堆叠感受野覆盖唤醒词时长且保持逐帧流式。</p>
+  </div>
+
+  <div class="formula">
+    L = L<sub>RNN-T</sub> + λ<sub>mask</sub>·L<sup>mask</sup><sub>RNN-T</sub> + λ<sub>MSD</sub>·Σ D<sub>KL</sub>(p<sup>mtoken</sup> ‖ p<sup>token</sup>)　（λ=1, 0.003；γ=0.35）
+    <div class="why">SAR 解码（式 9 + 算法 1）：在关键词 lattice 上并行跑 AR 与 NAR 两条 Viterbi 递推（「文本推进」与「blank 停留」二选一取大），帧级分数 S[t] = α·δ_AR·φ_AR + (1−α)·δ_NAR·φ_NAR，再路径长度归一 + 超时清零。所有量只依赖当前帧与上一帧、路径任意帧可新起——逐帧吐激活分数，端侧「来一帧算一帧」的形态。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">五个场景全部最优 + 低 FA 区平坦曲线</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <h3 style="margin-top:0">三场景五数据集</h3>
+    <p style="margin:6px 0"><b>EN Fixed</b>：Snips「Hey Snips」+ 97 小时负样本测试集（train/dev/test 负样本合并专测 FA）。<b>EN Arbitrary</b>：LibriSpeech 960h 训练，LibriKWS-20 上 20 个任意关键词（almost/behind/captain…）测 macro-recall。<b>ZH Noisy</b>：AISHELL-2 1000h 种子 + MobvoiHotwords（Wenwen/Xiaowen）——离音箱不同距离、混音乐电视噪声、SNR 参差，最容易把端侧模型带进过拟合泥潭。建模单元 70 单音素 + blank（音素级支持任意词）。评测统一 Recall@FA=4。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 350" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">表 3 主对比（Recall@FA=4，%）：干净集 AR 强、噪声集 AR 崩、SAR 五场景全最优</text>
+      <line x1="90" y1="230.0" x2="850" y2="230.0" stroke="#f0f1f3"/>
+      <text x="84" y="234.0" text-anchor="end" font-size="11" fill="#9ca3af">20</text>
+      <line x1="90" y1="187.5" x2="850" y2="187.5" stroke="#f0f1f3"/>
+      <text x="84" y="191.5" text-anchor="end" font-size="11" fill="#9ca3af">40</text>
+      <line x1="90" y1="145.0" x2="850" y2="145.0" stroke="#f0f1f3"/>
+      <text x="84" y="149.0" text-anchor="end" font-size="11" fill="#9ca3af">60</text>
+      <line x1="90" y1="102.5" x2="850" y2="102.5" stroke="#f0f1f3"/>
+      <text x="84" y="106.5" text-anchor="end" font-size="11" fill="#9ca3af">80</text>
+      <line x1="90" y1="60.0" x2="850" y2="60.0" stroke="#f0f1f3"/>
+      <text x="84" y="64.0" text-anchor="end" font-size="11" fill="#9ca3af">100</text>
+      <rect x="46.0" y="141.2" width="26" height="88.8" rx="3" fill="#c9ced6"/>
+      <rect x="74.0" y="131.9" width="26" height="98.1" rx="3" fill="#94a3b8"/>
+      <rect x="102.0" y="119.0" width="26" height="111.0" rx="3" fill="#d97a2b"/>
+      <rect x="130.0" y="119.0" width="26" height="111.0" rx="3" fill="#7cc7ad"/>
+      <rect x="158.0" y="118.2" width="26" height="111.8" rx="3" fill="#0e8a66"/>
+      <text x="171.0" y="114.2" text-anchor="middle" font-size="9" font-weight="700" fill="#374151">97.4</text>
+      <text x="166.0" y="252" text-anchor="middle" font-size="11" fill="#1c2430" font-weight="700">Snips</text>
+      <rect x="198.0" y="130.8" width="26" height="99.2" rx="3" fill="#c9ced6"/>
+      <rect x="226.0" y="130.5" width="26" height="99.5" rx="3" fill="#94a3b8"/>
+      <rect x="254.0" y="117.1" width="26" height="112.9" rx="3" fill="#d97a2b"/>
+      <rect x="282.0" y="125.3" width="26" height="104.7" rx="3" fill="#7cc7ad"/>
+      <rect x="310.0" y="116.8" width="26" height="113.2" rx="3" fill="#0e8a66"/>
+      <text x="323.0" y="112.8" text-anchor="middle" font-size="9" font-weight="700" fill="#374151">98.7</text>
+      <text x="318.0" y="252" text-anchor="middle" font-size="11" fill="#1c2430" font-weight="700">test-clean</text>
+      <rect x="350.0" y="198.6" width="26" height="31.4" rx="3" fill="#c9ced6"/>
+      <rect x="378.0" y="197.6" width="26" height="32.4" rx="3" fill="#94a3b8"/>
+      <rect x="406.0" y="125.9" width="26" height="104.1" rx="3" fill="#d97a2b"/>
+      <rect x="434.0" y="141.8" width="26" height="88.2" rx="3" fill="#7cc7ad"/>
+      <rect x="462.0" y="120.4" width="26" height="109.6" rx="3" fill="#0e8a66"/>
+      <text x="475.0" y="116.4" text-anchor="middle" font-size="9" font-weight="700" fill="#374151">93.0</text>
+      <text x="470.0" y="252" text-anchor="middle" font-size="11" fill="#1c2430" font-weight="700">test-other</text>
+      <rect x="502.0" y="211.9" width="26" height="18.1" rx="3" fill="#c9ced6"/>
+      <rect x="530.0" y="151.5" width="26" height="78.5" rx="3" fill="#94a3b8"/>
+      <rect x="558.0" y="208.2" width="26" height="21.8" rx="3" fill="#c0392b"/>
+      <text x="571.0" y="204.2" text-anchor="middle" font-size="9" font-weight="700" fill="#374151">26.3</text>
+      <rect x="586.0" y="114.0" width="26" height="116.0" rx="3" fill="#7cc7ad"/>
+      <rect x="614.0" y="113.3" width="26" height="116.7" rx="3" fill="#0e8a66"/>
+      <text x="627.0" y="109.3" text-anchor="middle" font-size="9" font-weight="700" fill="#374151">95.7</text>
+      <text x="622.0" y="252" text-anchor="middle" font-size="11" fill="#1c2430" font-weight="700">Xiaowen 噪声</text>
+      <rect x="654.0" y="117.5" width="26" height="112.5" rx="3" fill="#c9ced6"/>
+      <rect x="682.0" y="115.2" width="26" height="114.8" rx="3" fill="#94a3b8"/>
+      <rect x="710.0" y="132.6" width="26" height="97.4" rx="3" fill="#d97a2b"/>
+      <rect x="738.0" y="111.5" width="26" height="118.5" rx="3" fill="#7cc7ad"/>
+      <rect x="766.0" y="111.3" width="26" height="118.7" rx="3" fill="#0e8a66"/>
+      <text x="779.0" y="107.3" text-anchor="middle" font-size="9" font-weight="700" fill="#374151">96.8</text>
+      <text x="774.0" y="252" text-anchor="middle" font-size="11" fill="#1c2430" font-weight="700">Wenwen 噪声</text>
+      <line x1="90" y1="230" x2="850" y2="230" stroke="#9ca3af"/>
+      <rect x="96" y="268" width="12" height="12" rx="3" fill="#c9ced6"/><text x="113" y="279" font-size="10.5" fill="#47536a">Greedy</text>
+      <rect x="185" y="268" width="12" height="12" rx="3" fill="#94a3b8"/><text x="202" y="279" font-size="10.5" fill="#47536a">Beam</text>
+      <rect x="265" y="268" width="12" height="12" rx="3" fill="#d97a2b"/><text x="282" y="279" font-size="10.5" fill="#47536a">AR（流式，表 3 中崩溃处标红）</text>
+      <rect x="505" y="268" width="12" height="12" rx="3" fill="#7cc7ad"/><text x="522" y="279" font-size="10.5" fill="#47536a">NAR</text>
+      <rect x="575" y="268" width="12" height="12" rx="3" fill="#0e8a66"/><text x="592" y="279" font-size="10.5" fill="#47536a">SAR（本文）</text>
+      <text x="70" y="308" font-size="12.5" fill="#c0392b" font-weight="600">反直觉现象：AR 流式解码在 Xiaowen 崩到 26.30（正文笔误 25.30，以表为准），连 Greedy 的 40.28 都不如——受限搜索 + 过拟合的叠加放大</text>
+      <text x="70" y="330" font-size="12.5" fill="#0a6b4e" font-weight="600">NAR 同集 95.33（+69 pp）验证「过拟合载体在 predictor、拿掉就好」；SAR 干净集也吃到 AR 强度（test-clean 98.74 &gt; 纯 AR 98.55）</text>
+    </svg>
+    <p class="cap"><b>NAR 的能力边界：</b>EN 上「打得过 ASR 式解码、打不过 AR」（94.07 vs 98.55）——干净场景 predictor 的上下文语义仍有效；ZH 噪声上大翻身（95.33 vs 26.30）且双双超过 Beam Search。<b>SAR 的融合没有在任何场景掉链子</b>——「单模型同时拿到两种模式收益」的直接证据。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 360" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">表 4 自蒸馏开关（Recall@FA=4，%）：MSD 三条解码线平均提升 +14.5 / +18.0 / +16.6</text>
+      <line x1="90" y1="230.0" x2="850" y2="230.0" stroke="#f0f1f3"/>
+      <text x="84" y="234.0" text-anchor="end" font-size="11" fill="#9ca3af">0</text>
+      <line x1="90" y1="187.5" x2="850" y2="187.5" stroke="#f0f1f3"/>
+      <text x="84" y="191.5" text-anchor="end" font-size="11" fill="#9ca3af">25</text>
+      <line x1="90" y1="145.0" x2="850" y2="145.0" stroke="#f0f1f3"/>
+      <text x="84" y="149.0" text-anchor="end" font-size="11" fill="#9ca3af">50</text>
+      <line x1="90" y1="102.5" x2="850" y2="102.5" stroke="#f0f1f3"/>
+      <text x="84" y="106.5" text-anchor="end" font-size="11" fill="#9ca3af">75</text>
+      <line x1="90" y1="60.0" x2="850" y2="60.0" stroke="#f0f1f3"/>
+      <text x="84" y="64.0" text-anchor="end" font-size="11" fill="#9ca3af">100</text>
+      <rect x="67.3" y="222.5" width="42" height="7.5" rx="4" fill="#d97a2b" opacity=".5"/>
+      <rect x="113.3" y="185.3" width="42" height="44.7" rx="4" fill="#d97a2b"/>
+      <text x="90.3" y="218.5" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">4.4</text>
+      <text x="134.3" y="181.3" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">26.3</text>
+      <text x="111.3" y="252" text-anchor="middle" font-size="10" fill="#1c2430" font-weight="700">AR</text>
+      <text x="111.3" y="266" text-anchor="middle" font-size="9.5" fill="#9ca3af">Xiaowen</text>
+      <rect x="194.2" y="214.5" width="42" height="15.5" rx="4" fill="#d97a2b" opacity=".5"/>
+      <rect x="240.2" y="127.0" width="42" height="103.0" rx="4" fill="#d97a2b"/>
+      <text x="217.2" y="210.5" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">9.1</text>
+      <text x="261.2" y="123.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">60.4</text>
+      <text x="238.2" y="252" text-anchor="middle" font-size="10" fill="#1c2430" font-weight="700">AR</text>
+      <text x="238.2" y="266" text-anchor="middle" font-size="9.5" fill="#9ca3af">Wenwen</text>
+      <rect x="321.0" y="87.1" width="42" height="142.9" rx="4" fill="#7cc7ad" opacity=".5"/>
+      <rect x="367.0" y="64.5" width="42" height="165.5" rx="4" fill="#7cc7ad"/>
+      <text x="342.0" y="83.1" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">84.1</text>
+      <text x="388.0" y="60.5" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">97.3</text>
+      <text x="365.0" y="252" text-anchor="middle" font-size="10" fill="#1c2430" font-weight="700">NAR</text>
+      <text x="365.0" y="266" text-anchor="middle" font-size="9.5" fill="#9ca3af">test-clean</text>
+      <rect x="447.8" y="112.8" width="42" height="117.2" rx="4" fill="#7cc7ad" opacity=".5"/>
+      <rect x="493.8" y="88.7" width="42" height="141.3" rx="4" fill="#7cc7ad"/>
+      <text x="468.8" y="108.8" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">69.0</text>
+      <text x="514.8" y="84.7" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">83.1</text>
+      <text x="491.8" y="252" text-anchor="middle" font-size="10" fill="#1c2430" font-weight="700">NAR</text>
+      <text x="491.8" y="266" text-anchor="middle" font-size="9.5" fill="#9ca3af">test-other</text>
+      <rect x="574.7" y="184.3" width="42" height="45.7" rx="4" fill="#0e8a66" opacity=".5"/>
+      <rect x="620.7" y="67.3" width="42" height="162.7" rx="4" fill="#0e8a66"/>
+      <text x="595.7" y="180.3" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">26.9</text>
+      <text x="641.7" y="63.3" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">95.7</text>
+      <text x="618.7" y="252" text-anchor="middle" font-size="10" fill="#1c2430" font-weight="700">SAR</text>
+      <text x="618.7" y="266" text-anchor="middle" font-size="9.5" fill="#9ca3af">Xiaowen</text>
+      <rect x="701.5" y="85.3" width="42" height="144.7" rx="4" fill="#0e8a66" opacity=".5"/>
+      <rect x="747.5" y="71.8" width="42" height="158.2" rx="4" fill="#0e8a66"/>
+      <text x="722.5" y="81.3" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">85.1</text>
+      <text x="768.5" y="67.8" text-anchor="middle" font-size="9.5" font-weight="700" fill="#374151">93.0</text>
+      <text x="745.5" y="252" text-anchor="middle" font-size="10" fill="#1c2430" font-weight="700">SAR</text>
+      <text x="745.5" y="266" text-anchor="middle" font-size="9.5" fill="#9ca3af">test-other</text>
+      <line x1="90" y1="230" x2="850" y2="230" stroke="#9ca3af"/>
+      <rect x="250" y="282" width="12" height="12" rx="3" fill="#9ca3af" opacity=".5"/><text x="268" y="293" font-size="10.5" fill="#47536a">无 MSD</text>
+      <rect x="340" y="282" width="12" height="12" rx="3" fill="#9ca3af"/><text x="358" y="293" font-size="10.5" fill="#47536a">有 MSD（掩码自蒸馏）</text>
+      <text x="70" y="320" font-size="12.5" fill="#0a6b4e" font-weight="600">三个观察：MSD 连 AR 也救（Xiaowen 4.40→26.30，但仍不够——推理必须真拿掉 predictor）；无 MSD 的 NAR 学不动（84.05/68.97）；</text>
+      <text x="70" y="342" font-size="12.5" fill="#8a93a5">MSD 非免费午餐：本已好的地方轻微掉点（AR test-clean 98.85→98.55）——「雪中送炭」型正则，收益全部来自把崩溃场景拉回来</text>
+    </svg>
+    <p class="cap"><b>掩码率扫描（表 2，LibriKWS-20 SAR）：</b>γ=0（标准 RNN-T）98.08/88.20 → 0.15 时 98.55/93.67 → <b>0.35 甜点 98.74/93.04</b> → 0.5 时 97.50/91.85。规律：适度掩码普遍优于不掩码，遮太多把有用语义也丢了。⚠ 0.15 在 test-other 上反而最高（93.67）却被放弃，选择准则未说明；消融只在 EN Arbitrary 一个场景做、0.35 通吃全部实验（也可读作跨场景稳健的加分项）。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 330" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">表 5 低 FA 剖析（Xiaowen，过拟合最严重的测试集，Recall%）：AR 阈值稍收紧就雪崩，NAR/SAR 全档平坦</text>
+      <line x1="90" y1="240.0" x2="850" y2="240.0" stroke="#f0f1f3"/>
+      <text x="84" y="244.0" text-anchor="end" font-size="11" fill="#9ca3af">0</text>
+      <line x1="90" y1="192.5" x2="850" y2="192.5" stroke="#f0f1f3"/>
+      <text x="84" y="196.5" text-anchor="end" font-size="11" fill="#9ca3af">25</text>
+      <line x1="90" y1="145.0" x2="850" y2="145.0" stroke="#f0f1f3"/>
+      <text x="84" y="149.0" text-anchor="end" font-size="11" fill="#9ca3af">50</text>
+      <line x1="90" y1="97.5" x2="850" y2="97.5" stroke="#f0f1f3"/>
+      <text x="84" y="101.5" text-anchor="end" font-size="11" fill="#9ca3af">75</text>
+      <line x1="90" y1="50.0" x2="850" y2="50.0" stroke="#f0f1f3"/>
+      <text x="84" y="54.0" text-anchor="end" font-size="11" fill="#9ca3af">100</text>
+      <polyline points="130.0,228.8 232.8,219.5 335.6,218.1 438.4,189.7 541.2,106.0 644.0,87.8 746.8,54.3 849.6,50.9" fill="none" stroke="#c0392b" stroke-width="2"/>
+      <circle cx="130.0" cy="228.8" r="3.5" fill="#c0392b"/><circle cx="232.8" cy="219.5" r="3.5" fill="#c0392b"/><circle cx="335.6" cy="218.1" r="3.5" fill="#c0392b"/><circle cx="438.4" cy="189.7" r="3.5" fill="#c0392b"/>
+      <polyline points="130.0,84.0 232.8,62.8 335.6,62.4 438.4,59.9 541.2,58.2 644.0,58.0 746.8,54.1 849.6,50.1" fill="none" stroke="#7cc7ad" stroke-width="2"/>
+      <polyline points="130.0,70.0 232.8,59.5 335.6,58.1 438.4,57.2 541.2,54.7 644.0,54.4 746.8,53.7 849.6,49.8" fill="none" stroke="#0e8a66" stroke-width="3"/>
+      <text x="130" y="262" text-anchor="middle" font-size="11" fill="#47536a">FA=1</text>
+      <text x="232.8" y="262" text-anchor="middle" font-size="11" fill="#47536a">FA=2</text>
+      <text x="335.6" y="262" text-anchor="middle" font-size="11" fill="#47536a">FA=3</text>
+      <text x="438.4" y="262" text-anchor="middle" font-size="11" fill="#47536a">FA=4</text>
+      <text x="541.2" y="262" text-anchor="middle" font-size="11" fill="#47536a">FA=5</text>
+      <text x="644.0" y="262" text-anchor="middle" font-size="11" fill="#47536a">FA=6</text>
+      <text x="746.8" y="262" text-anchor="middle" font-size="11" fill="#47536a">FA=12</text>
+      <text x="849.6" y="262" text-anchor="middle" font-size="11" fill="#47536a">FA=24</text>
+      <text x="470" y="284" text-anchor="middle" font-size="10.5" fill="#9ca3af">固定误唤醒个数（越小越严苛）</text>
+      <text x="150" y="60" font-size="11" fill="#c0392b" font-weight="700">AR：FA=1 时仅 5.90</text>
+      <text x="150" y="80" font-size="10" fill="#8a93a5">放宽到 12/24 才追平——典型过拟合形态</text>
+      <text x="560" y="80" font-size="11" fill="#0a6b4e" font-weight="700">SAR FA=1 达 89.49</text>
+      <text x="560" y="100" font-size="10" fill="#5f8a76">（比 NAR 高 7.4：AR 分数在极低 FA 区仍有效）</text>
+      <text x="70" y="312" font-size="12.5" fill="#0a6b4e" font-weight="600">NAR/SAR 曲线平坦（82→99 vs AR 的 6→99）——掩码训练把「阈值敏感性」这个部署端最头疼的性质一并治了</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">四条可转述的判断</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>病灶精确定位 + 最小干预</b><br><span style="font-size:14.5px;color:var(--ink-2)">过拟合定位到 predictor 的固定 transcript 记忆；不改架构不加阶段不加外部教师，三个超参（1 / 0.003 / 0.35）在训练框架内部解决。</span></div>
+    <div class="c"><span class="n">2</span><b>NAR 解码首次实用化</b><br><span style="font-size:14.5px;color:var(--ink-2)">MSD 解锁「推理时丢弃 predictor」——模型退化为无状态声学模型，过拟合载体物理移除（Xiaowen 26.30→95.33）。</span></div>
+    <div class="c"><span class="n">3</span><b>SAR 单模型双模式</b><br><span style="font-size:14.5px;color:var(--ink-2)">关键词 lattice 上并行 AR/NAR 递推 + 单 α 旋钮适配场景干净度——五测试集全最优，低 FA 区优势最大。</span></div>
+    <div class="c"><span class="n">4</span><b>完整机理证据链</b><br><span style="font-size:14.5px;color:var(--ink-2)">表 2（掩码率甜点）、表 4（蒸馏开关双向效应 +14.5/+18.0/+16.6）、表 5（低 FA 剖析）——「过拟合来自哪、掩码为何有效、收益代价在哪」全部讲圆。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">双 joiner 双 lattice 的端侧代价未量化</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法的技术局限</h4>
+      <ul>
+        <li><b>推理开销未报告</b>：SAR 同时算两套后验 + 维护双份 lattice 递推——参数量 / FLOPs / RTF / 内存 / 功耗全零数字；端侧对这些极敏感，「双倍 joiner」是否可承受需量化。</li>
+        <li><b>α 是手工场景旋钮</b>：EN 0.5 / ZH 噪声 0.3——部署方需先验知道场景干净度；无 α 扫描曲线、无自适应方案。</li>
+        <li><b>训练成本</b>：每样本双前向 ≈ 两倍前向计算——训练时长对比未报。</li>
+        <li><b>训练-推理掩码不一致</b>：训练 0.35 部分置零 vs NAR 推理全置零——分布 gap 靠什么弥合（推测 KL 蒸馏的分布平滑性）无消融支撑。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>缺外部 SOTA 正面对比</b>：被引为动机的 CaTT-KWS / U2-KWS 没进表 head-to-head——「优于多阶段」的暗示缺直接数据。</li>
+        <li><b>掩码率消融只覆盖一个场景</b>：0.15 在 test-other 更高却被放弃，准则未说明。</li>
+        <li><b>中英文场景不均衡</b>：EN 20 个任意词 vs 中文 2 个固定词——「任意关键词 + 噪声」这个 MSD 理论上最该发力的组合没测。</li>
+        <li><b>Xiaowen AR 崩溃归因略单一</b>：AISHELL-2 种子偏干净朗读——可能是噪声覆盖不足与 predictor 过拟合双因素；未做「更强噪声增广能否单独救 AR」的对照。</li>
+        <li><b>Snips 负样本细节缺失</b>：97h 负样本含训练集负样本且用于 FA 评测——若训练侧也用，FA 数字有乐观风险。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">下一步方向（论文展望 + 笔者补充）</h3>
+    <p style="margin:6px 0"><b>① α 自适应化</b>：在线 SNR 估计 / 双路分数分歧度 / 轻量门控动态加权——消除部署前的人工场景判断。<br>
+    <b>② 量化并压缩 SAR 端侧成本</b>：实测双 joiner + 双 lattice 延迟功耗；把 NAR 鲁棒性蒸馏回单路推理（掩码分支能力固化进 encoder）。<br>
+    <b>③ 补齐对比与场景</b>：与 U2-KWS / CaTT-KWS 正面对比；「任意关键词 + 远场噪声」组合验证；报参数量与 RTF。<br>
+    <b>④ 掩码策略升级</b>：结构化掩码（按音素段 / 按 predictor 层）或训练-推理一致的渐变课程，缩小 0.35 与全零的 gap。<br>
+    <b>⑤ 范式外推</b>：「目标序列高度固定 → predictor 过拟合」并非 KWS 独有——定制唤醒词、固定命令词、TTS 固定提示词有同构病灶，MSD 可直接迁移验证。</p>
+  </div>
+</section>
+
+<footer>
+  <p><b>论文精读 · 可视化版</b> · 2025 №24 · 掩码自蒸馏 Transducer KWS（上海交大 X-LANCE × 阿里淘天，arXiv 2025）</p>
+  <p>数据来源：论文表 1–5、图 1、算法 1（经由本库深读笔记核对，含正文笔误标注）。图表坐标由脚本从论文原表计算生成。</p>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2025/Masked_Self-distilled_Transducer-based_Keyword_Spotting_With_Semi-autoregressive_Decoding.md">📄 深读笔记</a>
+    <a class="pill" href="/papers/2025/Masked_Self-distilled_Transducer-based_Keyword_Spotting_With_Semi-autoregressive_Decoding.pdf">📕 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2505.24820" target="_blank">🔗 arXiv:2505.24820</a>
+    <a class="pill" href="/">← 返回论文库</a>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>
