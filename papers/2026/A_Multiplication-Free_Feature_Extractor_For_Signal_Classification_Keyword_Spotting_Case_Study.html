@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>无乘法特征提取器 iRDT · 论文精读可视化</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink-2: #47536a; --ink-3: #8a93a5;
+    --accent: #0e8a66; --accent-soft: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font: 16px/1.75 -apple-system, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px 80px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 10; background: rgba(246,246,242,.92);
+    backdrop-filter: blur(6px); border-bottom: 1px solid var(--line);
+  }
+  .topbar .in { max-width: 980px; margin: 0 auto; padding: 10px 24px;
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .topbar .site { font-weight: 700; color: var(--ink); }
+  .topbar .links { margin-left: auto; display: flex; gap: 16px; font-size: 14px; }
+
+  .kicker { color: var(--accent); font-size: 13px; font-weight: 700;
+    letter-spacing: .18em; text-transform: uppercase; margin: 0 0 6px; }
+  .hero h1 { font-size: 30px; line-height: 1.35; margin: 6px 0 4px; }
+  .hero .sub { font-size: 16px; color: var(--ink-2); margin: 0 0 14px; }
+  .meta { font-size: 14px; color: var(--ink-2); margin: 10px 0; }
+  .meta b { color: var(--ink); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+  .chip { background: var(--accent-soft); color: #0a6b4e; border-radius: 13px;
+    padding: 2px 12px; font-size: 13px; }
+
+  .tldr {
+    background: linear-gradient(135deg, #0e8a66 0%, #0b6e52 100%);
+    color: #fff; border-radius: 14px; padding: 20px 26px; margin: 26px 0 8px;
+  }
+  .tldr h2 { margin: 0 0 8px; font-size: 16px; letter-spacing: .06em; }
+  .tldr li { margin: 4px 0; }
+  .tldr a { color: #c8f4e2; }
+
+  section { margin-top: 56px; }
+  h2.sec { font-size: 24px; margin: 0 0 4px; }
+  .sec-line { width: 44px; height: 4px; background: var(--accent);
+    border-radius: 2px; margin: 10px 0 18px; }
+  h3 { font-size: 18px; margin: 26px 0 10px; }
+
+  .card { background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 20px 24px; margin: 16px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 18px 20px 12px; margin: 18px 0; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  .fig .cap { font-size: 13.5px; color: var(--ink-3); margin-top: 8px;
+    border-top: 1px dashed var(--line); padding-top: 8px; }
+  .fig .cap b { color: var(--ink-2); }
+
+  .formula { background: #f9faf7; border-left: 4px solid var(--accent);
+    border-radius: 0 10px 10px 0; padding: 12px 20px; margin: 14px 0;
+    font-family: Georgia, "Times New Roman", serif; font-size: 17px; }
+  .formula .why { font-family: inherit; font-size: 14px; color: var(--ink-2);
+    margin-top: 6px; font-family: -apple-system, "Noto Sans SC", sans-serif; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+
+  table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.tbl th { text-align: left; color: var(--ink-2); font-weight: 600;
+    border-bottom: 2px solid var(--line); padding: 8px 10px; }
+  table.tbl td { border-bottom: 1px solid var(--line); padding: 8px 10px; vertical-align: top; }
+  table.tbl td:first-child { white-space: nowrap; font-weight: 600; color: var(--ink); }
+
+  .contrib { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .contrib { grid-template-columns: 1fr; } }
+  .contrib .c { background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 18px; }
+  .contrib .n { display: inline-flex; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: #fff; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; margin-right: 8px; }
+  .contrib b { display: inline; }
+
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .lim { grid-template-columns: 1fr; } }
+  .lim .col { background: #fbfaf6; border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; }
+  .lim h4 { margin: 0 0 8px; font-size: 15px; color: var(--warn); }
+  .lim ul { margin: 0; padding-left: 18px; }
+  .lim li { margin: 6px 0; font-size: 14.5px; color: var(--ink-2); }
+
+  footer { margin-top: 60px; border-top: 1px solid var(--line); padding-top: 18px;
+    font-size: 13.5px; color: var(--ink-3); }
+  .pill-btns { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+  .pill { border: 1.5px solid var(--accent); color: var(--accent); border-radius: 18px;
+    padding: 5px 16px; font-size: 14px; font-weight: 600; }
+  .pill:hover { background: var(--accent-soft); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2026/A_Multiplication-Free_Feature_Extractor_For_Signal_Classification_Keyword_Spotting_Case_Study.md">深读笔记</a>
+    <a href="/papers/2026/A_Multiplication-Free_Feature_Extractor_For_Signal_Classification_Keyword_Spotting_Case_Study.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2608.17108" target="_blank">arXiv</a>
+    <a href="https://github.com/radu-dogaru/rdt_transform_for_tiny_ml_signal_classifiers/tree/main/Keyword_Spotting" target="_blank">代码</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= HERO ================= -->
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2026 №1</p>
+  <h1>无乘法特征提取器 iRDT<br>面向关键词检测的信号分类案例研究</h1>
+  <p class="sub">A Multiplication-Free Feature Extractor for Signal Classification: Keyword Spotting Case Study</p>
+  <p class="meta"><b>作者</b>：Radu Dogaru, Ioana Dogaru —— 布加勒斯特国立理工科技大学 POLITEHNICA（罗马尼亚）</p>
+  <p class="meta"><b>发表</b>：2026.08 · arXiv:2608.17108 · TinyML / 边缘智能方向</p>
+  <div class="chips">
+    <span class="chip">无乘法特征提取</span><span class="chip">iRDT 反应-扩散变换</span>
+    <span class="chip">一维拉普拉斯</span><span class="chip">INT8 量化</span>
+    <span class="chip">TinyML 低功耗</span><span class="chip">Google KWS 12 类</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>把 KWS 前端里的乘法<b>全部</b>换成「加减 · 取绝对值 · 移位」三种整数运算，精度与 MFCC 打平（94.73% vs 94.40%，VRES 分类器），特征提取快 <b>33 倍</b>（0.2 ms vs 6.7 ms）。</li>
+      <li>核心思想只有一句话：<b>「延迟即频道」</b>——多个尺度的对称二阶差分 + 绝对值累加 ≈ 一组对数间距的滤波器组，直接张出伪谱图，不需要 FFT、Mel、DCT。</li>
+      <li>没有可学习参数，表达力全部来自 3 个手工超参（w / chan / win_per_segm），特征尺寸 246–750 连续可调，复杂度解析式 Ops ≈ 5mN。</li>
+      <li>最硬核的工程细节：log₂(1+x) 压缩把 INT8 量化掉点从 2~2.5 个点压到 0.1 以内，且这条 log 本身用查表实现——<b>修复手段也零乘法</b>。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">算力的大头不在神经网络，在特征提取</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 150" role="img">
+      <text x="50" y="25" fill="#374151" font-size="15" font-weight="600">资源受限 MCU 系统实测（动物声识别，文献[7]，2026）</text>
+      <rect x="50" y="40" width="775" height="46" rx="4" fill="#c0392b"/>
+      <rect x="824.8" y="40" width="5.2" height="46" rx="2" fill="#0e8a66"/>
+      <text x="437" y="68" text-anchor="middle" fill="#fff" font-size="17" font-weight="600">MFCC 特征提取前端 300 ms（99.3%）</text>
+      <text x="60" y="118" fill="#6b7280" font-size="14">整条链路 302 ms，分类器只占 2 ms —— 优化火力该对准谁，一目了然</text>
+    </svg>
+    <p class="cap"><b>为什么盯着前端打</b>：分类器一侧（DS-CNN 只有 2.1–4.7 K-MAC 量级）已经足够小，前端的常数开销才是主要矛盾——压分类器收益递减，压前端一本万利。</p>
+  </div>
+
+  <h3>乘法为什么是「原罪」</h3>
+  <p>Mel 频谱（MFCC）流水线的四段——FFT 内部乘法与余弦、Mel 滤波器组加权乘法、对数运算、DCT 余弦乘法——三段离不开乘法器和超越函数。而底层硬件的账本很清楚（Horowitz, ISSCC 2014 经典能耗分析）：</p>
+  <div class="card">
+    <table class="tbl">
+      <tr><th>运算</th><th>相对能耗</th><th>在无 FPU 的 MCU 上</th></tr>
+      <tr><td>整数加 / 减</td><td>1×（基准）</td><td>1 个周期级</td></tr>
+      <tr><td>乘法 / 浮点运算</td><td><b style="color:var(--warn)">高约一个数量级</b></td><td>浮点乘法烧掉几十个时钟周期</td></tr>
+    </table>
+  </div>
+  <p>换句话说：<b>「特征提取器里还有乘法」本身就是 TinyML 场景的原罪</b>。而主流框架（EdgeImpulse 等）基本只提供 MFCC 这类谱特征——开发者实际上没有「便宜的特征」可选。</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">现有方案 A：MFCC 谱特征</h3>
+      <ul>
+        <li>精度成熟、生态最广；</li>
+        <li>但计算密集（乘法 + 余弦 + 对数），FPGA / 低功耗 MCU 实现不友好；</li>
+        <li>FFT 窗口、Mel 滤波器组需要 DSP 单元或多位乘法器。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">现有方案 B：CNN 自编码器特征（基线 [8]）</h3>
+      <ul>
+        <li>报告精度优于 MFCC，但训练开销大；</li>
+        <li>依赖含乘法的卷积算子——复杂度问题原封不动；</li>
+        <li>换一类信号（语音 → 超声 / EEG）必须整个重训，不可迁移。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="formula">
+    两类方法都没碰的根本问题：<b>特征提取这一步能否彻底放弃乘法，同时不损失判别力？</b>
+    <div class="why">约束条件：Google 12 类 KWS 数据集、与基线完全相同的实验设置；准确率差距 ≤ 1 个点；计算时间压低至少一个数量级；硬件足迹压到极少量逻辑门。</div>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">iRDT：用整数运算张出一张「伪谱图」</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 372" role="img">
+      <!-- 零乘法徽章 -->
+      <rect x="185" y="12" width="330" height="30" rx="15" fill="#0e8a66"/>
+      <text x="350" y="32" text-anchor="middle" fill="#fff" font-size="14.5" font-weight="700">全程无乘法：加 / 减 · 取绝对值 |x| · 移位 ×2</text>
+
+      <!-- 输入块 -->
+      <rect x="18" y="118" width="128" height="128" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <polyline points="30,182 42,176 50,190 58,168 66,196 74,178 82,186 90,160 98,200 106,172 114,188 122,170 130,182 138,176"
+        fill="none" stroke="#47536a" stroke-width="1.8"/>
+      <text x="82" y="222" text-anchor="middle" font-size="13" fill="#47536a">1 秒 @ 16 kHz</text>
+      <text x="82" y="238" text-anchor="middle" font-size="12" fill="#8a93a5">16,000 样点 int16</text>
+      <text x="82" y="266" text-anchor="middle" font-size="12.5" fill="#8a93a5">定长输入（iRDTv 版）</text>
+
+      <!-- 箭头 1 -->
+      <line x1="146" y1="182" x2="181" y2="182" stroke="#0e8a66" stroke-width="2.5"/>
+      <polygon points="181,182 173,177 173,187" fill="#0e8a66"/>
+
+      <!-- iRDT 主块 -->
+      <rect x="185" y="58" width="330" height="248" rx="12" fill="#eaf6f0" stroke="#0e8a66" stroke-width="2"/>
+      <text x="350" y="82" text-anchor="middle" font-size="15.5" font-weight="700" fill="#0a6b4e">iRDTv 特征提取器</text>
+
+      <rect x="203" y="98" width="176" height="34" rx="6" fill="#fff" stroke="#b9dccb"/>
+      <text x="291" y="120" text-anchor="middle" font-size="13" fill="#1c2430">① 滑窗切分　w = 64</text>
+      <rect x="203" y="140" width="176" height="34" rx="6" fill="#fff" stroke="#b9dccb"/>
+      <text x="291" y="162" text-anchor="middle" font-size="13" fill="#1c2430">② 延迟通道 d ∈ {1,2,4,…,32}</text>
+      <rect x="203" y="182" width="176" height="34" rx="6" fill="#fff" stroke="#b9dccb"/>
+      <text x="291" y="204" text-anchor="middle" font-size="13" fill="#1c2430">③ 对称二阶差分 + |x|</text>
+      <rect x="203" y="224" width="176" height="34" rx="6" fill="#fff" stroke="#b9dccb"/>
+      <text x="291" y="246" text-anchor="middle" font-size="13" fill="#1c2430">④ 窗内累加 + 帧内平均</text>
+      <text x="291" y="284" text-anchor="middle" font-size="12.5" fill="#5f8a76">3 个超参旋钮：w · chan · win_per_segm</text>
+
+      <!-- 伪谱图 mini grid -->
+      <rect x="395" y="98" width="102" height="130" rx="6" fill="#fff" stroke="#b9dccb"/>
+      <g fill="#0e8a66">
+        <rect x="403" y="106" width="9" height="12" opacity=".25"/><rect x="414" y="106" width="9" height="12" opacity=".5"/><rect x="425" y="106" width="9" height="12" opacity=".15"/><rect x="436" y="106" width="9" height="12" opacity=".8"/><rect x="447" y="106" width="9" height="12" opacity=".35"/><rect x="458" y="106" width="9" height="12" opacity=".6"/><rect x="469" y="106" width="9" height="12" opacity=".2"/><rect x="480" y="106" width="9" height="12" opacity=".45"/>
+        <rect x="403" y="121" width="9" height="12" opacity=".7"/><rect x="414" y="121" width="9" height="12" opacity=".2"/><rect x="425" y="121" width="9" height="12" opacity=".55"/><rect x="436" y="121" width="9" height="12" opacity=".3"/><rect x="447" y="121" width="9" height="12" opacity=".9"/><rect x="458" y="121" width="9" height="12" opacity=".15"/><rect x="469" y="121" width="9" height="12" opacity=".5"/><rect x="480" y="121" width="9" height="12" opacity=".25"/>
+        <rect x="403" y="136" width="9" height="12" opacity=".4"/><rect x="414" y="136" width="9" height="12" opacity=".75"/><rect x="425" y="136" width="9" height="12" opacity=".25"/><rect x="436" y="136" width="9" height="12" opacity=".5"/><rect x="447" y="136" width="9" height="12" opacity=".2"/><rect x="458" y="136" width="9" height="12" opacity=".65"/><rect x="469" y="136" width="9" height="12" opacity=".35"/><rect x="480" y="136" width="9" height="12" opacity=".8"/>
+        <rect x="403" y="151" width="9" height="12" opacity=".15"/><rect x="414" y="151" width="9" height="12" opacity=".45"/><rect x="425" y="151" width="9" height="12" opacity=".85"/><rect x="436" y="151" width="9" height="12" opacity=".3"/><rect x="447" y="151" width="9" height="12" opacity=".55"/><rect x="458" y="151" width="9" height="12" opacity=".1"/><rect x="469" y="151" width="9" height="12" opacity=".7"/><rect x="480" y="151" width="9" height="12" opacity=".4"/>
+        <rect x="403" y="166" width="9" height="12" opacity=".6"/><rect x="414" y="166" width="9" height="12" opacity=".3"/><rect x="425" y="166" width="9" height="12" opacity=".5"/><rect x="436" y="166" width="9" height="12" opacity=".95"/><rect x="447" y="166" width="9" height="12" opacity=".25"/><rect x="458" y="166" width="9" height="12" opacity=".75"/><rect x="469" y="166" width="9" height="12" opacity=".45"/><rect x="480" y="166" width="9" height="12" opacity=".2"/>
+        <rect x="403" y="181" width="9" height="12" opacity=".3"/><rect x="414" y="181" width="9" height="12" opacity=".65"/><rect x="425" y="181" width="9" height="12" opacity=".15"/><rect x="436" y="181" width="9" height="12" opacity=".6"/><rect x="447" y="181" width="9" height="12" opacity=".4"/><rect x="458" y="181" width="9" height="12" opacity=".85"/><rect x="469" y="181" width="9" height="12" opacity=".3"/><rect x="480" y="181" width="9" height="12" opacity=".55"/>
+        <rect x="403" y="196" width="9" height="12" opacity=".5"/><rect x="414" y="196" width="9" height="12" opacity=".2"/><rect x="425" y="196" width="9" height="12" opacity=".7"/><rect x="436" y="196" width="9" height="12" opacity=".35"/><rect x="447" y="196" width="9" height="12" opacity=".65"/><rect x="458" y="196" width="9" height="12" opacity=".25"/><rect x="469" y="196" width="9" height="12" opacity=".9"/><rect x="480" y="196" width="9" height="12" opacity=".3"/>
+      </g>
+      <text x="446" y="246" text-anchor="middle" font-size="12.5" fill="#5f8a76">M × m int32 伪谱图</text>
+      <text x="446" y="262" text-anchor="middle" font-size="11.5" fill="#8a93a5">形状刻意对齐 MFCC 谱图</text>
+
+      <!-- 箭头 2 -->
+      <line x1="515" y1="182" x2="550" y2="182" stroke="#0e8a66" stroke-width="2.5"/>
+      <polygon points="550,182 542,177 542,187" fill="#0e8a66"/>
+
+      <!-- Scaler -->
+      <rect x="554" y="128" width="96" height="108" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="602" y="160" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">Scaler</text>
+      <text x="602" y="182" text-anchor="middle" font-size="12" fill="#47536a">查表线性缩放</text>
+      <text x="602" y="200" text-anchor="middle" font-size="11.5" fill="#8a93a5">scale=8</text>
+      <text x="602" y="216" text-anchor="middle" font-size="11.5" fill="#8a93a5">xmi=0 / xma=296</text>
+
+      <!-- 箭头 3 -->
+      <line x1="650" y1="182" x2="685" y2="182" stroke="#0e8a66" stroke-width="2.5"/>
+      <polygon points="685,182 677,177 677,187" fill="#0e8a66"/>
+
+      <!-- CNN -->
+      <rect x="689" y="118" width="112" height="128" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.5"/>
+      <text x="745" y="150" text-anchor="middle" font-size="14" font-weight="700" fill="#1c2430">CNN 分类器</text>
+      <text x="745" y="174" text-anchor="middle" font-size="12" fill="#47536a">DS-CNN（Hello Edge）</text>
+      <text x="745" y="192" text-anchor="middle" font-size="12" fill="#47536a">或 VRES-CNN</text>
+      <text x="745" y="216" text-anchor="middle" font-size="11.5" fill="#8a93a5">2.1–7.8 K-MAC</text>
+
+      <!-- 箭头 4 -->
+      <line x1="801" y1="182" x2="836" y2="182" stroke="#0e8a66" stroke-width="2.5"/>
+      <polygon points="836,182 828,177 828,187" fill="#0e8a66"/>
+
+      <!-- 输出 -->
+      <rect x="840" y="128" width="66" height="108" rx="10" fill="#0e8a66"/>
+      <text x="873" y="170" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">12 类</text>
+      <text x="873" y="192" text-anchor="middle" font-size="11" fill="#cdeede">Yes/No/…</text>
+      <text x="873" y="208" text-anchor="middle" font-size="11" fill="#cdeede">Silent/Unknown</text>
+
+      <!-- 底部耗时标注 -->
+      <line x1="185" y1="322" x2="515" y2="322" stroke="#0e8a66" stroke-width="1" stroke-dasharray="4 3"/>
+      <text x="350" y="345" text-anchor="middle" font-size="13" fill="#0a6b4e" font-weight="600">0.2–0.3 ms · 480k int32 ops（Ops ≈ 5mN）</text>
+      <line x1="689" y1="322" x2="906" y2="322" stroke="#8a93a5" stroke-width="1" stroke-dasharray="4 3"/>
+      <text x="800" y="345" text-anchor="middle" font-size="13" fill="#8a93a5">分类器 ≈ 1 ms，全链路 ≈ 1.2 ms</text>
+    </svg>
+    <p class="cap"><b>整条链路（论文 Fig.2）</b>：刻意保留 M×m 的 2D 输出格式对齐 MFCC 谱图形状——换特征不换分类器，现有 CNN 生态零改动可用，对比实验也因此公平。</p>
+  </div>
+
+  <h3>基本计算单元：一维拉普拉斯（对称二阶差分）</h3>
+  <div class="fig">
+    <svg viewBox="0 0 920 216" role="img">
+      <!-- 波形 + 三个采样点 -->
+      <polyline points="40,120 80,96 120,150 160,84 200,132 240,102 280,140 320,110 360,126 400,92 440,118 480,140 520,100"
+        fill="none" stroke="#b9c2d0" stroke-width="2"/>
+      <line x1="160" y1="60" x2="160" y2="170" stroke="#8a93a5" stroke-dasharray="3 4"/>
+      <line x1="280" y1="60" x2="280" y2="170" stroke="#8a93a5" stroke-dasharray="3 4"/>
+      <line x1="400" y1="60" x2="400" y2="170" stroke="#8a93a5" stroke-dasharray="3 4"/>
+      <circle cx="160" cy="84" r="7" fill="#d97a2b"/>
+      <circle cx="280" cy="140" r="7" fill="#0e8a66"/>
+      <circle cx="400" cy="92" r="7" fill="#d97a2b"/>
+      <text x="160" y="190" text-anchor="middle" font-size="14" fill="#b0631d" font-weight="600">s(t−d)</text>
+      <text x="280" y="190" text-anchor="middle" font-size="14" fill="#0a6b4e" font-weight="600">s(t)</text>
+      <text x="400" y="190" text-anchor="middle" font-size="14" fill="#b0631d" font-weight="600">s(t+d)</text>
+      <text x="280" y="210" text-anchor="middle" font-size="12" fill="#8a93a5">在窗内中央区域（lim = w/4 裁边）滑动累加</text>
+
+      <!-- 公式 -->
+      <text x="620" y="88" text-anchor="middle" font-size="20" font-style="italic" font-family="Georgia, serif" fill="#1c2430">L<tspan baseline-shift="sub" font-size="14">d</tspan>(t) = s(t−d) + s(t+d) − 2·s(t)</text>
+      <!-- 操作数账本 -->
+      <g font-size="13.5">
+        <rect x="470" y="112" width="86" height="30" rx="15" fill="#eaf6f0" stroke="#0e8a66"/><text x="513" y="132" text-anchor="middle" fill="#0a6b4e">4 次加法</text>
+        <rect x="564" y="112" width="106" height="30" rx="15" fill="#eaf6f0" stroke="#0e8a66"/><text x="617" y="132" text-anchor="middle" fill="#0a6b4e">1 次移位 (×2)</text>
+        <rect x="678" y="112" width="106" height="30" rx="15" fill="#eaf6f0" stroke="#0e8a66"/><text x="731" y="132" text-anchor="middle" fill="#0a6b4e">1 次取绝对值</text>
+        <rect x="792" y="112" width="118" height="30" rx="15" fill="#f3ede2" stroke="#d97a2b"/><text x="851" y="132" text-anchor="middle" fill="#b0631d">3 次 SRAM 读取</text>
+      </g>
+      <text x="620" y="176" text-anchor="middle" font-size="14" fill="#47536a" font-weight="600">= 每次内层迭代恰好 9 个简单操作（论文按 MCU 周期级颗粒度记账）</text>
+    </svg>
+  </div>
+
+  <h3>「延迟即频道」：一个近似对数间距的滤波器组</h3>
+  <p>论文没有做频域分析，但传递函数一算就明白（笔记者推导）：L<sub>d</sub> 的传递函数为 H(e<sup>jω</sup>) = e<sup>−jωd</sup> + e<sup>jωd</sup> − 2 = <b>−4sin²(ωd/2)</b>——直流处恒为零（抑制漂移），主峰位于 f = f<sub>s</sub>/(2d)。在 16 kHz 采样下，默认延迟列表 d = [1, 2, 4, 8, 16, 32] 恰好对应六个倍频程通道：</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 268" role="img">
+      <!-- 轴 -->
+      <line x1="60" y1="212" x2="880" y2="212" stroke="#9ca3af" stroke-width="1.5"/>
+      <g font-size="12.5" fill="#8a93a5" text-anchor="middle">
+        <text x="235" y="234">250 Hz</text><text x="353" y="234">500 Hz</text><text x="470" y="234">1 kHz</text>
+        <text x="588" y="234">2 kHz</text><text x="705" y="234">4 kHz</text><text x="823" y="234">8 kHz</text>
+      </g>
+      <g font-size="12" fill="#8a93a5" text-anchor="middle">
+        <text x="235" y="252">d=32</text><text x="353" y="252">d=16</text><text x="470" y="252">d=8</text>
+        <text x="588" y="252">d=4</text><text x="705" y="252">d=2</text><text x="823" y="252">d=1</text>
+      </g>
+      <!-- 6 个通道响应（第一瓣示意） -->
+      <g fill="none" stroke-width="3.5" stroke-linecap="round" opacity="0.9">
+        <path d="M 150,212 Q 235,42 320,212" stroke="#0b6e52"/>
+        <path d="M 268,212 Q 353,72 438,212" stroke="#0e8a66"/>
+        <path d="M 385,212 Q 470,102 555,212" stroke="#2aa18a"/>
+        <path d="M 503,212 Q 588,132 673,212" stroke="#4fb5a0"/>
+        <path d="M 620,212 Q 705,162 790,212" stroke="#7cc7ad"/>
+        <path d="M 738,212 Q 823,182 908,212" stroke="#a5dbc9"/>
+      </g>
+      <!-- 顶部标注 -->
+      <rect x="60" y="14" width="380" height="30" rx="15" fill="#f3ede2" stroke="#d97a2b"/>
+      <text x="250" y="34" text-anchor="middle" font-size="13.5" fill="#b0631d" font-weight="600">|H| = 4sin²(πfd/fₛ)：梳状响应，取第一峰示意</text>
+      <text x="60" y="66" font-size="13.5" fill="#47536a">「延迟取 2 的幂」⇒ 等效构造</text>
+      <text x="60" y="88" font-size="13.5" fill="#47536a"><tspan font-weight="700" fill="#0a6b4e">对数间距（类 Mel 刻度）滤波器组</tspan></text>
+      <text x="60" y="110" font-size="13" fill="#8a93a5">窗内绝对值累加 ≈ 该频段短时能量（用 |x| 替代平方，避开乘法）</text>
+    </svg>
+    <p class="cap"><b>这个解读同时解释了两个实验现象</b>：密延迟列表（插入 6/12/24）在同等特征尺寸下精度更好——频率轴采样更密；w=128 表现差——最短时间粒度变粗。</p>
+  </div>
+
+  <h3>复杂度模型：两个整数决定一切</h3>
+  <div class="formula">
+    Ops(iRDTv) ≈ <b>5mN</b>
+    <div class="why">N = 信号长度，m = 通道数。代入 N=16000、m=6 → 480k 次 int32 操作。对照：同信号 MFCC（FFT 窗 2048 / hop 512 / 13 系数）约 3M flops，且混着乘法与三角函数——操作数差 6 倍，再叠加「整数加减 vs 浮点乘加」的单操作代价差，构成实测 0.2 ms vs 6.7 ms（约 33 倍）时延差距的底层解释。</div>
+  </div>
+
+  <h3>三个超参数 = 一套「复杂度–精度」旋钮</h3>
+  <div class="card">
+    <table class="tbl">
+      <tr><th>超参数</th><th>取值规则</th><th>作用机理</th></tr>
+      <tr><td>w（滑窗长）</td><td>取 2 的幂；KWS 选 64</td><td>决定最细时间粒度与延迟上限（d<sub>m</sub> ≤ w/2）；w=128 实测系统性偏差</td></tr>
+      <tr><td>chan（延迟列表）</td><td>2 的幂次列表，默认 [1,2,4,8,16,32]</td><td>决定频率轴通道分布；可插中间延迟加密频率采样，代价是 m 增大、操作数线性上涨</td></tr>
+      <tr><td>win_per_segm</td><td>最关键参数</td><td>直接决定帧数 M 与特征尺寸 M×m，进而线性决定下游分类器 K-MAC</td></tr>
+    </table>
+  </div>
+  <p>价值在于：<b>前端复杂度（线性于 m）和后端复杂度（线性于 M×m）被同一组旋钮连续调节</b>——工程师按目标平台预算在精度-复杂度曲线上滑动选点，而不是在 MFCC-13 / MFCC-20 几个预制档位之间跳选。</p>
+
+  <h3>log₂(1+x)：救活 8-bit 量化的关键一招</h3>
+  <p>问题链路：TinyML 部署要求 INT8 → 原始 iRDT 输出是<b>线性</b>能量的整数累加和，数值跨度大，8-bit 均匀量化的分辨率被大面积浪费（MFCC 流水线自带对数压缩，所以没这个问题）。修复：输出端追加 log₂(1+x)——不破坏无乘法性质，MCU 上用 Flash 预计算查找表实现，零乘法开销：</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 220" role="img">
+      <text x="318" y="47" text-anchor="end" font-size="13.5" fill="#374151">原始 iRDT 输出（线性整数能量）</text>
+      <rect x="330" y="30" width="376" height="26" rx="4" fill="#c0392b"/>
+      <text x="716" y="48" font-size="13.5" font-weight="600" fill="#111827">2 ~ 2.5 点</text>
+      <text x="318" y="91" text-anchor="end" font-size="13.5" fill="#374151">MFCC-13（自带 log 压缩）</text>
+      <rect x="330" y="74" width="88" height="26" rx="4" fill="#d97a2b"/>
+      <text x="428" y="92" font-size="13.5" font-weight="600" fill="#111827">≤ 0.6 点</text>
+      <text x="318" y="135" text-anchor="end" font-size="13.5" fill="#374151">iRDT + log₂(1+x)（本文修复）</text>
+      <rect x="330" y="118" width="16" height="26" rx="4" fill="#0e8a66"/>
+      <text x="356" y="136" font-size="13.5" font-weight="600" fill="#111827">≤ 0.1 点</text>
+      <text x="318" y="179" text-anchor="end" font-size="13.5" fill="#374151">iRDT + 移位近似 log（0-9 整数谱）</text>
+      <rect x="330" y="162" width="448" height="26" rx="4" fill="#7cc7ad"/>
+      <text x="788" y="180" font-size="13.5" font-weight="600" fill="#111827">绝对损失 &lt; 3%</text>
+      <text x="330" y="212" font-size="12.5" fill="#9ca3af">INT8 量化后的准确率掉点（越小越好）；修复手段本身零乘法（查表 / 移位）</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">数据说话：打平 MFCC，快 33 倍</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据与设置</b>：Google Speech Commands（MLPerf Tiny 基准）构造 12 类、每类 3772 条、共约 45,264 条 1 秒片段——10 个命令词 + 均衡合成的 Silent / Unknown 两类；80% 训练 / 20% 验证；200 epochs、batch 48；与基线 [8] 完全同款 setup（同数据、同划分、同分类器），保证横向可比。
+  </div>
+
+  <h3>主对比：两个分类器上的准确率（Table II）</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 285" role="img">
+      <g transform="translate(0,0)">
+        <text x="215" y="20" text-anchor="middle" font-size="15" font-weight="700" fill="#111827">DS-CNN 分类器 · 验证准确率 %（左条 float / 右条 INT8）</text>
+        <line x1="42" y1="235" x2="420" y2="235" stroke="#f0f1f3"/><text x="36" y="239" text-anchor="end" font-size="12" fill="#9ca3af">89.5</text>
+        <line x1="42" y1="205" x2="420" y2="205" stroke="#f0f1f3"/><text x="36" y="209" text-anchor="end" font-size="12" fill="#9ca3af">90.0</text>
+        <line x1="42" y1="175" x2="420" y2="175" stroke="#f0f1f3"/><text x="36" y="179" text-anchor="end" font-size="12" fill="#9ca3af">90.5</text>
+        <line x1="42" y1="145" x2="420" y2="145" stroke="#f0f1f3"/><text x="36" y="149" text-anchor="end" font-size="12" fill="#9ca3af">91.0</text>
+        <line x1="42" y1="115" x2="420" y2="115" stroke="#f0f1f3"/><text x="36" y="119" text-anchor="end" font-size="12" fill="#9ca3af">91.5</text>
+        <line x1="42" y1="85" x2="420" y2="85" stroke="#f0f1f3"/><text x="36" y="89" text-anchor="end" font-size="12" fill="#9ca3af">92.0</text>
+        <line x1="42" y1="55" x2="420" y2="55" stroke="#f0f1f3"/><text x="36" y="59" text-anchor="end" font-size="12" fill="#9ca3af">92.5</text>
+        <rect x="56" y="177" width="26" height="58" rx="3" fill="#6b7280"/>
+        <text x="69" y="172" text-anchor="middle" font-size="11" fill="#374151">90.36</text>
+        <text x="82" y="252" text-anchor="middle" font-size="11.5" fill="#374151">FE in [8]</text>
+        <text x="82" y="266" text-anchor="middle" font-size="10.5" fill="#9ca3af">800</text>
+        <rect x="117" y="78" width="26" height="157" rx="3" fill="#0e8a66"/><text x="130" y="73" text-anchor="middle" font-size="11" fill="#374151">92.11</text>
+        <rect x="147" y="78" width="26" height="157" rx="3" fill="#7cc7ad"/><text x="160" y="73" text-anchor="middle" font-size="11" fill="#6b7280">92.11</text>
+        <text x="145" y="252" text-anchor="middle" font-size="11.5" fill="#374151">iRDTv-B1</text>
+        <text x="145" y="266" text-anchor="middle" font-size="10.5" fill="#9ca3af">747</text>
+        <rect x="180" y="140" width="26" height="95" rx="3" fill="#0e8a66"/><text x="193" y="135" text-anchor="middle" font-size="11" fill="#374151">91.08</text>
+        <rect x="210" y="92" width="26" height="143" rx="3" fill="#7cc7ad"/><text x="223" y="87" text-anchor="middle" font-size="11" fill="#6b7280">91.89</text>
+        <text x="208" y="252" text-anchor="middle" font-size="11.5" fill="#374151">iRDTv-B2</text>
+        <text x="208" y="266" text-anchor="middle" font-size="10.5" fill="#9ca3af">558</text>
+        <rect x="244" y="117" width="26" height="118" rx="3" fill="#0e8a66"/><text x="257" y="112" text-anchor="middle" font-size="11" fill="#374151">91.47</text>
+        <rect x="274" y="99" width="26" height="136" rx="3" fill="#7cc7ad"/><text x="287" y="94" text-anchor="middle" font-size="11" fill="#6b7280">91.77</text>
+        <text x="272" y="252" text-anchor="middle" font-size="11.5" fill="#374151">iRDTv-B3</text>
+        <text x="272" y="266" text-anchor="middle" font-size="10.5" fill="#9ca3af">450</text>
+        <rect x="307" y="103" width="26" height="132" rx="3" fill="#d97a2b"/><text x="320" y="98" text-anchor="middle" font-size="11" fill="#374151">91.70</text>
+        <rect x="337" y="141" width="26" height="94" rx="3" fill="#eec9a8"/><text x="350" y="136" text-anchor="middle" font-size="11" fill="#6b7280">91.06</text>
+        <text x="335" y="252" text-anchor="middle" font-size="11.5" fill="#374151">MFCC-13</text>
+        <text x="335" y="266" text-anchor="middle" font-size="10.5" fill="#9ca3af">416</text>
+        <rect x="370" y="142" width="26" height="93" rx="3" fill="#0e8a66"/><text x="383" y="137" text-anchor="middle" font-size="11" fill="#374151">91.05</text>
+        <rect x="400" y="117" width="26" height="118" rx="3" fill="#7cc7ad"/><text x="413" y="112" text-anchor="middle" font-size="11" fill="#6b7280">91.47</text>
+        <text x="398" y="252" text-anchor="middle" font-size="11.5" fill="#374151">iRDTv-A2</text>
+        <text x="398" y="266" text-anchor="middle" font-size="10.5" fill="#9ca3af">372</text>
+        <line x1="42" y1="235" x2="420" y2="235" stroke="#9ca3af"/>
+      </g>
+      <g transform="translate(440,0)">
+        <text x="215" y="20" text-anchor="middle" font-size="15" font-weight="700" fill="#111827">VRES-CNN 分类器 · 验证准确率 %（左条 float / 右条 INT8）</text>
+        <line x1="42" y1="235" x2="420" y2="235" stroke="#f0f1f3"/><text x="36" y="239" text-anchor="end" font-size="12" fill="#9ca3af">92.0</text>
+        <line x1="42" y1="205" x2="420" y2="205" stroke="#f0f1f3"/><text x="36" y="209" text-anchor="end" font-size="12" fill="#9ca3af">92.5</text>
+        <line x1="42" y1="175" x2="420" y2="175" stroke="#f0f1f3"/><text x="36" y="179" text-anchor="end" font-size="12" fill="#9ca3af">93.0</text>
+        <line x1="42" y1="145" x2="420" y2="145" stroke="#f0f1f3"/><text x="36" y="149" text-anchor="end" font-size="12" fill="#9ca3af">93.5</text>
+        <line x1="42" y1="115" x2="420" y2="115" stroke="#f0f1f3"/><text x="36" y="119" text-anchor="end" font-size="12" fill="#9ca3af">94.0</text>
+        <line x1="42" y1="85" x2="420" y2="85" stroke="#f0f1f3"/><text x="36" y="89" text-anchor="end" font-size="12" fill="#9ca3af">94.5</text>
+        <line x1="42" y1="55" x2="420" y2="55" stroke="#f0f1f3"/><text x="36" y="59" text-anchor="end" font-size="12" fill="#9ca3af">95.0</text>
+        <text x="82" y="252" text-anchor="middle" font-size="11.5" fill="#c0392b">无数据</text>
+        <text x="82" y="266" text-anchor="middle" font-size="10.5" fill="#9ca3af">800</text>
+        <rect x="117" y="71" width="26" height="164" rx="3" fill="#0e8a66"/><text x="130" y="66" text-anchor="middle" font-size="11" fill="#374151">94.73</text>
+        <rect x="147" y="87" width="26" height="148" rx="3" fill="#7cc7ad"/><text x="160" y="82" text-anchor="middle" font-size="11" fill="#6b7280">94.47</text>
+        <text x="145" y="252" text-anchor="middle" font-size="11.5" fill="#374151">iRDTv-B1</text>
+        <text x="145" y="266" text-anchor="middle" font-size="10.5" fill="#9ca3af">747</text>
+        <rect x="180" y="143" width="26" height="92" rx="3" fill="#0e8a66"/><text x="193" y="138" text-anchor="middle" font-size="11" fill="#374151">93.53</text>
+        <rect x="210" y="111" width="26" height="124" rx="3" fill="#7cc7ad"/><text x="223" y="106" text-anchor="middle" font-size="11" fill="#6b7280">94.07</text>
+        <text x="208" y="252" text-anchor="middle" font-size="11.5" fill="#374151">iRDTv-B2</text>
+        <text x="208" y="266" text-anchor="middle" font-size="10.5" fill="#9ca3af">558</text>
+        <rect x="244" y="159" width="26" height="76" rx="3" fill="#0e8a66"/><text x="257" y="154" text-anchor="middle" font-size="11" fill="#374151">93.27</text>
+        <rect x="274" y="125" width="26" height="110" rx="3" fill="#7cc7ad"/><text x="287" y="120" text-anchor="middle" font-size="11" fill="#6b7280">93.83</text>
+        <text x="272" y="252" text-anchor="middle" font-size="11.5" fill="#374151">iRDTv-B3</text>
+        <text x="272" y="266" text-anchor="middle" font-size="10.5" fill="#9ca3af">450</text>
+        <rect x="307" y="91" width="26" height="144" rx="3" fill="#d97a2b"/><text x="320" y="86" text-anchor="middle" font-size="11" fill="#374151">94.40</text>
+        <rect x="337" y="107" width="26" height="128" rx="3" fill="#eec9a8"/><text x="350" y="102" text-anchor="middle" font-size="11" fill="#6b7280">94.13</text>
+        <text x="335" y="252" text-anchor="middle" font-size="11.5" fill="#374151">MFCC-13</text>
+        <text x="335" y="266" text-anchor="middle" font-size="10.5" fill="#9ca3af">416</text>
+        <rect x="370" y="220" width="26" height="15" rx="3" fill="#0e8a66"/><text x="383" y="215" text-anchor="middle" font-size="11" fill="#374151">92.25</text>
+        <rect x="400" y="161" width="26" height="74" rx="3" fill="#7cc7ad"/><text x="413" y="156" text-anchor="middle" font-size="11" fill="#6b7280">93.23</text>
+        <text x="398" y="252" text-anchor="middle" font-size="11.5" fill="#374151">iRDTv-A2</text>
+        <text x="398" y="266" text-anchor="middle" font-size="10.5" fill="#9ca3af">372</text>
+        <line x1="42" y1="235" x2="420" y2="235" stroke="#9ca3af"/>
+      </g>
+      <text x="460" y="281" font-size="12" fill="#9ca3af">柱下数字 = 特征尺寸 M×m；灰色 = 基线自编码器 FE（VRES 无数据，论文未报）</text>
+    </svg>
+    <p class="cap"><b>四个关键读数</b>：① 对基线自编码器 FE：iRDTv-B1 用更小特征把 DS-CNN 准确率从 90.36 提到 92.11（+1.75 点）；② 对 MFCC-13：float 下略输（91.05 vs 91.70），但 INT8 公平对比下反超（91.47 vs 91.06），且分类器 K-MAC 从 2482 降到 2061（−17%）——这正是 log₂ 压缩的直接回报；③ VRES 把上限推到 94.73（摘要口径「94.7%」）；④ iRDT 的价值主张不是绝对精度反超，而是<b>精度打平的前提下快 30 倍且零乘法</b>。</p>
+  </div>
+
+  <h3>CPU 实测时延：三个数量级的跨度</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 230" role="img">
+      <line x1="250" y1="30" x2="250" y2="185" stroke="#e5e7eb"/><text x="250" y="205" text-anchor="middle" fill="#9ca3af" font-size="13">0.1 ms</text>
+      <line x1="437" y1="30" x2="437" y2="185" stroke="#e5e7eb"/><text x="437" y="205" text-anchor="middle" fill="#9ca3af" font-size="13">1 ms</text>
+      <line x1="623" y1="30" x2="623" y2="185" stroke="#e5e7eb"/><text x="623" y="205" text-anchor="middle" fill="#9ca3af" font-size="13">10 ms</text>
+      <line x1="810" y1="30" x2="810" y2="185" stroke="#e5e7eb"/><text x="810" y="205" text-anchor="middle" fill="#9ca3af" font-size="13">100 ms</text>
+      <rect x="250" y="45" width="519" height="26" rx="4" fill="#c0392b"/>
+      <text x="240" y="63" text-anchor="end" fill="#374151" font-size="14">基线 CNN 自编码器 FE [8]</text>
+      <text x="777" y="63" fill="#111827" font-size="14" font-weight="700">60 ms</text>
+      <rect x="250" y="87" width="341" height="26" rx="4" fill="#d97a2b"/>
+      <text x="240" y="105" text-anchor="end" fill="#374151" font-size="14">MFCC-13 (LIBROSA)</text>
+      <text x="599" y="105" fill="#111827" font-size="14" font-weight="700">6.7 ms</text>
+      <rect x="250" y="129" width="187" height="26" rx="4" fill="#94a3b8"/>
+      <text x="240" y="147" text-anchor="end" fill="#374151" font-size="14">VRES-CNN 分类器本体</text>
+      <text x="445" y="147" fill="#111827" font-size="14" font-weight="700">1.0 ms</text>
+      <rect x="250" y="171" width="56" height="26" rx="4" fill="#0e8a66"/>
+      <text x="240" y="189" text-anchor="end" fill="#374151" font-size="14">iRDTv (本文)</text>
+      <text x="314" y="189" fill="#111827" font-size="14" font-weight="700">0.2 ms</text>
+    </svg>
+    <p class="cap"><b>对数时间轴</b>（Fig.2/3，Kaggle / 本地 CPU）：一个数量级领先 MFCC、两个数量级领先 CNN 自编码器前端。摘要「至少一个数量级」的表述其实偏保守。</p>
+  </div>
+
+  <h3>消融：预算该花在频率轴还是时间轴（Table I）</h3>
+  <div class="fig">
+    <svg viewBox="0 0 880 300" role="img">
+      <line x1="70" y1="250" x2="830" y2="250" stroke="#f0f1f3"/><text x="62" y="254" text-anchor="end" font-size="12" fill="#9ca3af">85%</text>
+      <line x1="70" y1="198" x2="830" y2="198" stroke="#f0f1f3"/><text x="62" y="202" text-anchor="end" font-size="12" fill="#9ca3af">87%</text>
+      <line x1="70" y1="145" x2="830" y2="145" stroke="#f0f1f3"/><text x="62" y="149" text-anchor="end" font-size="12" fill="#9ca3af">89%</text>
+      <line x1="70" y1="92" x2="830" y2="92" stroke="#f0f1f3"/><text x="62" y="96" text-anchor="end" font-size="12" fill="#9ca3af">91%</text>
+      <line x1="70" y1="40" x2="830" y2="40" stroke="#f0f1f3"/><text x="62" y="44" text-anchor="end" font-size="12" fill="#9ca3af">93%</text>
+      <text x="70" y="270" text-anchor="middle" font-size="12" fill="#9ca3af">200</text>
+      <text x="197" y="270" text-anchor="middle" font-size="12" fill="#9ca3af">300</text>
+      <text x="323" y="270" text-anchor="middle" font-size="12" fill="#9ca3af">400</text>
+      <text x="450" y="270" text-anchor="middle" font-size="12" fill="#9ca3af">500</text>
+      <text x="577" y="270" text-anchor="middle" font-size="12" fill="#9ca3af">600</text>
+      <text x="703" y="270" text-anchor="middle" font-size="12" fill="#9ca3af">700</text>
+      <text x="830" y="270" text-anchor="middle" font-size="12" fill="#9ca3af">800</text>
+      <circle cx="767" cy="124" r="7" fill="#94a3b8" fill-opacity="0.85"><title>A0：特征 750，DS-CNN 89.79%</title></circle><text x="767" y="111" text-anchor="middle" font-size="10.5" fill="#374151">A0</text>
+      <circle cx="447" cy="135" r="7" fill="#94a3b8" fill-opacity="0.85"><title>A1：特征 498，DS-CNN 89.37%</title></circle><text x="447" y="122" text-anchor="middle" font-size="10.5" fill="#374151">A1</text>
+      <circle cx="288" cy="201" r="7" fill="#94a3b8" fill-opacity="0.85"><title>A2：特征 372，DS-CNN 86.87%</title></circle><text x="288" y="188" text-anchor="middle" font-size="10.5" fill="#374151">A2</text>
+      <circle cx="197" cy="190" r="7" fill="#94a3b8" fill-opacity="0.85"><title>A3：特征 300，DS-CNN 87.29%</title></circle><text x="197" y="177" text-anchor="middle" font-size="10.5" fill="#374151">A3</text>
+      <circle cx="128" cy="190" r="7" fill="#94a3b8" fill-opacity="0.85"><title>A4：特征 246，DS-CNN 87.29%</title></circle><text x="128" y="177" text-anchor="middle" font-size="10.5" fill="#374151">A4</text>
+      <circle cx="763" cy="70" r="9" fill="#0e8a66" fill-opacity="0.85"><title>B1：特征 747，DS-CNN 91.87%</title></circle><text x="763" y="57" text-anchor="middle" font-size="10.5" fill="#374151">B1</text>
+      <circle cx="523" cy="81" r="9" fill="#0e8a66" fill-opacity="0.85"><title>B2：特征 558，DS-CNN 91.45%</title></circle><text x="523" y="68" text-anchor="middle" font-size="10.5" fill="#374151">B2</text>
+      <circle cx="387" cy="152" r="9" fill="#0e8a66" fill-opacity="0.85"><title>B3：特征 450，DS-CNN 88.75%</title></circle><text x="387" y="139" text-anchor="middle" font-size="10.5" fill="#374151">B3</text>
+      <circle cx="284" cy="168" r="9" fill="#0e8a66" fill-opacity="0.85"><title>B4：特征 369，DS-CNN 88.12%</title></circle><text x="284" y="155" text-anchor="middle" font-size="10.5" fill="#374151">B4</text>
+      <circle cx="216" cy="184" r="9" fill="#0e8a66" fill-opacity="0.85"><title>B5：特征 315，DS-CNN 87.5%</title></circle><text x="216" y="171" text-anchor="middle" font-size="10.5" fill="#374151">B5</text>
+      <circle cx="366" cy="212" r="7" fill="#c0392b" fill-opacity="0.85"><title>C1：特征 434，DS-CNN 86.45%</title></circle><text x="366" y="199" text-anchor="middle" font-size="10.5" fill="#374151">C1</text>
+      <circle cx="180" cy="228" r="7" fill="#c0392b" fill-opacity="0.85"><title>C2：特征 287，DS-CNN 85.83%</title></circle><text x="180" y="215" text-anchor="middle" font-size="10.5" fill="#374151">C2</text>
+      <text x="450" y="293" text-anchor="middle" font-size="13" fill="#6b7280">特征尺寸 M×m（越大 → 分类器越贵）· 悬停看数值</text>
+      <rect x="560" y="18" width="12" height="12" rx="3" fill="#94a3b8"/><text x="578" y="29" font-size="12" fill="#374151">A：默认延迟 d=[1,2,4,8,16,32]</text>
+      <rect x="560" y="38" width="12" height="12" rx="3" fill="#0e8a66"/><text x="578" y="49" font-size="12" fill="#374151">B：密延迟（9 通道，插 6/12/24）</text>
+      <rect x="560" y="58" width="12" height="12" rx="3" fill="#c0392b"/><text x="578" y="69" font-size="12" fill="#374151">C：w=128（窗长翻倍）</text>
+    </svg>
+    <p class="cap"><b>五条发现</b>：① 帧数 M 总体正相关精度但非单调（A3 &gt; A2），存在与分类器感受野匹配的甜点区；② <b>同等预算下 B 类（密延迟）系统性占优</b>——B1 用 747 特征 91.87% vs A0 用 750 特征 89.79%，把通道花在加密频率轴比花在时间轴划算；③ w=128 全面垫底；④ VRES 对小特征显著更鲁棒（A2 上差 DS-CNN 4.17 点）——「哪个特征好」脱离分类器谈没有意义；⑤ log₂ 压缩把 8-bit 掉点从 2~2.5% 压到 0.1% 以内。</p>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">五条可以带走的东西</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>首个在此对比框架下达到 MFCC 同档精度的无乘法 KWS 特征提取器</b><br><span style="color:var(--ink-2)">相同数据 / 分类器 / 训练预算下精度差 ±1 点内，多配置反超（92.11 vs 90.36；量化后 91.47 vs 91.06）。</span></div>
+    <div class="c"><span class="n">2</span><b>解析复杂度模型与实践吻合</b><br><span style="color:var(--ink-2)">Ops ≈ 5mN 把实现复杂度压缩成两个整数的乘积——480k int32 ops vs MFCC 3M flops，硬件工程师可直接带入周期估算。</span></div>
+    <div class="c"><span class="n">3</span><b>三超参旋钮体系 + 12 组消融</b><br><span style="color:var(--ink-2)">特征尺寸 246–750 连续可调，附明确取值规则：2 的幂延迟、d<sub>m</sub> ≤ w/2、优先加密频率轴。</span></div>
+    <div class="c"><span class="n">4</span><b>log₂(1+x) 与 INT8 的协同设计</b><br><span style="color:var(--ink-2)">识别并修复无乘法线性特征的量化脆弱性，修复手段本身零乘法（查表 / 移位近似）——端到端部署闭环的关键一环。</span></div>
+    <div class="c"><span class="n">5</span><b>完全可复现</b><br><span style="color:var(--ink-2)">代码 + Google Colab 演示 + 预训练 .tflite 全部开源（GitHub: radu-dogaru/rdt_transform_for_tiny_ml_signal_classifiers）。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与展望</p>
+  <h2 class="sec">什么时候不该用它</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法本身的技术局限</h4>
+      <ul>
+        <li><b>频率分辨率粗</b>：通道数实测上限 9，每通道响应是梳状而非窄带，大延迟通道能量归属存在混叠——需要精细共振峰轨迹的任务（大词表、说话人相关唤醒词）表达力存疑。</li>
+        <li><b>相位与极性信息全部丢弃</b>：绝对值累加只保留能量包络，这是「用 |x| 替代平方避免乘法」的直接代价。</li>
+        <li><b>定长输入假设</b>：iRDTv 帧数由信号长度决定，面向 1 秒定长 KWS；流式 / 变长场景需改用 iRDTf，论文未做流式验证。</li>
+        <li><b>Scaler 依赖训练集极值统计</b>：对域偏移（换麦克风、换噪环境）敏感，且极值统计对异常样本脆弱。</li>
+        <li><b>超参纯手工</b>：chan / w / win_per_segm 均为人工网格搜索，没有自动化路径。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>只有验证集准确率一个功能指标</b>：没有 FRR/FAR、DET 曲线、混淆矩阵——而 KWS 作为检测任务，工程上恰恰是误唤醒率决定可用性。</li>
+        <li><b>零目标硬件实测</b>：MCU 周期数、FPGA LUT/FF、能耗（µJ/推理）、SRAM/Flash 足迹全部未报告——TinyML 论文的核心主张目前只是定性推断。</li>
+        <li><b>单次运行无方差</b>：0.3–0.5 点量级的差异统计显著性存疑。</li>
+        <li><b>基线覆盖不全</b>：FE in [8] 的 K-MAC 与 VRES 结果为空；未与 Sinc 滤波器组、可学习滤波器组等轻量前端对比。</li>
+        <li><b>分类器参数量未报告</b>：只有 K-MAC，无法完整评估存储代价。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:18px">
+    <b>值得跟进的方向</b>：① 在真实 MCU（Cortex-M4/M55）和 FPGA 上补齐周期 / 能耗 / LUT 实测，把「very few logic gates」从主张变成数字；② 与二值 / 整型分类器（如 BiFSMN）串联，构成全程无乘法链路；③ 帧级流式实现 + VAD，评估连续监听下的 FRR/FAR；④ 可学习门控自动选延迟列表，替代手工 2 的幂规则；⑤ 与后端联合端到端微调（目前 FE 与分类器完全解耦训练）。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2026/A_Multiplication-Free_Feature_Extractor_For_Signal_Classification_Keyword_Spotting_Case_Study.md">📝 深读笔记（Markdown）</a>
+    <a class="pill" href="/papers/2026/A_Multiplication-Free_Feature_Extractor_For_Signal_Classification_Keyword_Spotting_Case_Study.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2608.17108" target="_blank">🔗 arXiv:2608.17108</a>
+    <a class="pill" href="https://github.com/radu-dogaru/rdt_transform_for_tiny_ml_signal_classifiers/tree/main/Keyword_Spotting" target="_blank">💻 开源代码</a>
+  </div>
+  本页所有数字均出自论文 Table I / II、Fig.1–3 与式 (1)；「滤波器组」频域解读为笔记者推导（论文未给出），已在正文标注。深读笔记与可视化页同源生成，转载请注明出处。
+</footer>
+
+</div>
+</body>
+</html>

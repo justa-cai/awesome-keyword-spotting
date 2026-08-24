@@ -72,14 +72,40 @@
       sidebarDisplayLevel: 1,
       plugins: [
         function (hook) {
+          var VIZ = null, VIZP = null;
+          function vizSet() {
+            if (VIZ) return Promise.resolve(VIZ);
+            if (VIZP) return VIZP;
+            VIZP = fetch('/viz_manifest.json').then(function (r) {
+              return r.ok ? r.json() : [];
+            }).then(function (list) {
+              VIZ = {}; (list || []).forEach(function (p) { VIZ[p] = 1; });
+              return VIZ;
+            }).catch(function () { VIZ = {}; return VIZ; });
+            return VIZP;
+          }
           hook.afterEach(function (html, next) {
             var m = location.hash.match(/^#\/(?:en\/)?(papers\/[^/]+\/.+?)(?:\?.*)?$/);
             if (m && !/\.pdf$/.test(m[1])) {
-              html = '<p style="margin:0 0 18px"><a href="' + m[1] + '.pdf" target="_blank" '
+              var btns = '<p style="margin:0 0 18px"><a href="' + m[1] + '.pdf" target="_blank" '
                 + 'style="display:inline-block;padding:4px 14px;border:1px solid #42b983;border-radius:16px;'
-                + 'color:#42b983;font-size:14px;text-decoration:none">📄 Open paper PDF</a></p>' + html;
+                + 'color:#42b983;font-size:14px;text-decoration:none">📄 Open paper PDF</a></p>';
+              var base = m[1];
+              vizSet().then(function (set) {
+                if (set[base + '.html']) {
+                  btns = '<p style="margin:0 0 18px">'
+                    + '<a href="' + base + '.html" target="_blank" '
+                    + 'style="display:inline-block;margin-right:10px;padding:4px 14px;border:1px solid #0e8a66;border-radius:16px;'
+                    + 'color:#0e8a66;font-size:14px;text-decoration:none;font-weight:600">📊 可视化精读版</a>'
+                    + '<a href="' + base + '.pdf" target="_blank" '
+                    + 'style="display:inline-block;padding:4px 14px;border:1px solid #42b983;border-radius:16px;'
+                    + 'color:#42b983;font-size:14px;text-decoration:none">📄 Open paper PDF</a></p>';
+                }
+                next(btns + html);
+              });
+            } else {
+              next(html);
             }
-            next(html);
           });
         },
         function (hook) {
