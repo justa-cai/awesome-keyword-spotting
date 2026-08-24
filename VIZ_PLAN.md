@@ -4,9 +4,9 @@
 > 每完成一篇：生成 `papers/<year>/<name>.html` → 更新 `viz_manifest.json` → 本文件勾选 → 分批 commit+push。
 > 状态：✅ 已上线 · ⬜ 待做。进度 = 已完成 / 总数。
 
-**进度：23 / 305**
+**进度：24 / 305**
 
-## 2026（23/24）
+## 2026（24/24）
 
 - [✅] A Multiplication-Free Feature Extractor for Signal Class…
 - [✅] BEST-STD 2.0：面向口语词检索的均衡高效语音分词器
@@ -31,7 +31,7 @@
 - [✅] Perforated Neural Networks for Keyword Spotting
 - [✅] Personalized Keyword Spotting for User-Defined Keywords …
 - [✅] ProKWS: Personalized Keyword Spotting via Collaborative …
-- [⬜] Scalable Keyword Spotting via Modular Network Expansion：…
+- [✅] Scalable Keyword Spotting via Modular Network Expansion：…
 
 ## 2025（0/36）
 
