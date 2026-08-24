@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DS-KWS · 双重数据扩展两阶段 UDKWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2025/Dual_Data_Scaling_For_Robust_Two-Stage_User-Defined_Keyword_Spotting.md">深读笔记</a>
+    <a href="/papers/2025/Dual_Data_Scaling_For_Robust_Two-Stage_User-Defined_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2510.10740" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2025 №10</p>
+  <h1>DS-KWS<br>宽进严出：CTC 流式定位 + 音素匹配验证，两条数据轴分别喂饱两级</h1>
+  <p class="sub">Dual Data Scaling for Robust Two-Stage User-Defined Keyword Spotting</p>
+  <p class="meta"><b>作者</b>：Zhiqi Ai 等 —— 上海大学 / 西交利物浦大学；通讯 Shugong Xu、Yongjin Zhou</p>
+  <p class="meta"><b>发表</b>：2025.10 · arXiv:2510.10740</p>
+  <div class="chips">
+    <span class="chip">用户自定义 KWS</span><span class="chip">两阶段框架</span><span class="chip">CTC 流式解码</span>
+    <span class="chip">文本注册 QbyT</span><span class="chip">数据规模扩展</span><span class="chip">易混淆词判别</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li>需求源头：智能设备大规模铺开（论文原文点名 "XiaoZhi AI"），用户想现场注册自己的唤醒词——但模型上线时不可能预知注册什么词，只能靠 zero-shot，与预定义方案的 full-shot 训练存在系统性差距。</li>
+      <li>架构答案「宽进严出」：第一级 CTC 流式检索——候选边界来自<b>声学对齐</b>而非滑窗网格，配模糊音素聚合保召回（宁可多报）；第二级 QbyT 音素匹配器在音素级 + 句子级双粒度上验证，把误报压下去。</li>
+      <li>数据答案「双重扩展」：ASR 语料 460→1460 小时喂声学模型（LSother P-WER 18.79→11.80）；锚点词类别 12k→155k 喂匹配器（EER 13.38→10.65）——交叉消融证明两轴各自独立有效。</li>
+      <li>注册侧激进轻量化：文本注册只用一个 <b>nn.Embedding 查表</b>，替代 DistilBERT / G2P embedding 等重型预编码器——唤醒词只有几个音素，不需要深层语义编码。</li>
+      <li>结果：LibriPhrase-Hard <b>EER 6.13%</b>（PLCL-AT 的 1/5 参数量再降 2.34 pp）；Hey-Snips zero-shot 召回 99.13%@FAR=1，超过 full-shot 的 RIL-KWS。代价：全文无延迟/功耗数字，M2 模式 7.7M 参数的流式开销未知。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">定位、判别、泛化三个方向不一致，单端到端模型很难同时满足</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 320" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">UDKWS 的三个子问题 + 现有三条路线的短板</text>
+      <g font-size="11.5">
+        <rect x="30" y="46" width="270" height="70" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="165" y="70" text-anchor="middle" font-weight="700" fill="#1c2430">① 定位</text>
+        <text x="165" y="94" text-anchor="middle" font-size="10.5" fill="#8c3b2e">唤醒词埋在连续语流里，要给出时间边界</text>
+        <rect x="326" y="46" width="270" height="70" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="461" y="70" text-anchor="middle" font-weight="700" fill="#1c2430">② 判别</text>
+        <text x="461" y="94" text-anchor="middle" font-size="10.5" fill="#8c3b2e">Hi Snips vs Hey Snips 只差 AY1/EY1 一个元音</text>
+        <rect x="622" y="46" width="270" height="70" rx="10" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.3"/>
+        <text x="757" y="70" text-anchor="middle" font-weight="700" fill="#1c2430">③ 泛化</text>
+        <text x="757" y="94" text-anchor="middle" font-size="10.5" fill="#8c3b2e">对训练中从未见过的词，仅凭注册信息工作</text>
+
+        <rect x="30" y="134" width="280" height="90" rx="10" fill="#fdf6f4" stroke="#c9a9a0" stroke-width="1.3"/>
+        <text x="170" y="158" text-anchor="middle" font-weight="700" fill="#8c3b2e">传统 ASR 方案</text>
+        <text x="170" y="180" text-anchor="middle" font-size="10.5" fill="#47536a">解码完整词序列再匹配关键词</text>
+        <text x="170" y="204" text-anchor="middle" font-size="10.5" fill="#8c3b2e">代价高，且用户自定义词天然 OOV</text>
+
+        <rect x="330" y="134" width="280" height="90" rx="10" fill="#fdf6f4" stroke="#c9a9a0" stroke-width="1.3"/>
+        <text x="470" y="158" text-anchor="middle" font-weight="700" fill="#8c3b2e">轻量音素级（TDT / MFA / U2 / CaTT）</text>
+        <text x="470" y="180" text-anchor="middle" font-size="10.5" fill="#47536a">大规模 ASR 语料训练后表现很强</text>
+        <text x="470" y="204" text-anchor="middle" font-size="10.5" fill="#8c3b2e">但部署仍需可观微调数据——恰是稀缺品</text>
+
+        <rect x="630" y="134" width="262" height="90" rx="10" fill="#fdf6f4" stroke="#c9a9a0" stroke-width="1.3"/>
+        <text x="761" y="158" text-anchor="middle" font-weight="700" fill="#8c3b2e">注册查询类（QbyE / QbyT / QbyAT）</text>
+        <text x="761" y="180" text-anchor="middle" font-size="10.5" fill="#47536a">预切分词对训练 + 滑窗推理——错配</text>
+        <text x="761" y="204" text-anchor="middle" font-size="10.5" fill="#8c3b2e">滑窗边界不准 → 更多误报；注册依赖大编码器</text>
+      </g>
+      <rect x="30" y="242" width="862" height="62" rx="10" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+      <text x="46" y="266" font-size="12.5" font-weight="700" fill="#0a6b4e">DS-KWS 的回答：架构解耦 + 数据扩展</text>
+      <text x="46" y="290" font-size="12" fill="#47536a">两阶段把「高召回流式检测」和「高精度细粒度验证」分开；再用双重数据扩展分别喂饱这两级——方法与实验组织全部围绕这条主线</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">第一级管召回（宽），第二级管精度（严）</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 380" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">两阶段架构（图 1/图 2）与三档部署模式</text>
+      <g font-size="11.5">
+        <rect x="30" y="66" width="150" height="56" rx="9" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="105" y="90" text-anchor="middle" font-weight="700" fill="#1c2430">连续语流</text>
+        <text x="105" y="110" text-anchor="middle" font-size="10" fill="#8a93a5">80 通道 mel</text>
+
+        <rect x="202" y="56" width="170" height="76" rx="9" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="287" y="80" text-anchor="middle" font-weight="700" fill="#1c2430">Conformer 编码器</text>
+        <text x="287" y="100" text-anchor="middle" font-size="10.5" fill="#8a93a5">6 层 · 144 维 · 4 头 · 3.6M</text>
+        <text x="287" y="120" text-anchor="middle" font-size="10" fill="#8a93a5">CTC 损失训练</text>
+
+        <rect x="394" y="56" width="160" height="76" rx="9" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+        <text x="474" y="80" text-anchor="middle" font-weight="700" fill="#0a6b4e">音素搜索模块</text>
+        <text x="474" y="100" text-anchor="middle" font-size="10.5" fill="#5f8a76">流式 CTC 解码检索</text>
+        <text x="474" y="120" text-anchor="middle" font-size="10" fill="#5f8a76">候选路径 + 时间戳</text>
+
+        <rect x="576" y="56" width="120" height="56" rx="9" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="636" y="80" text-anchor="middle" font-weight="700" fill="#1c2430">S1 + 时间戳</text>
+        <text x="636" y="100" text-anchor="middle" font-size="10" fill="#8a93a5">第一级分数</text>
+
+        <rect x="718" y="56" width="174" height="76" rx="9" fill="#0e8a66"/>
+        <text x="805" y="80" text-anchor="middle" font-weight="700" fill="#fff">音素匹配器（第二级）</text>
+        <text x="805" y="100" text-anchor="middle" font-size="10.5" fill="#cdebdf">2 层 Transformer + GRU</text>
+        <text x="805" y="120" text-anchor="middle" font-size="10.5" fill="#cdebdf">轻量注意力对齐 ≈0.5M</text>
+
+        <rect x="718" y="150" width="174" height="42" rx="9" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="805" y="170" text-anchor="middle" font-weight="700" fill="#1c2430">注册文本 → G2P → 音素索引</text>
+        <text x="805" y="186" text-anchor="middle" font-size="10" fill="#0a6b4e">nn.Embedding 查表（不过任何深度编码器）</text>
+
+        <rect x="30" y="222" width="862" height="140" rx="10" fill="#fbfaf6" stroke="#e6e6df"/>
+        <text x="46" y="248" font-size="12.5" font-weight="700" fill="#1c2430">三档部署模式（图 1）</text>
+        <text x="46" y="274" font-size="11.5" fill="#47536a"><tspan font-weight="700" fill="#0a6b4e">M0（3.6M）</tspan>　纯 CTC 单级，无第二级</text>
+        <text x="46" y="298" font-size="11.5" fill="#47536a"><tspan font-weight="700" fill="#0a6b4e">M1（4.1M，+0.5M）</tspan>　候选段直接从第一级编码器输出裁剪帧级特征 + 轻量投影——编码器可冻结，省算力且声学能力不被匹配梯度带偏</text>
+        <text x="46" y="322" font-size="11.5" fill="#47536a"><tspan font-weight="700" fill="#0a6b4e">M2（7.7M，+4.1M）</tspan>　候选段切成原始语音用自己的可训练编码器重编码——第一级特征为音素识别优化，未必是匹配判别最优表示</text>
+        <text x="46" y="348" font-size="11.5" fill="#0a6b4e" font-weight="600">表 2 裁决：同数据下 M1 EER 10.02% vs M2 6.13%——重编码换来 3.89 pp，是全文单笔最大增益</text>
+      </g>
+      <g stroke="#8a93a5" stroke-width="1.5" fill="none">
+        <line x1="180" y1="94" x2="198" y2="94"/><polygon points="198,94 192,91 192,97" fill="#8a93a5"/>
+        <line x1="372" y1="94" x2="390" y2="94"/><polygon points="390,94 384,91 384,97" fill="#8a93a5"/>
+        <line x1="554" y1="94" x2="572" y2="94"/><polygon points="572,94 566,91 566,97" fill="#8a93a5"/>
+        <line x1="696" y1="94" x2="714" y2="94"/><polygon points="714,94 708,91 708,97" fill="#8a93a5"/>
+        <line x1="805" y1="132" x2="805" y2="146"/><polygon points="805,146 802,140 808,140" fill="#8a93a5"/>
+      </g>
+    </svg>
+    <p class="cap"><b>两级分工的设计逻辑：</b>检测环节高召回——漏报在第二级再无纠正机会；验证环节高精度——把第一级放宽后混进来的误报压下去。滑窗类方法的病根正是缺显式定位环节；CTC 的对齐性质天然给时间戳，边界贴着声学事件。</p>
+  </div>
+
+  <div class="formula">
+    S<sub>agg</sub>(x<sub>t</sub>) = Σ<sub>f∈F(x<sub>t</sub>)</sub> S(f)　（式 4，模糊音素聚合）；　L<sub>total</sub> = L<sub>CTC</sub> + (L<sub>utt</sub> + L<sub>phon</sub>)　（式 5–6）
+    <div class="why">式 4：目标音素 x_t 的模糊集合 F 内概率求和后再检索——"Hi" 开头的发音变体也能命中 "Hey Snips" 目标序列，第一级主动放宽的数学实现。双粒度监督：L<sub>phon</sub> 在每个对齐位置给直接监督（梯度密，专治单音素差异的混淆对）；L<sub>utt</sub> 与整词判决的使用方式一致，防止音素级监督优化出与整体判决脱节的表示。</div>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 920 250" role="img">
+      <text x="30" y="28" font-size="13.5" fill="#47536a" font-weight="600">宽进严出的直接证据（图 3 分数分布 + 模糊聚合示意）</text>
+      <g font-size="11.5">
+        <rect x="30" y="60" width="410" height="120" rx="11" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.4"/>
+        <text x="235" y="86" text-anchor="middle" font-weight="700" fill="#1c2430">模糊聚合：Hi ↔ Hey</text>
+        <rect x="60" y="106" width="90" height="32" rx="6" fill="#fff" stroke="#8a93a5"/>
+        <text x="105" y="126" text-anchor="middle" font-size="11" fill="#47536a">HH AY1 . . .</text>
+        <rect x="170" y="106" width="90" height="32" rx="6" fill="#fff" stroke="#8a93a5"/>
+        <text x="215" y="126" text-anchor="middle" font-size="11" fill="#47536a">HH EY1 . . .</text>
+        <path d="M 150 118 Q 160 100 170 118" stroke="#0e8a66" stroke-width="1.8" fill="none"/>
+        <text x="160" y="98" text-anchor="middle" font-size="10" fill="#0a6b4e" font-weight="700">AY1+EY1 求和</text>
+        <text x="280" y="120" font-size="10.5" fill="#5f8a76">→ 发音变体也能命中</text>
+        <text x="50" y="166" font-size="10.5" fill="#8a93a5">代价：检索端变宽、混入更多似是而非的候选——显式转嫁给第二级消化</text>
+
+        <rect x="480" y="60" width="410" height="120" rx="11" fill="#eaf6f0" stroke="#0e8a66" stroke-width="1.5"/>
+        <text x="685" y="86" text-anchor="middle" font-weight="700" fill="#0a6b4e">两级分数分布（图 3）</text>
+        <g fill="#d97a2b" opacity=".75"><circle cx="530" cy="112" r="5"/><circle cx="552" cy="120" r="5"/><circle cx="574" cy="108" r="5"/><circle cx="596" cy="124" r="5"/><circle cx="618" cy="116" r="5"/><circle cx="640" cy="128" r="5"/><circle cx="662" cy="112" r="5"/><circle cx="684" cy="126" r="5"/></g>
+        <text x="600" y="146" text-anchor="middle" font-size="10.5" fill="#b0631d">第一级：正样本分数散布 0.04–1 宽区间（宽）</text>
+        <g fill="#0e8a66"><circle cx="740" cy="122" r="5"/><circle cx="762" cy="118" r="5"/><circle cx="784" cy="126" r="5"/><circle cx="806" cy="120" r="5"/><circle cx="828" cy="124" r="5"/></g>
+        <g fill="#c9ced6"><circle cx="848" cy="102" r="5"/><circle cx="860" cy="96" r="5"/></g>
+        <text x="790" y="146" text-anchor="middle" font-size="10.5" fill="#0a6b4e">第二级：正负清晰分开（严）</text>
+        <text x="500" y="170" font-size="10.5" fill="#5f8a76">最终判决质量由第二级决定——也解释 M2 的 zero-shot 泛化最强</text>
+      </g>
+      <text x="30" y="216" font-size="12.5" fill="#47536a">nn.Embedding 轻量注册的底气：注册文本只有几个音素的序列，匹配任务需要的是「音素与声学帧的对齐关系」，不是「词的语义表示」</text>
+      <text x="30" y="238" font-size="11.5" fill="#8a93a5">把注册从「跑一遍 DistilBERT」降到「一次查表」——但具体省了多少毫秒/内存，论文未报告</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验结果</p>
+  <h2 class="sec">混淆子集才分高下：LPH EER 6.13%</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <h3 style="margin-top:0">设置与指标</h3>
+    <p style="margin:6px 0">训练语料三档：LS-100 / LS-460 / LS-GS-1460（LibriSpeech-460 + GigaSpeech Middle 1000h）。词对集按 LibriPhrase 构造（0.5–2s、锚点实例 ≥10），LP-100 约 12k 类 → LP-GP-1460 约 155k 类。评测：LibriPhrase Easy/Hard（Hard = 混淆词对子集，主战场）、Hey-Snips 测试集（2,529 正 / 20,543 负）评 zero-shot。编码器 6 层 Conformer，WeNet + CTC，音素词表 71 符号。</p>
+    <p style="margin:6px 0;color:var(--ink-2);font-size:14.5px">指标分三组各有用途：P-WER（声学模型中间质量）、EER/AUC（LibriPhrase 惯例）、<b>Recall@FAR</b>（唤醒产品有明确误报预算——EER 操作点常落在产品无法接受的误报率上，固定 FAR 比召回才有工程意义）。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 500" role="img">
+      <text x="80" y="30" font-size="13.5" fill="#47536a" font-weight="600">LibriPhrase-Hard（混淆词对）EER 主对比（表 1，%）：越短越好，标注为参数量</text>
+      <text x="240" y="65.0" text-anchor="end" font-size="11" fill="#47536a">CMCD · 0.7M</text>
+      <rect x="250" y="50.0" width="526.4" height="22" rx="4" fill="#c9ced6"/>
+      <text x="786.4" y="66.0" font-size="11.5" font-weight="700" fill="#374151">32.90</text>
+      <text x="240" y="100.0" text-anchor="end" font-size="11" fill="#47536a">EMKWS · 3.7M</text>
+      <rect x="250" y="85.0" width="373.8" height="22" rx="4" fill="#c9ced6"/>
+      <text x="633.8" y="101.0" font-size="11.5" font-weight="700" fill="#374151">23.36</text>
+      <text x="240" y="135.0" text-anchor="end" font-size="11" fill="#47536a">CED · 3.6M</text>
+      <rect x="250" y="120.0" width="230.4" height="22" rx="4" fill="#94a3b8"/>
+      <text x="490.4" y="136.0" font-size="11.5" font-weight="700" fill="#374151">14.40</text>
+      <text x="240" y="170.0" text-anchor="end" font-size="11" fill="#47536a">AdaKWS-S · 109M</text>
+      <rect x="250" y="155.0" width="183.7" height="22" rx="4" fill="#c9ced6"/>
+      <text x="443.7" y="171.0" font-size="11.5" font-weight="700" fill="#374151">11.48</text>
+      <text x="240" y="205.0" text-anchor="end" font-size="11" fill="#47536a">SLiCK · 0.6M</text>
+      <rect x="250" y="190.0" width="177.6" height="22" rx="4" fill="#94a3b8"/>
+      <text x="437.6" y="206.0" font-size="11.5" font-weight="700" fill="#374151">11.10</text>
+      <text x="240" y="240.0" text-anchor="end" font-size="11" fill="#47536a">MM-KWS-T · 3.9M</text>
+      <rect x="250" y="225.0" width="166.6" height="22" rx="4" fill="#94a3b8"/>
+      <text x="426.6" y="241.0" font-size="11.5" font-weight="700" fill="#374151">10.41</text>
+      <text x="240" y="275.0" text-anchor="end" font-size="11" fill="#47536a">W-CTC · 3.6M</text>
+      <rect x="250" y="260.0" width="163.4" height="22" rx="4" fill="#94a3b8"/>
+      <text x="423.4" y="276.0" font-size="11.5" font-weight="700" fill="#374151">10.21</text>
+      <text x="240" y="310.0" text-anchor="end" font-size="11" fill="#0a6b4e" font-weight="700">DS-KWS-M1 · 4.1M</text>
+      <rect x="250" y="295.0" width="160.3" height="22" rx="4" fill="#4fb5a0"/>
+      <text x="420.3" y="311.0" font-size="11.5" font-weight="700" fill="#374151">10.02</text>
+      <text x="240" y="345.0" text-anchor="end" font-size="11" fill="#47536a">PLCL-T · 40M</text>
+      <rect x="250" y="330.0" width="159.4" height="22" rx="4" fill="#94a3b8"/>
+      <text x="419.4" y="346.0" font-size="11.5" font-weight="700" fill="#374151">9.96</text>
+      <text x="240" y="380.0" text-anchor="end" font-size="11" fill="#47536a">MM-KWS-AT · 3.9M</text>
+      <rect x="250" y="365.0" width="148.8" height="22" rx="4" fill="#94a3b8"/>
+      <text x="408.8" y="381.0" font-size="11.5" font-weight="700" fill="#374151">9.30</text>
+      <text x="240" y="415.0" text-anchor="end" font-size="11" fill="#47536a">PLCL-AT · 40M</text>
+      <rect x="250" y="400.0" width="135.5" height="22" rx="4" fill="#94a3b8"/>
+      <text x="395.5" y="416.0" font-size="11.5" font-weight="700" fill="#374151">8.47</text>
+      <text x="240" y="450.0" text-anchor="end" font-size="11" fill="#0a6b4e" font-weight="700">DS-KWS-M2 · 7.7M*</text>
+      <rect x="250" y="435.0" width="98.1" height="22" rx="4" fill="#0e8a66"/>
+      <text x="358.1" y="451.0" font-size="11.5" font-weight="700" fill="#374151">6.13</text>
+      <text x="80" y="482" font-size="12.5" fill="#0a6b4e" font-weight="600">M2 以 PLCL-AT 约 1/5 的参数量把 EER 再降 2.34 pp；对 W-CTC（同为 ASR+CTC 路线）10.21 → 6.13 的差值即第二级验证的净贡献</text>
+      <text x="80" y="498" font-size="10.5" fill="#9ca3af">* 表 1 原文标 4.1M 系笔误，按表 4 与图 1 应为 7.7M；LPE（Easy）各家已近饱和，M2 的 0.45% 为全表最优</text>
+    </svg>
+    <p class="cap"><b>LPE 上各家接近饱和（EER ~1%），真正的区分度在 LPH</b>——这正是该基准的设计意图：Easy 谁都做得对，Hard 混淆子集才分高下。另一个值得记住的数：即使不用 GS-1000/GP-1000 扩数据，LP-460-M2 也有 7.97%——两阶段架构本身有效，数据扩展是放大器而非前提。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 330" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">双重数据扩展（表 2 + 表 3）：两条轴喂两级，各自独立有效（LPH EER %）</text>
+      <line x1="90" y1="210.0" x2="430" y2="210.0" stroke="#f0f1f3"/>
+      <text x="84" y="214.0" text-anchor="end" font-size="10.5" fill="#9ca3af">6</text>
+      <line x1="90" y1="168.0" x2="430" y2="168.0" stroke="#f0f1f3"/>
+      <text x="84" y="172.0" text-anchor="end" font-size="10.5" fill="#9ca3af">9</text>
+      <line x1="90" y1="126.0" x2="430" y2="126.0" stroke="#f0f1f3"/>
+      <text x="84" y="130.0" text-anchor="end" font-size="10.5" fill="#9ca3af">12</text>
+      <line x1="90" y1="84.0" x2="430" y2="84.0" stroke="#f0f1f3"/>
+      <text x="84" y="88.0" text-anchor="end" font-size="10.5" fill="#9ca3af">15</text>
+      <rect x="120.0" y="102.1" width="40" height="107.9" rx="4" fill="#0e8a66"/>
+      <text x="140.0" y="96.1" text-anchor="middle" font-size="11" font-weight="700" fill="#374151">13.71</text>
+      <rect x="166.0" y="79.2" width="40" height="130.8" rx="4" fill="#7cc7ad"/>
+      <text x="186.0" y="73.2" text-anchor="middle" font-size="11" font-weight="700" fill="#374151">15.34</text>
+      <text x="163.0" y="234" text-anchor="middle" font-size="10.5" fill="#374151">LS-100</text>
+      <text x="163.0" y="248" text-anchor="middle" font-size="10" fill="#9ca3af">100h</text>
+      <rect x="230.0" y="182.4" width="40" height="27.6" rx="4" fill="#0e8a66"/>
+      <text x="250.0" y="176.4" text-anchor="middle" font-size="11" font-weight="700" fill="#374151">7.97</text>
+      <rect x="276.0" y="126.3" width="40" height="83.7" rx="4" fill="#7cc7ad"/>
+      <text x="296.0" y="120.3" text-anchor="middle" font-size="11" font-weight="700" fill="#374151">10.78</text>
+      <text x="273.0" y="234" text-anchor="middle" font-size="10.5" fill="#374151">LS-460</text>
+      <text x="273.0" y="248" text-anchor="middle" font-size="10" fill="#9ca3af">460h</text>
+      <rect x="340.0" y="193.2" width="40" height="16.8" rx="4" fill="#0e8a66"/>
+      <text x="360.0" y="187.2" text-anchor="middle" font-size="11" font-weight="700" fill="#374151">6.13</text>
+      <rect x="386.0" y="116.7" width="40" height="93.3" rx="4" fill="#7cc7ad"/>
+      <text x="406.0" y="110.7" text-anchor="middle" font-size="11" font-weight="700" fill="#374151">10.02</text>
+      <text x="383.0" y="234" text-anchor="middle" font-size="10.5" fill="#374151">LS-GS-1460</text>
+      <text x="383.0" y="248" text-anchor="middle" font-size="10" fill="#9ca3af">1460h</text>
+      <line x1="90" y1="210" x2="430" y2="210" stroke="#9ca3af"/>
+      <text x="260" y="272" text-anchor="middle" font-size="11.5" fill="#0a6b4e" font-weight="600">轴一：ASR 语料 → 声学模型（深 = M2，浅 = M1）</text>
+      <text x="90" y="294" font-size="11" fill="#47536a">配套 P-WER：LSother 18.79 → 13.39 → 11.80（降幅集中在最难的 other 集——</text>
+      <text x="90" y="310" font-size="11" fill="#47536a">扩数据补的是口音与噪声鲁棒性）</text>
+      <line x1="480" y1="210.0" x2="840" y2="210.0" stroke="#f0f1f3"/>
+      <text x="474" y="214.0" text-anchor="end" font-size="10.5" fill="#9ca3af">10</text>
+      <line x1="480" y1="168.0" x2="840" y2="168.0" stroke="#f0f1f3"/>
+      <text x="474" y="172.0" text-anchor="end" font-size="10.5" fill="#9ca3af">12</text>
+      <line x1="480" y1="126.0" x2="840" y2="126.0" stroke="#f0f1f3"/>
+      <text x="474" y="130.0" text-anchor="end" font-size="10.5" fill="#9ca3af">14</text>
+      <rect x="510.0" y="75.4" width="46" height="134.6" rx="4" fill="#4fb5a0"/>
+      <text x="533.0" y="69.4" text-anchor="middle" font-size="10.5" font-weight="700" fill="#374151">13.38</text>
+      <text x="533.0" y="234" text-anchor="middle" font-size="11" fill="#374151">12k</text>
+      <rect x="576.0" y="100.0" width="46" height="110.0" rx="4" fill="#4fb5a0"/>
+      <text x="599.0" y="94.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#374151">12.50</text>
+      <text x="599.0" y="234" text-anchor="middle" font-size="11" fill="#374151">20k</text>
+      <rect x="642.0" y="124.6" width="46" height="85.4" rx="4" fill="#4fb5a0"/>
+      <text x="665.0" y="118.6" text-anchor="middle" font-size="10.5" font-weight="700" fill="#374151">11.62</text>
+      <text x="665.0" y="234" text-anchor="middle" font-size="11" fill="#374151">40k</text>
+      <rect x="708.0" y="148.2" width="46" height="61.8" rx="4" fill="#4fb5a0"/>
+      <text x="731.0" y="142.2" text-anchor="middle" font-size="10.5" font-weight="700" fill="#374151">10.78</text>
+      <text x="731.0" y="234" text-anchor="middle" font-size="11" fill="#374151">78k</text>
+      <rect x="774.0" y="151.8" width="46" height="58.2" rx="4" fill="#4fb5a0"/>
+      <text x="797.0" y="145.8" text-anchor="middle" font-size="10.5" font-weight="700" fill="#374151">10.65</text>
+      <text x="797.0" y="234" text-anchor="middle" font-size="11" fill="#374151">155k</text>
+      <line x1="480" y1="210" x2="840" y2="210" stroke="#9ca3af"/>
+      <text x="660" y="272" text-anchor="middle" font-size="11.5" fill="#0a6b4e" font-weight="600">轴二：锚点词类别数 → 匹配器（编码器固定 LS-460）</text>
+      <text x="480" y="294" font-size="11" fill="#47536a">收益递减：前几档每步 -0.8~-0.9 pp，最后一步只降 0.13 pp——</text>
+      <text x="480" y="310" font-size="11" fill="#47536a">锚点多样性的边际价值在衰减，接近饱和</text>
+    </svg>
+    <p class="cap"><b>交叉对比分离两轴贡献：</b>同为 12k 锚点，LS-100 编码器 15.34% vs LS-460 编码器 13.38%（1.96 pp 来自语料）；同为 155k 锚点，LS-460 10.65% vs LS-GS-1460 10.02%（0.63 pp）——两轴各自独立贡献，「双重扩展」名副其实。单笔最大增益来自 M1→M2 模式升级（-3.89 pp），大于任何一档数据扩展——数据、架构、模式三者耦合，不是三个独立旋钮。</p>
+  </div>
+
+  <div class="fig">
+    <svg viewBox="0 0 880 320" role="img">
+      <text x="70" y="28" font-size="13.5" fill="#47536a" font-weight="600">Hey-Snips zero-shot 召回（表 4，%）：完全 zero-shot 逼近 full-shot 训练模型</text>
+      <line x1="90" y1="230.0" x2="850" y2="230.0" stroke="#f0f1f3"/>
+      <text x="84" y="234.0" text-anchor="end" font-size="11" fill="#9ca3af">96</text>
+      <line x1="90" y1="190.0" x2="850" y2="190.0" stroke="#f0f1f3"/>
+      <text x="84" y="194.0" text-anchor="end" font-size="11" fill="#9ca3af">97</text>
+      <line x1="90" y1="150.0" x2="850" y2="150.0" stroke="#f0f1f3"/>
+      <text x="84" y="154.0" text-anchor="end" font-size="11" fill="#9ca3af">98</text>
+      <line x1="90" y1="110.0" x2="850" y2="110.0" stroke="#f0f1f3"/>
+      <text x="84" y="114.0" text-anchor="end" font-size="11" fill="#9ca3af">99</text>
+      <line x1="90" y1="70.0" x2="850" y2="70.0" stroke="#f0f1f3"/>
+      <text x="84" y="74.0" text-anchor="end" font-size="11" fill="#9ca3af">100</text>
+      <rect x="120.0" y="161.2" width="52" height="68.8" rx="4" fill="#c9ced6" opacity=".75"/>
+      <text x="146.0" y="155.2" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">96.47</text>
+      <rect x="178.0" y="132.8" width="52" height="97.2" rx="4" fill="#c9ced6"/>
+      <text x="204.0" y="126.8" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">97.18</text>
+      <text x="175.0" y="256" text-anchor="middle" font-size="11.5" fill="#1c2430" font-weight="700">RIL-KWS</text>
+      <text x="175.0" y="272" text-anchor="middle" font-size="10" fill="#9ca3af">full-shot</text>
+      <rect x="268.0" y="74.8" width="52" height="155.2" rx="4" fill="#c9ced6" opacity=".75"/>
+      <text x="294.0" y="68.8" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">99.88</text>
+      <rect x="326.0" y="73.2" width="52" height="156.8" rx="4" fill="#c9ced6"/>
+      <text x="352.0" y="67.2" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">99.92</text>
+      <text x="323.0" y="256" text-anchor="middle" font-size="11.5" fill="#1c2430" font-weight="700">MDTC</text>
+      <text x="323.0" y="272" text-anchor="middle" font-size="10" fill="#9ca3af">full-shot</text>
+      <rect x="416.0" y="84.4" width="52" height="145.6" rx="4" fill="#7cc7ad" opacity=".75"/>
+      <text x="442.0" y="78.4" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">98.89</text>
+      <rect x="474.0" y="81.2" width="52" height="148.8" rx="4" fill="#7cc7ad"/>
+      <text x="500.0" y="75.2" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">98.97</text>
+      <text x="471.0" y="256" text-anchor="middle" font-size="11.5" fill="#1c2430" font-weight="700">DS-KWS M0</text>
+      <text x="471.0" y="272" text-anchor="middle" font-size="10" fill="#0a6b4e">zero-shot</text>
+      <rect x="564.0" y="96.8" width="52" height="133.2" rx="4" fill="#4fb5a0" opacity=".75"/>
+      <text x="590.0" y="90.8" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">98.58</text>
+      <rect x="622.0" y="82.4" width="52" height="147.6" rx="4" fill="#4fb5a0"/>
+      <text x="648.0" y="76.4" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">98.93</text>
+      <text x="619.0" y="256" text-anchor="middle" font-size="11.5" fill="#1c2430" font-weight="700">DS-KWS M1</text>
+      <text x="619.0" y="272" text-anchor="middle" font-size="10" fill="#0a6b4e">zero-shot</text>
+      <rect x="712.0" y="81.2" width="52" height="148.8" rx="4" fill="#0e8a66" opacity=".75"/>
+      <text x="738.0" y="75.2" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">98.97</text>
+      <rect x="770.0" y="74.8" width="52" height="155.2" rx="4" fill="#0e8a66"/>
+      <text x="796.0" y="68.8" text-anchor="middle" font-size="10" font-weight="700" fill="#374151">99.13</text>
+      <text x="767.0" y="256" text-anchor="middle" font-size="11.5" fill="#1c2430" font-weight="700">DS-KWS M2</text>
+      <text x="767.0" y="272" text-anchor="middle" font-size="10" fill="#0a6b4e">zero-shot</text>
+      <line x1="90" y1="230" x2="850" y2="230" stroke="#9ca3af"/>
+      <rect x="330" y="288" width="13" height="13" rx="3" fill="#9ca3af" opacity=".75"/><text x="349" y="299" font-size="11" fill="#47536a">FAR=0.5</text>
+      <rect x="420" y="288" width="13" height="13" rx="3" fill="#9ca3af"/><text x="439" y="299" font-size="11" fill="#47536a">FAR=1</text>
+      <text x="70" y="299" font-size="12" fill="#0a6b4e" font-weight="600">M2 zero-shot 召回超过 full-shot 的 RIL-KWS，逼近 MDTC</text>
+      <text x="70" y="316" font-size="11.5" fill="#c0392b">诚实细节：M1 在 FAR=0.5 档（98.58）反而低于纯 CTC 的 M0（98.89）——冻结编码器下 0.5M 匹配器泛化有限</text>
+    </svg>
+    <p class="cap"><b>但注意对比的锚点缺失：</b>表 4 里两个参照都是 full-shot 模型，没有其他 zero-shot UDKWS 方法在同一测试集上的数字——"zero-shot 可比 full-shot"缺一个同类对手的锚点。</p>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">四条可转述的判断</h2>
+  <div class="sec-line"></div>
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>两阶段 UDKWS 框架</b><br><span style="font-size:14.5px;color:var(--ink-2)">CTC 流式检索定位（边界来自声学对齐，直击滑窗错配）+ QbyT 双粒度验证（音素级句子级双监督）——宽进严出，分工显式设计进检索端与验证端。</span></div>
+    <div class="c"><span class="n">2</span><b>双重数据扩展的系统研究</b><br><span style="font-size:14.5px;color:var(--ink-2)">ASR 语料 460→1460h 服务声学模型（P-WER 18.79→11.80）、锚点类别 12k→155k 服务匹配器（EER 13.38→10.65），交叉消融证明两轴独立有效——两级瓶颈不同、数据类型不同的分工是"双重"成立的前提。</span></div>
+    <div class="c"><span class="n">3</span><b>nn.Embedding 轻量注册</b><br><span style="font-size:14.5px;color:var(--ink-2)">把注册从「跑一遍 DistilBERT」降到「一次查表」，第二级轻量分支整体仅约 0.5M——注册文本只有几个音素，需要的是对齐关系不是语义表示。</span></div>
+    <div class="c"><span class="n">4</span><b>结果层面的两个锚点</b><br><span style="font-size:14.5px;color:var(--ink-2)">LPH EER 6.13%（PLCL-AT 的 1/5 参数再降 2.34 pp）；Hey-Snips zero-shot 召回 99.13%@FAR=1 可比 full-shot。对 W-CTC 的 10.21→6.13 差值可粗略看作第二级的净贡献。</span></div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限性与展望</p>
+  <h2 class="sec">效率数字缺失是最大缺口</h2>
+  <div class="sec-line"></div>
+  <div class="lim">
+    <div class="col">
+      <h4>方法的技术局限</h4>
+      <ul>
+        <li><b>效率数字缺失</b>：KWS 是常驻低功耗任务，但全文无推理延迟 / RTF / FLOPS / 内存；M2 参数是 M0 的两倍多且每个候选段重过编码器——候选密集时计算量会不会堆积，未报告。M1 vs M2 的取舍只能看精度看不了代价。</li>
+        <li><b>两级分数联合决策未交代</b>：S1/S2 阈值怎么定、串联过滤还是分数融合——直接影响可复现性与误报调优空间。</li>
+        <li><b>模糊音素集合 F(x_t) 是黑盒</b>：哪些音素对算模糊、手工还是数据驱动、会不会级联放大误报——第一级召回-精度交换的核心旋钮，缺了它式 4 无法独立复现。</li>
+        <li><b>LPH 6.13% 绝对水平仍不算低</b>：等错误率操作点约每十六次判决错一次；剩余错误有无系统性模式（长元音/鼻音韵尾/重音），无错误分析。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计的不足</h4>
+      <ul>
+        <li><b>参数量标注矛盾</b>：表 1 的 M2 标 4.1M 与表 4 的 7.7M 矛盾（笔误），横向对比应以 7.7M 为准。</li>
+        <li><b>消融档位不全</b>：语料轴缺 GS-1000 单独档（无法区分收益来自绝对量还是 GigaSpeech 域多样性）；锚点轴 155k 之外无更大档（最后一步仅 -0.13 pp 已暗示饱和）。</li>
+        <li><b>训练细节未报告</b>：优化器、学习率、轮数、词对正负采样比例——独立复现困难。</li>
+        <li><b>语言与域单一</b>：全部英文有声书域；Introduction 以 "XiaoZhi AI" 开篇却无中文/其他语言验证、无远场噪声讨论——缺口更显眼。</li>
+        <li><b>zero-shot 对比缺同类锚点</b>：参照全是 full-shot 模型。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">下一步方向（论文自列 + 笔者延伸）</h3>
+    <p style="margin:6px 0"><b>论文自列</b>：面向更广唤醒词集合的微调策略（zero-shot 升级为少量样本自适应）；低资源平台部署验证。<br>
+    <b>笔者延伸</b>：两级分数的联合阈值学习 / 可学习融合权重替代手工定阈；模糊音素集合从混淆统计数据驱动构造并随锚点语料自动扩展；锚点收益递减后转向困难词对主动挖掘（难负例、课程采样）；把第二级匹配器蒸馏回单级找回 M2 的延迟开销；跨语言与真实远场验证——能否走出有声书基准、落到 "XiaoZhi AI" 这类真实产品，就看这两项。</p>
+  </div>
+</section>
+
+<footer>
+  <p><b>论文精读 · 可视化版</b> · 2025 №10 · DS-KWS 两阶段用户自定义 KWS（上海大学 / 西交利物浦大学，arXiv 2025）</p>
+  <p>数据来源：论文表 1–4、图 1–3（经由本库深读笔记核对，含笔误标注）。图表坐标由脚本从论文原表计算生成。</p>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2025/Dual_Data_Scaling_For_Robust_Two-Stage_User-Defined_Keyword_Spotting.md">📄 深读笔记</a>
+    <a class="pill" href="/papers/2025/Dual_Data_Scaling_For_Robust_Two-Stage_User-Defined_Keyword_Spotting.pdf">📕 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2510.10740" target="_blank">🔗 arXiv:2510.10740</a>
+    <a class="pill" href="/">← 返回论文库</a>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>
