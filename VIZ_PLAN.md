@@ -340,3 +340,11 @@
 - [⬜] Streaming End-to-End Speech Recognition and Keyword Spot…
 - [⬜] Structured Transforms for Small-Footprint Deep Learning
 - [⬜] Trainable Frontend for Robust and Far-Field Keyword Spot…
+## 完成一篇后的固定收尾（脚本）
+
+```bash
+python3 -c "
+import glob, json
+json.dump(sorted(p[:-5]+'.html' for p in glob.glob('papers/*/*.html')), open('viz_manifest.json','w'), indent=0)"
+# 然后重跑本文件的生成脚本更新勾选与计数 → git add 相关文件 → commit+push
+```
