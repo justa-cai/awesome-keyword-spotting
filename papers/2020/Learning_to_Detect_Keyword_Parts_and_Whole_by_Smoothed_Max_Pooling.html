@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>平滑最大池化：Max 太冲动，Average 太和稀泥，中间学一个 | 论文精读 2020 №10</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.22em;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:14px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.sub{font-size:17px;color:var(--ink2);margin-bottom:22px;font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.chip{font-size:12.5px;padding:5px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2);font-weight:600}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink2);margin-bottom:40px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:10px;vertical-align:-6px}
+h2{font-size:24px;font-weight:800;margin-bottom:18px;letter-spacing:.01em}
+h3{font-size:17px;font-weight:700;margin:26px 0 10px}
+p{margin-bottom:14px;color:#2c3646}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:.14em;margin-bottom:10px}
+.tldr li{list-style:none;padding-left:22px;position:relative;margin-bottom:8px;color:#2c3646;font-size:15px}
+.tldr li::before{content:"◆";position:absolute;left:2px;color:var(--acc);font-size:10px;top:7px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px}
+.card h4{font-size:15px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13.5px;color:var(--ink2);margin-bottom:0}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h4{color:var(--dk)}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4}
+.card.bad h4{color:var(--warn)}
+.fig{margin:26px 0}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:9px;text-align:center}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 22px;margin:16px 0;font-size:15px}
+.formula .f{font-family:"SF Mono",Consolas,"Liberation Mono",monospace;font-size:14.5px;color:var(--ink);background:#f4f4ef;border-radius:8px;padding:10px 16px;margin-bottom:8px;overflow-x:auto;white-space:pre-wrap}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;margin:16px 0}
+table.tb th{background:#eff1ec;color:var(--ink);font-weight:700;text-align:left;padding:10px 14px;border-bottom:2px solid var(--line);font-size:13px}
+table.tb td{padding:9px 14px;border-bottom:1px solid #f0f0ea;color:#2c3646;vertical-align:top}
+table.tb tr:last-child td{border-bottom:none}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.contrib{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:18px 0}
+.contrib .row{display:flex;gap:14px;margin-bottom:12px;align-items:flex-start}
+.contrib .row:last-child{margin-bottom:0}
+.contrib .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lt);color:var(--dk);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.contrib .row p{margin:0;font-size:14px;color:#2c3646}
+.judge{background:#fdf8f0;border:1px solid #eadfc8;border-radius:12px;padding:20px 24px;margin:18px 0}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:#5a4a2f;margin-bottom:10px;font-weight:600}
+.judge .rw{font-size:13.5px;color:#7a6a4a;padding-left:18px;position:relative;margin-bottom:9px}
+.judge .rw::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-size:12px;padding:4px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink3);font-weight:600}
+.foot-note{font-size:12px;color:var(--ink3);width:100%;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2020 №10</div>
+<h1 class="hero">平滑最大池化：Max 太冲动，Average 太和稀泥，<span class="g">中间学一个</span></h1>
+<div class="sub">Learning to Detect Keyword Parts and Whole by Smoothed Max Pooling —— Google 流式 KWS 团队的部分-整体检测框架</div>
+<div class="chips">
+<span class="chip acc">Smoothed Max Pooling</span><span class="chip">部分-整体检测</span><span class="chip">帧聚合</span><span class="chip">可学习 α</span><span class="chip">流式推理</span>
+</div>
+<div class="meta">
+<b>Google Inc.（Prabhavalkar / Alvarez / He 等）· arXiv 2001.09246（2020.01）</b><br>
+问题：帧级预测聚合为段级检测分数的两难 · 方法：部分检测器（强制对齐标签）+ SmoothMax（softmax 温度连续化）+ min 组合<br>
+一句话：把「Max 还是 Average」变成一个可学习的连续参数 α；关键词先拆部分、全到齐才算整体——准确率与误触发双赢。
+</div>
+
+<section>
+<span class="no">01</span><h2>问题：帧聚合的两难</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>流式 KWS 逐帧出预测，「这一段是不是唤醒词」要把窗口内几十帧分数<b>聚成一个数</b>——聚合算子的选择直接决定误触发率。</li>
+<li><b>Max Pooling</b> 能抓最显著证据，但单帧噪声尖峰就能误触发（outlier 一票否决）；<b>Average Pooling</b> 对异常值鲁棒，却把关键词帧的强信号稀释了。</li>
+<li>本文的两个组件：<b>部分检测器</b>（关键词拆成 K 个音素子段，分别检测）+ <b>Smoothed Max Pooling</b>（softmax 加权聚合，α 在 Max 与 Average 之间连续滑动）。</li>
+<li>整体分数 = min(P₁…P_K)：所有部分到齐才算数——<b>结构化的防误触发</b>；3–5 个部分是甜点。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">平滑最大池化：Max 太冲动，Average 太和稀泥——中间学一个</text>
+<line x1="36.0" y1="60.0" x2="700.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 帧级预测怎么聚成检测分数：一个两难</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">流式 KWS 模型逐帧出预测——最终「这一段是不是唤醒词」要把窗口内几十帧的分数聚成一个数</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">而关键词是有内部时序结构的（「Hey Siri」= /HH EY/ + /S IY R IY/ 两段）——理想聚合应该「先认部分，再拼整体」</text>
+<rect x="36.0" y="152.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="181.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Max Pooling 的病</text>
+<text x="215.0" y="181.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">取窗口内帧预测最大值——最显著证据能抓到，但单帧噪声尖峰就能误触发（outlier 极敏感）</text>
+<rect x="36.0" y="208.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="237.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Average Pooling 的病</text>
+<text x="215.0" y="237.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">取均值——对异常值鲁棒，但把关键词帧的强信号稀释了，检测灵敏度下降</text>
+<rect x="36.0" y="264.0" width="848.0" height="48.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="293.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">理想形态</text>
+<text x="215.0" y="293.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">部分级检测 + 整体聚合 · 对异常值鲁棒 · 保持对关键词信号的灵敏度——三样都要</text>
+<text x="36.0" y="296.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 两个组件：部分检测器 + 平滑最大池化</text>
+<rect x="36.0" y="312.0" width="416.0" height="190.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="334.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">部分检测器（Part Detectors）</text>
+<text x="52.0" y="358.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 关键词拆成 K 个子段（Parts）</text>
+<text x="52.0" y="373.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  如首音素 / 中间音素 / 末音素</text>
+<text x="52.0" y="388.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练标签：强制对齐（Force Alignment）</text>
+<text x="52.0" y="403.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  定音素时间边界 → 每帧标注属于哪个子段</text>
+<text x="52.0" y="418.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 每个子段一个帧级分类器</text>
+<text x="52.0" y="433.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输出：每时间帧上各部分的出现概率</text>
+<text x="52.0" y="448.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="463.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">直觉：分别认「Hey」和「Siri」比直接认</text>
+<text x="52.0" y="478.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">整句更稳——部分短，对时序变化不敏感</text>
+<rect x="468.0" y="312.0" width="416.0" height="190.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="676.0" y="334.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Smoothed Max Pooling</text>
+<text x="484.0" y="358.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SmoothMax(x; α) = Σ xᵢ·exp(αxᵢ) / Σ exp(αxᵢ)</text>
+<text x="484.0" y="373.0" font-size="8.8" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="388.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· α → ∞：退化为标准 Max（挑最大）</text>
+<text x="484.0" y="403.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· α → 0：退化为 Average（全平均）</text>
+<text x="484.0" y="418.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 0 < α < ∞：两者之间平滑过渡</text>
+<text x="484.0" y="433.0" font-size="8.8" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="448.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 可微分——端到端训练</text>
+<text x="484.0" y="463.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· α 可以作为参数在训练中学出来</text>
+<text x="484.0" y="478.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· softmax 权重让高分帧主导但低分帧</text>
+<text x="484.0" y="493.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  仍有话语权——outlier 不再一票否决</text>
+<text x="36.0" y="530.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 部分 → 整体：全部到齐才算数</text>
+<rect x="56.0" y="550.0" width="180.0" height="56.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="146.0" y="572.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级网络</text>
+<text x="146.0" y="590.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">各部分概率</text>
+<line x1="236.0" y1="578.0" x2="264.00" y2="578.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="264.0" y="550.0" width="180.0" height="56.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="354.0" y="572.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">窗口内 SmoothMax</text>
+<text x="354.0" y="590.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每部分一个分数</text>
+<line x1="444.0" y1="578.0" x2="472.00" y2="578.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="472.0" y="550.0" width="180.0" height="56.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="562.0" y="572.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">组合 P₁..P_K</text>
+<text x="562.0" y="590.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">几何平均 / 取 min</text>
+<line x1="652.0" y1="578.0" x2="680.00" y2="578.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="680.0" y="550.0" width="180.0" height="56.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="770.0" y="572.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">整体检测分</text>
+<text x="770.0" y="590.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">流式低延迟输出</text>
+<text x="52.0" y="634.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">整体分 = min(P₁, P₂, …, P_K)——要求所有部分都被检测到：一部分缺失就压低整体分，结构化的防误触发</text>
+<rect x="36.0" y="666.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="692.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SmoothMax 最优</text>
+<text x="130.0" y="712.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率与误触发双赢</text>
+<text x="298.0" y="692.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">> Max > Avg</text>
+<text x="298.0" y="712.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">三者排序</text>
+<text x="466.0" y="692.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3–5 个</text>
+<text x="466.0" y="712.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">部分数甜点</text>
+<text x="634.0" y="692.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">可学习 α</text>
+<text x="634.0" y="712.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">自动找平衡点</text>
+<text x="802.0" y="692.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">对齐鲁棒</text>
+<text x="802.0" y="712.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">时间偏移大时优势明显</text>
+<text x="36.0" y="750.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Google Inc.（流式 KWS 团队：Prabhavalkar / Alvarez / He 等）· arXiv 2001.09246（2020.01）；GSC 流式评估；效果为定性记录</text>
+</svg>
+<div class="cap">图 1 · 全景：聚合两难 → 部分检测器 + SmoothMax → 部分-整体组合 → 核心数字带</div>
+</section>
+
+<section>
+<span class="no">02</span><h2>机制：α 连续谱与标签生产线</h2>
+<p>SmoothMax 的形式很优雅：对窗口内帧分数做<b>softmax 温度加权的期望</b>。α→∞ 时 softmax 退化为 argmax（标准 Max）；α→0 时权重均匀（标准 Average）；中间任何位置都是两者的平滑混合。α 变成可学习参数后，「Max 还是 Average」不再是设计者的二选一，而是<b>梯度替你调的连续旋钮</b>。</p>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：α 如何在 Max 与 Average 之间滑动 · 部分标签怎么来</text>
+<line x1="36.0" y1="56.0" x2="640.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SmoothMax 的连续谱</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="98.0" y="130.0" width="250.0" height="16.0" rx="8" fill="#d9dfd4"/>
+<rect x="98.0" y="130.0" width="125.0" height="16.0" rx="8" fill="#0b6e52"/>
+<text x="98.0" y="162.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">α→0：Average</text>
+<text x="348.0" y="162.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">α→∞：Max</text>
+<text x="223.0" y="122.0" font-size="8.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">学习到的 α 落点</text>
+<circle cx="248" cy="138" r="5" fill="#d97a2b"/>
+<text x="62.0" y="196.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一列帧分数的聚合演示</text>
+<rect x="68.0" y="256.0" width="26.0" height="18.0" rx="3" fill="#9fc8b8"/>
+<rect x="106.0" y="244.0" width="26.0" height="30.0" rx="3" fill="#9fc8b8"/>
+<rect x="144.0" y="250.0" width="26.0" height="24.0" rx="3" fill="#9fc8b8"/>
+<rect x="182.0" y="220.0" width="26.0" height="54.0" rx="3" fill="#c0392b"/>
+<rect x="220.0" y="253.0" width="26.0" height="21.0" rx="3" fill="#9fc8b8"/>
+<rect x="258.0" y="256.0" width="26.0" height="18.0" rx="3" fill="#9fc8b8"/>
+<rect x="296.0" y="221.2" width="26.0" height="52.8" rx="3" fill="#9fc8b8"/>
+<rect x="334.0" y="259.0" width="26.0" height="15.0" rx="3" fill="#9fc8b8"/>
+<text x="195.0" y="214.0" font-size="7.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声尖峰</text>
+<text x="62.0" y="296.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Max：取 0.9 —— 一帧噪声直接顶满（误触发）</text>
+<text x="62.0" y="309.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Average：≈0.49 —— 真证据 0.88 被稀释（漏检）</text>
+<text x="62.0" y="323.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SmoothMax：高分帧权重大，尖峰被概率摊薄——</text>
+<text x="62.0" y="336.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  输出介于两者之间且可学</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">部分检测器的标签生产线</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="450.0" y="114.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「Hey Siri」拆两个部分（示例）：</text>
+<text x="450.0" y="128.5" font-size="8.6" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="143.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  Part 1: /HH EY/     Part 2: /S IY R IY/</text>
+<text x="450.0" y="157.5" font-size="8.6" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="172.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标签生成四步：</text>
+<text x="450.0" y="186.5" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">① 用强制对齐（Force Alignment）跑训练音频</text>
+<text x="450.0" y="201.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   ——得到每个音素的时间边界</text>
+<text x="450.0" y="215.5" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② 按音素边界把关键词切成 K 个子段</text>
+<text x="450.0" y="230.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 每帧标注：属于 Part k / 不属于任何部分</text>
+<text x="450.0" y="244.5" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">④ 训练帧级分类器——每部分一套输出</text>
+<text x="450.0" y="259.0" font-size="8.6" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="273.5" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么部分比整体好认：</text>
+<text x="450.0" y="288.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 部分短——窗口内完整出现的概率高</text>
+<text x="450.0" y="302.5" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 说话快慢只改变部分间的间距——部分本身稳定</text>
+<text x="450.0" y="317.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 整体检测要一次框住全部——时序变化全暴露</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：α 是 Max 与 Average 之间的连续旋钮，softmax 权重让高分帧主导但尖峰不再一票否决；演示列里 Max 被一帧噪声顶满、Average 把真证据稀释。右：强制对齐给出音素边界，把「认整句」拆成「认几段」</text>
+</svg>
+<div class="cap">图 2 · 机制解剖：α 的连续谱与聚合演示 · 部分检测器标签的四步生产线</div>
+<div class="formula">
+<div class="f">SmoothMax(x₁..xₙ; α) = Σ xᵢ·exp(α·xᵢ) / Σ exp(α·xᵢ)
+  α → ∞  ⇒  Max Pooling      （挑最大，outlier 一票否决）
+  α → 0   ⇒  Average Pooling  （全平均，强信号被稀释）
+整体分 = min(P₁, P₂, …, P_K)  （K 个部分分数全到齐才算数）</div>
+<div class="why"><b>人话：</b>给每帧分数按「分数高矮」发权重再取加权平均——高分的帧说话声音大，但矮的帧也有票。α 控制话语权集中到什么程度。最后每个部分各聚出一个分数，取最小值：有一个部分没到齐，整体就不算命中。</div>
+</div>
+<p><b>部分检测器的标签</b>来自强制对齐：先用对齐工具跑训练音频得到每个音素的时间边界，按边界把关键词切成 K 个子段，每帧标注属于哪个部分——「认整句」由此拆成「认几段」。部分短，窗口内完整出现的概率高；说话快慢只改变部分间的间距，部分本身稳定——这正是部分检测对时序变化更鲁棒的原因。</p>
+</section>
+
+<section>
+<span class="no">03</span><h2>结果：排序清晰，双赢成立</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：排序清晰——SmoothMax > Max > Average</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">聚合方式对比（示意）</text>
+<line x1="52.0" y1="262.0" x2="456.00" y2="262.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="265.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">78</text>
+<line x1="52.0" y1="228.7" x2="456.00" y2="228.67" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="231.7" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">82</text>
+<line x1="52.0" y1="195.3" x2="456.00" y2="195.33" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="198.3" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">86</text>
+<line x1="52.0" y1="162.0" x2="456.00" y2="162.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="165.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="52.0" y1="128.7" x2="456.00" y2="128.67" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="131.7" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">94</text>
+<rect x="102.0" y="212.0" width="92.0" height="50.0" rx="4" fill="#c9d8e8"/>
+<text x="148.0" y="206.0" font-size="9" fill="#c9d8e8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~84</text>
+<text x="148.0" y="276.0" font-size="7.2" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Average</text>
+<rect x="230.0" y="170.3" width="92.0" height="91.7" rx="4" fill="#9fc8b8"/>
+<text x="276.0" y="164.3" font-size="9" fill="#9fc8b8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~89</text>
+<text x="276.0" y="276.0" font-size="7.2" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Max</text>
+<rect x="358.0" y="137.0" width="92.0" height="125.0" rx="4" fill="#0b6e52"/>
+<text x="404.0" y="131.0" font-size="9" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~93</text>
+<text x="404.0" y="276.0" font-size="7.2" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">SmoothM</text>
+<text x="404.0" y="286.0" font-size="7.2" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ax ★</text>
+<text x="256.0" y="106.0" font-size="7.7" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率与误触发率两个维度上都是这个排序（示意量级）</text>
+<text x="56.0" y="312.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="56.0" y="326.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SmoothMax 双赢：准确率更高 + 误触发更少</text>
+<text x="56.0" y="339.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Max 输在误触发（尖峰一票否决）</text>
+<text x="56.0" y="352.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Average 输在灵敏度（强信号被稀释）</text>
+<text x="56.0" y="365.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 学到的 α 在不同场景自适应——无需逐场景手调</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三组消融</text>
+<rect x="500.0" y="92.0" width="324.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="514.0" y="112.0" width="296.0" height="68.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="526.0" y="132.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">部分-整体 vs 整体</text>
+<text x="526.0" y="149.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">部分框架显著更优——关键词时间对齐</text>
+<text x="526.0" y="163.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">变化大时优势最大</text>
+<rect x="514.0" y="190.0" width="296.0" height="68.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="526.0" y="210.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">学习 α vs 固定 α</text>
+<text x="526.0" y="227.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">学习版自适应更好——训练自动找</text>
+<text x="526.0" y="241.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Max/Average 的平衡点</text>
+<rect x="514.0" y="268.0" width="296.0" height="68.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="526.0" y="288.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">部分数量 K</text>
+<text x="526.0" y="305.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">3–5 个甜点——太少退化成整体，</text>
+<text x="526.0" y="319.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">太多则每部分太碎、标签噪声大</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：条形为笔记定性记录的示意（arXiv 2001.09246），具体数值回对原文；流式 KWS 评估（连续音频流上的检测）· 指标含检测准确率与误触发率</text>
+</svg>
+<div class="cap">图 3 · 主结果（定性）：三种聚合对比 · 三组消融（部分-整体 / 学习 α / 部分数）</div>
+<table class="tb">
+<tr><th>维度</th><th>结论</th><th>机制解释</th></tr>
+<tr class="hl"><td>聚合排序</td><td>SmoothMax &gt; Max &gt; Average</td><td>准确率与误触发两个维度同排序</td></tr>
+<tr><td>Max 输在哪</td><td>误触发率高</td><td>一帧噪声尖峰直接顶满分数</td></tr>
+<tr><td>Average 输在哪</td><td>灵敏度低</td><td>0.88 的真证据被一堆低分稀释</td></tr>
+<tr><td>部分-整体 vs 整体</td><td>部分框架显著更优</td><td>时间对齐变化大时优势最大</td></tr>
+<tr><td>部分数 K</td><td>3–5 个最佳</td><td>太少退化成整体，太多每部分太碎</td></tr>
+</table>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>学习的 α 是自适应的聚合策略。</b>不同场景（噪声水平、词长）下学到的 α 不同——安静环境可以更接近 Max（信尖峰），嘈杂环境自动靠近 Average（防尖峰）——无需逐场景手调。</p></div>
+<div class="row"><div class="n">2</div><p><b>min 组合是结构化的防误触发。</b>「全到齐才算数」比「总分过线」多了一层结构约束：误触发必须同时伪造出所有部分的证据——偶然的单帧尖峰做不到这一点。</p></div>
+<div class="row"><div class="n">3</div><p><b>部分数甜点 3–5 有清晰的机制含义。</b>太少退化为整体检测（失去结构），太多则每部分太短、对齐标签噪声占比升高——粒度是精度与标签质量的折中。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">04</span><h2>边界：优雅算子的依赖项</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 依赖音素级边界：部分检测器的训练标签靠强制对齐</text>
+<text x="72.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  生成——没有对齐工具/词表变化时标签生产线就停摆</text>
+<text x="72.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 额外超参数：α 初值 · 部分划分策略都要调——</text>
+<text x="72.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「可学习」减轻但不消除调参负担</text>
+<text x="72.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 计算略高于朴素 Max/Average：softmax 加权求和</text>
+<text x="72.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  每窗口每部分都要算一遍</text>
+<text x="72.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 部分划分是门学问：切几段 · 在哪切——最优策略</text>
+<text x="72.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  论文没有给出原则性答案</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸 + 系列坐标</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 自动部分发现——不依赖音素标注</text>
+<text x="536.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 按输入声学特性自适应的部分划分</text>
+<text x="536.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 注意力替代固定划分——端到端部分-整体</text>
+<text x="536.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 迁移到端点检测等序列任务</text>
+<text x="536.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多粒度部分（音素/音节/词级）</text>
+<text x="536.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系列坐标（帧聚合谱系）：</text>
+<text x="536.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2019 Max Pooling Loss（others）：把 max 池化</text>
+<text x="536.0" y="240.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  放进损失函数——同一思想的训练侧形态</text>
+<text x="536.0" y="254.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 01 cFSMN（2018）：lookback/lookahead 帧堆叠</text>
+<text x="536.0" y="268.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——另一种「给单帧决策补上下文」的方案</text>
+<text x="536.0" y="281.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文（2020）：聚合算子本身的连续化改造——</text>
+<text x="536.0" y="295.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  Max 与 Average 之间的可学习中间态</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：需要在「选最大」和「取平均」之间做选择时，先把选择变成参数——softmax 温度连续化让梯度替你调；检测任务有内部结构（部分-整体）时，按结构拆开检测再合并，比端到端硬扛更稳</text>
+</svg>
+<div class="cap">图 4 · 边界与延伸：音素边界依赖 · 超参数 · 部分划分开放问题</div>
+<div class="cards">
+<div class="card bad"><h4>依赖音素级边界</h4><p>部分检测器的训练标签靠强制对齐生成——没有对齐工具或词表频繁变化（自定义唤醒词）时，标签生产线就停摆。</p></div>
+<div class="card bad"><h4>额外超参数</h4><p>α 初值、部分划分策略都要调——「可学习」减轻但不消除调参负担。</p></div>
+<div class="card bad"><h4>计算略高</h4><p>softmax 加权求和比朴素 Max/Average 贵一点，且每个部分、每个窗口都要算一遍。</p></div>
+<div class="card"><h4>部分划分是开放问题</h4><p>切几段、在哪切——论文给出经验甜点但没有原则性答案；自动部分发现、注意力替代固定划分是后续方向。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">05</span><h2>可迁移的判断</h2>
+<div class="judge">
+<div class="jt">JUDGMENTS · 能带走的三条</div>
+<p>① 需要在「选最大」和「取平均」之间二选一时，先把选择变成参数。</p>
+<div class="rw">softmax 温度连续化（soft-argmax）让 Max↔Average 之间可微滑动、可被学习——这个手法通用于任何聚合/选择算子（注意力本身就是它的推广）；离散选择往往是伪需求。</div>
+<p>② 检测任务有内部结构时，按结构拆开检测再合并。</p>
+<div class="rw">部分-整体 + min 组合比端到端硬扛更稳——结构约束让误触发需要「伪造全部证据」而不只是「堆够总分」；识别任务里的复合事件检测（口令、手势序列）同理。</div>
+<p>③ 聚合算子的鲁棒性要按 outlier 行为评估，不是按均值精度。</p>
+<div class="rw">Max 和 Average 的差异在平均精度上不大、在误触发尾部极大——评估聚合方式时看分布尾部（false alarm 率）才能看出真差距。</div>
+</div>
+<p><b>系列坐标</b>：帧聚合问题贯穿 KWS 历史——2019 年 Max Pooling Loss（others）把 max 池化放进损失函数（训练侧形态）；01 cFSMN（2018）用 lookback/lookahead 帧堆叠给单帧决策补上下文；本文（2020）改造聚合算子本身——「Max 与 Average 之间的可学习中间态」。后来注意力聚合可以看作这条线的自然终点。</p>
+</section>
+
+<div class="foot">
+<span class="pill">arXiv 2001.09246</span><span class="pill">Google</span><span class="pill">SmoothMax</span><span class="pill">部分-整体</span>
+<div class="foot-note">本页条形为笔记定性记录的示意，具体数值以原文为准 · 本页为可视化精读笔记，图表由 SVG 重绘</div>
+</div>
+
+</div>
+</body>
+</html>
