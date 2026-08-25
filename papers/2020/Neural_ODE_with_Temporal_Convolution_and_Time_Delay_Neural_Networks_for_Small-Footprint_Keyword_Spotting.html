@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neural ODE：层数不是整数，把「深度」变成连续变量 | 论文精读 2020 №17</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.22em;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:14px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.sub{font-size:17px;color:var(--ink2);margin-bottom:22px;font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.chip{font-size:12.5px;padding:5px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2);font-weight:600}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink2);margin-bottom:40px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:10px;vertical-align:-6px}
+h2{font-size:24px;font-weight:800;margin-bottom:18px;letter-spacing:.01em}
+h3{font-size:17px;font-weight:700;margin:26px 0 10px}
+p{margin-bottom:14px;color:#2c3646}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:.14em;margin-bottom:10px}
+.tldr li{list-style:none;padding-left:22px;position:relative;margin-bottom:8px;color:#2c3646;font-size:15px}
+.tldr li::before{content:"◆";position:absolute;left:2px;color:var(--acc);font-size:10px;top:7px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px}
+.card h4{font-size:15px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13.5px;color:var(--ink2);margin-bottom:0}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h4{color:var(--dk)}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4}
+.card.bad h4{color:var(--warn)}
+.fig{margin:26px 0}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:9px;text-align:center}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 22px;margin:16px 0;font-size:15px}
+.formula .f{font-family:"SF Mono",Consolas,"Liberation Mono",monospace;font-size:14.5px;color:var(--ink);background:#f4f4ef;border-radius:8px;padding:10px 16px;margin-bottom:8px;overflow-x:auto;white-space:pre-wrap}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;margin:16px 0}
+table.tb th{background:#eff1ec;color:var(--ink);font-weight:700;text-align:left;padding:10px 14px;border-bottom:2px solid var(--line);font-size:13px}
+table.tb td{padding:9px 14px;border-bottom:1px solid #f0f0ea;color:#2c3646;vertical-align:top}
+table.tb tr:last-child td{border-bottom:none}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.contrib{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:18px 0}
+.contrib .row{display:flex;gap:14px;margin-bottom:12px;align-items:flex-start}
+.contrib .row:last-child{margin-bottom:0}
+.contrib .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lt);color:var(--dk);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.contrib .row p{margin:0;font-size:14px;color:#2c3646}
+.judge{background:#fdf8f0;border:1px solid #eadfc8;border-radius:12px;padding:20px 24px;margin:18px 0}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:#5a4a2f;margin-bottom:10px;font-weight:600}
+.judge .rw{font-size:13.5px;color:#7a6a4a;padding-left:18px;position:relative;margin-bottom:9px}
+.judge .rw::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-size:12px;padding:4px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink3);font-weight:600}
+.foot-note{font-size:12px;color:var(--ink3);width:100%;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2020 №17</div>
+<h1 class="hero">Neural ODE：层数不是整数——<span class="g">把「深度」本身变成连续变量</span></h1>
+<div class="sub">Neural ODE with Temporal Convolution and TDNN for Small-Footprint KWS —— AIST 用常微分方程的视角压缩 KWS 模型</div>
+<div class="chips">
+<span class="chip acc">Neural ODE</span><span class="chip">连续深度</span><span class="chip">伴随方法</span><span class="chip">参数 −68%</span><span class="chip">运行时精度旋钮</span>
+</div>
+<div class="meta">
+<b>日本产业技术综合研究所（AIST）· arXiv 2008.00209（2020.08）</b><br>
+洞见：ResNet 的残差步 y+f(y) 就是一步欧拉法——堆叠网络本来就是 ODE 的离散化 · 方法：ODE 块（内嵌时序卷积 + TDNN）替代层堆叠，BN 统计量预计算冻结，容差控制推理步数<br>
+一句话：整个网络只剩 3 个「层」，参数砍 68%——代价是训练更慢、动态计算图对固定硬件不友好。
+</div>
+
+<section>
+<span class="no">01</span><h2>问题：换一个数学视角看层数</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>传统 KWS 网络 5–15 层堆叠，参数量和内存对嵌入式设备是硬负担——但「堆叠」这个动作本身有数学含义。</li>
+<li>关键洞见：<b>ResNet 的残差连接 y_{n+1} = y_n + f(y_n) 恰好是一步欧拉法</b>——深度网络本来就是对某个连续变换的离散近似；NODE 直接解原问题，不再离散。</li>
+<li>两个立即收益：<b>参数共享</b>（同一个动力学函数 f 在求解器里反复用，参数量不随深度涨）+ <b>运行时精度旋钮</b>（求解器容差决定步数——精度-算力权衡从设计期搬到运行期）。</li>
+<li>两个拦路虎都有解法：BN 统计量<b>求解前预计算、求解中冻结</b>；推理步数用<b>容差</b>压。结果：3 个「层」、参数 −68%、GSC 精度有竞争力。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Neural ODE：层数不是整数——把「深度」本身变成连续变量</text>
+<line x1="36.0" y1="60.0" x2="660.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 换个角度看层数：堆叠是对连续变换的离散化</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">传统 KWS 网络（ResNet / TCNN / TDNN）5–15 层堆叠——参数量大、内存高，嵌入式部署吃紧</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数学视角：层数堆叠 = 对连续变换的离散近似——那为什么不直接用 ODE 求解器算这个连续变换？</text>
+<rect x="36.0" y="152.0" width="848.0" height="46.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="180.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ResNet 的残差步</text>
+<text x="215.0" y="180.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">y_{n+1} = y_n + f(y_n)——一步欧拉法！ResNet 本来就是 ODE 的离散化</text>
+<rect x="36.0" y="206.0" width="848.0" height="46.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="234.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">连续化收益一</text>
+<text x="215.0" y="234.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">同一个 f 在求解器里反复用——参数共享，参数量随「深度」不再增长</text>
+<rect x="36.0" y="260.0" width="848.0" height="46.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="288.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">连续化收益二</text>
+<text x="215.0" y="288.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">求解精度可调（容差旋钮）——精度-计算量的权衡变成运行时参数</text>
+<rect x="36.0" y="314.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="342.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两个拦路虎</text>
+<text x="215.0" y="342.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">BatchNorm 与连续求解不兼容 · 推理时求解步数可能爆炸——都要专门处理</text>
+<text x="36.0" y="340.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② NODE 的三件事：前向即积分 · 伴随法梯度 · 3 层网络</text>
+<rect x="36.0" y="356.0" width="416.0" height="168.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="378.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">前向 = 解一个 ODE</text>
+<text x="52.0" y="402.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">dz/dt = f(z(t), t, θ)   ← 参数化的动力学</text>
+<text x="52.0" y="417.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输入 = 初值 z(t₀) = x</text>
+<text x="52.0" y="432.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输出 = 解到 t₁：z(t₁) = z(t₀) + ∫f dt</text>
+<text x="52.0" y="447.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="462.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">伴随方法（Adjoint）反传：</text>
+<text x="52.0" y="477.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 内存消耗与「深度」无关——不存中间层</text>
+<text x="52.0" y="492.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· f 里嵌时序卷积 + TDNN 组件</text>
+<rect x="468.0" y="356.0" width="416.0" height="168.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="676.0" y="378.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两个工程难题的解法</text>
+<text x="484.0" y="402.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">BN 兼容：</text>
+<text x="484.0" y="417.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· ODE 求解前预计算 BN 统计量</text>
+<text x="484.0" y="432.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 求解过程中 BN 参数冻结——保证梯度</text>
+<text x="484.0" y="447.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  计算的一致性，训练才收敛</text>
+<text x="484.0" y="462.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="477.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">推理提速：</text>
+<text x="484.0" y="492.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 调求解器容差（Tolerance）——精度损失</text>
+<text x="484.0" y="507.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  可控时大幅减少求解步数</text>
+<text x="36.0" y="540.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 整个网络只有 3 个「层」</text>
+<rect x="190.0" y="560.0" width="170.0" height="58.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="275.0" y="582.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">输入层</text>
+<text x="275.0" y="601.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">频谱特征</text>
+<line x1="360.0" y1="589.0" x2="380.00" y2="589.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="380.0" y="560.0" width="170.0" height="58.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="465.0" y="582.0" font-size="10" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ODE 块</text>
+<text x="465.0" y="601.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">连续深度·参数共享</text>
+<line x1="550.0" y1="589.0" x2="570.00" y2="589.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="570.0" y="560.0" width="170.0" height="58.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="655.0" y="582.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">输出层</text>
+<text x="655.0" y="601.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">分类</text>
+<text x="52.0" y="642.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「深度」不再是设计超参——它变成求解器在积分区间里自动决定的连续量；参数只属于动力学函数 f</text>
+<rect x="36.0" y="660.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="686.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−68%</text>
+<text x="130.0" y="706.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量 vs 传统 KWS 模型</text>
+<text x="298.0" y="686.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3 层</text>
+<text x="298.0" y="706.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">从 5–15 层砍到 3</text>
+<text x="466.0" y="686.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">有竞争力</text>
+<text x="466.0" y="706.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC 分类精度</text>
+<text x="634.0" y="686.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">容差旋钮</text>
+<text x="634.0" y="706.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">精度-计算量运行时可调</text>
+<text x="802.0" y="686.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">常数内存</text>
+<text x="802.0" y="706.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">伴随法反传</text>
+<text x="36.0" y="744.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">日本产业技术综合研究所（AIST）· arXiv 2008.00209（2020.08）；GSC 数据集 · 对比 ResNet / TCNN / TDNN</text>
+</svg>
+<div class="cap">图 1 · 全景：堆叠即离散化 → NODE 三件事（积分/伴随/3 层）→ 工程难题解法 → 核心数字带</div>
+</section>
+
+<section>
+<span class="no">02</span><h2>机制：积分替代堆叠，容差成为新旋钮</h2>
+<p>前向传播变成<b>解一个初值问题</b>：输入是初值 z(t₀)，输出是积分到 t₁ 的解——「深度」不再是设计者定的整数，而是求解器在积分区间里自动决定的连续量。反向传播用<b>伴随方法</b>：不存中间层激活，内存消耗与深度无关——这对内存受限的端侧训练是个隐藏优势。</p>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：离散台阶 vs 连续斜坡 · 容差这个新旋钮</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">堆叠 vs 积分</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="62.0" y="112.0" font-size="8.8" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">传统堆叠（每步一套参数）</text>
+<rect x="88.0" y="126.0" width="44.0" height="18.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="110.0" y="138.0" font-size="8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">θᵢ</text>
+<line x1="132.0" y1="135.0" x2="144.00" y2="135.00" stroke="#8a93a5" stroke-width="1"/>
+<rect x="144.0" y="126.0" width="44.0" height="18.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="166.0" y="138.0" font-size="8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">θᵢ</text>
+<line x1="188.0" y1="135.0" x2="200.00" y2="135.00" stroke="#8a93a5" stroke-width="1"/>
+<rect x="200.0" y="126.0" width="44.0" height="18.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="222.0" y="138.0" font-size="8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">θᵢ</text>
+<line x1="244.0" y1="135.0" x2="256.00" y2="135.00" stroke="#8a93a5" stroke-width="1"/>
+<rect x="256.0" y="126.0" width="44.0" height="18.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="278.0" y="138.0" font-size="8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">θᵢ</text>
+<line x1="300.0" y1="135.0" x2="312.00" y2="135.00" stroke="#8a93a5" stroke-width="1"/>
+<rect x="312.0" y="126.0" width="44.0" height="18.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="334.0" y="138.0" font-size="8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">θᵢ</text>
+<text x="62.0" y="164.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">5 层 = 5 套参数 θ₁..θ₅</text>
+<text x="62.0" y="196.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">NODE 积分（一个 f 走全程）</text>
+<rect x="88.0" y="210.0" width="280.0" height="18.0" rx="9" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="228.0" y="222.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">f(z, t, θ)  ·  f(z, t, θ)  ·  f(z, t, θ) …</text>
+<text x="62.0" y="248.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">求解器在 t₀→t₁ 区间反复调用同一个 f——参数共享</text>
+<text x="62.0" y="268.0" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="62.0" y="281.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键洞见：ResNet 的残差连接</text>
+<text x="62.0" y="295.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">y_{n+1} = y_n + f(y_n) 就是一步欧拉法——</text>
+<text x="62.0" y="308.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「深度网络」本来就是 ODE 的离散化；</text>
+<text x="62.0" y="322.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">NODE 只是把这个近似收回去，直接解原问题</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">容差 = 运行时精度旋钮</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="496.0" y1="222.0" x2="776.00" y2="222.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="496.0" y1="122.0" x2="496.00" y2="222.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="496.0" y1="167.0" x2="566.00" y2="142.00" stroke="#0b6e52" stroke-width="2"/>
+<line x1="566.0" y1="142.0" x2="636.00" y2="128.00" stroke="#0b6e52" stroke-width="2"/>
+<line x1="636.0" y1="128.0" x2="706.00" y2="125.50" stroke="#0b6e52" stroke-width="2"/>
+<line x1="706.0" y1="125.5" x2="776.00" y2="125.20" stroke="#0b6e52" stroke-width="2"/>
+<circle cx="496.0" cy="167.0" r="3.2" fill="#0b6e52"/>
+<circle cx="566.0" cy="142.0" r="3.2" fill="#0b6e52"/>
+<circle cx="636.0" cy="128.0" r="3.2" fill="#0b6e52"/>
+<circle cx="706.0" cy="125.5" r="3.2" fill="#0b6e52"/>
+<circle cx="776.0" cy="125.2" r="3.2" fill="#0b6e52"/>
+<text x="496.0" y="234.0" font-size="7.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1</text>
+<text x="566.0" y="234.0" font-size="7.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2</text>
+<text x="636.0" y="234.0" font-size="7.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4</text>
+<text x="706.0" y="234.0" font-size="7.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">8</text>
+<text x="776.0" y="234.0" font-size="7.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">16</text>
+<text x="636.0" y="248.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">求解步数（函数评估次数 NFE）→</text>
+<text x="450.0" y="264.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 容差松 → 步数少 → 计算省、精度微降</text>
+<text x="450.0" y="277.5" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 容差紧 → 步数多 → 精度高、计算贵</text>
+<text x="450.0" y="291.0" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="304.5" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">这是 NODE 独有的自由度：传统网络的</text>
+<text x="450.0" y="318.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「深度」是训练后固定的，NODE 的等效深度</text>
+<text x="450.0" y="331.5" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">是运行时可调的——同一模型适配不同算力档</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：堆叠网络每步一套参数，NODE 一个动力学函数 f 走全程——参数共享是 −68% 的来源。右：求解器容差决定步数，精度-算力权衡从设计期参数变成运行时旋钮</text>
+</svg>
+<div class="cap">图 2 · 机制解剖：堆叠（每步一套参数）vs 积分（一个 f 走全程）· 容差-步数-精度关系</div>
+<div class="formula">
+<div class="f">dz/dt = f(z(t), t, θ)              ← 参数化的动力学（内嵌时序卷积 + TDNN）
+z(t₁) = z(t₀) + ∫ f dt             ← 前向：ODE 求解器积分
+反传:   伴随方法（adjoint）——常数内存，与深度无关
+推理:   调求解容差 tol → 步数（NFE）↓ → 计算量↓ 精度微降</div>
+<div class="why"><b>人话：</b>传统网络像爬 5–15 级台阶，每级台阶一套自己的参数；NODE 像沿一条斜坡滑下去，坡的形状由一个函数描述——不管滑多远，参数只有一套。滑得多仔细（容差）由你现场决定：赶时间就滑粗一点，要精度就滑细一点。</div>
+</div>
+<p><b>BN 兼容性</b>是训练收敛的关键：BN 的统计量若在求解过程中变化，梯度计算就不一致、训练发散。本文的方案是求解前预计算统计量、求解过程中冻结——一个不大但必要的工程补丁。<b>推理优化</b>则把容差当旋钮：精度损失可控时求解步数大幅下降——同一模型适配不同算力档位，这是传统网络给不了的自由度。</p>
+</section>
+
+<section>
+<span class="no">03</span><h2>结果：参数砍 68%，代价在别处</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：参数砍 68%，代价藏在训练与硬件里</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量 vs 精度（示意）</text>
+<rect x="76.0" y="127.0" width="30.0" height="135.0" rx="3" fill="#e8e2d4"/>
+<rect x="110.0" y="157.0" width="30.0" height="105.0" rx="3" fill="#a8bcd4"/>
+<text x="93.0" y="122.0" font-size="7.2" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">100%</text>
+<text x="125.0" y="152.0" font-size="7.2" fill="#a8bcd4" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">95.5</text>
+<text x="108.0" y="276.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ResNe</text>
+<text x="108.0" y="286.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">t</text>
+<rect x="172.0" y="127.0" width="30.0" height="135.0" rx="3" fill="#e8e2d4"/>
+<rect x="206.0" y="172.0" width="30.0" height="90.0" rx="3" fill="#a8bcd4"/>
+<text x="189.0" y="122.0" font-size="7.2" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">100%</text>
+<text x="221.0" y="167.0" font-size="7.2" fill="#a8bcd4" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">94.0</text>
+<text x="204.0" y="276.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">TCNN</text>
+<rect x="268.0" y="127.0" width="30.0" height="135.0" rx="3" fill="#e8e2d4"/>
+<rect x="302.0" y="187.0" width="30.0" height="75.0" rx="3" fill="#a8bcd4"/>
+<text x="285.0" y="122.0" font-size="7.2" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">100%</text>
+<text x="317.0" y="182.0" font-size="7.2" fill="#a8bcd4" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">92.5</text>
+<text x="300.0" y="276.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">TDNN</text>
+<rect x="364.0" y="218.8" width="30.0" height="43.2" rx="3" fill="#cfe9de"/>
+<rect x="398.0" y="182.0" width="30.0" height="80.0" rx="3" fill="#0b6e52"/>
+<text x="381.0" y="213.8" font-size="7.2" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">32%</text>
+<text x="413.0" y="177.0" font-size="7.2" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">93.0</text>
+<text x="396.0" y="276.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">NODE </text>
+<text x="396.0" y="286.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">★</text>
+<text x="256.0" y="106.0" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">左条=参数量（灰）· 右条=精度（色）——NODE 参数砍到 ~1/3，精度仍在竞争区间</text>
+<text x="56.0" y="316.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="56.0" y="330.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· −68% 参数：参数共享的直接收益</text>
+<text x="56.0" y="343.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 精度「有竞争力」而非 SOTA——同参数下表达力强，</text>
+<text x="56.0" y="356.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  但对精心调优的深层网络仍有差距</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">代价的账本</text>
+<rect x="500.0" y="92.0" width="324.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="114.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">省的：</text>
+<text x="514.0" y="128.2" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 参数 −68% → Flash 占用小一档</text>
+<text x="514.0" y="142.4" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 层数 5–15 → 3</text>
+<text x="514.0" y="156.6" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 反传内存常数（伴随法）</text>
+<text x="514.0" y="170.8" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="185.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">费的：</text>
+<text x="514.0" y="199.2" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练慢——ODE 求解要多次函数评估，</text>
+<text x="514.0" y="213.4" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  反传还要求解一次伴随方程</text>
+<text x="514.0" y="227.6" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 单步计算更复杂——层数少≠每步便宜</text>
+<text x="514.0" y="241.8" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="256.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">悬的：</text>
+<text x="514.0" y="270.2" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 动态计算图——求解步数随输入变，</text>
+<text x="514.0" y="284.4" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  固定功能硬件（DSP/NPU）不好执行</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：条形为笔记定性记录的示意（arXiv 2008.00209），具体数值回对原文；GSC 数据集 · 对比 ResNet/TCNN/TDNN 的参数量与精度</text>
+</svg>
+<div class="cap">图 3 · 主结果（定性）：参数-精度对比 · 省/费/悬的账本</div>
+<table class="tb">
+<tr><th>维度</th><th>NODE</th><th>对照（ResNet/TCNN/TDNN）</th><th>判断</th></tr>
+<tr class="hl"><td>参数量</td><td>−68%</td><td>基线</td><td>参数共享的直接收益</td></tr>
+<tr><td>层数</td><td>3</td><td>5–15</td><td>「深度」交给求解器</td></tr>
+<tr><td>GSC 精度</td><td>有竞争力</td><td>精调深层网络略高</td><td>同参数下表达力强，非 SOTA</td></tr>
+<tr><td>训练速度</td><td>更慢</td><td>基线</td><td>多次函数评估 + 伴随方程</td></tr>
+<tr><td>反传内存</td><td>常数</td><td>随深度涨</td><td>伴随法的隐藏优势</td></tr>
+</table>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>「层数少」不等于「计算省」。</b>ODE 求解器每步的计算比标准层复杂，训练时要多次函数评估、反传还要再解一次伴随方程——参数账和算力账要分开算，本文赢的只是前一笔。</p></div>
+<div class="row"><div class="n">2</div><p><b>运行时精度旋钮是范式级的新能力。</b>传统网络的深度在训练后固定；NODE 的等效深度由容差现场决定——同一份模型可以在旗舰芯片上滑细、在低端 MCU 上滑粗，这对多档位产品线很有想象空间。</p></div>
+<div class="row"><div class="n">3</div><p><b>动态计算图是硬伤。</b>求解步数随输入变化——DSP/NPU 这类固定功能加速器最恨这种不可预测的图；嵌入式落地需要固定步长求解器或离散 NODE 变体（作者自己列的后续方向）。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">04</span><h2>边界：优雅数学的工程税</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 单步成本高：层数少了，但求解器每步的计算</text>
+<text x="72.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  比标准层复杂——总算力未必省</text>
+<text x="72.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练显著更慢：多次函数评估 + 伴随方程求解</text>
+<text x="72.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——迭代周期拉长</text>
+<text x="72.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 求解器探索不足：Euler / RK45 等的系统对比缺失</text>
+<text x="72.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——「该用哪个求解器」没有答案</text>
+<text x="72.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 精度上限：深度优化基准上低于精调深层网络</text>
+<text x="72.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 硬件不友好：动态计算图难映射到 DSP/NPU 等</text>
+<text x="72.0" y="240.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  固定功能加速器——嵌入式落地有真实障碍</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸 + 系列坐标</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 固定步长求解器——嵌入式友好</text>
+<text x="536.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 与量化/剪枝叠加压缩</text>
+<text x="536.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Neural SDE（随机微分方程）版</text>
+<text x="536.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 离散 NODE——保参数效率、改善硬件兼容</text>
+<text x="536.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 流式 KWS 的在线 ODE 求解</text>
+<text x="536.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系列坐标（KWS 非主流计算范式）：</text>
+<text x="536.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文（2020）：连续深度——用 ODE 视角压缩</text>
+<text x="536.0" y="240.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2021 WaveSense SNN：脉冲计算——另一种</text>
+<text x="536.0" y="254.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「换计算基座」省电路线</text>
+<text x="536.0" y="268.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 共同点：都在赌「通用深度学习硬件之外</text>
+<text x="536.0" y="281.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  还有更适合端侧的计算形态」——超前但未成主流</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：当一个结构（残差连接）在数学上等价于某个数值方法（欧拉积分）时，把它换回原问题常能解锁新自由度——NODE 的运行时精度旋钮就是这么来的；但动态计算图对固定硬件的敌意是范式级障碍</text>
+</svg>
+<div class="cap">图 4 · 边界与延伸：单步成本 · 训练慢 · 求解器未探索 · 硬件不友好</div>
+<div class="cards">
+<div class="card bad"><h4>单步成本高</h4><p>层数少了但每步更复杂——总算力未必省；「3 层」是光学数字，不是功耗数字。</p></div>
+<div class="card bad"><h4>训练显著更慢</h4><p>ODE 求解要多次函数评估，反传还要求解伴随方程——迭代周期拉长，调参成本上升。</p></div>
+<div class="card bad"><h4>求解器探索不足</h4><p>Euler / RK45 等求解器的系统对比缺失——「该用哪个求解器」这个基本问题没有答案。</p></div>
+<div class="card"><h4>精度上限</h4><p>深度优化基准上低于精调的深层网络——同参数表达力更强，但绝对精度仍让半筹。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">05</span><h2>可迁移的判断</h2>
+<div class="judge">
+<div class="jt">JUDGMENTS · 能带走的三条</div>
+<p>① 当一个结构在数学上等价于某个数值方法时，换回原问题常解锁新自由度。</p>
+<div class="rw">残差连接 = 一步欧拉法，所以「解 ODE」给了运行时可调的等效深度——发现手头结构其实是某经典算法的特例时，把它一般化往往能拿到特例给不了的控制旋钮。</div>
+<p>② 参数账、算力账、硬件账要分开记。</p>
+<div class="rw">NODE 赢参数（−68%）、平算力（步数多抵消层数少）、输硬件（动态图 vs 固定加速器）——三项独立核算才能看清一个「压缩方法」的真实性价比，只看参数量的论文结论要重新审。</div>
+<p>③ 非主流计算范式的价值在储备不在当下。</p>
+<div class="rw">NODE（连续深度）与 SNN（脉冲计算）都没成 KWS 主流，但都在赌「通用深度学习硬件之外还有更适合端侧的形态」——芯片生态变化时，这批储备会突然变得可部署。</div>
+</div>
+<p><b>系列坐标</b>：KWS 非主流计算范式的代表——本文（2020）的连续深度与 2021 年 WaveSense SNN 的脉冲计算同属「换计算基座」路线；与同年 #1（DS-CNN on M4）、#12（MicroNets）等「主流架构+工程优化」路线形成对照——前者押注范式转移，后者收割当下红利。</p>
+</section>
+
+<div class="foot">
+<span class="pill">arXiv 2008.00209</span><span class="pill">AIST</span><span class="pill">Neural ODE</span><span class="pill">参数 −68%</span>
+<div class="foot-note">本页条形/曲线为笔记定性记录的示意，具体数值以原文为准 · 本页为可视化精读笔记，图表由 SVG 重绘</div>
+</div>
+
+</div>
+</body>
+</html>
