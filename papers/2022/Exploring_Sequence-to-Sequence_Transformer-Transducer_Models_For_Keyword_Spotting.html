@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TT-KWS：Transformer-Transducer 序列到序列关键词检测</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 15px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  table.tb { width: 100%; border-collapse: collapse; margin: 18px 0; background: var(--card);
+    border-radius: 12px; overflow: hidden; font-size: 13.8px; }
+  table.tb th { background: var(--acc-lt); color: var(--acc-dk); font-weight: 700;
+    padding: 10px 12px; text-align: left; }
+  table.tb td { padding: 9px 12px; border-top: 1px solid var(--line); color: var(--ink2); }
+  table.tb td b { color: var(--ink); }
+  table.tb tr.hl td { background: #f6fbf9; font-weight: 600; }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №15</div>
+  <h1 class="hero">把关键词折成一个 token，<br>ASR 的质量红利就能搬进<span class="g">唤醒词检测</span></h1>
+  <div class="chips">
+    <span class="chip">TT-KWS · arXiv 2211.06478</span>
+    <span class="chip">Google × 马德里自治大学</span>
+    <span class="chip">Transformer-Transducer + MBR</span>
+    <span class="chip">Hey/Okay Google · 8300h 数据</span>
+  </div>
+  <div class="meta">「Okay Google」识别成「Okay GOOGL」字符串匹配就失败——把关键词折叠成 &lt;kw&gt; 特殊 token，字符级不确定性被吸收进 token 的声学建模；再用 MBR 损失直接优化检测错误率。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>问题</b>：T-T/Conformer-Transducer 在 ASR 上已到 SOTA——这份质量红利能不能搬进唤醒词检测？直接 ASR + 字符串匹配不行：字符错误 AND 累积（Okay GOOGL 即失败）、关键词训练数据稀疏、硬判决无连续分数。</li>
+      <li><b>选型</b>：Transformer-Transducer 天然支持逐帧流式解码（常驻监听硬需求）；隐式学习声学-文本对齐——彻底免去常规 KWS 的强制对齐（顺带打通联邦学习路径）。</li>
+      <li><b>核心一刀</b>：训练时把转写里的关键词替换成特殊 token &lt;kw&gt;（75 个字素词表的一员）——检测问题变成「这个 token 有没有出现」，模型整体预测关键词的声学轮廓；所有含关键词的语句为同一个 token 贡献信号，缓解稀疏。</li>
+      <li><b>MBR 损失</b>：训练目标从「最大化转写似然」改写为「最小化期望检测错误」——以 N-best 假设概率为权重，对该假设的关键词级假阳/假阴率加权求和；必须先用 RNN-T 训好再热启动（未收敛模型的 N-best 是垃圾假设空间）。</li>
+      <li><b>打分</b>：取 softmax 里 &lt;kw&gt; 的值、整句取 max——连续置信度支持调阈值切操作点，且训练优化什么推理就度量什么（目标与度量对齐）。</li>
+      <li><b>主结果</b>：token 化让小模型 EER 相对降 31%（8.24→5.68）；MBR 在低 FP 区放大收益（FN@0.5%FP 相对降 30.4%）；大模型 TT-KWS+MBR 3.27% 全面最优；融合 3.09%。</li>
+      <li><b>规模是第一性</b>：小配置（350K）下 T-T 全线不敌为检测定制的 SVDF（3.78%）——容量不够时损失技巧救不回来；13M 大配置才反超。</li>
+      <li><b>两路线错误互补</b>：常规 KWS 与 T-T 模型犯的不是同一批错误，分数求和融合在所有操作点一致占优——低 FP 区 FN 相对降 13.6%。</li>
+      <li><b>部署分流</b>：电池受限设备用常规小模型，插电设备（音箱/车机）用 T-T 大模型，高精度场景做融合——中间档位（高端手机常驻）是空白。</li>
+      <li><b>边界</b>：13M 参数是 SVDF 大配置的 3 倍多；MBR 训练要跑 beam 8 取 4-best（贵）；max 打分假设一句至多一次关键词；只验证两个固定两词英文关键词；内部数据不可复现、无效率指标。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：ASR 好不等于 KWS 好</h2>
+  <div class="h2sub">字符串匹配方案的三个结构性缺陷</div>
+  <p class="lead">KWS 与 ASR 的核心差别在目标范围：KWS 只关心一小集合短语的检测准确率。直接把通用 ASR 用于 KWS 的三宗罪：检测精度被轻微 ASR 错误带偏（短语越长字符级出错概率越高，字素建模对拼写错误零容忍）；关键短语在训练数据中出现频率远低于普通词（梯度分配天然失衡）；字符串匹配是硬判决，无法输出连续置信度，不能按场景调节误报/漏报权衡。常规非 ASR 路线则要强制对齐产帧级标签——对齐误差传导进模型，且网络拓扑限制长上下文。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>字符错误是 AND 累积</h4>
+      <p>字符串匹配里关键词内部任何一个字符错了整词匹配就失败——「Okay Google」→「Okay GOOGL」检测即失效；token 化后变成「token 有没有出现」，关键词内部的字符级不确定性被吸收进 token 的声学建模。</p>
+    </div>
+    <div class="card bad">
+      <h4>先前 seq2seq KWS 的代价</h4>
+      <p>LSTM-CTC 音素格方法需要格搜索；基于 N-best 索引搜索的 attention 模型推理昂贵——本文的 softmax 打分不需要 N-best 或格，推理计算量远低，且训练目标能对齐推理度量。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：token 化 + MBR + 对齐的打分</h2>
+  <div class="h2sub">三个组件环环相扣的设计</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 980">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="980.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TT-KWS：把关键词折叠成一个 token，直接优化检测错误率</text>
+<line x1="36.0" y1="60.0" x2="560.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 出发点：ASR 的质量红利怎么搬进唤醒词检测</text>
+<rect x="36.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两条老路都不通</text>
+<text x="52.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">常规 KWS：需强制对齐产帧级标签（对齐误差传导进</text>
+<text x="52.0" y="155.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  模型）；网络拓扑限制长上下文建模</text>
+<text x="52.0" y="168.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">直接 ASR + 字符串匹配：① 字符错误 AND 累积——</text>
+<text x="52.0" y="181.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  "Okay Google"→"Okay GOOGL" 匹配即失败；</text>
+<text x="52.0" y="194.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ② 关键词在训练数据稀疏；③ 硬判决无连续分数</text>
+<rect x="474.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么选 Transformer-Transducer</text>
+<text x="490.0" y="140.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">transducer 天然支持逐帧流式解码——常驻监听硬需求</text>
+<text x="490.0" y="153.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">编码器自注意力替换单向 LSTM：长程建模更强</text>
+<text x="490.0" y="166.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">已在 ASR 上验证 SOTA（T-T / Conformer-T）</text>
+<text x="490.0" y="179.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">隐式学习声学-文本对齐 → 彻底免去强制对齐（顺带</text>
+<text x="490.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  打通联邦学习路径——用户数据上跑对齐贵且涉隐私</text>
+<text x="36.0" y="212.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 核心一刀：<kw> 特殊 token——关键词 = 一个连贯声学事件</text>
+<rect x="36.0" y="226.0" width="848.0" height="138.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<rect x="56.0" y="244.0" width="200.0" height="100.0" rx="8" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="156.0" y="266.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音频编码器</text>
+<text x="156.0" y="286.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Transformer 块 ×15（大）</text>
+<text x="156.0" y="299.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">  FFN 1024/256，8 头 × 64 维</text>
+<text x="156.0" y="312.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">×7（小）FFN 128/32——容量伸缩</text>
+<text x="156.0" y="325.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">  集中在前馈层，注意力拓扑不变</text>
+<rect x="276.0" y="244.0" width="170.0" height="100.0" rx="8" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="361.0" y="266.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标签编码器</text>
+<text x="361.0" y="286.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">LSTM（128 维大 / 32 小）</text>
+<text x="361.0" y="299.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">把已输出文本 token 转语言</text>
+<text x="361.0" y="312.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">嵌入（保守选择——保留</text>
+<text x="361.0" y="325.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">LSTM 的理由未说明）</text>
+<rect x="466.0" y="244.0" width="190.0" height="100.0" rx="8" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="561.0" y="266.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">联合网络 + 输出</text>
+<text x="561.0" y="286.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">两侧投影同维求和 → FC</text>
+<text x="561.0" y="299.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">输出 75 个字素 token 的分布</text>
+<text x="561.0" y="312.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">——词表含 <kw> ★</text>
+<text x="561.0" y="325.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">大 13M / 小 350K 参数</text>
+<rect x="676.0" y="244.0" width="188.0" height="100.0" rx="8" fill="#dcefe6" stroke="#9fd8bf" stroke-width="1"/>
+<text x="770.0" y="266.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">token 化的收益</text>
+<text x="770.0" y="284.0" font-size="8.5" fill="#0a4030" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">检测问题变成「<kw> 有没有</text>
+<text x="770.0" y="295.5" font-size="8.5" fill="#0a4030" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">出现」——字符级不确定性被</text>
+<text x="770.0" y="307.0" font-size="8.5" fill="#0a4030" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">吸收进 token 声学建模</text>
+<text x="770.0" y="318.5" font-size="8.5" fill="#0a4030" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">所有含关键词语句为同一个</text>
+<text x="770.0" y="330.0" font-size="8.5" fill="#0a4030" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif"><kw> 贡献信号（缓解稀疏）；</text>
+<text x="770.0" y="341.5" font-size="8.5" fill="#0a4030" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">换关键词只改转写文本</text>
+<text x="36.0" y="372.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ MBR 损失：训练目标从「转写似然」改成「期望检测错误」</text>
+<rect x="36.0" y="386.0" width="414.0" height="128.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="410.0" font-size="12" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">公式 1–3</text>
+<text x="52.0" y="430.0" font-size="9.5" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FPij = max(0, KHij − KRi)，FNij = max(0, KRi − KHij)</text>
+<text x="52.0" y="442.5" font-size="9.5" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Lij = Pij·(α·FPij + β·FNij) / (KRi + ε)</text>
+<text x="52.0" y="455.0" font-size="9.5" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">L = Σi Σj Lij − λ·log P(Y|X)</text>
+<text x="52.0" y="467.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="480.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">以 N-best 假设概率 Pij 为权重，对该假设的关键词级</text>
+<text x="52.0" y="492.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">假阳/假阴率加权求和；÷(KRi+ε) 让多关键词句与单关键</text>
+<text x="52.0" y="505.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">词句损失量级可比；λ 项保留似然防止 MBR 单独优化崩坏</text>
+<text x="52.0" y="517.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（单句内 FP/FN 至多一个非零；全局上 α/β 才起作用）</text>
+<rect x="474.0" y="386.0" width="414.0" height="128.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="490.0" y="410.0" font-size="12" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段训练 + 推理打分</text>
+<text x="490.0" y="430.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">阶段1：RNN-T 损失训练 TT-KWS（转写似然）</text>
+<text x="490.0" y="442.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">阶段2：热启动，RNN-T + MBR 组合微调（lr=10⁻⁵）</text>
+<text x="490.0" y="455.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  为什么必须两阶段：MBR 依赖 N-best 质量，未收敛</text>
+<text x="490.0" y="467.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  模型产生的假设没有意义——冷启动 MBR = 优化垃圾</text>
+<text x="490.0" y="480.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">配置：beam 8 产生 4-best 假设上算 MBR；</text>
+<text x="490.0" y="492.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  {α, β, λ} = {1.0, 1.0, 0.01}（经验值）</text>
+<text x="490.0" y="505.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="517.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">推理：取 softmax 里 <kw> 的值，整句取 max——一句中</text>
+<text x="490.0" y="530.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词至多一次，max = 模型最有把握的检测瞬间</text>
+<rect x="36.0" y="530.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="556.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.27%</text>
+<text x="130.0" y="576.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">大模型 EER（+MBR，全场最优）</text>
+<text x="298.0" y="556.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−31%</text>
+<text x="298.0" y="576.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">token 化相对 EER（小模型）</text>
+<text x="466.0" y="556.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−30.4%</text>
+<text x="466.0" y="576.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">MBR 低 FP 区 FN（@0.5%FP）</text>
+<text x="634.0" y="556.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.09%</text>
+<text x="634.0" y="576.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">融合 EER（两条路线互补）</text>
+<text x="802.0" y="556.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">13M</text>
+<text x="802.0" y="576.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">大模型参数（SVDF 大的 3 倍+）</text>
+<text x="36.0" y="614.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据：内部供应商英文语音（多口音/车内/电话/噪声/远近场均衡）——训练 4300h 正 + 4000h 负（含 1.5 万条易混淆句），房间模拟器每句 25 个增强版本；测试 3800h 正 + 7000h 负</text>
+</svg>
+    <p class="cap"><b>图1 · 机制全景</b>：两条老路的缺陷与 T-T 选型理由；<kw> token 化（关键词当作连贯声学事件，75 字素词表的一员）；MBR 损失（式 1–3）与两阶段训练；softmax 打分整句取 max。
+  </div>
+  </div>
+  <div class="formula">
+    <div class="f">FP = max(0, K_H − K_R)，FN = max(0, K_R − K_H)；L_ij = P_ij·(α·FP + β·FN)/(K_R+ε)；L = ΣΣ L_ij − λ·log P(Y|X)</div>
+    <div class="why"><b>人话（式 1–3，MBR 损失）</b>：K 是假设/参考里 &lt;kw&gt; 的个数。以每个 N-best 假设的概率 P_ij 为权重，对它的关键词级假阳/假阴率加权求和——<b>训练直接优化「期望检测错误」</b>而不是转写似然。除以 (K_R+ε) 让含多个关键词的语句与只含一个的损失量级可比；λ 项保留似然防止 MBR 单独优化崩坏主任务。单句内 FP/FN 至多一个非零，α/β 在全局层面起作用。</div>
+  </div>
+  <p class="sub"><b>为什么打分方式与训练目标是耦合设计</b>：因为分数定义在模型输出端（softmax 的 &lt;kw&gt; 值），训练时才能直接对关键词 token 做序列判别优化（MBR）——基于格/N-best 索引的先前方法做不到「训练优化什么、推理就度量什么」。公平起见论文还给 ASR 基线设计了 bigram 编辑距离打分（e^−GEDmin），把只能硬匹配的 ASR 扩展成有分数、能画 DET 曲线的系统。</p>
+
+  <h2><span class="no">§03</span>实验：大小两配置 + 融合</h2>
+  <div class="h2sub">DET 曲线 / EER / 低 FP 兴趣点（宁漏检不误报的不对称代价）</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主对比（Table 2）：EER 与低 FP 操作点</text>
+<line x1="36.0" y1="56.0" x2="320.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="240.0" y="94.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">小配置（350K vs 330K 参数）· EER %</text>
+<rect x="150.0" y="116.0" width="256.4" height="38.0" rx="5" fill="#e8b8b0"/>
+<text x="412.4" y="141.0" font-size="10.5" fill="#e8b8b0" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">8.24</text>
+<text x="144.0" y="141.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">ASR 基线（字符串匹配+GED 打分）</text>
+<rect x="150.0" y="174.0" width="176.7" height="38.0" rx="5" fill="#9fc8b8"/>
+<text x="332.7" y="199.0" font-size="10.5" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5.68</text>
+<text x="144.0" y="199.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">TT-KWS（<kw> token）</text>
+<rect x="150.0" y="232.0" width="163.0" height="38.0" rx="5" fill="#0b6e52"/>
+<text x="319.0" y="257.0" font-size="10.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5.24</text>
+<text x="144.0" y="257.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TT-KWS + MBR</text>
+<rect x="150.0" y="290.0" width="117.6" height="38.0" rx="5" fill="#c9d8e8"/>
+<text x="273.6" y="315.0" font-size="10.5" fill="#c9d8e8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.78</text>
+<text x="144.0" y="315.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">常规 E2E SVDF KWS</text>
+<rect x="150.0" y="342.0" width="300.0" height="26.0" rx="6" fill="#eef6f1"/>
+<text x="300.0" y="360.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">小预算下为检测定制的紧凑架构仍占优</text>
+<text x="690.0" y="94.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">大配置（13M vs 3.9M 参数）· EER %</text>
+<rect x="630.0" y="116.0" width="143.0" height="32.0" rx="5" fill="#e8b8b0"/>
+<text x="779.0" y="137.0" font-size="10" fill="#e8b8b0" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">3.55</text>
+<text x="624.0" y="137.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">ASR 基线</text>
+<rect x="630.0" y="168.0" width="105.6" height="32.0" rx="5" fill="#c9d8e8"/>
+<text x="741.6" y="189.0" font-size="10" fill="#c9d8e8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">3.38</text>
+<text x="624.0" y="189.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">常规 E2E SVDF KWS</text>
+<rect x="630.0" y="220.0" width="103.4" height="32.0" rx="5" fill="#9fc8b8"/>
+<text x="739.4" y="241.0" font-size="10" fill="#9fc8b8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">3.37</text>
+<text x="624.0" y="241.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">TT-KWS</text>
+<rect x="630.0" y="272.0" width="81.4" height="32.0" rx="5" fill="#0b6e52"/>
+<text x="717.4" y="293.0" font-size="10" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.27</text>
+<text x="624.0" y="293.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TT-KWS + MBR ★</text>
+<rect x="630.0" y="324.0" width="41.8" height="32.0" rx="5" fill="#5aa886"/>
+<text x="677.8" y="345.0" font-size="10" fill="#5aa886" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">3.09</text>
+<text x="624.0" y="345.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">融合（SVDF + TT+MBR）</text>
+<text x="520.0" y="380.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">融合相对 SVDF 大 +8.6%；低 FP 区收益更大：</text>
+<text x="520.0" y="395.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FN@1%FP 4.34→3.75（相对 −13.6%）</text>
+<text x="36.0" y="448.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键读数：小模型下 T-T 全线不敌 SVDF（5.24 vs 3.78）；大模型下 TT-KWS+MBR 全面最优——容量是这条路线的第一性；两路线错误互补，融合在所有操作点一致占优</text>
+</svg>
+    <p class="cap"><b>图2 · 主对比（Table 2 · EER）</b>：小配置下为检测定制的 SVDF 仍最优（3.78），token 化让 T-T 从 8.24 到 5.68；大配置下 TT-KWS+MBR 3.27 全面最优，融合 3.09。
+  </div>
+  </div>
+  <table class="tb">
+    <tr><th>系统</th><th>规模</th><th>EER</th><th>FN@1%FP</th><th>FN@0.5%FP</th></tr>
+    <tr><td>常规 SVDF KWS（小）</td><td>330K</td><td><b>3.78</b></td><td>5.07</td><td>5.78</td></tr>
+    <tr><td>ASR 基线（小）</td><td>350K</td><td>8.24</td><td colspan="2">无可达操作点</td></tr>
+    <tr><td>TT-KWS（小）</td><td>350K</td><td>5.68</td><td>11.68</td><td>17.49</td></tr>
+    <tr><td>TT-KWS+MBR（小）</td><td>350K</td><td>5.24</td><td>8.70</td><td>12.18</td></tr>
+    <tr><td>常规 SVDF KWS（大）</td><td>3.9M</td><td>3.38</td><td>4.34</td><td>4.91</td></tr>
+    <tr><td>ASR 基线（大）</td><td>13M</td><td>3.55</td><td colspan="2">—</td></tr>
+    <tr class="hl"><td><b>TT-KWS+MBR（大）</b></td><td>13M</td><td><b>3.27</b></td><td><b>4.17</b></td><td><b>4.78</b></td></tr>
+    <tr class="hl"><td><b>融合（SVDF 大 + TT+MBR 大）</b></td><td>—</td><td><b>3.09</b></td><td><b>3.75</b></td><td><b>4.25</b></td></tr>
+  </table>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">逐项叠加消融：每个组件的增量都能单独读到</text>
+<line x1="36.0" y1="56.0" x2="440.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="240.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① <kw> token 化的贡献（同架构同损失）</text>
+<rect x="160.0" y="114.0" width="218.3" height="26.0" rx="4" fill="#e8b8b0"/>
+<text x="384.3" y="132.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">8.24（ASR 基线）</text>
+<rect x="160.0" y="146.0" width="111.7" height="26.0" rx="4" fill="#0b6e52"/>
+<text x="277.7" y="164.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">5.68（TT-KWS）</text>
+<text x="154.0" y="148.0" font-size="10.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">小模型</text>
+<text x="390.0" y="148.0" font-size="11" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">相对 −31.1%</text>
+<rect x="160.0" y="192.0" width="22.9" height="26.0" rx="4" fill="#e8b8b0"/>
+<text x="188.9" y="210.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">3.55（ASR 基线）</text>
+<rect x="160.0" y="224.0" width="15.4" height="26.0" rx="4" fill="#0b6e52"/>
+<text x="181.4" y="242.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">3.37（TT-KWS）</text>
+<text x="154.0" y="226.0" font-size="10.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">大模型</text>
+<text x="390.0" y="226.0" font-size="11" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">相对 −5.1%</text>
+<text x="240.0" y="280.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">仅改变输出表示（字符串匹配 → <kw> token）</text>
+<text x="240.0" y="295.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">——失败主要不是模型能力，是输出表示问题</text>
+<text x="690.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② MBR 的收益在低 FP 区放大（小模型）</text>
+<rect x="640.0" y="114.0" width="53.6" height="22.0" rx="4" fill="#9fc8b8"/>
+<rect x="640.0" y="140.0" width="49.5" height="22.0" rx="4" fill="#0b6e52"/>
+<text x="698.6" y="130.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">5.68</text>
+<text x="694.5" y="156.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5.24</text>
+<text x="634.0" y="144.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">EER</text>
+<text x="830.0" y="144.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−7.7%</text>
+<rect x="640.0" y="176.0" width="110.3" height="22.0" rx="4" fill="#9fc8b8"/>
+<rect x="640.0" y="202.0" width="82.2" height="22.0" rx="4" fill="#0b6e52"/>
+<text x="755.3" y="192.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">11.68</text>
+<text x="727.2" y="218.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">8.70</text>
+<text x="634.0" y="206.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">FN@1%FP</text>
+<text x="830.0" y="206.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−25.5%</text>
+<rect x="640.0" y="238.0" width="165.2" height="22.0" rx="4" fill="#9fc8b8"/>
+<rect x="640.0" y="264.0" width="115.0" height="22.0" rx="4" fill="#0b6e52"/>
+<text x="810.2" y="254.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">17.49</text>
+<text x="760.0" y="280.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">12.18</text>
+<text x="634.0" y="268.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">FN@0.5%FP</text>
+<text x="830.0" y="268.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−30.4%</text>
+<text x="690.0" y="308.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">MBR 把建模容量聚焦到 KWS 主任务——</text>
+<text x="690.0" y="322.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">资源越少聚焦作用越大（大模型 EER 仅 −3.0%）</text>
+<text x="36.0" y="418.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 规模贡献：TT-KWS+MBR 350K→13M：5.24→3.27（幅度远超两个损失技巧之和）；SVDF 330K→3.9M 只 3.78→3.38（边际递减快得多）——两种架构的规模敏感度差异是选路线的依据</text>
+</svg>
+    <p class="cap"><b>图3 · 逐项叠加消融</b>：token 化（同架构同损失，小模型相对 −31%）；MBR 收益在低 FP 区放大（FN@0.5%FP 相对 −30.4%，容量越少聚焦作用越大）；规模贡献远超两个损失技巧之和。
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">部署分流判断 + 边界</text>
+<line x1="36.0" y1="56.0" x2="260.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="36.0" y="84.0" width="400.0" height="62.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<rect x="36.0" y="84.0" width="10.0" height="62.0" rx="5" fill="#c9d8e8"/>
+<text x="56.0" y="106.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">电池受限设备</text>
+<text x="56.0" y="124.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">手机 / 可穿戴常驻检测</text>
+<text x="170.0" y="106.0" font-size="10" fill="#c9d8e8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">常规小模型（SVDF 330K）</text>
+<text x="170.0" y="124.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">EER 3.78——小预算下仍最优</text>
+<rect x="36.0" y="158.0" width="400.0" height="62.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<rect x="36.0" y="158.0" width="10.0" height="62.0" rx="5" fill="#0b6e52"/>
+<text x="56.0" y="180.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">插电设备</text>
+<text x="56.0" y="198.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">智能音箱 / 智能屏 / 车机</text>
+<text x="170.0" y="180.0" font-size="10" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TT-KWS+MBR 大模型（13M）</text>
+<text x="170.0" y="198.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">EER 3.27——算力换精度</text>
+<rect x="36.0" y="232.0" width="400.0" height="62.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<rect x="36.0" y="232.0" width="10.0" height="62.0" rx="5" fill="#5aa886"/>
+<text x="56.0" y="254.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">高精度场景</text>
+<text x="56.0" y="272.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">对误报零容忍的产品</text>
+<text x="170.0" y="254.0" font-size="10" fill="#5aa886" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两路线融合（分数求和）</text>
+<text x="170.0" y="272.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">EER 3.09 / 低 FP 区 −13.6%——错误互补</text>
+<rect x="480.0" y="76.0" width="364.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="662.0" y="98.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界</text>
+<text x="496.0" y="118.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 模型与解码重：13M 是 SVDF 大（3.9M）的 3 倍多；小</text>
+<text x="496.0" y="132.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  模型又不敌 SVDF——中间档位（高端手机常驻）空白</text>
+<text x="496.0" y="147.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="496.0" y="161.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· MBR 训练贵：训练中跑 beam 8 取 4-best 假设，且必须</text>
+<text x="496.0" y="176.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  先 RNN-T 训好再热启动（流程加长）；超参只给一组</text>
+<text x="496.0" y="190.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  经验值无敏感性分析</text>
+<text x="496.0" y="205.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="496.0" y="219.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· max 打分的隐含假设：一句至多一次关键词——连续两次</text>
+<text x="496.0" y="234.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  唤醒丢次数信息；无时长平滑，瞬时尖峰鲁棒性未讨论</text>
+<text x="496.0" y="248.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="496.0" y="263.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 只验证两个固定关键词（Hey/Okay Google，两词多元音）；</text>
+<text x="496.0" y="277.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  单音节短词、token 化收益随关键词长度的变化未测</text>
+<text x="496.0" y="292.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="496.0" y="306.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 内部数据不可复现：全部供应商采集，无公开集，无效率</text>
+<text x="496.0" y="321.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  指标（延迟/RTF/内存/能耗），MBR 训练开销无量化；</text>
+<text x="496.0" y="335.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  大模型 3.27 vs 3.38 无显著性分析</text>
+<text x="36.0" y="336.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">方法学外溢：换关键词只改转写文本 + 免强制对齐——旧关键词模型可直接当新关键词的预训练；</text>
+<text x="36.0" y="353.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">也为联邦学习训练 KWS 扫清障碍（用户数据上跑对齐贵且涉隐私）——论文作为潜力提及未做实验</text>
+<text x="36.0" y="388.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">一句话总结：这条路线的价值不只是 3.27 vs 3.38 的数字，而是给出了「ASR 质量红利导入 KWS」的可行配方——token 化解除字符依赖、MBR 对齐检测目标、融合吃到互补红利</text>
+</svg>
+    <p class="cap"><b>图4 · 部署分流与边界</b>：电池设备小模型 / 插电设备 T-T 大模型 / 高精度场景融合；13M 参数与 MBR 训练开销的代价；max 打分的隐含假设与实验设计缺口。
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：五条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>TT-KWS 完整方案</b>：用 &lt;kw&gt; token 把 T-T ASR 适配到 KWS——仅这一项小模型 EER 相对降 31%，从根本上解除对 ASR 字符级正确性的依赖。</p></div>
+    <div class="row"><div class="n">2</div><p><b>面向 KWS 的 MBR 训练损失</b>：把序列判别训练改造为直接最小化 N-best 假设上的期望假阳/假阴率——低 FP 操作区最高 30.4% 相对 FN 改进。</p></div>
+    <div class="row"><div class="n">3</div><p><b>softmax 置信度打分</b>：支持阈值可调的多操作点，且训练目标与推理度量对齐。</p></div>
+    <div class="row"><div class="n">4</div><p><b>两条路线的系统对比与融合证据</b>：TT-KWS 与常规 E2E KWS 错误互补，融合在所有操作点一致占优；给出按供电条件分流的部署判断。</p></div>
+    <div class="row"><div class="n">5</div><p><b>方法学外溢</b>：换关键词只改转写文本、免强制对齐——打通旧关键词模型当新关键词预训练、联邦学习训练 KWS 的路径（未做实验）。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">容量是第一性，但容量也最贵</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>模型与解码重</h4>
+      <p>大配置 13M 是 SVDF 大配置（3.9M）的 3 倍多；小配置性能又不敌 SVDF——这条路线目前只能落在「插电设备」档，中间档位（高端手机常驻检测）是空白。</p>
+    </div>
+    <div class="card bad">
+      <h4>MBR 训练成本与超参</h4>
+      <p>训练中跑 beam 8 取 4-best 假设（开销显著高于纯 RNN-T）；必须先 RNN-T 训好再热启动（流程加长）；{α, β, λ}={1.0, 1.0, 0.01} 只给一组经验值，无敏感性分析。</p>
+    </div>
+    <div class="card bad">
+      <h4>打分假设与关键词覆盖</h4>
+      <p>整句 max 假设一句至多一次关键词——连续两次唤醒丢次数信息；无时长平滑，瞬时尖峰鲁棒性未讨论；只验证两个两词多元音英文短语，单音节短词未测，token 化收益是否随关键词长度变化未知。</p>
+    </div>
+    <div class="card bad">
+      <h4>实验设计缺口</h4>
+      <p>全部内部供应商数据（无公开集，不可复现、不可横向对比）；无延迟/RTF/内存/能耗数字而结论恰围绕资源展开；大模型 3.27 vs 3.38 无显著性分析；易混淆负样本仅 1.5 万条（占 360 万负句极小）且未单独报告其错误率；融合只试了分数求和一种方式。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>把事件级检测问题塞进 token 序列生成框架：检测从「逐字正确」变成「token 出现与否」——错误从 AND 累积变成单点判断，上游字符级噪声被吸收。</li>
+      <li>序列判别训练（MBR 类）要先用似然目标热启动：判别目标依赖假设空间质量，未收敛模型的 N-best 是垃圾——冷启动直接优化判别目标等于优化噪声。</li>
+      <li>训练目标要与推理度量对齐（优化什么就度量什么）——这要求分数定义在模型输出端，而不是事后解析。</li>
+      <li>容量不够时损失技巧救不回来：小预算下为任务定制的紧凑架构仍占优——先定容量档位再谈训练技巧。</li>
+      <li>两条技术路线的系统错误往往是互补的：融合（哪怕最简单的分数求和）能在所有操作点一致占优——部署前值得先测错误相关性再决定是否融合。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2211.06478" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="Exploring_Sequence-to-Sequence_Transformer-Transducer_Models_For_Keyword_Spotting.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
