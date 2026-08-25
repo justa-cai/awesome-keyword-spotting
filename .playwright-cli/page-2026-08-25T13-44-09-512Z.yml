@@ -1,0 +1,318 @@
+- generic [ref=f255e2]:
+  - generic [ref=f255e3]: 论文精读 · 可视化版 · 2022 №40 · 安全研究
+  - heading "不往语音里藏噪声， 直接换一个人说：音色本身就是后门触发器" [level=1] [ref=f255e4]: 不往语音里藏噪声，直接换一个人说：音色本身就是后门触发器
+  - generic [ref=f255e5]:
+    - generic [ref=f255e6]: VSVC · 后门攻击（防御视角深读）
+    - generic [ref=f255e7]: 河海大学 + RMIT + NUS · arXiv 2212.10103
+    - generic [ref=f255e8]: StarGANv2-VC 音色触发 · x-vector 声纹筛选
+    - generic [ref=f255e9]: LSTM 仅 50 个中毒样本 → 92% 攻击成功率
+  - generic [ref=f255e10]: 一句话：KWS 训练外包/众包数据时，攻击者能改训练集。VSVC 把「音色」当触发器——用 StarGANv2-VC 把良性样本整段换成指定说话人的声音（语义不变），投毒不到 1% 训练数据，就在四个强模型上平均拿到约 97% 攻击成功率；LSTM 上 50 个样本即 92%。听感上是「另一个人说同一个词」，20 人盲测 100% 无法区分——不依赖超声频段，16kHz 系统照样成立，低通滤波也滤不掉。
+  - generic [ref=f255e11]:
+    - generic [ref=f255e12]: TL;DR（以防御视角读）
+    - listitem [ref=f255e13]: ◈ 威胁模型：攻击者对模型结构零知识，对训练数据完整读写——对应训练外包到云平台、众包数据集（Common Voice 等）两种现实场景。后门完全从数据侧长出来，不需要对模型做任何手术。
+    - listitem [ref=f255e14]: ◈ 已有触发器的三大结构性缺陷：人耳可分（本质是「无法理解的噪声」）；超声触发器被奈奎斯特定理锁死（21kHz 信号要 44.1kHz 采样，主流系统 16kHz 一半频带不存在）且低通滤波即除；全部是单目标单后门。
+    - listitem [ref=f255e15]: ◈ 核心洞察：音色是覆盖整段语音的全局特征——弥散在每一帧每个频带。转换后仍是自然可懂的语音（人耳层面检测失效）、在常规频带内（采样率无关、滤不掉）、时间连贯（对 LSTM 是全方位输入分布改变而非局部扰动）、取值空间大（VCTK 109 人 → N 对 N 多目标）。
+    - listitem [ref=f255e16]: ◈ 三阶段管线：x-vector 声纹嵌入 + 欧氏距离 + 阈值 T 贪心筛出两两可分的 N 个说话人 → StarGANv2-VC 训一个 N 对 N 转换模型（一个 VCM 服务所有目标，成本常数级）→ 按投毒率替换数据后正常 CE+SGD 训练。
+    - listitem [ref=f255e17]: ◈ 结果分层清晰：LSTM 最脆弱（0.63% 投毒即 ~100%，50 样本即 92%）；ResNet18 因捷径连接冲刷低层特征，局部触发器攻不动、全局音色可以；VGG16 局部空间关联最强，基线在低投毒率反超——模型归纳偏置决定攻防。
+    - listitem [ref=f255e18]: ◈ 功能保持：平均准确率方差 0.45%（基线 0.53%，论文视为不显著）——投毒基本不伤正常功能，被植入的模型在验收时看不出异常。
+    - listitem [ref=f255e19]: ◈ 防御空白：论文零防御对抗实验。声纹侧防御（一致性审核/分布异常检测/转换伪影检测）都有潜在拦截面；过空中传输鲁棒性未测——绝大多数音频后门工作的共同空白。
+  - heading "§01 问题：训练供应链失控" [level=2] [ref=f255e20]:
+    - generic [ref=f255e21]: §01
+    - text: 问题：训练供应链失控
+  - generic [ref=f255e22]: 攻击面不是「识别错词」，是「设备执行不该执行的动作」
+  - generic [ref=f255e23]:
+    - generic [ref=f255e24]:
+      - heading "为什么 KWS 是高价值目标" [level=3] [ref=f255e25]
+      - paragraph [ref=f255e26]: KWS 是音箱/手机助手的标准入口，常驻监听、实时响应——每次误判直接等价于设备层级的误操作。知道后门的攻击者对被植入的音箱说一句话即可绕过正常唤醒校验，隐式指挥设备（论文点名自动驾驶、智慧医疗为高危场景）。
+    - generic [ref=f255e27]:
+      - heading "外包 = 失去训练过程控制" [level=3] [ref=f255e28]
+      - paragraph [ref=f255e29]: 训一个满意的 KWS 要高性能硬件+高质量标注数据，多数服务商把训练外包给云计算平台——第三方便可在数据上动手脚。后门攻击瞄准的正是训练阶段：污染一小部分数据，模型学到「触发器→目标标签」的关联，干净输入上表现正常。
+    - generic [ref=f255e30]:
+      - heading "超声触发器的三重死穴" [level=3] [ref=f255e31]
+      - paragraph [ref=f255e32]: 奈奎斯特：21kHz 信号无失真识别要采样率 ≥42.2kHz，GSC 等 16kHz 系统一半以上频带不存在→直接失效；一个低通滤波器就能滤掉；且只在空间维度做局部注入、忽略时间维度——攻不动 LSTM。
+    - generic [ref=f255e33]:
+      - heading "攻击者的两个目标" [level=3] [ref=f255e34]
+      - paragraph [ref=f255e35]: 触发效率（越高越可能成功、需发起的查询越少——某些场景限制查询次数，低效触发=彻底失效）与隐蔽性（干净输入上必须像干净模型，触发器要让人耳无法分辨）。VSVC 用「正常语音本身」同时满足两者。
+  - generic [ref=f255e36]:
+    - img [ref=f255e37]:
+      - generic [ref=f255e39]: VSVC：不藏噪声，直接换一个人说——音色本身就是后门触发器
+      - generic [ref=f255e40]: ① 训练供应链失控 + 现有触发器的三大结构性缺陷
+      - generic [ref=f255e42]: 威胁模型：攻击者对模型结构零知识，但对训练数据集有完整读写权限——对应训练外包到云平台、众包数据（Common Voice 等）两种现实场景
+      - generic [ref=f255e43]: KWS 是设备入口：每次误判 = 设备执行一个本不该执行的动作；模型常驻监听实时响应——攻击者对被植入后门的音箱说一句话即可绕过唤醒校验
+      - generic [ref=f255e45]: 人耳可分
+      - generic [ref=f255e46]: 已有触发器本质是「人耳无法理解的噪声」——隐蔽只对机器成立，对人类审核者（数据
+      - generic [ref=f255e47]: 质检员/安全评估）完全不成立，产品级部署里最容易被击穿的短板
+      - generic [ref=f255e49]: 采样率硬伤
+      - generic [ref=f255e50]: 超声触发器依赖人耳对高频不敏感，但奈奎斯特定理要求采样率 ≥ 2×21kHz=44.1kHz；
+      - generic [ref=f255e51]: 主流系统 16kHz（GSC 就是）一半以上频带不存在→直接失效；低通滤波器即可滤除
+      - generic [ref=f255e53]: 多目标空白
+      - generic [ref=f255e54]: 现有方法全是单目标单后门（一对一）——一个触发器只能劫持一个标签；真实 KWS 有
+      - generic [ref=f255e55]: 几十个命令标签，能同时埋多个后门的攻击在威胁等级上是另一档
+      - generic [ref=f255e56]: ② 三阶段攻击管线：声纹筛选 → 条件式语音转换 → 数据投毒
+      - generic [ref=f255e58]: 阶段一 · VCM 生成（Algorithm 1）
+      - generic [ref=f255e59]: 音色语料：VCTK 109 个说话人，
+      - generic [ref=f255e60]: 每人一种独特音色风格
+      - generic [ref=f255e61]: ① x-vector 提取每人的声纹嵌入
+      - generic [ref=f255e62]: ② 欧氏距离算 K×K 相似度矩阵
+      - generic [ref=f255e63]: SM[i][j]=EucDist(embᵢ,embⱼ)
+      - generic [ref=f255e64]: ③ 贪心选择：与已选集合所有人的距离
+      - generic [ref=f255e65]: 都 > 阈值 T 才入选，凑满 N 个
+      - generic [ref=f255e66]: 保证 N 个触发器音色两两拉开
+      - generic [ref=f255e67]: （阈值 T 取值论文未报告）
+      - generic [ref=f255e69]: 阶段二 · 触发器生成
+      - generic [ref=f255e70]: StarGANv2-VC 在选出的 N 个说话人
+      - generic [ref=f255e71]: 语料上训练 → 一个转换模型 VCM
+      - generic [ref=f255e72]: N 对 N 条件生成：一个模型能把任意
+      - generic [ref=f255e73]: 输入语音转换成 N 个目标音色之一
+      - generic [ref=f255e74]: 工程优势：
+      - generic [ref=f255e75]: · 语义保持——只动音色/口音/风格，
+      - generic [ref=f255e76]: 中毒样本仍是合法可懂的语音命令
+      - generic [ref=f255e77]: · 规模无限——有良性数据就能批量造
+      - generic [ref=f255e78]: · 一个 VCM 服务所有目标（成本常数级）
+      - generic [ref=f255e79]: 触发器绑定：目标标签 i ↔ 说话人 Sᵢ 音色
+      - generic [ref=f255e81]: 阶段三 · 投毒训练
+      - generic [ref=f255e82]: 投毒率 p：0.2%–2% 扫描
+      - generic [ref=f255e83]: 对每个待攻击目标注入对应音色触发器
+      - generic [ref=f255e84]: （对良性数据做语音转换替换），
+      - generic [ref=f255e85]: 构成 p% 中毒训练集
+      - generic [ref=f255e86]: 之后一切正常：交叉熵 + SGD
+      - generic [ref=f255e87]: 模型在普通监督学习中「顺便」学到
+      - generic [ref=f255e88]: 「这个音色 → 这个标签」的后门关联
+      - generic [ref=f255e89]: 没有任何针对模型内部的手术——
+      - generic [ref=f255e90]: 后门完全从数据侧长出来，
+      - generic [ref=f255e91]: 这就是攻击者零模型知识的根源
+      - generic [ref=f255e92]: 受害模型：LSTM · ResNet18 · VGG16 ·
+      - generic [ref=f255e93]: WideResNet-10-10（log-Mel 输入）
+      - generic [ref=f255e94]: ③ 底层洞察：音色是覆盖整段语音的全局特征
+      - generic [ref=f255e96]: 人耳不可分
+      - generic [ref=f255e97]: 转换后仍是自然可懂的人类语音——听到的就是「另一个人在说同一个词」，
+      - generic [ref=f255e98]: 不存在不可理解的噪声；20 人盲测 100% 无法区分后门/良性音频
+      - generic [ref=f255e100]: 无采样率约束
+      - generic [ref=f255e101]: 音色分布在常规频带内（不依赖 21kHz 超声段）——16kHz 系统照样成立，
+      - generic [ref=f255e102]: 也不怕低通滤波：对采样率/滤波两个防御维度免疫
+      - generic [ref=f255e104]: 时间连贯 → 攻 LSTM
+      - generic [ref=f255e105]: 1 秒语音 = 87 帧频谱序列；音色弥散在每一帧每个频带——对时序模型是
+      - generic [ref=f255e106]: 全方位的输入分布改变，而非局部扰动（超声基线无法攻击 LSTM 的根因）
+      - generic [ref=f255e108]: 取值空间大 → 多目标
+      - generic [ref=f255e109]: 不同说话人音色天然互不相同（VCTK 109 人）——触发器取值空间足够大，
+      - generic [ref=f255e110]: 支撑 N 对 N 多目标攻击（实验演示 N=3）
+      - generic [ref=f255e112]: ~97%
+      - generic [ref=f255e113]: ≤1% 投毒下 4 模型平均 ASR
+      - generic [ref=f255e114]: ~100%
+      - generic [ref=f255e115]: LSTM @0.63% 投毒（150 样本）
+      - generic [ref=f255e116]: 92%
+      - generic [ref=f255e117]: LSTM 仅 50 个中毒样本
+      - generic [ref=f255e118]: 0.45%
+      - generic [ref=f255e119]: 平均准确率方差（基线 0.53）
+      - generic [ref=f255e120]: 100%
+      - generic [ref=f255e121]: 20 人盲测无法区分比例
+      - generic [ref=f255e122]: 河海大学 + RMIT + 新加坡国立 · arXiv 2212.10103；GSC 10 类 23,682 条 1 秒命令词（TensorFlow 挑战赛标准设置，9:1 切分）· 重复 5 次实验；指标 = ASR（排除目标类样本防虚高）+ AV（功能损伤）+ 人类盲测
+    - generic [ref=f255e123]: 图1 · 机制全景：上半是威胁模型与已有触发器三大缺陷，中段是三阶段攻击管线（声纹筛选 → 条件式转换 → 投毒），下半是「音色是全局特征」的四条推论与关键数字。
+  - heading "§02 方法：把后门从数据侧长出来" [level=2] [ref=f255e124]:
+    - generic [ref=f255e125]: §02
+    - text: 方法：把后门从数据侧长出来
+  - generic [ref=f255e126]: 声纹相似度矩阵 · 贪心选择 · 条件式语音转换
+  - generic [ref=f255e127]:
+    - generic [ref=f255e128]: "Spk_embed_i = X-vector(Speaker_i) # K 个说话人的声纹嵌入 SM[i][j] = EucDist(Spk_embed_i, Spk_embed_j) # K×K 声纹相似度矩阵（欧氏距离） Cand = { Sᵢ : SM[Sᵢ][Sⱼ] > T, ∀Sⱼ ∈ Cand }, |Cand| = N # 贪心选择"
+    - generic [ref=f255e129]: 人话：x-vector 挑出唯一稳定可靠、表达说话人身份的特征；欧氏距离直接对应嵌入空间里「音色差异大小」——距离越大两个触发器越不易混淆。贪心规则保证 N 个触发器两两距离都超阈值 T。单目标攻击不用选，随机取一人即可。阈值 T 的取值论文未报告——复现时需自行摸索。
+  - generic [ref=f255e130]:
+    - generic [ref=f255e131]: "触发器生成: StarGANv2-VC（音色作生成器/判别器的条件输入） → 一个 VCM 把任意输入转换成 N 个目标音色之一（N 对 N） 投毒: 良性样本 → 转换成说话人 Sᵢ 的音色（语义不变）→ 替换进训练集 绑定: 目标标签 i ↔ 说话人 Sᵢ 的音色 → 正常 CE + SGD 训练"
+    - generic [ref=f255e132]: 人话：触发器不是手工设计或梯度优化出来的，是「转换」出来的——语义保持（中毒样本仍是合法可懂的命令）、规模无限（有良性数据就能批量造，投毒率 0.2%–2% 自由调）、一个 VCM 服务所有目标（多目标的基础设施成本是常数级）。训练流程完全正常，后门是模型在普通监督学习里「顺便」学到的关联。
+  - generic [ref=f255e133]:
+    - generic [ref=f255e134]:
+      - heading "多目标的内在矛盾与解法" [level=3] [ref=f255e135]
+      - paragraph [ref=f255e136]: 多个音色触发器同时植入时，音色相似 → 相互干扰 → ASR 下降；低投毒率下更糟（训练信号本来就少，音色还像，后门边界就糊了）。声纹筛选正是针对这一点：消融证实声纹选择优于随机选择，低投毒率下优势最大——避免「两个相似音色攻击不同目标」。
+    - generic [ref=f255e137]:
+      - heading "全局 vs 局部：范式级差异" [level=3] [ref=f255e138]
+      - paragraph [ref=f255e139]: 超声基线在频谱图上是一小块局部补丁，只作用在局部时空区域；音色转换改变的是整张频谱图的统计纹理。1 秒语音 = 87 帧时序序列，音色在每一帧都留下印记——这不是实现细节的胜负，是触发器范式与时序模型结构之间的根本适配问题。
+  - generic [ref=f255e140]:
+    - img [ref=f255e141]:
+      - generic [ref=f255e143]: 机制解剖：局部补丁 vs 全局音色 · 声纹筛选的几何
+      - generic [ref=f255e144]: 频谱图上的两种触发器（示意）
+      - generic [ref=f255e148]: 超声补丁
+      - generic [ref=f255e149]: 时间 →
+      - generic [ref=f255e150]: 频率 ↑
+      - generic [ref=f255e151]: 局部时空扰动：
+      - generic [ref=f255e152]: · 21kHz——16kHz 系统
+      - generic [ref=f255e153]: 采样后根本不存在
+      - generic [ref=f255e154]: · 低通滤波即除
+      - generic [ref=f255e155]: · 时间上不连贯 →
+      - generic [ref=f255e156]: 攻不动 LSTM
+      - generic [ref=f255e157]: · 人耳听到「噪声」
+      - generic [ref=f255e202]: 时间 →
+      - generic [ref=f255e203]: 频率 ↑
+      - generic [ref=f255e204]: 全局统计纹理：
+      - generic [ref=f255e205]: · 整段每一帧每一频带
+      - generic [ref=f255e206]: 都带同一音色印记
+      - generic [ref=f255e207]: · 常规频带内——采样率
+      - generic [ref=f255e208]: 无关 · 滤波无效
+      - generic [ref=f255e209]: · 时间连贯 → LSTM 最痛
+      - generic [ref=f255e210]: · 听感 = 另一个人说同词
+      - generic [ref=f255e211]: 声纹筛选：把 N 个触发器在嵌入空间拉开
+      - generic [ref=f255e217]: S₁ ✓
+      - generic [ref=f255e219]: S₂ ✓
+      - generic [ref=f255e221]: S₃ ✓
+      - generic [ref=f255e225]: 太近 ✗
+      - generic [ref=f255e226]: 贪心规则：候选与已选集合所有距离 > T 才入选
+      - generic [ref=f255e228]: 为什么必须筛（消融证据）
+      - generic [ref=f255e229]: · 多音色同时植入时，音色相似 → 不可避免相互干扰 → ASR 降
+      - generic [ref=f255e230]: · 低投毒率下更糟：训练信号本来就少，音色还长得像，后门边界
+      - generic [ref=f255e231]: 就糊了；投毒率升高后缓解
+      - generic [ref=f255e232]: · 声纹相似度选择 > 随机选择，低投毒率下优势尤其明显——
+      - generic [ref=f255e233]: 避免「两个相似音色攻击不同目标」，每个触发器更独特
+      - generic [ref=f255e234]: 边界：阈值 T 取值未报告；N 只验了 3（VCTK 有 109 人），
+      - generic [ref=f255e235]: N 更大时干扰如何演化不清楚
+      - generic [ref=f255e236]: 左：超声基线是频谱图上一小块局部补丁，VSVC 改的是整张图的统计纹理——全局 vs 局部，正是攻击时序模型成败的分界。右：x-vector + 欧氏距离 + 阈值 T 的贪心筛选，保证 N 个触发器两两可分
+    - generic [ref=f255e237]: 图2 · 机制解剖：左是频谱图上局部补丁（超声）与全局纹理（音色）的对照及各自的攻防属性，右是声纹筛选的几何（贪心规则、太近被拒、消融证据与边界）。
+  - heading "§03 实验：模型结构决定攻防" [level=2] [ref=f255e238]:
+    - generic [ref=f255e239]: §03
+    - text: 实验：模型结构决定攻防
+  - generic [ref=f255e240]: GSC 10 类 23,682 条 · 四受害模型 · ASR/AV/人耳盲测
+  - generic [ref=f255e241]:
+    - img [ref=f255e242]:
+      - generic [ref=f255e244]: 主结果：LSTM 被 50 个样本劫持，模型结构决定攻防
+      - generic [ref=f255e245]: 单目标攻击 · 低投毒率档（约值）
+      - generic [ref=f255e246]: "0"
+      - generic [ref=f255e247]: "25"
+      - generic [ref=f255e248]: "50"
+      - generic [ref=f255e249]: "75"
+      - generic [ref=f255e250]: "100"
+      - generic [ref=f255e252]: ~92
+      - generic [ref=f255e254]: ~20
+      - generic [ref=f255e255]: LSTM
+      - generic [ref=f255e256]: 局部 87 帧时序最痛
+      - generic [ref=f255e258]: ~75
+      - generic [ref=f255e260]: ~55
+      - generic [ref=f255e261]: ResNet18
+      - generic [ref=f255e262]: 捷径冲刷低层特征
+      - generic [ref=f255e264]: ~80
+      - generic [ref=f255e266]: ~78
+      - generic [ref=f255e267]: WideResNet
+      - generic [ref=f255e268]: 加宽强化局部捕获
+      - generic [ref=f255e270]: ~60
+      - generic [ref=f255e272]: ~72
+      - generic [ref=f255e273]: VGG16
+      - generic [ref=f255e274]: 局部空间关联最强
+      - generic [ref=f255e276]: VSVC（音色触发器）
+      - generic [ref=f255e278]: 超声基线
+      - generic [ref=f255e279]: 柱高 = 低投毒率下 ASR（%）· 正文点名：LSTM +58.2~72 · ResNet18 +38.8
+      - generic [ref=f255e280]: 四模型机制速查：
+      - generic [ref=f255e281]: · LSTM：87 帧时序 + 音色时间连贯 → 最脆弱（0.63% 投毒即 ~100%）
+      - generic [ref=f255e282]: · ResNet18：GAP+BN 削弱局部特征，捷径让梯度绕过残差块——
+      - generic [ref=f255e283]: 低层特征被冲刷，局部触发器攻不动，全局音色可以
+      - generic [ref=f255e284]: · WideResNet：加宽提深 → 局部捕获强 → 所有方法都更好攻
+      - generic [ref=f255e285]: · VGG16：局部空间关联最强 → 基线在低投毒率反超——
+      - generic [ref=f255e286]: 归纳偏置越偏局部空间，音色触发器相对优势越小
+      - generic [ref=f255e288]: 归纳：时序模型 > 全局纹理攻击；空间模型 > 局部补丁攻击
+      - generic [ref=f255e289]: 隐蔽性与消融
+      - generic [ref=f255e291]: 功能保持（AV）+ 人耳盲测
+      - generic [ref=f255e292]: · 平均 AV 0.45% vs 基线 0.53%（论文视为不显著）——投毒不伤功能
+      - generic [ref=f255e293]: · 但 VSVC 的 AV 随中毒数单调上升（LSTM 0.08→0.78%），
+      - generic [ref=f255e294]: 高投毒率下损伤趋势存在，幅度尚小
+      - generic [ref=f255e295]: · 20 名 CET-4 大学生 × 每人 20 条（10 后门+10 良性）：
+      - generic [ref=f255e296]: 100% 无法区分——选 CET-4 过线者因数据集是英文命令词
+      - generic [ref=f255e298]: 消融（多目标 N=3）
+      - generic [ref=f255e299]: · 多目标 ASR 略低于单目标：多音色相似 → 相互干扰；
+      - generic [ref=f255e300]: 低投毒率下更明显，投毒率升高缓解
+      - generic [ref=f255e301]: · 声纹选择 > 随机选择（低投毒率尤甚）——「S」组件的
+      - generic [ref=f255e302]: 存在价值最直接证据
+      - generic [ref=f255e303]: · 基线的代价侧：采样率必须 >44.1kHz（GSC 16kHz 直接
+      - generic [ref=f255e304]: 失效）· 低通滤波即除 · VGG/WRN 低投毒率时基线反超
+      - generic [ref=f255e305]: 但那两个前提在真实系统里不成立
+      - generic [ref=f255e307]: ASR 曲线读法（Fig.2）
+      - generic [ref=f255e308]: 中毒样本 50→500 扫描：ASR 快速收敛 >95%，AV 保持小
+      - generic [ref=f255e309]: 多数数值只以曲线呈现，完整数值表未报，引用注意
+      - generic [ref=f255e310]: 注：数字为笔记记录的约值（原文见 arXiv 2212.10103）；原始准确率 LSTM 92.75 / VGG16 95.99 / ResNet18 94.74 / WRN 93.81；实验重复 5 次但未报方差
+    - generic [ref=f255e311]: 图3 · 主结果：左是四模型低投毒率下的 ASR 对比与逐模型机制解释（为什么 LSTM 崩、VGG 抗），右是隐蔽性证据（AV + 20 人盲测）与多目标消融。
+  - table [ref=f255e312]:
+    - rowgroup [ref=f255e313]:
+      - row [ref=f255e314]:
+        - columnheader "受害模型" [ref=f255e315]
+        - columnheader "原始准确率" [ref=f255e316]
+        - columnheader "VSVC 表现（正文点名）" [ref=f255e317]
+        - columnheader "机制一句话" [ref=f255e318]
+      - row [ref=f255e319]:
+        - cell "LSTM" [ref=f255e320]
+        - cell "92.75%" [ref=f255e321]
+        - cell "0.63% 投毒（150 样本）ASR ~100%（比基线 +58.2%）；50 样本即 92%（+72%）" [ref=f255e322]
+        - cell "87 帧时序 × 音色时间连贯 = 全方位分布改变" [ref=f255e323]
+      - row [ref=f255e324]:
+        - cell "ResNet18" [ref=f255e325]
+        - cell "94.74%" [ref=f255e326]
+        - cell "低投毒率 ASR 比基线 +38.8%" [ref=f255e327]
+        - cell "GAP+BN 削弱局部特征，捷径冲刷低层特征" [ref=f255e328]
+      - row [ref=f255e329]:
+        - cell "WideResNet-10-10" [ref=f255e330]
+        - cell "93.81%" [ref=f255e331]
+        - cell "所有方法攻击性能都提升" [ref=f255e332]
+        - cell "加宽提深 → 局部捕获强 → 更好攻" [ref=f255e333]
+      - row [ref=f255e334]:
+        - cell "VGG16" [ref=f255e335]
+        - cell "95.99%" [ref=f255e336]
+        - cell "低投毒率时基线反超" [ref=f255e337]
+        - cell "局部空间关联最强 → 音色相对优势最小" [ref=f255e338]
+  - generic [ref=f255e339]:
+    - generic [ref=f255e340]: 读表要点
+    - listitem [ref=f255e341]: ◈ 摘要总括：投毒 ≤1% 训练数据时四模型平均 ASR 接近 97%；随中毒样本数增加 ASR 快速收敛 >95% 且 AV 保持小——高效且不留验收痕迹。
+    - listitem [ref=f255e342]: ◈ VGG16/WideResNet 上基线低投毒率反超，但基线的两个前提（采样率 >44.1kHz、无低通滤波）在真实系统里不成立——比较要在约束下读。
+    - listitem [ref=f255e343]: ◈ 人类验证设计有讲究：20 名被试全部通过 CET-4（数据集是英文命令词，被试需具备基本英语听辨能力才有效），每人 20 条（10 后门+10 良性）二选一——100% 无法区分。
+    - listitem [ref=f255e344]: ◈ 消融只覆盖单 vs 多目标、随机 vs 声纹选择两个对照；阈值 T 敏感性、N>3、不同 VC 模型的影响均未报告。
+  - heading "§04 贡献" [level=2] [ref=f255e345]:
+    - generic [ref=f255e346]: §04
+    - text: 贡献
+  - generic [ref=f255e347]: 三条自述 + 一个更广的视角
+  - generic [ref=f255e348]:
+    - generic [ref=f255e349]:
+      - generic [ref=f255e350]: "1"
+      - paragraph [ref=f255e351]: 音色触发器范式：以改变语音音色为目标的触发器——低投毒率（≤1%）下有效且隐蔽；不产生任何不可理解的噪声，比噪声类/环境音类/隐写类方法更隐蔽（四模型平均 ASR ~97%）。
+    - generic [ref=f255e352]:
+      - generic [ref=f255e353]: "2"
+      - paragraph [ref=f255e354]: 摆脱采样率约束：音色分布在常规频带内，16kHz 系统照样成立——LSTM 上只投毒 50 个样本即 92% 攻击成功率（比基线高 72%）。
+    - generic [ref=f255e355]:
+      - generic [ref=f255e356]: "3"
+      - paragraph [ref=f255e357]: 多目标后门攻击：音色表现形式丰富，可为不同目标植入不同触发器——实验演示 N=3 的多对多攻击。
+    - generic [ref=f255e358]:
+      - generic [ref=f255e359]: "4"
+      - paragraph [ref=f255e360]: 更广视角（笔记归纳）：把后门触发器从「信号处理工件」（噪声/超声/隐写）转向「说话人身份属性」，给出可复用攻击管线（声纹筛选→条件转换→投毒）；同时是对 KWS 训练外包供应链风险的一次定量曝光。
+  - heading "§05 局限与防御启示" [level=2] [ref=f255e361]:
+    - generic [ref=f255e362]: §05
+    - text: 局限与防御启示
+  - generic [ref=f255e363]: 零防御实验 · 过空中传输未测 · 声纹侧防御的拦截面
+  - generic [ref=f255e364]:
+    - img [ref=f255e365]:
+      - generic [ref=f255e367]: 边界与延伸
+      - generic [ref=f255e369]: 技术边界
+      - generic [ref=f255e370]: · 威胁模型要求数据完整控制权：数据只读/部分可写/只能追加样本
+      - generic [ref=f255e371]: 的场景下「转换再替换」是否成立，未讨论
+      - generic [ref=f255e372]: · 部署期需在线语音转换：触发器生成的离线，真实利用时要么预存
+      - generic [ref=f255e373]: 目标音色语音要么现场转换——过无线信道+麦克风阵列（远场/混响/
+      - generic [ref=f255e374]: 噪声/编解码）的鲁棒性未报告，绝大多数音频后门工作的共同空白
+      - generic [ref=f255e375]: · 理论上可被声纹侧防御捕获：中毒样本在说话人维度是「新来者」——
+      - generic [ref=f255e376]: 声纹一致性校验/分布异常检测/转换伪影检测都有拦截面；论文
+      - generic [ref=f255e377]: 零防御对抗实验，防御者在场时的生存能力未知
+      - generic [ref=f255e378]: · 超参缺指引：阈值 T 未报告；VC 训练配置/音色相似度指标/词可懂率
+      - generic [ref=f255e379]: 均未报；N 只验 3；「转换越狠音色越独特但伤自然度」未量化
+      - generic [ref=f255e381]: 实验边界 + 延伸
+      - generic [ref=f255e382]: · 数据集窄：GSC 10 类孤立 1 秒命令词——真实 KWS 是流式持续监听，
+      - generic [ref=f255e383]: 分布差异未讨论；中文唤醒词/长命令未验
+      - generic [ref=f255e384]: · 基线单一：只比超声法，未与神经木马/环境音/位置无关/隐写横比
+      - generic [ref=f255e385]: · 无方差报告：重复 5 次但只给曲线；人测仅 20 人二选一（更实战
+      - generic [ref=f255e386]: 应是听写内容/自然度打分）
+      - generic [ref=f255e387]: 延伸（防御侧最有价值）：训练数据声纹构成审计（标注来源的说话人
+      - generic [ref=f255e388]: 突变检测）；推理端说话人验证门控；转换伪影检测；激活聚类/STRIP/
+      - generic [ref=f255e389]: 微调剪枝在音色触发器上的适配评估；过空中传输实验；N 推到 10+；
+      - generic [ref=f255e390]: 威胁模型弱化到「污染公开预训练集」的迁移场景
+      - generic [ref=f255e391]: 工程警示：外包训练或用众包数据时，「少于 1% 的污染」足以在 LSTM 上接近 100% 劫持指定标签——数据供应链的说话人构成审计应与准确率验收一样成为标配
+    - generic [ref=f255e392]: 图4 · 边界与延伸：左技术边界（数据完整控制权前提、部署期在线转换需求、声纹侧防御的潜在拦截、超参缺指引），右实验边界（孤立命令词 vs 流式、单一基线、无方差）+ 防御研究路线。
+  - generic [ref=f255e393]:
+    - generic [ref=f255e394]: 可迁移判断（防御视角）
+    - paragraph [ref=f255e395]: ↳ 数据供应链的说话人构成审计应成为 KWS 交付标配：改动不到 1% 的训练数据就能在 LSTM 上接近 100% 劫持指定标签，且音频听感正常、不依赖高采样率、不怕低通滤波——准确率验收对此完全失明。
+    - paragraph [ref=f255e396]: ↳ 中毒样本在说话人维度是「新来者」：同一标注来源的说话人构成突变检测、推理端说话人验证门控（唤醒词与注册音色不匹配则拒绝）、转换伪影检测——音色触发器反而给了防御一个明确的抓手。
+    - paragraph [ref=f255e397]: ↳ 模型归纳偏置决定它怕什么攻击：时序模型怕全局时间连贯的特征，深层残差怕全局纹理（局部特征被捷径冲刷），纯空间卷积怕局部补丁——选架构时值得把「抗哪种触发器」纳入威胁建模。
+    - paragraph [ref=f255e398]: ↳ 「隐蔽」要同时骗过机器和人类：只对机器隐蔽（噪声类触发器）的攻击在人工质检面前不堪一击；能通过人耳检验的攻击才是产品级威胁——质检流程里应包含人类听感抽检这一环。
+  - generic [ref=f255e399]:
+    - link "arXiv 2212.10103 ↗" [ref=f255e400] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2212.10103
+    - link "← 返回总目录" [ref=f255e401] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f255e402]: 笔记与可视化页基于 arXiv v1 整理 · 安全研究文献，目的为防御认知：了解攻击面才能设计审计与门控 · 表中数字为笔记记录的约值 · 2022 №40 · 183+/305
