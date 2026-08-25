@@ -1,0 +1,349 @@
+- generic [ref=f257e2]:
+  - generic [ref=f257e3]: 论文精读 · 可视化版 · 2022 №41
+  - heading "Transformer 压到 85K 装进唤醒芯片： 三把刀各砍一种冗余，压了反而更好" [level=1] [ref=f257e4]: Transformer 压到 85K 装进唤醒芯片：三把刀各砍一种冗余，压了反而更好
+  - generic [ref=f257e5]:
+    - generic [ref=f257e6]: WakeupNet · 华为英国
+    - generic [ref=f257e7]: arXiv 2210.02904 · mobile-Transformer
+    - generic [ref=f257e8]: HiMia「ni hao, mi ya」· 524 小时中文唤醒
+    - generic [ref=f257e9]: 85K 参数 · FRR@0.5FApH 1.29%/2.43%（五模型最优）
+  - generic [ref=f257e10]: 一句话：唤醒模块 always-on，存储与能耗直接换算成待机功耗——vanilla Transformer 比唤醒预算大两三个数量级。WakeupNet 用三件套把它压进 85K：跨层只共享注意力参数（省 2/3）、QKV 投影低秩分解（d×d→2×d×r，参数减半）、前馈层换分组可分离卷积（1/4）——三种手段分别命中层间/秩/通道三类冗余。同档对照显示压了不降反升：85K 的 mobile 版干净/含噪双超 160K 的 vanilla 版。配上零前视截断注意力（h=0, b=60）与 focal loss，端到端流式检测五模型最优。
+  - generic [ref=f257e11]:
+    - generic [ref=f257e12]: TL;DR
+    - listitem [ref=f257e13]: ◈ 唤醒是交互第一道关卡 + always-on：漏唤醒/假唤醒用户立刻感知，开销直接换算待机功耗——「极致压低存储与计算成本」是全文总纲，所有设计决策都能还原到准确率/延迟/体积的三重权衡。
+    - listitem [ref=f257e14]: ◈ 老路线的死因：填充词方案要 ASR+HMM，音素错则全错、复杂度高、中间层放大误差；端到端直判的 CNN 感受野受限预测分偏低、RNN 历史拖泥带水输出不锐利（Fig.4 逐帧曲线实证）。
+    - listitem [ref=f257e15]: ◈ 标注策略：只把唤醒词结束点一帧标正——直接优化检测本身、从根上避免触发提前/滞后；代价是极端不平衡，对策是正标注重复 L=R=6 帧（正样本扩 12 倍）+ focal loss（α=0.1, γ=1）。
+    - listitem [ref=f257e16]: ◈ 流式两件套：因果卷积前端替代位置编码（位置信息隐式进入表示，因果=只看历史）；截断自注意力（时刻 t 只看 [t−60, t]，h=0 零前视——宁可放弃前瞻也不让唤醒多等一帧）。
+    - listitem [ref=f257e17]: ◈ 三把刀各砍一种冗余：共享砍注意力层间冗余（→1/N）、低秩砍投影矩阵秩冗余（d=64, r=16 减半；唤醒词是短序列局部模式，注意力矩阵本就低秩）、分组可分离卷积砍前馈通道冗余（g=4）——互补不重叠。
+    - listitem [ref=f257e18]: ◈ 最有说服力的结果：同档对照 mobile-media 85K（1.29/2.43）vs vanilla-media 160K（1.54/4.55）——参数省近半双指标反超；tiny 档差距悬殊（22K 的 4.74 vs 41K 的 8.81）——vanilla 在唤醒任务上本来就过参数化，压缩同时是正则化。
+    - listitem [ref=f257e19]: ◈ 主对比含噪优势近四成（2.43 vs 次优 4.02）：噪声破坏局部帧特征，长程上下文显式建模能从窗口内其他帧补全信息——注意力结构的固有强项在压缩后没有丢。
+  - heading "§01 问题：Transformer 装不进唤醒预算" [level=2] [ref=f257e20]:
+    - generic [ref=f257e21]: §01
+    - text: 问题：Transformer 装不进唤醒预算
+  - generic [ref=f257e22]: 差两三个数量级的体积鸿沟 + 上下文建模的吸引力
+  - generic [ref=f257e23]:
+    - generic [ref=f257e24]:
+      - heading "为什么想要 Transformer" [level=3] [ref=f257e25]
+      - paragraph [ref=f257e26]: 唤醒词是强依赖上下文的序列判别问题——同一音素出现在唤醒词里和普通对话里意义完全不同，判断必须依赖周边帧。Karita 等的系统性对比里 Transformer 在多数 ASR 数据集上最好；且无递归结构，对 GPU 并行友好。
+    - generic [ref=f257e27]:
+      - heading "为什么没人直接用" [level=3] [ref=f257e28]
+      - paragraph [ref=f257e29]: vanilla Transformer encoder 从设计之初就不是为端侧考虑的。DistilBERT 等压缩后的 BERT 仍在百万到千万参数级，而唤醒预算是几万到十几万——差两三个数量级。需要一套专针对「极小档位」的压缩方案，即 mobile-Transformer。
+    - generic [ref=f257e30]:
+      - heading "标注与不平衡" [level=3] [ref=f257e31]
+      - paragraph [ref=f257e32]: 沿用只标 offset 为正的原则：直接优化检测分数本身而非优化代理任务再间接决策。但每条唤醒语音正样本只有一帧——普通交叉熵会被海量负样本淹没。数据层扩 12 倍 + 损失层 focal loss 双管齐下。
+    - generic [ref=f257e33]:
+      - heading "流式改造两处" [level=3] [ref=f257e34]
+      - paragraph [ref=f257e35]: 标准自注意力要看整条序列才能算权重，无法流式。① 前端用因果卷积让位置信息隐式进入（位置编码需要预知序列并对齐，流式下既不自然也不经济）；② 注意力截断到固定窗口，复杂度从全序列长降到窗口长。
+  - generic [ref=f257e36]:
+    - img [ref=f257e37]:
+      - generic [ref=f257e39]: WakeupNet：把 Transformer 压到 85K 装进唤醒芯片——压了不但没坏，反而更好
+      - generic [ref=f257e40]: ① 常驻唤醒的三重枷锁 + Transformer 装不进去的体积
+      - generic [ref=f257e42]: 唤醒是交互链路第一道关卡 + always-on：存储与计算开销直接换算成待机功耗与电池寿命——「极致压低存储与计算成本」是全文总纲
+      - generic [ref=f257e43]: 唤醒词是强上下文序列判别问题（同一音素在词里/对话里意义不同），自注意力擅长长程依赖——但 vanilla Transformer 从没为端侧设计过
+      - generic [ref=f257e45]: 填充词路线判死刑
+      - generic [ref=f257e46]: 要借助 ASR + HMM 对唤醒词与背景分别建模：音素预测错则上层判决全错；ASR
+      - generic [ref=f257e47]: 复杂度带来高内存高功耗；中间层引入误差放大路径——always-on 场景装不下
+      - generic [ref=f257e49]: CNN/RNN 各有短板
+      - generic [ref=f257e50]: 端到端直判成为主流（只标唤醒词 offset 为正），但骨干有短板：CNN 深度不足
+      - generic [ref=f257e51]: 感受野受限预测分偏低；RNN 历史信息拖泥带水影响未来帧，输出不锐利（Fig.4 实证）
+      - generic [ref=f257e53]: 压缩 BERT 也不够小
+      - generic [ref=f257e54]: DistilBERT 等压缩后仍在百万到千万参数级——唤醒预算是几万到十几万，差两三个
+      - generic [ref=f257e55]: 数量级。需要专针对「极小档位」的 Transformer 压缩方案——即 mobile-Transformer
+      - generic [ref=f257e56]: ② 三段式骨架：因果卷积前端 + 受限注意力主体 + 线性头（M=2 · N=3 · 85K）
+      - generic [ref=f257e58]: 标注与建模目标
+      - generic [ref=f257e59]: 只把唤醒词结束点（offset）标为正
+      - generic [ref=f257e60]: y_t=1，其余帧全负——系统学
+      - generic [ref=f257e61]: 特征序列到逐帧标签的映射 f
+      - generic [ref=f257e62]: 好处：直接优化检测本身，避开
+      - generic [ref=f257e63]: 中间组件；从根上避免触发提前
+      - generic [ref=f257e64]: （词没说完就触发）与滞后
+      - generic [ref=f257e65]: 代价：极端类别不平衡（正样本
+      - generic [ref=f257e66]: 每条语音只有 1 帧）→ 数据层正
+      - generic [ref=f257e67]: 标注前后各重复 L=R=6 帧（正样
+      - generic [ref=f257e68]: 本扩 12 倍）+ 损失层 focal loss
+      - generic [ref=f257e70]: 流式两件套
+      - generic [ref=f257e71]: ① 因果卷积前端替代位置编码：
+      - generic [ref=f257e72]: 2 个 VGG 块（(3,3) 核 · 32 通道 ·
+      - generic [ref=f257e73]: (2,2) 最大池化），位置信息隐式进入
+      - generic [ref=f257e74]: 表示；因果=只看历史，天然流式
+      - generic [ref=f257e75]: ② 时域受限自注意力（截断）：
+      - generic [ref=f257e76]: 时刻 t 只访问 [t−b, t+h] 窗口
+      - generic [ref=f257e77]: look-ahead h=0（零前视纯因果）
+      - generic [ref=f257e78]: look-back b=60（消融甜点）
+      - generic [ref=f257e79]: 复杂度从全序列长 → 只依赖 b+h
+      - generic [ref=f257e80]: 推理：W 帧感受野 P=4 步切成片 →
+      - generic [ref=f257e81]: 平滑窗 → 超阈值 s 触发
+      - generic [ref=f257e83]: 训练配方
+      - generic [ref=f257e84]: focal loss：FL = −α(1−p)^γ·log p
+      - generic [ref=f257e85]: α 线性控正负样本重要性
+      - generic [ref=f257e86]: γ 指数控难易样本重要性
+      - generic [ref=f257e87]: α=0.1 · γ=1（α 方向与常规用法
+      - generic [ref=f257e88]: 相反——正类更稀有却降权，论文
+      - generic [ref=f257e89]: 只给结论无敏感性分析）
+      - generic [ref=f257e90]: Adam + warmup-hold-指数衰减
+      - generic [ref=f257e91]: 1e-6 → 5e-5 保持 → 1e-6
+      - generic [ref=f257e92]: 注意力 d=64 · 低秩 r=16 · 分组 g=4
+      - generic [ref=f257e93]: 两级 2×2 池化 → 标注序列长 = 1/4 输入
+      - generic [ref=f257e94]: ③ 压缩三件套：三种手段命中三种不同的冗余，互补不重叠
+      - generic [ref=f257e96]: ① 跨层注意力共享
+      - generic [ref=f257e97]: N=3 个注意力块共享同一份参数（ALBERT 启发）——只共享注意力，
+      - generic [ref=f257e98]: 不共享前馈（ALBERT 已证全共享/共享前馈大幅掉性能）。收益：注意力
+      - generic [ref=f257e99]: 权重 → 1/N，省 2/3。假设：哪些帧互相关联在各层高度相似
+      - generic [ref=f257e101]: ② 注意力投影低秩分解
+      - generic [ref=f257e102]: Q/K/V 各一个 d×d 矩阵是体积大头；插入瓶颈层变成 2×d×r。
+      - generic [ref=f257e103]: d=64 · r=d/4=16 → 每个投影矩阵参数减半。低秩假设成立：唤醒词是
+      - generic [ref=f257e104]: 短序列局部模式，注意力有效自由度远低于满秩。自称首次在 Transformer 语境验证
+      - generic [ref=f257e106]: ③ 前馈层分组可分离卷积化
+      - generic [ref=f257e107]: 正因为前馈不共享，它成了另一个参数大头（共享与压缩互相咬合处）。
+      - generic [ref=f257e108]: 全连接 → 分组卷积（g=4，计算缩到 1/g）+ 深度可分离卷积（depthwise
+      - generic [ref=f257e109]: + 1×1 pointwise，参数比 1/C_o + 1/D_K²，通道越大核越大收益越显著）
+      - generic [ref=f257e111]: ④ 三者正交组合
+      - generic [ref=f257e112]: 共享命中「层间冗余」，低秩命中「秩冗余」，可分离卷积命中「通道
+      - generic [ref=f257e113]: 冗余」——三管齐下互补不重叠，这是组合拳在设计上的干净之处；
+      - generic [ref=f257e114]: Table 4 同档对照证明：压了不降反升（vanilla 在此任务本来就过参数化）
+      - generic [ref=f257e116]: 85K
+      - generic [ref=f257e117]: 总参数（五模型最小）
+      - generic [ref=f257e118]: 1.29%
+      - generic [ref=f257e119]: 干净 FRR@0.5FApH（次优 1.75）
+      - generic [ref=f257e120]: 2.43%
+      - generic [ref=f257e121]: 含噪 FRR（次优 4.02 · 改善近四成）
+      - generic [ref=f257e122]: p<0.05
+      - generic [ref=f257e123]: 对 CRNN 单尾 z 检验显著
+      - generic [ref=f257e124]: ≈半
+      - generic [ref=f257e125]: 同档对比参数省近半反超 vanilla
+      - generic [ref=f257e126]: 华为英国研发中心 · arXiv 2210.02904；正样本 HiMia（openslr 85 · 唤醒词「ni hao, mi ya」· 340 人 132.5 万条 524 小时）+ 负样本 MAGICDATA（755h · 1080 人）+ MUSAN 加噪 0–20dB；指标 = 固定假警报率下的拒识率 FRR@FApH
+    - generic [ref=f257e127]: 图1 · 机制全景：上半是三重枷锁与两条老路线的死因，中段是三段式骨架与训练配方，下半是压缩三件套如何各命中一种冗余。
+  - heading "§02 方法：三种冗余，三把刀" [level=2] [ref=f257e128]:
+    - generic [ref=f257e129]: §02
+    - text: 方法：三种冗余，三把刀
+  - generic [ref=f257e130]: Attention(Q,K,V) = softmax(QKᵀ/√d_k)·V 的三个 d×d 投影是体积大头
+  - generic [ref=f257e131]:
+    - generic [ref=f257e132]: "共享: N 个注意力块共用同一份参数（N=3 → 注意力参数 → 1/3） 只共享注意力，不共享前馈（ALBERT：共享前馈大幅掉性能） 低秩: W ∈ ℝ^(d×d) → ℝ^(d×r) · ℝ^(r×d) # d=64, r=16 = d/4 → 参数减半 可分离: FFN 全连接 → 分组卷积(g=4) + depthwise + 1×1 pointwise 参数比 = 1/C_o + 1/D_K² （通道越大、核越大收益越显著）"
+    - generic [ref=f257e133]: 人话：三把刀切的是三种不同的冗余——注意力模式在层间高度相似（唤醒要回答的「哪些帧互相关联」各层雷同）→ 共享；唤醒词是短序列局部模式，注意力矩阵的有效自由度远低于满秩 → 低秩；前馈层的通道间冗余 → 可分离卷积。因为只共享注意力，前馈反而成了另一个参数大头，必须单独想办法——共享与压缩策略在这里互相咬合。
+  - generic [ref=f257e134]:
+    - generic [ref=f257e135]: FL(p_t) = −α·(1−p_t)^γ·log(p_t) p_t = y·ŷ + (1−y)(1−ŷ) α=0.1, γ=1 · 正标注重复 L=R=6（正样本 ×12） · h=0, b=60
+    - generic [ref=f257e136]: 人话：α 线性控制正负样本权重、γ 指数控制难易样本权重——α=0.5 且 γ=0 时退化为普通交叉熵。注意本文 α=0.1 给更稀有的正类降权，与常规用法方向相反，论文只给结论没有敏感性分析。截断窗口 b=60 是消融甜点：太小盖不住整条唤醒词（上下文被截断），太大引入不相关噪声增加学习难度——窗口要与唤醒词时长匹配，换词需重调。
+  - generic [ref=f257e137]:
+    - generic [ref=f257e138]:
+      - heading "推理链路" [level=3] [ref=f257e139]
+      - paragraph [ref=f257e140]: 流式音频提取特征后切成 W 帧感受野、P=4 步长的顺序片段（两级 2×2 池化把序列压到 1/4）→ 网络输出逐片段预测 → 平滑窗平滑 → 超过阈值 s 触发。训练 Adam + warmup-hold-指数衰减（1e-6→5e-5→1e-6），全部超参在开发集上以尺寸+性能联合调优。
+    - generic [ref=f257e141]:
+      - heading "为什么压了反而更好" [level=3] [ref=f257e142]
+      - paragraph [ref=f257e143]: vanilla encoder 在唤醒这个任务上本来就是过参数化的——三种压缩在这个语境下同时起到了正则化作用。Table 4 三档同尺寸对照全部支持这一点；加上 focal loss 与截断窗口本身就是约束，整条流水线都在「用归纳偏置换参数」。
+  - generic [ref=f257e144]:
+    - img [ref=f257e145]:
+      - generic [ref=f257e147]: 机制解剖：三种冗余三把刀 · 截断窗口的甜点 · focal loss
+      - generic [ref=f257e148]: 注意力侧两把刀：共享 + 低秩
+      - generic [ref=f257e151]: 注意力块 1
+      - generic [ref=f257e152]: （参数共享）
+      - generic [ref=f257e154]: 前馈层 1
+      - generic [ref=f257e155]: （各自独立·分组可分离卷积）
+      - generic [ref=f257e157]: 注意力块 2
+      - generic [ref=f257e158]: （参数共享）
+      - generic [ref=f257e160]: 前馈层 2
+      - generic [ref=f257e161]: （各自独立·分组可分离卷积）
+      - generic [ref=f257e163]: 注意力块 3
+      - generic [ref=f257e164]: （参数共享）
+      - generic [ref=f257e166]: 前馈层 3
+      - generic [ref=f257e167]: （各自独立·分组可分离卷积）
+      - generic [ref=f257e168]: 注意力 → 1/N；前馈不共享（ALBERT：共享前馈大幅掉性能）
+      - generic [ref=f257e170]: 低秩分解：d×d → d×r → r×d
+      - generic [ref=f257e172]: d
+      - generic [ref=f257e174]: r
+      - generic [ref=f257e176]: d
+      - generic [ref=f257e177]: d=64, r=16 → 2×d×r 替代 d²，参数减半
+      - generic [ref=f257e178]: 瓶颈层以最小信息损失重构（SVD 一脉）
+      - generic [ref=f257e179]: 唤醒词短序列模式 → 注意力矩阵本就低秩
+      - generic [ref=f257e180]: 分组可分离卷积（前馈）：g=4 分组 + DW+PW
+      - generic [ref=f257e181]: 参数比 1/C_o + 1/D_K² —— 通道冗余的刀
+      - generic [ref=f257e182]: 截断注意力窗口与甜点
+      - generic [ref=f257e201]: 当前帧 t
+      - generic [ref=f257e202]: ← look-back b=60（等效）
+      - generic [ref=f257e203]: 未来 ✗
+      - generic [ref=f257e204]: · h=0 零前视：宁可放弃前瞻也不让唤醒多等一帧（产品化取向）
+      - generic [ref=f257e205]: · 窗口甜点（Table 3）：b=40 → 1.50/2.47 · b=60 → 1.29/2.43（平均最优）·
+      - generic [ref=f257e206]: b=80 → 1.03/2.35 —— 太小盖不住整条唤醒词（上下文截断），
+      - generic [ref=f257e207]: 太大引入不相关噪声增加学习难度：窗口要与唤醒词时长匹配
+      - generic [ref=f257e208]: · 换唤醒词/慢语速需重调——隐性成本，无自适应窗口机制
+      - generic [ref=f257e210]: focal loss：只标 offset 一帧的极端不平衡对策
+      - generic [ref=f257e211]: FL(p_t) = −α·(1−p_t)^γ·log(p_t) p_t = y·ŷ + (1−y)(1−ŷ)
+      - generic [ref=f257e212]: α∈[0,1]：线性控制正负样本重要性（不区分难易）
+      - generic [ref=f257e213]: γ≥0：指数控制难易样本重要性（不区分正负）；γ 越大越向困难样本学习
+      - generic [ref=f257e214]: α=0.5, γ=0 时退化为普通交叉熵；本文实证 α=0.1 · γ=1
+      - generic [ref=f257e215]: 注意：α=0.1 给更稀有的正类降权——与常规用法（稀有类加权≈1）方向相反，
+      - generic [ref=f257e216]: 论文只给结论无敏感性分析，跨数据集可迁移性存疑
+      - generic [ref=f257e217]: 数据层配合：正标注重复 L=R=6（正样本扩 12 倍）
+      - generic [ref=f257e218]: 左：共享砍层间冗余、低秩砍秩冗余、可分离卷积砍通道冗余——三把刀各切一处。右：截断注意力换流式能力，但窗口是硬上限；focal loss 与正标注重复双管齐下对付每条语音只有一帧正样本的极端不平衡
+    - generic [ref=f257e219]: 图2 · 机制解剖：左是注意力侧两把刀（三层共享一份注意力、低秩瓶颈 d×r×d）与分组可分离卷积，右是截断窗口的帧图景、b 的甜点消融与 focal loss 的双超参分工。
+  - heading "§03 实验：最小的模型，最低的 FRR" [level=2] [ref=f257e220]:
+    - generic [ref=f257e221]: §03
+    - text: 实验：最小的模型，最低的 FRR
+  - generic [ref=f257e222]: FRR@0.5FApH（商用级严苛工作点）· 五模型 · 三档尺寸缩放
+  - generic [ref=f257e223]:
+    - img [ref=f257e224]:
+      - generic [ref=f257e226]: 主结果：参数最小的模型 FRR 最低，含噪优势近四成
+      - generic [ref=f257e227]: 五模型对比 · FRR@0.5FApH（%）· 越低越好
+      - generic [ref=f257e228]: "0"
+      - generic [ref=f257e229]: "4"
+      - generic [ref=f257e230]: "8"
+      - generic [ref=f257e231]: "12"
+      - generic [ref=f257e232]: "16"
+      - generic [ref=f257e234]: "9.69"
+      - generic [ref=f257e236]: "15.6"
+      - generic [ref=f257e237]: CNN
+      - generic [ref=f257e238]: 109K
+      - generic [ref=f257e240]: "7.99"
+      - generic [ref=f257e242]: "9.2"
+      - generic [ref=f257e243]: GRU
+      - generic [ref=f257e244]: 97K
+      - generic [ref=f257e246]: "2.11"
+      - generic [ref=f257e248]: "4.0"
+      - generic [ref=f257e249]: ResNet
+      - generic [ref=f257e250]: 88K
+      - generic [ref=f257e252]: "1.75"
+      - generic [ref=f257e254]: "5.2"
+      - generic [ref=f257e255]: CRNN
+      - generic [ref=f257e256]: 114K
+      - generic [ref=f257e258]: "1.29"
+      - generic [ref=f257e260]: "2.4"
+      - generic [ref=f257e261]: m-Trans ★
+      - generic [ref=f257e262]: 85K
+      - generic [ref=f257e264]: 干净
+      - generic [ref=f257e266]: 含噪(MUSAN 0–20dB)
+      - generic [ref=f257e267]: 三条读数：
+      - generic [ref=f257e268]: · 参数最小（85K）且干净 FRR 最低——对次优 CRNN 单尾 z 检验 p<0.05
+      - generic [ref=f257e269]: · 含噪优势扩大：2.43 vs ResNet 4.02（相对改善近四成）——噪声破坏
+      - generic [ref=f257e270]: 局部帧特征，长程上下文的显式建模能从窗口内其他帧补全信息
+      - generic [ref=f257e271]: · 鲁棒斜率：CNN 含噪几乎翻倍（9.69→15.55），m-Trans 不到一倍
+      - generic [ref=f257e272]: （1.29→2.43）——压缩没有牺牲上下文建模能力
+      - generic [ref=f257e273]: · Fig.4 机理：ResNet 与 m-Trans 逐帧预测最贴 ground truth；CNN 分数
+      - generic [ref=f257e274]: 偏低（深度不足感受野受限）；RNN 能定位但输出不锐利（历史拖泥带水）
+      - generic [ref=f257e275]: 同档对照：压了不降反升（Table 4）
+      - generic [ref=f257e277]: 档位
+      - generic [ref=f257e278]: 参数(m vs v)
+      - generic [ref=f257e279]: mobile 干/噪
+      - generic [ref=f257e280]: vanilla 干/噪
+      - generic [ref=f257e282]: tiny
+      - generic [ref=f257e283]: 22K vs 41K
+      - generic [ref=f257e284]: 1.95/4.74
+      - generic [ref=f257e285]: 5.33/8.81
+      - generic [ref=f257e287]: media
+      - generic [ref=f257e288]: 85K vs 160K
+      - generic [ref=f257e289]: 1.29/2.43
+      - generic [ref=f257e290]: 1.54/4.55
+      - generic [ref=f257e292]: large
+      - generic [ref=f257e293]: 331K vs 634K
+      - generic [ref=f257e294]: 0.70/0.94
+      - generic [ref=f257e295]: 1.15/0.83
+      - generic [ref=f257e296]: 数字为 0.5FApH 的 FRR%（干净/含噪）
+      - generic [ref=f257e297]: mobile-media：参数省近半，干净含噪双超 vanilla-media
+      - generic [ref=f257e298]: tiny 档差距悬殊（4.74 vs 8.81）——极小档 vanilla 完全不可用
+      - generic [ref=f257e299]: 结论：vanilla 在唤醒任务上本来就过参数化，三种压缩
+      - generic [ref=f257e300]: 在此语境下同时起到正则化作用
+      - generic [ref=f257e302]: 警惕反常格
+      - generic [ref=f257e303]: vanilla-large 含噪 0.83 < 干净 1.15（交叉）；mobile-large 亦然
+      - generic [ref=f257e304]: ——单格有波动，结论看整体趋势
+      - generic [ref=f257e305]: 注：基线 cnn-tstride4/res8-narrow 等被手工裁剪过（通道 70/48、32）以对齐参数量，是否同等调参未说明；DET 曲线在低假警报区 m-Trans 五者最优，高 FApH 区与 CRNN/ResNet 接近
+    - generic [ref=f257e306]: 图3 · 主结果：左是五模型干净/含噪 FRR 对比（参数量标在柱下）与三条读数，右是 Table 4 的三档同尺寸对照——mobile 版全线占优的「压了更好」证据与反常格警示。
+  - table [ref=f257e307]:
+    - rowgroup [ref=f257e308]:
+      - row [ref=f257e309]:
+        - columnheader "模型" [ref=f257e310]
+        - columnheader "参数" [ref=f257e311]
+        - columnheader "干净 FRR@0.5FApH" [ref=f257e312]
+        - columnheader "含噪 FRR" [ref=f257e313]
+        - columnheader "含噪恶化斜率" [ref=f257e314]
+      - row [ref=f257e315]:
+        - cell "CNN（cnn-tstride4 裁剪版）" [ref=f257e316]
+        - cell "109K" [ref=f257e317]
+        - cell "9.69%" [ref=f257e318]
+        - cell "15.55%" [ref=f257e319]
+        - cell "几乎翻倍 ✗" [ref=f257e320]
+      - row [ref=f257e321]:
+        - cell "GRU" [ref=f257e322]
+        - cell "97K" [ref=f257e323]
+        - cell "7.99%" [ref=f257e324]
+        - cell "9.19%" [ref=f257e325]
+        - cell "—" [ref=f257e326]
+      - row [ref=f257e327]:
+        - cell "ResNet（res8-narrow 裁剪版）" [ref=f257e328]
+        - cell "88K" [ref=f257e329]
+        - cell "2.11%" [ref=f257e330]
+        - cell "4.02%" [ref=f257e331]
+        - cell "—" [ref=f257e332]
+      - row [ref=f257e333]:
+        - cell "CRNN" [ref=f257e334]
+        - cell "114K" [ref=f257e335]
+        - cell "1.75%" [ref=f257e336]
+        - cell "5.25%" [ref=f257e337]
+        - cell "—" [ref=f257e338]
+      - row [ref=f257e339]:
+        - cell "mobile-Transformer ★" [ref=f257e340]
+        - cell "85K" [ref=f257e341]
+        - cell "1.29%（p<0.05 vs CRNN）" [ref=f257e342]
+        - cell "2.43%" [ref=f257e343]
+        - cell "不到一倍 ✓" [ref=f257e344]
+  - generic [ref=f257e345]:
+    - generic [ref=f257e346]: 读表要点
+    - listitem [ref=f257e347]: ◈ 指标选择有讲究：FApH（每小时假警报）直接对应用户被打扰的频率与浪费的功耗，是产品侧硬约束——固定 FApH 比 FRR 才是同等误打扰代价下的准确率对比；0.5 FApH 比 10 FApH 严苛二十倍，更接近商用要求。
+    - listitem [ref=f257e348]: ◈ DET 曲线形态：低假警报区（商用最关心的严苛端）mobile-Transformer 五者最优；放宽误警报预算后与 CRNN/ResNet 接近——注意力骨干的收益集中在「几乎不许误触发」的工作点。
+    - listitem [ref=f257e349]: ◈ 尺寸缩放（Table 4）：mobile 22K→331K 干净 FRR 从 1.95% 降到 0.70%（越大越好趋势成立）；同档 mobile 全面占优，仅 large 档含噪出现 0.94 vs 0.83 的小幅交叉。
+    - listitem [ref=f257e350]: ◈ vanilla-large 含噪（0.83）反而低于干净（1.15）的反常格说明单配置评测有波动——做结论应看整体趋势而非单格数字。
+  - heading "§04 贡献" [level=2] [ref=f257e351]:
+    - generic [ref=f257e352]: §04
+    - text: 贡献
+  - generic [ref=f257e353]: 四点：从框架到可复用配方
+  - generic [ref=f257e354]:
+    - generic [ref=f257e355]:
+      - generic [ref=f257e356]: "1"
+      - paragraph [ref=f257e357]: WakeupNet 框架：压缩 Transformer encoder 为骨干的端到端流式唤醒，85K 最小参数下干净/含噪双最优（1.29%/2.43%），干净场景领先经单尾 z 检验显著。
+    - generic [ref=f257e358]:
+      - generic [ref=f257e359]: "2"
+      - paragraph [ref=f257e360]: mobile-Transformer 三件套：跨层注意力共享（→1/N）+ 投影低秩分解（d×d→2dr）+ 前馈分组可分离卷积——并用同档对照给出「压了更好」而不仅是「能压」的证据。
+    - generic [ref=f257e361]:
+      - generic [ref=f257e362]: "3"
+      - paragraph [ref=f257e363]: 两个迁移验证：自称首次系统研究低秩分解在 Transformer 语境用于语音唤醒；把 ALBERT 的共享结论（只共享注意力最优）从 NLP 迁移到语音并验证成立边界。
+    - generic [ref=f257e364]:
+      - generic [ref=f257e365]: "4"
+      - paragraph [ref=f257e366]: 完整工程配方：感受野甜点（b=60）、零前视流式配置、focal loss 参数、正标注重复帧数、学习率调度——后续复现与迁移的直接参考。
+  - heading "§05 局限与判断" [level=2] [ref=f257e367]:
+    - generic [ref=f257e368]: §05
+    - text: 局限与判断
+  - generic [ref=f257e369]: 零部署侧实测 · 窗口硬绑定唤醒词时长 · 单词单语言
+  - generic [ref=f257e370]:
+    - img [ref=f257e371]:
+      - generic [ref=f257e373]: 边界与延伸
+      - generic [ref=f257e375]: 技术边界
+      - generic [ref=f257e376]: · 只有参数量，零部署证据：每帧乘加、延迟、实时率、内存峰值、功耗
+      - generic [ref=f257e377]: 均未报——而引言反复强调的恰是存储与能耗约束。参数量只是代理：
+      - generic [ref=f257e378]: 注意力/前馈的访存模式、算子硬件友好度都会介入，小≠快≠省电
+      - generic [ref=f257e379]: · h=0 + 固定 b=60 的硬上限窗口：Table 3 显示窗口选取相当敏感——
+      - generic [ref=f257e380]: 换更长唤醒词/更慢语速需重调，方法对唤醒词时长隐性绑定
+      - generic [ref=f257e381]: · 只动结构不叠正交手段：无量化/剪枝/蒸馏；tiny 22K 档 FRR 掉到
+      - generic [ref=f257e382]: 1.95/4.74——继续压小时结构压缩的性能保持能力有限
+      - generic [ref=f257e383]: · 单一唤醒词「ni hao, mi ya」：未评估自定义/多唤醒词（产品刚需）
+      - generic [ref=f257e384]: · focal α=0.1 与常规用法方向相反，无敏感性分析，迁移性存疑
+      - generic [ref=f257e386]: 实验边界 + 延伸
+      - generic [ref=f257e387]: · 语言单一：只有中文 HiMia/MAGICDATA，无英语/跨数据集/与 GSC
+      - generic [ref=f257e388]: 标准基准对照
+      - generic [ref=f257e389]: · 基线被动过刀且调参公平性存疑；负样本只有朗读风格，缺真实
+      - generic [ref=f257e390]: 远场/电视/家人闲聊等最难负样本——假警报可能被低估
+      - generic [ref=f257e391]: · 统计不完整：仅一处 z 检验，无方差/多次运行；训练轮数/批大小/
+      - generic [ref=f257e392]: 硬件/种子全未报，复现成本高
+      - generic [ref=f257e393]: · 笔误两处：正文 995M/330M 应为 K；VGG 引用错位到 [6]
+      - generic [ref=f257e394]: 延伸：大规模无标注数据自监督预训练（补每个新词从头训的短板）；
+      - generic [ref=f257e395]: 补端侧实测闭合「压缩→部署」链条；叠量化/蒸馏冲 20K 以下档；
+      - generic [ref=f257e396]: 可学习/自适应窗口摆脱时长手工匹配；α/γ/L/R 网格敏感性分析
+      - generic [ref=f257e397]: 可迁移判断：压了更好不是玄学——vanilla Transformer 在小数据短模式任务上本就过参数化，结构压缩同时是正则化；但每把刀只切一种冗余，层间/秩/通道三类冗余要各配各的刀
+    - generic [ref=f257e398]: 图4 · 边界与延伸：左技术边界（零延迟/功耗数据、窗口敏感且需重调、无正交压缩叠加、单一唤醒词、α 反常），右实验边界（中文单一、基线裁剪公平性、统计不完整、笔误）+ 延伸方向。
+  - generic [ref=f257e399]:
+    - generic [ref=f257e400]: 可迁移判断
+    - paragraph [ref=f257e401]: ↳ 压了更好不是玄学，是过参数化诊断：如果小模型+结构先验能打平大模型，说明大模型在该任务上本就过参数化——结构压缩同时是正则化。先做同档对照再谈压缩收益，避免把正则化红利错记到结构头上。
+    - paragraph [ref=f257e402]: ↳ 每把刀只切一种冗余：层间冗余配共享、秩冗余配低秩、通道冗余配可分离卷积——混着切既说不清收益来源，也容易切到骨头。设计压缩组合时先把冗余分类。
+    - paragraph [ref=f257e403]: ↳ 窗口类超参都要扫甜点：b=40/60/80 的差异说明截断窗口与任务模式长度强绑定——太小截断上下文、太大引入噪声，两头都伤。换任务/换词长必须重扫，这是截断注意力路线的隐性成本。
+    - paragraph [ref=f257e404]: ↳ 参数量只是部署指标的代理：85K ≠ 低延迟 ≠ 省电——注意力的访存模式、算子硬件友好度都会介入。压缩论文不报延迟/功耗，「端侧可行」就停在推断层面。
+  - generic [ref=f257e405]:
+    - link "arXiv 2210.02904 ↗" [ref=f257e406] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2210.02904
+    - link "← 返回总目录" [ref=f257e407] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f257e408]: 笔记与可视化页基于 arXiv v1 整理 · 正文「995M/330M 样本」应为 K（以 Table 1 为准）· 2022 №41 · 184+/305

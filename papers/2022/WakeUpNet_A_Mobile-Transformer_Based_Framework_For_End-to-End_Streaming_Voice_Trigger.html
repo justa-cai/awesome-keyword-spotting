@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WakeupNet：mobile-Transformer 流式语音唤醒 · 论文精读可视化</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;}
+.wrap{max-width:980px;margin:0 auto;padding:56px 28px 80px;}
+.kicker{font-size:13px;letter-spacing:.22em;color:var(--acc);font-weight:700;margin-bottom:14px;text-transform:uppercase;}
+h1.hero{font-size:40px;line-height:1.32;font-weight:800;letter-spacing:.01em;margin-bottom:18px;}
+h1.hero .g{color:var(--acc);}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+.chip{font-size:12.5px;padding:4px 13px;border:1px solid var(--line);border-radius:999px;color:var(--ink2);background:#fffdf8;}
+.chip.acc{background:var(--lt);border-color:#bfe5d6;color:var(--dk);}
+.meta{border-left:3px solid var(--acc);background:#fffdf8;padding:12px 18px;font-size:13.5px;color:var(--ink2);margin-bottom:40px;border-radius:0 8px 8px 0;}
+.meta b{color:var(--ink);}
+h2{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:800;margin:56px 0 6px;}
+h2 .no{flex:none;font-size:12px;font-weight:800;color:#fff;background:var(--ink);padding:3px 10px;border-radius:999px;letter-spacing:.08em;}
+.h2sub{font-size:13.5px;color:var(--ink3);margin:0 0 18px 46px;}
+.tldr{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-bottom:8px;}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--dk);letter-spacing:.12em;margin-bottom:10px;}
+.tldr li{list-style:none;font-size:14.5px;color:var(--ink2);padding-left:20px;position:relative;margin-bottom:7px;}
+.tldr li:before{content:"◈";position:absolute;left:0;color:var(--acc);font-size:12px;top:2px;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.card{background:#fffdf8;border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
+.card h3{font-size:15.5px;font-weight:700;margin-bottom:8px;}
+.card p{font-size:13.5px;color:var(--ink2);}
+.card.acc{background:var(--lt);border-color:#bfe5d6;}
+.card.acc h3{color:var(--dk);}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4;}
+.card.bad h3{color:var(--warn);}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--lt);color:var(--dk);margin-bottom:8px;}
+.fig{margin:26px 0;}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:14px;}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:10px;line-height:1.7;}
+.cap b{color:var(--ink2);}
+.formula{background:#fffdf8;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 12px 12px 0;padding:16px 20px;margin:16px 0;}
+.formula .f{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:15px;color:var(--ink);background:#f2f4ef;padding:10px 14px;border-radius:8px;margin-bottom:10px;overflow-x:auto;white-space:pre;}
+.formula .why{font-size:13.5px;color:var(--ink2);}
+.formula .why b{color:var(--dk);}
+table.tb{width:100%;border-collapse:collapse;background:#fffdf8;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:18px 0;font-size:13.5px;}
+table.tb th{background:var(--ink);color:#fff;padding:10px 14px;text-align:left;font-weight:700;font-size:13px;}
+table.tb td{padding:10px 14px;border-top:1px solid var(--line);color:var(--ink2);}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:700;}
+.contrib{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:18px 0;}
+.contrib .row{display:flex;gap:16px;padding:12px 0;border-bottom:1px dashed var(--line);}
+.contrib .row:last-child{border-bottom:none;}
+.contrib .n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.contrib .row p{font-size:14px;color:var(--ink2);}
+.contrib .row p b{color:var(--ink);}
+.lim{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.judge{background:#fffaf4;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:18px 0;}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.12em;margin-bottom:10px;}
+.judge p{font-size:14px;color:var(--ink2);margin-bottom:8px;}
+.judge p b{color:var(--ink);}
+.foot{margin-top:64px;padding-top:28px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.pill{display:inline-block;font-size:13px;font-weight:700;color:var(--dk);background:var(--lt);border:1px solid #bfe5d6;border-radius:999px;padding:7px 18px;text-decoration:none;}
+.pill.ghost{background:transparent;color:var(--ink2);border-color:var(--line);}
+.foot-note{font-size:12px;color:var(--ink3);margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2022 №41</div>
+<h1 class="hero">Transformer 压到 85K 装进唤醒芯片：<br>三把刀各砍一种冗余，<span class="g">压了反而更好</span></h1>
+<div class="chips">
+<span class="chip acc">WakeupNet · 华为英国</span>
+<span class="chip">arXiv 2210.02904 · mobile-Transformer</span>
+<span class="chip">HiMia「ni hao, mi ya」· 524 小时中文唤醒</span>
+<span class="chip">85K 参数 · FRR@0.5FApH 1.29%/2.43%（五模型最优）</span>
+</div>
+<div class="meta">
+<b>一句话</b>：唤醒模块 always-on，存储与能耗直接换算成待机功耗——vanilla Transformer 比唤醒预算大两三个数量级。WakeupNet 用三件套把它压进 85K：跨层只共享注意力参数（省 2/3）、QKV 投影低秩分解（d×d→2×d×r，参数减半）、前馈层换分组可分离卷积（1/4）——三种手段分别命中层间/秩/通道三类冗余。同档对照显示压了不降反升：85K 的 mobile 版干净/含噪双超 160K 的 vanilla 版。配上零前视截断注意力（h=0, b=60）与 focal loss，端到端流式检测五模型最优。
+</div>
+
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<li>唤醒是交互第一道关卡 + always-on：漏唤醒/假唤醒用户立刻感知，开销直接换算待机功耗——「极致压低存储与计算成本」是全文总纲，所有设计决策都能还原到准确率/延迟/体积的三重权衡。</li>
+<li>老路线的死因：填充词方案要 ASR+HMM，音素错则全错、复杂度高、中间层放大误差；端到端直判的 CNN 感受野受限预测分偏低、RNN 历史拖泥带水输出不锐利（Fig.4 逐帧曲线实证）。</li>
+<li>标注策略：只把唤醒词<b>结束点一帧</b>标正——直接优化检测本身、从根上避免触发提前/滞后；代价是极端不平衡，对策是正标注重复 L=R=6 帧（正样本扩 12 倍）+ focal loss（α=0.1, γ=1）。</li>
+<li>流式两件套：<b>因果卷积前端替代位置编码</b>（位置信息隐式进入表示，因果=只看历史）；<b>截断自注意力</b>（时刻 t 只看 [t−60, t]，h=0 零前视——宁可放弃前瞻也不让唤醒多等一帧）。</li>
+<li>三把刀各砍一种冗余：<b>共享</b>砍注意力层间冗余（→1/N）、<b>低秩</b>砍投影矩阵秩冗余（d=64, r=16 减半；唤醒词是短序列局部模式，注意力矩阵本就低秩）、<b>分组可分离卷积</b>砍前馈通道冗余（g=4）——互补不重叠。</li>
+<li>最有说服力的结果：同档对照 mobile-media 85K（1.29/2.43）vs vanilla-media 160K（1.54/4.55）——<b>参数省近半双指标反超</b>；tiny 档差距悬殊（22K 的 4.74 vs 41K 的 8.81）——vanilla 在唤醒任务上本来就过参数化，压缩同时是正则化。</li>
+<li>主对比含噪优势近四成（2.43 vs 次优 4.02）：噪声破坏局部帧特征，长程上下文显式建模能从窗口内其他帧补全信息——注意力结构的固有强项在压缩后没有丢。</li>
+</div>
+
+<h2><span class="no">§01</span>问题：Transformer 装不进唤醒预算</h2>
+<div class="h2sub">差两三个数量级的体积鸿沟 + 上下文建模的吸引力</div>
+<div class="cards">
+<div class="card bad">
+<h3>为什么想要 Transformer</h3>
+<p>唤醒词是强依赖上下文的序列判别问题——同一音素出现在唤醒词里和普通对话里意义完全不同，判断必须依赖周边帧。Karita 等的系统性对比里 Transformer 在多数 ASR 数据集上最好；且无递归结构，对 GPU 并行友好。</p>
+</div>
+<div class="card bad">
+<h3>为什么没人直接用</h3>
+<p>vanilla Transformer encoder 从设计之初就不是为端侧考虑的。DistilBERT 等压缩后的 BERT 仍在百万到千万参数级，而唤醒预算是几万到十几万——差两三个数量级。需要一套专针对「极小档位」的压缩方案，即 mobile-Transformer。</p>
+</div>
+<div class="card">
+<h3>标注与不平衡</h3>
+<p>沿用只标 offset 为正的原则：直接优化检测分数本身而非优化代理任务再间接决策。但每条唤醒语音正样本只有一帧——普通交叉熵会被海量负样本淹没。数据层扩 12 倍 + 损失层 focal loss 双管齐下。</p>
+</div>
+<div class="card">
+<h3>流式改造两处</h3>
+<p>标准自注意力要看整条序列才能算权重，无法流式。① 前端用因果卷积让位置信息隐式进入（位置编码需要预知序列并对齐，流式下既不自然也不经济）；② 注意力截断到固定窗口，复杂度从全序列长降到窗口长。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 900">
+<rect x="0.0" y="0.0" width="920.0" height="900.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">WakeupNet：把 Transformer 压到 85K 装进唤醒芯片——压了不但没坏，反而更好</text>
+<line x1="36.0" y1="60.0" x2="740.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 常驻唤醒的三重枷锁 + Transformer 装不进去的体积</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">唤醒是交互链路第一道关卡 + always-on：存储与计算开销直接换算成待机功耗与电池寿命——「极致压低存储与计算成本」是全文总纲</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">唤醒词是强上下文序列判别问题（同一音素在词里/对话里意义不同），自注意力擅长长程依赖——但 vanilla Transformer 从没为端侧设计过</text>
+<rect x="36.0" y="152.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="182.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">填充词路线判死刑</text>
+<text x="215.0" y="173.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">要借助 ASR + HMM 对唤醒词与背景分别建模：音素预测错则上层判决全错；ASR</text>
+<text x="215.0" y="191.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">复杂度带来高内存高功耗；中间层引入误差放大路径——always-on 场景装不下</text>
+<rect x="36.0" y="210.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="240.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN/RNN 各有短板</text>
+<text x="215.0" y="231.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">端到端直判成为主流（只标唤醒词 offset 为正），但骨干有短板：CNN 深度不足</text>
+<text x="215.0" y="249.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">感受野受限预测分偏低；RNN 历史信息拖泥带水影响未来帧，输出不锐利（Fig.4 实证）</text>
+<rect x="36.0" y="268.0" width="848.0" height="50.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="298.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">压缩 BERT 也不够小</text>
+<text x="215.0" y="289.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">DistilBERT 等压缩后仍在百万到千万参数级——唤醒预算是几万到十几万，差两三个</text>
+<text x="215.0" y="307.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数量级。需要专针对「极小档位」的 Transformer 压缩方案——即 mobile-Transformer</text>
+<text x="36.0" y="336.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 三段式骨架：因果卷积前端 + 受限注意力主体 + 线性头（M=2 · N=3 · 85K）</text>
+<rect x="36.0" y="352.0" width="272.0" height="200.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="172.0" y="374.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标注与建模目标</text>
+<text x="52.0" y="396.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">只把唤醒词结束点（offset）标为正</text>
+<text x="52.0" y="410.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">y_t=1，其余帧全负——系统学</text>
+<text x="52.0" y="425.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">特征序列到逐帧标签的映射 f</text>
+<text x="52.0" y="439.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="454.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">好处：直接优化检测本身，避开</text>
+<text x="52.0" y="468.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">中间组件；从根上避免触发提前</text>
+<text x="52.0" y="483.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（词没说完就触发）与滞后</text>
+<text x="52.0" y="497.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="512.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">代价：极端类别不平衡（正样本</text>
+<text x="52.0" y="526.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每条语音只有 1 帧）→ 数据层正</text>
+<text x="52.0" y="541.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标注前后各重复 L=R=6 帧（正样</text>
+<text x="52.0" y="555.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">本扩 12 倍）+ 损失层 focal loss</text>
+<rect x="324.0" y="352.0" width="272.0" height="200.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="460.0" y="374.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">流式两件套</text>
+<text x="340.0" y="396.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">① 因果卷积前端替代位置编码：</text>
+<text x="340.0" y="410.2" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   2 个 VGG 块（(3,3) 核 · 32 通道 ·</text>
+<text x="340.0" y="424.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   (2,2) 最大池化），位置信息隐式进入</text>
+<text x="340.0" y="438.6" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   表示；因果=只看历史，天然流式</text>
+<text x="340.0" y="452.8" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="340.0" y="467.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② 时域受限自注意力（截断）：</text>
+<text x="340.0" y="481.2" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   时刻 t 只访问 [t−b, t+h] 窗口</text>
+<text x="340.0" y="495.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   look-ahead h=0（零前视纯因果）</text>
+<text x="340.0" y="509.6" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   look-back b=60（消融甜点）</text>
+<text x="340.0" y="523.8" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="340.0" y="538.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   复杂度从全序列长 → 只依赖 b+h</text>
+<text x="340.0" y="552.2" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   推理：W 帧感受野 P=4 步切成片 →</text>
+<text x="340.0" y="566.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   平滑窗 → 超阈值 s 触发</text>
+<rect x="612.0" y="352.0" width="272.0" height="200.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="748.0" y="374.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练配方</text>
+<text x="628.0" y="396.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">focal loss：FL = −α(1−p)^γ·log p</text>
+<text x="628.0" y="410.2" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  α 线性控正负样本重要性</text>
+<text x="628.0" y="424.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  γ 指数控难易样本重要性</text>
+<text x="628.0" y="438.6" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  α=0.1 · γ=1（α 方向与常规用法</text>
+<text x="628.0" y="452.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  相反——正类更稀有却降权，论文</text>
+<text x="628.0" y="467.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  只给结论无敏感性分析）</text>
+<text x="628.0" y="481.2" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="628.0" y="495.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Adam + warmup-hold-指数衰减</text>
+<text x="628.0" y="509.6" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  1e-6 → 5e-5 保持 → 1e-6</text>
+<text x="628.0" y="523.8" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="628.0" y="538.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力 d=64 · 低秩 r=16 · 分组 g=4</text>
+<text x="628.0" y="552.2" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">两级 2×2 池化 → 标注序列长 = 1/4 输入</text>
+<text x="36.0" y="576.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 压缩三件套：三种手段命中三种不同的冗余，互补不重叠</text>
+<rect x="36.0" y="592.0" width="420.0" height="78.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="50.0" y="611.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 跨层注意力共享</text>
+<text x="50.0" y="628.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">N=3 个注意力块共享同一份参数（ALBERT 启发）——只共享注意力，</text>
+<text x="50.0" y="641.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不共享前馈（ALBERT 已证全共享/共享前馈大幅掉性能）。收益：注意力</text>
+<text x="50.0" y="655.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">权重 → 1/N，省 2/3。假设：哪些帧互相关联在各层高度相似</text>
+<rect x="464.0" y="592.0" width="420.0" height="78.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="478.0" y="611.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 注意力投影低秩分解</text>
+<text x="478.0" y="628.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Q/K/V 各一个 d×d 矩阵是体积大头；插入瓶颈层变成 2×d×r。</text>
+<text x="478.0" y="641.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">d=64 · r=d/4=16 → 每个投影矩阵参数减半。低秩假设成立：唤醒词是</text>
+<text x="478.0" y="655.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">短序列局部模式，注意力有效自由度远低于满秩。自称首次在 Transformer 语境验证</text>
+<rect x="36.0" y="678.0" width="420.0" height="78.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="50.0" y="697.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 前馈层分组可分离卷积化</text>
+<text x="50.0" y="714.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">正因为前馈不共享，它成了另一个参数大头（共享与压缩互相咬合处）。</text>
+<text x="50.0" y="727.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">全连接 → 分组卷积（g=4，计算缩到 1/g）+ 深度可分离卷积（depthwise</text>
+<text x="50.0" y="741.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">+ 1×1 pointwise，参数比 1/C_o + 1/D_K²，通道越大核越大收益越显著）</text>
+<rect x="464.0" y="678.0" width="420.0" height="78.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="478.0" y="697.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">④ 三者正交组合</text>
+<text x="478.0" y="714.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">共享命中「层间冗余」，低秩命中「秩冗余」，可分离卷积命中「通道</text>
+<text x="478.0" y="727.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">冗余」——三管齐下互补不重叠，这是组合拳在设计上的干净之处；</text>
+<text x="478.0" y="741.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Table 4 同档对照证明：压了不降反升（vanilla 在此任务本来就过参数化）</text>
+<rect x="36.0" y="772.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="798.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">85K</text>
+<text x="130.0" y="818.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">总参数（五模型最小）</text>
+<text x="298.0" y="798.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1.29%</text>
+<text x="298.0" y="818.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">干净 FRR@0.5FApH（次优 1.75）</text>
+<text x="466.0" y="798.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2.43%</text>
+<text x="466.0" y="818.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">含噪 FRR（次优 4.02 · 改善近四成）</text>
+<text x="634.0" y="798.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">p&lt;0.05</text>
+<text x="634.0" y="818.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">对 CRNN 单尾 z 检验显著</text>
+<text x="802.0" y="798.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">≈半</text>
+<text x="802.0" y="818.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">同档对比参数省近半反超 vanilla</text>
+<text x="36.0" y="856.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">华为英国研发中心 · arXiv 2210.02904；正样本 HiMia（openslr 85 · 唤醒词「ni hao, mi ya」· 340 人 132.5 万条 524 小时）+ 负样本 MAGICDATA（755h · 1080 人）+ MUSAN 加噪 0–20dB；指标 = 固定假警报率下的拒识率 FRR@FApH</text>
+</svg>
+<div class="cap"><b>图1 · 机制全景</b>：上半是三重枷锁与两条老路线的死因，中段是三段式骨架与训练配方，下半是压缩三件套如何各命中一种冗余。</div>
+</div>
+
+<h2><span class="no">§02</span>方法：三种冗余，三把刀</h2>
+<div class="h2sub">Attention(Q,K,V) = softmax(QKᵀ/√d_k)·V 的三个 d×d 投影是体积大头</div>
+
+<div class="formula">
+<div class="f">共享:   N 个注意力块共用同一份参数（N=3 → 注意力参数 → 1/3）
+        只共享注意力，不共享前馈（ALBERT：共享前馈大幅掉性能）
+低秩:   W ∈ ℝ^(d×d)  →  ℝ^(d×r) · ℝ^(r×d)     # d=64, r=16 = d/4 → 参数减半
+可分离: FFN 全连接 → 分组卷积(g=4) + depthwise + 1×1 pointwise
+        参数比 = 1/C_o + 1/D_K²  （通道越大、核越大收益越显著）</div>
+<div class="why"><b>人话</b>：三把刀切的是三种不同的冗余——注意力模式在层间高度相似（唤醒要回答的「哪些帧互相关联」各层雷同）→ 共享；唤醒词是短序列局部模式，注意力矩阵的有效自由度远低于满秩 → 低秩；前馈层的通道间冗余 → 可分离卷积。因为只共享注意力，前馈反而成了另一个参数大头，必须单独想办法——共享与压缩策略在这里互相咬合。</div>
+</div>
+
+<div class="formula">
+<div class="f">FL(p_t) = −α·(1−p_t)^γ·log(p_t)      p_t = y·ŷ + (1−y)(1−ŷ)
+α=0.1, γ=1     ·     正标注重复 L=R=6（正样本 ×12）     ·     h=0, b=60</div>
+<div class="why"><b>人话</b>：α 线性控制正负样本权重、γ 指数控制难易样本权重——α=0.5 且 γ=0 时退化为普通交叉熵。注意本文 α=0.1 给更稀有的正类降权，与常规用法方向相反，论文只给结论没有敏感性分析。截断窗口 b=60 是消融甜点：太小盖不住整条唤醒词（上下文被截断），太大引入不相关噪声增加学习难度——窗口要与唤醒词时长匹配，换词需重调。</div>
+</div>
+
+<div class="cards">
+<div class="card acc">
+<h3>推理链路</h3>
+<p>流式音频提取特征后切成 W 帧感受野、P=4 步长的顺序片段（两级 2×2 池化把序列压到 1/4）→ 网络输出逐片段预测 → 平滑窗平滑 → 超过阈值 s 触发。训练 Adam + warmup-hold-指数衰减（1e-6→5e-5→1e-6），全部超参在开发集上以尺寸+性能联合调优。</p>
+</div>
+<div class="card acc">
+<h3>为什么压了反而更好</h3>
+<p>vanilla encoder 在唤醒这个任务上本来就是过参数化的——三种压缩在这个语境下同时起到了正则化作用。Table 4 三档同尺寸对照全部支持这一点；加上 focal loss 与截断窗口本身就是约束，整条流水线都在「用归纳偏置换参数」。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：三种冗余三把刀 · 截断窗口的甜点 · focal loss</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="223.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力侧两把刀：共享 + 低秩</text>
+<rect x="48.0" y="92.0" width="360.0" height="168.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="64.0" y="102.0" width="150.0" height="42.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="139.0" y="120.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力块 1</text>
+<text x="139.0" y="135.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（参数共享）</text>
+<rect x="228.0" y="102.0" width="150.0" height="42.0" rx="6" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="303.0" y="120.0" font-size="9" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">前馈层 1</text>
+<text x="303.0" y="135.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（各自独立·分组可分离卷积）</text>
+<rect x="64.0" y="154.0" width="150.0" height="42.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="139.0" y="172.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力块 2</text>
+<text x="139.0" y="187.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（参数共享）</text>
+<rect x="228.0" y="154.0" width="150.0" height="42.0" rx="6" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="303.0" y="172.0" font-size="9" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">前馈层 2</text>
+<text x="303.0" y="187.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（各自独立·分组可分离卷积）</text>
+<rect x="64.0" y="206.0" width="150.0" height="42.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="139.0" y="224.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力块 3</text>
+<text x="139.0" y="239.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（参数共享）</text>
+<rect x="228.0" y="206.0" width="150.0" height="42.0" rx="6" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="303.0" y="224.0" font-size="9" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">前馈层 3</text>
+<text x="303.0" y="239.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（各自独立·分组可分离卷积）</text>
+<text x="223.0" y="268.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力 → 1/N；前馈不共享（ALBERT：共享前馈大幅掉性能）</text>
+<rect x="48.0" y="272.0" width="360.0" height="122.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="62.0" y="290.0" font-size="9.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">低秩分解：d×d → d×r → r×d</text>
+<rect x="62.0" y="300.0" width="34.0" height="60.0" rx="3" fill="#c9d8e8"/>
+<text x="79.0" y="334.0" font-size="9" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">d</text>
+<rect x="122.0" y="314.0" width="16.0" height="32.0" rx="3" fill="#0b6e52"/>
+<text x="130.0" y="334.0" font-size="8.5" fill="#ffffff" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">r</text>
+<rect x="164.0" y="300.0" width="34.0" height="60.0" rx="3" fill="#c9d8e8"/>
+<text x="181.0" y="334.0" font-size="9" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">d</text>
+<line x1="98.0" y1="330.0" x2="120.00" y2="330.00" stroke="#8a93a5" stroke-width="1.2"/>
+<line x1="140.0" y1="330.0" x2="162.00" y2="330.00" stroke="#8a93a5" stroke-width="1.2"/>
+<text x="212.0" y="298.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">d=64, r=16 → 2×d×r 替代 d²，参数减半</text>
+<text x="212.0" y="312.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">瓶颈层以最小信息损失重构（SVD 一脉）</text>
+<text x="212.0" y="327.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">唤醒词短序列模式 → 注意力矩阵本就低秩</text>
+<text x="212.0" y="341.5" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="212.0" y="356.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">分组可分离卷积（前馈）：g=4 分组 + DW+PW</text>
+<text x="212.0" y="370.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">参数比 1/C_o + 1/D_K² —— 通道冗余的刀</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">截断注意力窗口与甜点</text>
+<rect x="436.0" y="92.0" width="408.0" height="150.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="460.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#c9d8e8"/>
+<rect x="482.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#c9d8e8"/>
+<rect x="504.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#c9d8e8"/>
+<rect x="526.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#c9d8e8"/>
+<rect x="548.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#c9d8e8"/>
+<rect x="570.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#c9d8e8"/>
+<rect x="592.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#0b6e52"/>
+<rect x="614.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#0b6e52"/>
+<rect x="636.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#0b6e52"/>
+<rect x="658.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#0b6e52"/>
+<rect x="680.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#0b6e52"/>
+<rect x="702.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#0b6e52"/>
+<rect x="724.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#0b6e52"/>
+<rect x="746.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#0b6e52"/>
+<rect x="768.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#c9d8e8"/>
+<rect x="790.0" y="130.0" width="16.0" height="22.0" rx="3" fill="#c9d8e8"/>
+<circle cx="754" cy="141" r="9" fill="none" stroke="#c0392b" stroke-width="1.6"/>
+<text x="754.0" y="174.0" font-size="8.3" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">当前帧 t</text>
+<text x="600.0" y="174.0" font-size="8.3" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">← look-back b=60（等效）</text>
+<text x="790.0" y="174.0" font-size="8.3" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">未来 ✗</text>
+<text x="450.0" y="196.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· h=0 零前视：宁可放弃前瞻也不让唤醒多等一帧（产品化取向）</text>
+<text x="450.0" y="208.6" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 窗口甜点（Table 3）：b=40 → 1.50/2.47 · b=60 → 1.29/2.43（平均最优）·</text>
+<text x="450.0" y="221.2" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   b=80 → 1.03/2.35 —— 太小盖不住整条唤醒词（上下文截断），</text>
+<text x="450.0" y="233.8" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   太大引入不相关噪声增加学习难度：窗口要与唤醒词时长匹配</text>
+<text x="450.0" y="246.4" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 换唤醒词/慢语速需重调——隐性成本，无自适应窗口机制</text>
+<rect x="436.0" y="250.0" width="408.0" height="144.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="450.0" y="270.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">focal loss：只标 offset 一帧的极端不平衡对策</text>
+<text x="450.0" y="288.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FL(p_t) = −α·(1−p_t)^γ·log(p_t)     p_t = y·ŷ + (1−y)(1−ŷ)</text>
+<text x="450.0" y="300.6" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="313.2" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">α∈[0,1]：线性控制正负样本重要性（不区分难易）</text>
+<text x="450.0" y="325.8" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">γ≥0：指数控制难易样本重要性（不区分正负）；γ 越大越向困难样本学习</text>
+<text x="450.0" y="338.4" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">α=0.5, γ=0 时退化为普通交叉熵；本文实证 α=0.1 · γ=1</text>
+<text x="450.0" y="351.0" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="363.6" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注意：α=0.1 给更稀有的正类降权——与常规用法（稀有类加权≈1）方向相反，</text>
+<text x="450.0" y="376.2" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">论文只给结论无敏感性分析，跨数据集可迁移性存疑</text>
+<text x="450.0" y="388.8" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="401.4" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据层配合：正标注重复 L=R=6（正样本扩 12 倍）</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：共享砍层间冗余、低秩砍秩冗余、可分离卷积砍通道冗余——三把刀各切一处。右：截断注意力换流式能力，但窗口是硬上限；focal loss 与正标注重复双管齐下对付每条语音只有一帧正样本的极端不平衡</text>
+</svg>
+<div class="cap"><b>图2 · 机制解剖</b>：左是注意力侧两把刀（三层共享一份注意力、低秩瓶颈 d×r×d）与分组可分离卷积，右是截断窗口的帧图景、b 的甜点消融与 focal loss 的双超参分工。</div>
+</div>
+
+<h2><span class="no">§03</span>实验：最小的模型，最低的 FRR</h2>
+<div class="h2sub">FRR@0.5FApH（商用级严苛工作点）· 五模型 · 三档尺寸缩放</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：参数最小的模型 FRR 最低，含噪优势近四成</text>
+<line x1="36.0" y1="56.0" x2="520.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="256.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">五模型对比 · FRR@0.5FApH（%）· 越低越好</text>
+<line x1="52.0" y1="272.0" x2="466.00" y2="272.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="275.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<line x1="52.0" y1="234.5" x2="466.00" y2="234.50" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="237.5" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">4</text>
+<line x1="52.0" y1="197.0" x2="466.00" y2="197.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="200.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">8</text>
+<line x1="52.0" y1="159.5" x2="466.00" y2="159.50" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="162.5" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">12</text>
+<line x1="52.0" y1="122.0" x2="466.00" y2="122.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="125.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">16</text>
+<rect x="86.0" y="181.2" width="32.0" height="90.8" rx="4" fill="#c9d8e8"/>
+<text x="102.0" y="176.2" font-size="8" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">9.69</text>
+<rect x="122.0" y="126.2" width="32.0" height="145.8" rx="4" fill="#e8b8b0"/>
+<text x="138.0" y="121.2" font-size="7.8" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">15.6</text>
+<text x="118.0" y="286.0" font-size="8.3" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN</text>
+<text x="118.0" y="297.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">109K</text>
+<rect x="164.0" y="197.1" width="32.0" height="74.9" rx="4" fill="#c9d8e8"/>
+<text x="180.0" y="192.1" font-size="8" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">7.99</text>
+<rect x="200.0" y="185.8" width="32.0" height="86.2" rx="4" fill="#e8b8b0"/>
+<text x="216.0" y="180.8" font-size="7.8" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">9.2</text>
+<text x="196.0" y="286.0" font-size="8.3" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GRU</text>
+<text x="196.0" y="297.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">97K</text>
+<rect x="242.0" y="252.2" width="32.0" height="19.8" rx="4" fill="#c9d8e8"/>
+<text x="258.0" y="247.2" font-size="8" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2.11</text>
+<rect x="278.0" y="234.3" width="32.0" height="37.7" rx="4" fill="#e8b8b0"/>
+<text x="294.0" y="229.3" font-size="7.8" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4.0</text>
+<text x="274.0" y="286.0" font-size="8.3" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ResNet</text>
+<text x="274.0" y="297.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">88K</text>
+<rect x="320.0" y="255.6" width="32.0" height="16.4" rx="4" fill="#c9d8e8"/>
+<text x="336.0" y="250.6" font-size="8" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1.75</text>
+<rect x="356.0" y="222.8" width="32.0" height="49.2" rx="4" fill="#e8b8b0"/>
+<text x="372.0" y="217.8" font-size="7.8" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5.2</text>
+<text x="352.0" y="286.0" font-size="8.3" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CRNN</text>
+<text x="352.0" y="297.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">114K</text>
+<rect x="398.0" y="259.9" width="32.0" height="12.1" rx="4" fill="#0b6e52"/>
+<text x="414.0" y="254.9" font-size="8" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1.29</text>
+<rect x="434.0" y="249.2" width="32.0" height="22.8" rx="4" fill="#0a6b4e"/>
+<text x="450.0" y="244.2" font-size="7.8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2.4</text>
+<text x="430.0" y="286.0" font-size="8.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">m-Trans ★</text>
+<text x="430.0" y="297.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">85K</text>
+<rect x="56.0" y="92.0" width="9.0" height="9.0" rx="2" fill="#c9d8e8"/>
+<text x="69.0" y="100.0" font-size="7.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">干净</text>
+<rect x="108.0" y="92.0" width="9.0" height="9.0" rx="2" fill="#e8b8b0"/>
+<text x="121.0" y="100.0" font-size="7.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">含噪(MUSAN 0–20dB)</text>
+<text x="56.0" y="326.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三条读数：</text>
+<text x="56.0" y="340.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 参数最小（85K）且干净 FRR 最低——对次优 CRNN 单尾 z 检验 p&lt;0.05</text>
+<text x="56.0" y="353.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 含噪优势扩大：2.43 vs ResNet 4.02（相对改善近四成）——噪声破坏</text>
+<text x="56.0" y="366.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  局部帧特征，长程上下文的显式建模能从窗口内其他帧补全信息</text>
+<text x="56.0" y="379.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 鲁棒斜率：CNN 含噪几乎翻倍（9.69→15.55），m-Trans 不到一倍</text>
+<text x="56.0" y="392.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （1.29→2.43）——压缩没有牺牲上下文建模能力</text>
+<text x="56.0" y="405.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Fig.4 机理：ResNet 与 m-Trans 逐帧预测最贴 ground truth；CNN 分数</text>
+<text x="56.0" y="418.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  偏低（深度不足感受野受限）；RNN 能定位但输出不锐利（历史拖泥带水）</text>
+<text x="670.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">同档对照：压了不降反升（Table 4）</text>
+<rect x="508.0" y="92.0" width="316.0" height="240.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="522.0" y="112.0" font-size="8.3" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">档位</text>
+<text x="588.0" y="112.0" font-size="8.3" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">参数(m vs v)</text>
+<text x="678.0" y="112.0" font-size="8.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">mobile 干/噪</text>
+<text x="760.0" y="112.0" font-size="8.3" fill="#33507a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">vanilla 干/噪</text>
+<rect x="518.0" y="124.0" width="296.0" height="38.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="528.0" y="148.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">tiny</text>
+<text x="588.0" y="148.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">22K vs 41K</text>
+<text x="678.0" y="148.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1.95/4.74</text>
+<text x="760.0" y="148.0" font-size="8.8" fill="#33507a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">5.33/8.81</text>
+<rect x="518.0" y="170.0" width="296.0" height="38.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="528.0" y="194.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">media</text>
+<text x="588.0" y="194.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">85K vs 160K</text>
+<text x="678.0" y="194.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1.29/2.43</text>
+<text x="760.0" y="194.0" font-size="8.8" fill="#33507a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">1.54/4.55</text>
+<rect x="518.0" y="216.0" width="296.0" height="38.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="528.0" y="240.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">large</text>
+<text x="588.0" y="240.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">331K vs 634K</text>
+<text x="678.0" y="240.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.70/0.94</text>
+<text x="760.0" y="240.0" font-size="8.8" fill="#33507a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">1.15/0.83</text>
+<text x="522.0" y="280.0" font-size="8" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数字为 0.5FApH 的 FRR%（干净/含噪）</text>
+<text x="522.0" y="294.0" font-size="8.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">mobile-media：参数省近半，干净含噪双超 vanilla-media</text>
+<text x="522.0" y="308.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">tiny 档差距悬殊（4.74 vs 8.81）——极小档 vanilla 完全不可用</text>
+<text x="522.0" y="322.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">结论：vanilla 在唤醒任务上本来就过参数化，三种压缩</text>
+<text x="522.0" y="336.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">在此语境下同时起到正则化作用</text>
+<rect x="508.0" y="340.0" width="316.0" height="56.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="666.0" y="358.0" font-size="8.8" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">警惕反常格</text>
+<text x="666.0" y="372.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">vanilla-large 含噪 0.83 &lt; 干净 1.15（交叉）；mobile-large 亦然</text>
+<text x="666.0" y="386.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">——单格有波动，结论看整体趋势</text>
+<text x="36.0" y="456.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：基线 cnn-tstride4/res8-narrow 等被手工裁剪过（通道 70/48、32）以对齐参数量，是否同等调参未说明；DET 曲线在低假警报区 m-Trans 五者最优，高 FApH 区与 CRNN/ResNet 接近</text>
+</svg>
+<div class="cap"><b>图3 · 主结果</b>：左是五模型干净/含噪 FRR 对比（参数量标在柱下）与三条读数，右是 Table 4 的三档同尺寸对照——mobile 版全线占优的「压了更好」证据与反常格警示。</div>
+</div>
+<table class="tb">
+<tr><th>模型</th><th>参数</th><th>干净 FRR@0.5FApH</th><th>含噪 FRR</th><th>含噪恶化斜率</th></tr>
+<tr><td>CNN（cnn-tstride4 裁剪版）</td><td>109K</td><td>9.69%</td><td>15.55%</td><td>几乎翻倍 ✗</td></tr>
+<tr><td>GRU</td><td>97K</td><td>7.99%</td><td>9.19%</td><td>—</td></tr>
+<tr><td>ResNet（res8-narrow 裁剪版）</td><td>88K</td><td>2.11%</td><td>4.02%</td><td>—</td></tr>
+<tr><td>CRNN</td><td>114K</td><td>1.75%</td><td>5.25%</td><td>—</td></tr>
+<tr class="hl"><td>mobile-Transformer ★</td><td>85K</td><td>1.29%（p&lt;0.05 vs CRNN）</td><td>2.43%</td><td>不到一倍 ✓</td></tr>
+</table>
+<div class="tldr" style="margin-top:14px;">
+<div class="tt">读表要点</div>
+<li>指标选择有讲究：FApH（每小时假警报）直接对应用户被打扰的频率与浪费的功耗，是产品侧硬约束——固定 FApH 比 FRR 才是同等误打扰代价下的准确率对比；0.5 FApH 比 10 FApH 严苛二十倍，更接近商用要求。</li>
+<li>DET 曲线形态：低假警报区（商用最关心的严苛端）mobile-Transformer 五者最优；放宽误警报预算后与 CRNN/ResNet 接近——注意力骨干的收益集中在「几乎不许误触发」的工作点。</li>
+<li>尺寸缩放（Table 4）：mobile 22K→331K 干净 FRR 从 1.95% 降到 0.70%（越大越好趋势成立）；同档 mobile 全面占优，仅 large 档含噪出现 0.94 vs 0.83 的小幅交叉。</li>
+<li>vanilla-large 含噪（0.83）反而低于干净（1.15）的反常格说明单配置评测有波动——做结论应看整体趋势而非单格数字。</li>
+</div>
+
+<h2><span class="no">§04</span>贡献</h2>
+<div class="h2sub">四点：从框架到可复用配方</div>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>WakeupNet 框架</b>：压缩 Transformer encoder 为骨干的端到端流式唤醒，85K 最小参数下干净/含噪双最优（1.29%/2.43%），干净场景领先经单尾 z 检验显著。</p></div>
+<div class="row"><div class="n">2</div><p><b>mobile-Transformer 三件套</b>：跨层注意力共享（→1/N）+ 投影低秩分解（d×d→2dr）+ 前馈分组可分离卷积——并用同档对照给出「压了更好」而不仅是「能压」的证据。</p></div>
+<div class="row"><div class="n">3</div><p><b>两个迁移验证</b>：自称首次系统研究低秩分解在 Transformer 语境用于语音唤醒；把 ALBERT 的共享结论（只共享注意力最优）从 NLP 迁移到语音并验证成立边界。</p></div>
+<div class="row"><div class="n">4</div><p><b>完整工程配方</b>：感受野甜点（b=60）、零前视流式配置、focal loss 参数、正标注重复帧数、学习率调度——后续复现与迁移的直接参考。</p></div>
+</div>
+
+<h2><span class="no">§05</span>局限与判断</h2>
+<div class="h2sub">零部署侧实测 · 窗口硬绑定唤醒词时长 · 单词单语言</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 只有参数量，零部署证据：每帧乘加、延迟、实时率、内存峰值、功耗</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  均未报——而引言反复强调的恰是存储与能耗约束。参数量只是代理：</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  注意力/前馈的访存模式、算子硬件友好度都会介入，小≠快≠省电</text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· h=0 + 固定 b=60 的硬上限窗口：Table 3 显示窗口选取相当敏感——</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  换更长唤醒词/更慢语速需重调，方法对唤醒词时长隐性绑定</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 只动结构不叠正交手段：无量化/剪枝/蒸馏；tiny 22K 档 FRR 掉到</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  1.95/4.74——继续压小时结构压缩的性能保持能力有限</text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 单一唤醒词「ni hao, mi ya」：未评估自定义/多唤醒词（产品刚需）</text>
+<text x="72.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· focal α=0.1 与常规用法方向相反，无敏感性分析，迁移性存疑</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验边界 + 延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 语言单一：只有中文 HiMia/MAGICDATA，无英语/跨数据集/与 GSC</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  标准基准对照</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 基线被动过刀且调参公平性存疑；负样本只有朗读风格，缺真实</text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  远场/电视/家人闲聊等最难负样本——假警报可能被低估</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 统计不完整：仅一处 z 检验，无方差/多次运行；训练轮数/批大小/</text>
+<text x="536.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  硬件/种子全未报，复现成本高</text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 笔误两处：正文 995M/330M 应为 K；VGG 引用错位到 [6]</text>
+<text x="536.0" y="224.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸：大规模无标注数据自监督预训练（补每个新词从头训的短板）；</text>
+<text x="536.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">补端侧实测闭合「压缩→部署」链条；叠量化/蒸馏冲 20K 以下档；</text>
+<text x="536.0" y="265.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可学习/自适应窗口摆脱时长手工匹配；α/γ/L/R 网格敏感性分析</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：压了更好不是玄学——vanilla Transformer 在小数据短模式任务上本就过参数化，结构压缩同时是正则化；但每把刀只切一种冗余，层间/秩/通道三类冗余要各配各的刀</text>
+</svg>
+<div class="cap"><b>图4 · 边界与延伸</b>：左技术边界（零延迟/功耗数据、窗口敏感且需重调、无正交压缩叠加、单一唤醒词、α 反常），右实验边界（中文单一、基线裁剪公平性、统计不完整、笔误）+ 延伸方向。</div>
+</div>
+<div class="judge">
+<div class="jt">可迁移判断</div>
+<p>↳ <b>压了更好不是玄学，是过参数化诊断</b>：如果小模型+结构先验能打平大模型，说明大模型在该任务上本就过参数化——结构压缩同时是正则化。先做同档对照再谈压缩收益，避免把正则化红利错记到结构头上。</p>
+<p>↳ <b>每把刀只切一种冗余</b>：层间冗余配共享、秩冗余配低秩、通道冗余配可分离卷积——混着切既说不清收益来源，也容易切到骨头。设计压缩组合时先把冗余分类。</p>
+<p>↳ <b>窗口类超参都要扫甜点</b>：b=40/60/80 的差异说明截断窗口与任务模式长度强绑定——太小截断上下文、太大引入噪声，两头都伤。换任务/换词长必须重扫，这是截断注意力路线的隐性成本。</p>
+<p>↳ <b>参数量只是部署指标的代理</b>：85K ≠ 低延迟 ≠ 省电——注意力的访存模式、算子硬件友好度都会介入。压缩论文不报延迟/功耗，「端侧可行」就停在推断层面。</p>
+</div>
+
+<div class="foot">
+<a class="pill" href="https://arxiv.org/abs/2210.02904">arXiv 2210.02904 ↗</a>
+<a class="pill ghost" href="../index.html">← 返回总目录</a>
+</div>
+<div class="foot-note">笔记与可视化页基于 arXiv v1 整理 · 正文「995M/330M 样本」应为 K（以 Table 1 为准）· 2022 №41 · 184+/305</div>
+</div>
+</body>
+</html>
