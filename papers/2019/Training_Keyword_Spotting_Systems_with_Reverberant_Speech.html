@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Training KWS with Reverberant Speech（混响数据增强）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · 2019 №22</div>
+<h1 class="hero">不是加噪声，是把「房间」卷进训练集——混响增强让 KWS 准确率<span class="g">+21%</span></h1>
+<div class="chips">
+<span class="chip acc">混响鲁棒性</span><span class="chip">几何声学模拟</span><span class="chip">图像源法 + 漫反射</span><span class="chip">RIR 数据增强</span><span class="chip">KWS +21% / ASR +1.58%</span>
+</div>
+<div class="meta">
+<b>Training Keyword Spotting Systems with Reverberant Speech</b> · Zhenyu Tang / Lianwu Chen / Bo Wu / Dong Yu / Dinesh Manocha（马里兰大学 &amp; 腾讯）· ICASSP 2020（arXiv 2019.07）· <a href="https://arxiv.org/abs/1907.03988" style="color:var(--acc)">1907.03988</a><br>
+一句话：用<b>带漫反射的几何声学模拟</b>生成房间脉冲响应（RIR），与干净语音卷积成混响训练样本——干净数据训练的模型进房间就翻车，物理增强后 KWS 准确率 +21%（ASR 仅 +1.58%，落差本身就是发现）。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：干净语音训练的模型，进了房间就翻车</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>混响 = 声波在封闭空间<b>多次反射</b>叠加：多径失真 + 时间拖尾 + 信噪比下降，三刀一起砍。</li>
+<li>最致命的是<b>训练-部署错配</b>：GSC 等训练集是近场低混响录的，而客厅/办公室/车内是完全不同的声学世界。</li>
+<li>关键词通常只有 1–2 秒，混响拖尾几百毫秒——<b>相对占比大</b>，时间结构被打得更碎。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">混响数据增强：不是加噪声，是把「房间」卷进训练集——KWS 准确率 +21%</text>
+<line x1="36.0" y1="60.0" x2="800.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 干净语音训练的模型，进了房间就翻车</text>
+<rect x="36.0" y="102.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="129.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多径效应失真</text>
+<text x="210.0" y="129.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">直达声与反射声叠加——频谱包络与时序结构被扭曲</text>
+<rect x="36.0" y="152.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="179.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">时间拖尾</text>
+<text x="210.0" y="179.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">当前帧混进前面帧的反射能量——时间分辨率被糊掉</text>
+<rect x="36.0" y="202.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="229.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">信噪比掉</text>
+<text x="210.0" y="229.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">混响尾部对后续帧就是加性噪声——有效 SNR 降低</text>
+<rect x="36.0" y="252.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="279.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练-部署错配</text>
+<text x="210.0" y="279.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC 这类数据集是近场低混响录的——客厅/办公室/车内是另一个世界</text>
+<text x="36.0" y="320.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 解法：几何声学模拟生成混响，物理增强训练集</text>
+<rect x="36.0" y="338.0" width="192.0" height="64.0" rx="10" fill="#eef6f1" stroke="#ffffff" stroke-width="2"/>
+<text x="132.0" y="364.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">干净语音</text>
+<text x="132.0" y="386.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">近场无混响样本</text>
+<text x="238.0" y="375.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="252.0" y="338.0" width="192.0" height="64.0" rx="10" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="348.0" y="364.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">模拟 RIR</text>
+<text x="348.0" y="386.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">图像源法 + 漫反射</text>
+<text x="454.0" y="375.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="468.0" y="338.0" width="192.0" height="64.0" rx="10" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="564.0" y="364.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">卷积混合</text>
+<text x="564.0" y="386.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">x_clean * h(t)</text>
+<text x="670.0" y="375.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="684.0" y="338.0" width="192.0" height="64.0" rx="10" fill="#eef6f1" stroke="#ffffff" stroke-width="2"/>
+<text x="780.0" y="364.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">混响样本</text>
+<text x="780.0" y="386.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">加入训练集</text>
+<text x="36.0" y="436.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键改进：传统图像源法只建模镜面反射（入射角 = 反射角）；本文加入漫反射——书架/窗帘/粗糙墙面把声波往多个方向散射，</text>
+<text x="36.0" y="456.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">用散射系数控制两者比例。带漫反射的 RIR 明显更接近真实测量的房间脉冲响应</text>
+<text x="36.0" y="508.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 为什么 KWS 的提升（+21%）远大于 ASR（+1.58%）</text>
+<rect x="36.0" y="524.0" width="848.0" height="60.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="460.0" y="550.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词通常只有 1–2 秒——混响拖尾（几百毫秒）相对占比大，短语的时间结构被打得更碎</text>
+<text x="460.0" y="570.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ASR 有更长的话语上下文可以「自我修复」；KWS 的判断窗口短，没有这个余量</text>
+<rect x="36.0" y="620.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="646.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+21%</text>
+<text x="130.0" y="666.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 准确率提升</text>
+<text x="298.0" y="646.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1.58%</text>
+<text x="298.0" y="666.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ASR 准确率提升</text>
+<text x="466.0" y="646.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">漫反射</text>
+<text x="466.0" y="666.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">优于纯镜面反射</text>
+<text x="634.0" y="646.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">物理增强</text>
+<text x="634.0" y="666.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">非加性噪声</text>
+<text x="802.0" y="646.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多种房间</text>
+<text x="802.0" y="666.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">一致提升</text>
+<text x="36.0" y="704.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Zhenyu Tang / Lianwu Chen / Bo Wu / Dong Yu / Dinesh Manocha（马里兰大学 & 腾讯）· ICASSP 2020（arXiv 2019.07）· 1907.03988；系列语境：与 2020 №4 CORAL 远场方案同属「训练-部署错配」修复线</text>
+</svg>
+<div class="cap">图 1 · 机制全景：混响四重伤害 → 物理模拟增强四步管线 → KWS 与 ASR 提升落差的解释 → 论文信息速览。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：图像源法算镜面，漫反射补真实</h2>
+<div class="cards">
+<div class="card acc"><h3>图像源法（ISM）</h3>把房间建成矩形空间，每阶镜面反射 = 对墙镜像出的虚拟声源——几何精确，路径可解析。</div>
+<div class="card acc"><h3>漫反射建模（关键改进）</h3>书架/窗帘/粗糙墙面把声波散射向多个方向——用散射系数 s 控制镜面 (1−s) / 漫反射 (s) 的比例。</div>
+<div class="card"><h3>卷积混响</h3>x_reverb = x_clean * h(t)——RIR 与干净语音卷积，每个样本对应一个物理上存在的房间配置。</div>
+<div class="card"><h3>混合训练</h3>干净 + 模拟混响一起喂——模型自己学到对混响不变的表示，不需要推理时做增强。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：图像源法 + 漫反射——房间脉冲响应是怎么算出来的</text>
+<line x1="36.0" y1="56.0" x2="640.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="223.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">镜面反射：图像源法</text>
+<rect x="48.0" y="92.0" width="360.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="88.0" y="112.0" width="280.0" height="180.0" rx="4" fill="#f4f6f9" stroke="#b9c6d8" stroke-width="1"/>
+<text x="104.0" y="130.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">房间</text>
+<rect x="108.0" y="210.0" width="12.0" height="12.0" rx="2" fill="#0a6b4e"/>
+<text x="114.0" y="200.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">声源</text>
+<rect x="318.0" y="170.0" width="14.0" height="10.0" rx="2" fill="#33507a"/>
+<text x="325.0" y="160.0" font-size="8.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">麦克风</text>
+<line x1="120.0" y1="216.0" x2="318.00" y2="175.00" stroke="#0a6b4e" stroke-width="2"/>
+<text x="216.0" y="182.0" font-size="8.2" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">直达声</text>
+<rect x="404.0" y="210.0" width="12.0" height="12.0" rx="2" fill="#c9d8e8"/>
+<text x="410.0" y="236.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">图像源</text>
+<line x1="120.0" y1="216.0" x2="368.00" y2="258.00" stroke="#b9c6d8" stroke-width="1.5" stroke-dasharray="5,4"/>
+<line x1="368.0" y1="258.0" x2="325.00" y2="180.00" stroke="#b9c6d8" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="256.0" y="268.0" font-size="8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">一阶反射 = 对墙镜像的虚拟声源</text>
+<text x="228.0" y="330.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每阶反射一个镜像——路径数量按阶数爆炸，需截断</text>
+<text x="228.0" y="348.0" font-size="9.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">但真实墙面不是镜子</text>
+<text x="640.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">漫反射：声波被表面散射</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="466.0" y="112.0" width="348.0" height="120.0" rx="4" fill="#f4f6f9" stroke="#b9c6d8" stroke-width="1"/>
+<line x1="486.0" y1="180.0" x2="586.00" y2="222.00" stroke="#8a5a1a" stroke-width="1.6"/>
+<line x1="606.0" y1="224.0" x2="636.00" y2="190.00" stroke="#d9a35b" stroke-width="1.3"/>
+<line x1="606.0" y1="224.0" x2="661.00" y2="175.00" stroke="#d9a35b" stroke-width="1.3"/>
+<line x1="606.0" y1="224.0" x2="676.00" y2="158.00" stroke="#d9a35b" stroke-width="1.3"/>
+<line x1="606.0" y1="224.0" x2="654.00" y2="148.00" stroke="#d9a35b" stroke-width="1.3"/>
+<text x="604.0" y="240.0" font-size="8.2" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">粗糙表面（书架/窗帘）</text>
+<text x="640.0" y="262.0" font-size="9" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">入射一束，散射一片——不是镜像</text>
+<text x="640.0" y="286.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">散射系数 s：镜面 (1−s) / 漫反射 (s) 的能量比</text>
+<text x="640.0" y="308.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">漫反射让 RIR 的拖尾能量分布贴近实测</text>
+<text x="640.0" y="332.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融：带漫反射训练 &gt; 纯镜面反射训练</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：图像源法把每阶镜面反射变成一个虚拟声源，卷积出 RIR——几何精确但假设墙面是镜子。右：漫反射补上真实墙面散射的能量分布，RIR 更像真实房间</text>
+</svg>
+<div class="cap">图 2 · 左：图像源法的镜面反射几何——每阶反射一个虚拟声源，数量按阶数爆炸；右：漫反射——粗糙表面入射一束散射一片，让 RIR 拖尾能量分布贴近实测。</div>
+<div class="formula">
+<div class="f">x_reverb(t) = x_clean(t) * h(t)        h(t)：模拟的房间脉冲响应（含镜面 + 漫反射）</div>
+<div class="why"><b>人话：</b>把房间对声音的所有影响压缩成一条曲线 h(t)（什么时候收到、衰减多少），再让它跟干净语音「卷」一下——出来就是这个房间里的录音。改变房间尺寸、吸声、声源位置，就得到无穷多个房间的数据。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果：+21% 与 +1.58% 的落差本身就是发现</h2>
+<table class="tb">
+<tr><th>训练数据</th><th>ASR 准确率</th><th>KWS 准确率</th></tr>
+<tr><td>仅干净数据（基线）</td><td>基线</td><td>基线</td></tr>
+<tr class="hl"><td>+ 模拟混响数据（含漫反射）</td><td>+1.58%</td><td>+21%</td></tr>
+</table>
+<div class="tldr">
+<div class="tt">为什么差一个数量级</div>
+<ul>
+<li>关键词短（1–2 秒），混响拖尾相对占比大——时间结构碎得更厉害；ASR 有更长上下文可以「自我修复」。</li>
+<li>消融验证：带漫反射的模拟 &gt; 纯镜面反射的模拟——RIR 保真度直接转化为训练效果。</li>
+<li>多种房间配置（大小/吸声/距离）下提升一致——不是某个配置的运气。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：+21% vs +1.58% 的巨大落差，本身就是发现</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="246.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">混响数据增强的准确率提升</text>
+<text x="60.0" y="131.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 准确率</text>
+<rect x="184.0" y="116.0" width="283.5" height="24.0" rx="5" fill="#0b6e52"/>
+<text x="477.5" y="133.0" font-size="11" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+21%</text>
+<text x="60.0" y="209.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ASR 准确率</text>
+<rect x="184.0" y="194.0" width="21.3" height="24.0" rx="5" fill="#9fc8b8"/>
+<text x="215.3" y="211.0" font-size="11" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1.58%</text>
+<text x="60.0" y="290.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">同一增强、同一物理原理——任务对混响的</text>
+<text x="60.0" y="308.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">敏感度差出一个数量级</text>
+<text x="60.0" y="336.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词只有 1-2 秒，混响拖尾几百毫秒——</text>
+<text x="60.0" y="354.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">相对占比大，时间结构碎得更厉害</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融与稳健性</text>
+<rect x="500.0" y="92.0" width="324.0" height="268.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="512.0" y="108.0" width="300.0" height="72.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="524.0" y="132.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">漫反射 vs 纯镜面</text>
+<text x="524.0" y="152.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">带漫反射的模拟生成更好的训练数据——RIR 拖尾能量分布更接近实测</text>
+<rect x="512.0" y="192.0" width="300.0" height="72.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="524.0" y="216.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多种房间一致</text>
+<text x="524.0" y="236.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不同房间大小/吸声系数/声源-麦克风距离下均观察到提升</text>
+<rect x="512.0" y="276.0" width="300.0" height="72.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="524.0" y="300.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">物理增强的立场</text>
+<text x="524.0" y="320.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不是拍脑袋加噪声——每个样本都对应一个物理上存在的房间配置</text>
+<text x="524.0" y="338.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——可复现、可解释、可控</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文实验表（arXiv 1907.03988 · ICASSP 2020）；+21%/+1.58% 为干净基线 → 加混响增强训练的提升幅度</text>
+</svg>
+<div class="cap">图 3 · 两个任务的提升对比（同一增强、同一物理原理）与消融稳健性：物理增强的立场是可复现、可解释、可控。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：模拟保真度的天花板</h2>
+<div class="cards">
+<div class="card bad"><h3>房间模型是矩形</h3>家具/人体/不规则表面都影响声场——几何声学模型抓不住全部细节。</div>
+<div class="card bad"><h3>RIR 计算贵</h3>大房间 + 高阶反射的图像源数量按阶数爆炸——大规模混响数据的生成算力成本高。</div>
+<div class="card bad"><h3>参数范围有限</h3>模拟的房间配置未必覆盖开放式办公/楼梯间等非矩形真实声学条件。</div>
+<div class="card bad"><h3>单通道假设</h3>模拟限单通道——麦克风阵列 KWS 需要多通道 RIR，论文列为未来工作。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：模拟保真度的天花板 · 与远场增强的合流</text>
+<line x1="36.0" y1="56.0" x2="640.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">房间模型是矩形</text>
+<text x="210.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">真实空间的家具/人体/不规则表面都在影响声场——几何声学模型抓不住全部细节</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RIR 计算贵</text>
+<text x="210.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">大房间 + 高阶反射的图像源数量按阶数爆炸——生成大规模混响数据的算力成本高</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">参数范围有限</text>
+<text x="210.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">模拟的房间配置未必覆盖开放式办公/楼梯间等非矩形真实声学条件</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单通道假设</text>
+<text x="210.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">模拟限单通道——麦克风阵列 KWS 需要多通道 RIR，论文列为未来工作</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">加性噪声增强</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2015-2018</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">物理 RIR 模拟</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 2019</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">远场仿真管线</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CORAL 2020 №4</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">数据驱动 RIR</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">学习式生成 2021+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">承接：把数据增强从「拍脑袋加噪声」升级为「物理合理的房间卷积」；传递：CORAL 等远场仿真把同类思想扩到噪声+混响+设备全链路；论文预言的</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「数据驱动 RIR 生成」后来由学习式混响合成接棒。对 KWS 的教训：短词任务对时域失真最敏感——评估必须含混响条件，只看干净测试集会高估自己</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：从加性噪声增强（2015-2018）到物理 RIR 模拟（本文），再到 CORAL 远场仿真（2020 №4）与学习式 RIR 生成（2021+）。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>任务越短，对时域失真越敏感：KWS 与 ASR 用同一份增强差出一个数量级的提升——短词任务评估必须包含混响条件，只看干净测试集会严重高估自己。</p>
+<p>数据增强的上限由物理保真度决定：漫反射 vs 纯镜面的消融说明，「更像真实房间」本身就能变成训练收益——增强不是越多越好，是越真越好。</p>
+<p>物理模拟增强的三个不可替代：可复现（房间参数可枚举）、可解释（失真来源可追溯）、可控（可以定向补弱点场景）——这三点加噪声式的增强都给不了。</p>
+</div>
+<span class="pill">系列：训练策略 · 物理仿真数据增强线</span>
+<div class="foot-note">数据与结论来自论文原文（arXiv 1907.03988 · ICASSP 2020）；系列内关联：CORAL 远场方案（2020 №4）把同类思想扩到噪声+混响+设备全链路 · 单耳增强+KWS（2019 №2）是推理时增强的另一条路。</div>
+</section>
+</div>
+</body>
+</html>
