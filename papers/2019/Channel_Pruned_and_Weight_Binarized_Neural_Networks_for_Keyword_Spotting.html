@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>剪枝 × 二值化：先砍通道再压位宽——压缩手段的正交叠加 | 论文精读 2019 №3</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.22em;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:14px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.sub{font-size:17px;color:var(--ink2);margin-bottom:22px;font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.chip{font-size:12.5px;padding:5px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2);font-weight:600}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink2);margin-bottom:40px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:10px;vertical-align:-6px}
+h2{font-size:24px;font-weight:800;margin-bottom:18px;letter-spacing:.01em}
+h3{font-size:17px;font-weight:700;margin:26px 0 10px}
+p{margin-bottom:14px;color:#2c3646}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:.14em;margin-bottom:10px}
+.tldr li{list-style:none;padding-left:22px;position:relative;margin-bottom:8px;color:#2c3646;font-size:15px}
+.tldr li::before{content:"◆";position:absolute;left:2px;color:var(--acc);font-size:10px;top:7px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px}
+.card h4{font-size:15px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13.5px;color:var(--ink2);margin-bottom:0}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h4{color:var(--dk)}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4}
+.card.bad h4{color:var(--warn)}
+.fig{margin:26px 0}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:9px;text-align:center}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 22px;margin:16px 0;font-size:15px}
+.formula .f{font-family:"SF Mono",Consolas,"Liberation Mono",monospace;font-size:14.5px;color:var(--ink);background:#f4f4ef;border-radius:8px;padding:10px 16px;margin-bottom:8px;overflow-x:auto;white-space:pre-wrap}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;margin:16px 0}
+table.tb th{background:#eff1ec;color:var(--ink);font-weight:700;text-align:left;padding:10px 14px;border-bottom:2px solid var(--line);font-size:13px}
+table.tb td{padding:9px 14px;border-bottom:1px solid #f0f0ea;color:#2c3646;vertical-align:top}
+table.tb tr:last-child td{border-bottom:none}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.contrib{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:18px 0}
+.contrib .row{display:flex;gap:14px;margin-bottom:12px;align-items:flex-start}
+.contrib .row:last-child{margin-bottom:0}
+.contrib .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lt);color:var(--dk);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.contrib .row p{margin:0;font-size:14px;color:#2c3646}
+.judge{background:#fdf8f0;border:1px solid #eadfc8;border-radius:12px;padding:20px 24px;margin:18px 0}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:#5a4a2f;margin-bottom:10px;font-weight:600}
+.judge .rw{font-size:13.5px;color:#7a6a4a;padding-left:18px;position:relative;margin-bottom:9px}
+.judge .rw::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-size:12px;padding:4px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink3);font-weight:600}
+.foot-note{font-size:12px;color:var(--ink3);width:100%;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2019 №3</div>
+<h1 class="hero">剪枝 × 二值化：先砍通道再压位宽——<span class="g">压缩手段的正交叠加</span></h1>
+<div class="sub">Channel Pruned and Weight Binarized Neural Networks for KWS —— UC Irvine + UCSD 的三阶段压缩流水线：剪 → 养 → 压</div>
+<div class="chips">
+<span class="chip acc">通道剪枝</span><span class="chip">权重二值化</span><span class="chip">RGSM Group Lasso</span><span class="chip">三阶段流水线</span><span class="chip">~4× 加速</span>
+</div>
+<div class="meta">
+<b>UC Irvine + UC San Diego（Lyu / Sheen）· arXiv 1909.05623（2019.09）</b><br>
+洞察：剪枝作用在「通道数」（MAC 总数）、二值化作用在「每个 MAC 的成本」（浮点乘→XNOR）——两个正交维度可乘法叠加 · 方法：Stage I RGSM 剪枝 → Stage II 全精度重训练 → Stage III 二值化热启动微调<br>
+一句话：通道稀疏 &gt;50%、准确率损失 &lt;0.25%，Galaxy J7 实测约 4× 加速——压缩维度的「乘法」被系统验证。
+</div>
+
+<section>
+<span class="no">01</span><h2>问题：单一压缩各有天花板</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>always-on 的 KWS 对轻量化要求极高：非结构化剪枝要<b>稀疏硬件</b>（通用 CPU 不加速）、INT8 在极端受限场景<b>压缩比不够</b>、二值化单独上<b>精度崩</b>。</li>
+<li>本文的洞察：通道剪枝（少算）与权重二值化（省存快算）作用在<b>两个正交维度</b>——组合是「双重压缩」，但怎么排顺序、怎么保精度，此前缺系统研究。</li>
+<li>三阶段流水线：<b>Stage I</b> RGSM + Group Lasso 训练后整组剪掉小范数通道；<b>Stage II</b> 结构冻结、全精度重训练恢复精度；<b>Stage III</b> w ≈ α·sign(w) 二值化微调。</li>
+<li>实测拿到 <b>&gt;50% 通道稀疏 + &lt;0.25% 精度损失</b>；仅二值化在 Galaxy J7 上就 ~2×（标准 TF 函数），叠加剪枝 ~4×。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">剪枝 × 二值化：先砍通道再压位宽——压缩手段的正交叠加</text>
+<line x1="36.0" y1="60.0" x2="720.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 单独用哪种压缩都不够</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">always-on 的 KWS 对轻量化要求极高——单一压缩手段各有效果，也各有天花板</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">洞察：通道剪枝（少算）与权重二值化（省存快算）作用在两个正交维度——叠加起来是「双重压缩」</text>
+<rect x="36.0" y="152.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="181.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">非结构化剪枝</text>
+<text x="215.0" y="181.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">零散置零要专门的稀疏硬件——通用 CPU 上不加速</text>
+<rect x="36.0" y="208.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="237.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">INT8 不够极端</text>
+<text x="215.0" y="237.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">极度受限场景压缩比仍不足；二值化单独上精度崩</text>
+<rect x="36.0" y="264.0" width="848.0" height="48.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="293.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">组合没人系统做</text>
+<text x="215.0" y="293.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">剪枝+二值化怎么排顺序、怎么保精度——缺系统研究</text>
+<text x="36.0" y="296.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 三阶段流水线：剪 → 养 → 压</text>
+<rect x="36.0" y="312.0" width="272.0" height="90.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="172.0" y="336.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Stage I 剪枝</text>
+<text x="172.0" y="358.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">RGSM + Group Lass</text>
+<text x="172.0" y="374.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">o 训练 → 通道范数低于阈值的整体移除</text>
+<line x1="308.0" y1="357.0" x2="324.00" y2="357.00" stroke="#8a93a5" stroke-width="1.4"/>
+<rect x="324.0" y="312.0" width="272.0" height="90.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="460.0" y="336.0" font-size="10.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Stage II 养精度</text>
+<text x="460.0" y="358.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">剪后结构冻结 · 全精度重训练恢复</text>
+<text x="460.0" y="374.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">损失</text>
+<line x1="596.0" y1="357.0" x2="612.00" y2="357.00" stroke="#8a93a5" stroke-width="1.4"/>
+<rect x="612.0" y="312.0" width="272.0" height="90.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="748.0" y="336.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Stage III 二值化</text>
+<text x="748.0" y="358.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">w ≈ α·sign(w) · 热</text>
+<text x="748.0" y="374.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">启动微调 · 乘法变位运算</text>
+<text x="36.0" y="442.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 两个数学部件</text>
+<rect x="36.0" y="458.0" width="416.0" height="150.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="244.0" y="480.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RGSM（交替优化 u / w）</text>
+<text x="52.0" y="504.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">L_β(u,w) = ℓ(w) + μP(u) + β/2‖w−u‖²</text>
+<text x="52.0" y="518.5" font-size="8.7" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="533.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· u 更新：Group Lasso 近端算子——</text>
+<text x="52.0" y="547.5" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  小范数组直接整组置零</text>
+<text x="52.0" y="562.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  u_g = max(0, 1 − λ/‖w_g‖)·w_g</text>
+<text x="52.0" y="576.5" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· w 更新：标准 SGD</text>
+<text x="52.0" y="591.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 收敛性有定理保证（临界点）</text>
+<rect x="468.0" y="458.0" width="416.0" height="150.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="676.0" y="480.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">二值化 + 投影</text>
+<text x="484.0" y="504.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">w ≈ α · sign(w)   α 为浮点标量</text>
+<text x="484.0" y="518.5" font-size="8.7" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="533.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 投影到 Q = R₊ × {±1}^D</text>
+<text x="484.0" y="547.5" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 卷积 → XNOR + popcount 位运算</text>
+<text x="484.0" y="562.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 阶段三用阶段 II 权重热启动</text>
+<text x="484.0" y="576.5" font-size="8.7" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="591.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 直接 Group Lasso 训练在 KWS CNN 上</text>
+<text x="484.0" y="605.5" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  无效——RGSM 才是能收敛的那条路</text>
+<rect x="36.0" y="638.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="664.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">>50%</text>
+<text x="130.0" y="684.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">通道稀疏度</text>
+<text x="298.0" y="664.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif"><0.25%</text>
+<text x="298.0" y="684.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">最终准确率损失</text>
+<text x="466.0" y="664.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2×</text>
+<text x="466.0" y="684.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">仅二值化的推理加速</text>
+<text x="634.0" y="664.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~4×</text>
+<text x="634.0" y="684.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">剪枝+二值化总加速</text>
+<text x="802.0" y="664.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Galaxy J7</text>
+<text x="802.0" y="684.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">手机实测（TF 标准函数）</text>
+<text x="36.0" y="722.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">UC Irvine + UC San Diego（Lyu / Sheen）· arXiv 1909.05623（2019.09）；GSC 数据集 · CNN 基线（卷积+池化+FC）· 手机实测加速</text>
+</svg>
+<div class="cap">图 1 · 全景：单一压缩的三个天花板 → 三阶段流水线 → RGSM 与二值化的数学部件 → 核心数字带</div>
+</section>
+
+<section>
+<span class="no">02</span><h2>机制：整组置零与三步的必要性</h2>
+<p><b>RGSM 的巧劲</b>在把「加惩罚项的联合优化」拆成交替的两半：辅助变量 u 只管 Group Lasso（用近端算子把小范数的通道组<b>整组压零</b>），原权重 w 只管交叉熵（标准 SGD）——两者通过增广项 β/2‖w−u‖² 拉在一起。直接把 GL 惩罚加进损失在 KWS 的 CNN 上<b>压不出稀疏</b>（惩罚与损失打架），RGSM 才是能收敛的那条路，且有收敛性定理背书。</p>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：整组置零的近端算子 · 为什么必须三步走</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">通道怎么被「整组」砍掉</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="78.0" y="155.8" width="7.0" height="20.2" rx="1" fill="#0b6e52"/>
+<rect x="87.0" y="144.0" width="7.0" height="32.0" rx="1" fill="#0b6e52"/>
+<rect x="96.0" y="150.8" width="7.0" height="25.2" rx="1" fill="#0b6e52"/>
+<rect x="105.0" y="141.7" width="7.0" height="34.3" rx="1" fill="#0b6e52"/>
+<rect x="114.0" y="140.9" width="7.0" height="35.1" rx="1" fill="#0b6e52"/>
+<rect x="75.0" y="112.0" width="47.0" height="68.0" rx="4" fill="none" stroke="#9fc8b8" stroke-width="1.3"/>
+<text x="98.0" y="192.0" font-size="6.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ch0</text>
+<rect x="128.0" y="174.9" width="7.0" height="1.1" rx="1" fill="#e8e6df"/>
+<rect x="137.0" y="174.9" width="7.0" height="1.1" rx="1" fill="#e8e6df"/>
+<rect x="146.0" y="174.9" width="7.0" height="1.1" rx="1" fill="#e8e6df"/>
+<rect x="155.0" y="174.9" width="7.0" height="1.1" rx="1" fill="#e8e6df"/>
+<rect x="164.0" y="174.9" width="7.0" height="1.1" rx="1" fill="#e8e6df"/>
+<rect x="125.0" y="112.0" width="47.0" height="68.0" rx="4" fill="none" stroke="#c0392b" stroke-width="1.3"/>
+<text x="148.0" y="192.0" font-size="6.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ch5</text>
+<rect x="178.0" y="162.5" width="7.0" height="13.5" rx="1" fill="#0b6e52"/>
+<rect x="187.0" y="164.5" width="7.0" height="11.5" rx="1" fill="#0b6e52"/>
+<rect x="196.0" y="132.8" width="7.0" height="43.2" rx="1" fill="#0b6e52"/>
+<rect x="205.0" y="155.0" width="7.0" height="21.0" rx="1" fill="#0b6e52"/>
+<rect x="214.0" y="156.0" width="7.0" height="20.0" rx="1" fill="#0b6e52"/>
+<rect x="175.0" y="112.0" width="47.0" height="68.0" rx="4" fill="none" stroke="#9fc8b8" stroke-width="1.3"/>
+<text x="198.0" y="192.0" font-size="6.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ch10</text>
+<rect x="228.0" y="126.7" width="7.0" height="49.3" rx="1" fill="#0b6e52"/>
+<rect x="237.0" y="146.9" width="7.0" height="29.1" rx="1" fill="#0b6e52"/>
+<rect x="246.0" y="132.8" width="7.0" height="43.2" rx="1" fill="#0b6e52"/>
+<rect x="255.0" y="146.7" width="7.0" height="29.3" rx="1" fill="#0b6e52"/>
+<rect x="264.0" y="140.4" width="7.0" height="35.6" rx="1" fill="#0b6e52"/>
+<rect x="225.0" y="112.0" width="47.0" height="68.0" rx="4" fill="none" stroke="#9fc8b8" stroke-width="1.3"/>
+<text x="248.0" y="192.0" font-size="6.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ch15</text>
+<rect x="278.0" y="174.9" width="7.0" height="1.1" rx="1" fill="#e8e6df"/>
+<rect x="287.0" y="174.9" width="7.0" height="1.1" rx="1" fill="#e8e6df"/>
+<rect x="296.0" y="174.9" width="7.0" height="1.1" rx="1" fill="#e8e6df"/>
+<rect x="305.0" y="174.9" width="7.0" height="1.1" rx="1" fill="#e8e6df"/>
+<rect x="314.0" y="174.9" width="7.0" height="1.1" rx="1" fill="#e8e6df"/>
+<rect x="275.0" y="112.0" width="47.0" height="68.0" rx="4" fill="none" stroke="#c0392b" stroke-width="1.3"/>
+<text x="298.0" y="192.0" font-size="6.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ch20</text>
+<rect x="328.0" y="159.2" width="7.0" height="16.8" rx="1" fill="#0b6e52"/>
+<rect x="337.0" y="140.6" width="7.0" height="35.4" rx="1" fill="#0b6e52"/>
+<rect x="346.0" y="131.6" width="7.0" height="44.4" rx="1" fill="#0b6e52"/>
+<rect x="355.0" y="144.9" width="7.0" height="31.1" rx="1" fill="#0b6e52"/>
+<rect x="364.0" y="136.5" width="7.0" height="39.5" rx="1" fill="#0b6e52"/>
+<rect x="325.0" y="112.0" width="47.0" height="68.0" rx="4" fill="none" stroke="#9fc8b8" stroke-width="1.3"/>
+<text x="348.0" y="192.0" font-size="6.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ch25</text>
+<text x="223.0" y="216.0" font-size="8.3" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">整组范数小 → 近端算子整组置零 → 剪掉</text>
+<text x="64.0" y="232.0" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="64.0" y="245.5" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">与逐权重置零的区别：</text>
+<text x="64.0" y="259.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 通道级稀疏直接减少计算——不需要</text>
+<text x="64.0" y="272.5" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  稀疏矩阵硬件</text>
+<text x="64.0" y="286.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 「组」的边界=卷积通道——剪完网络</text>
+<text x="64.0" y="299.5" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  还是稠密的普通卷积，只是更窄</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么必须三步走</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="450.0" y="112.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">跳步的后果（消融）：</text>
+<text x="450.0" y="125.5" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="139.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 直接 Group Lasso（不走 RGSM）：</text>
+<text x="450.0" y="152.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  在 KWS 的 CNN 上压不出通道稀疏——</text>
+<text x="450.0" y="166.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  惩罚项与损失打架，训练崩</text>
+<text x="450.0" y="179.5" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="193.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 跳过 Stage II 直接二值化：</text>
+<text x="450.0" y="206.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  剪枝损失没恢复就上 1-bit——精度</text>
+<text x="450.0" y="220.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  掉得更多</text>
+<text x="450.0" y="233.5" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="247.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 每一步只解决一个问题：</text>
+<text x="450.0" y="260.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  剪枝管结构 · 重训管精度 · 二值化管</text>
+<text x="450.0" y="274.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  位宽——顺序执行的耦合最小</text>
+<text x="450.0" y="287.5" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="301.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">代价：三遍训练 + 三套超参（μ · β · lr）</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：Group Lasso 的近端算子把小范数的通道组整体压零——剪出来的是「更窄的稠密网络」，通用硬件直接受益。右：三步各管一件事，跳任何一步都有实测的代价</text>
+</svg>
+<div class="cap">图 2 · 机制解剖：近端算子的整组置零 · 三步各管一件事与跳步的代价</div>
+<div class="formula">
+<div class="f">RGSM:    L_β(u,w) = ℓ(w) + μP(u) + (β/2)‖w−u‖²     ← 交替优化 u / w
+u-更新:   u_g = max(0, 1 − λ/‖w_g‖)·w_g              ← 近端算子: 小组整组置零
+w-更新:   w ← w − η∇L_β                              ← 标准 SGD
+二值化:   w ≈ α·sign(w) ∈ R₊×{±1}^D                  ← 卷积 → XNOR + popcount</div>
+<div class="why"><b>人话：</b>先把网络「按通道分小组」体检——贡献小的组整组辞退（剪枝）；剩下的人重新培训补上损失（重训练）；最后把每个人的工资卡压成只有正负一块钱两种（二值化），乘法变成比大小。三步各有专职，跳过哪步都有实测代价。</div>
+</div>
+<p><b>通道级稀疏的结构优势</b>：剪出来的还是「更窄的稠密网络」——通用 CPU 直接受益，不需要稀疏矩阵硬件；这与非结构化剪枝的「纸面稀疏、落地不加速」形成对照。</p>
+</section>
+
+<section>
+<span class="no">03</span><h2>结果：精度四连跳与速度乘法</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：精度四连跳只掉 0.25 个点 · 速度乘起来</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">精度跨阶段（示意）</text>
+<line x1="52.0" y1="262.0" x2="456.00" y2="262.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="265.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">88</text>
+<line x1="52.0" y1="224.5" x2="456.00" y2="224.50" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="227.5" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="52.0" y1="187.0" x2="456.00" y2="187.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="190.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">92</text>
+<line x1="52.0" y1="149.5" x2="456.00" y2="149.50" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="152.5" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">94</text>
+<line x1="52.0" y1="112.0" x2="456.00" y2="112.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="115.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">96</text>
+<rect x="82.0" y="149.5" width="72.0" height="112.5" rx="4" fill="#c9d8e8"/>
+<text x="118.0" y="143.5" font-size="8.3" fill="#c9d8e8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">94.0</text>
+<text x="118.0" y="276.0" font-size="6.7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">基线 CNN</text>
+<rect x="178.0" y="215.1" width="72.0" height="46.9" rx="4" fill="#9fc8b8"/>
+<text x="214.0" y="209.1" font-size="8.3" fill="#9fc8b8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">90.5</text>
+<text x="214.0" y="276.0" font-size="6.7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Stage I</text>
+<text x="214.0" y="286.0" font-size="6.7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif"> 剪枝后</text>
+<rect x="274.0" y="157.0" width="72.0" height="105.0" rx="4" fill="#5d9c85"/>
+<text x="310.0" y="151.0" font-size="8.3" fill="#5d9c85" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">93.6</text>
+<text x="310.0" y="276.0" font-size="6.7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Stage I</text>
+<text x="310.0" y="286.0" font-size="6.7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">I 重训练</text>
+<rect x="370.0" y="153.3" width="72.0" height="108.7" rx="4" fill="#0b6e52"/>
+<text x="406.0" y="147.3" font-size="8.3" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">93.8</text>
+<text x="406.0" y="276.0" font-size="6.7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Stage I</text>
+<text x="406.0" y="286.0" font-size="6.7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">II 二值化 </text>
+<text x="406.0" y="296.0" font-size="6.7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">★</text>
+<text x="256.0" y="106.0" font-size="7.4" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">纵轴放大：剪枝掉点 → 重训练找回 → 二值化几乎白拿（<0.25%）</text>
+<text x="56.0" y="316.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="56.0" y="330.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 剪枝掉 ~3.5 点 → Stage II 找回大部分</text>
+<text x="56.0" y="343.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 二值化在养好的紧凑网络上几乎无损</text>
+<text x="56.0" y="356.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 通道稀疏 >50% 全程保持</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">加速的乘法账</text>
+<rect x="500.0" y="92.0" width="324.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="124.0" font-size="8.4" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">基线</text>
+<rect x="650.0" y="112.0" width="150.0" height="16.0" rx="4" fill="#c9d8e8"/>
+<text x="804.0" y="124.0" font-size="8.4" fill="#c9d8e8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1×</text>
+<text x="514.0" y="168.0" font-size="8.4" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">+ 二值化（2×）</text>
+<rect x="650.0" y="156.0" width="75.0" height="16.0" rx="4" fill="#9fc8b8"/>
+<text x="729.0" y="168.0" font-size="8.4" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2×</text>
+<text x="514.0" y="212.0" font-size="8.4" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">+ 剪枝 50% 计算</text>
+<rect x="650.0" y="200.0" width="37.5" height="16.0" rx="4" fill="#0b6e52"/>
+<text x="691.5" y="212.0" font-size="8.4" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4×</text>
+<text x="514.0" y="252.0" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="265.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">实测（Samsung Galaxy J7 · 标准 TF 函数）：</text>
+<text x="514.0" y="278.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 仅二值化：推理 ~2×</text>
+<text x="514.0" y="291.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 叠加剪枝：整体 ~4×</text>
+<text x="514.0" y="304.0" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="317.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">正交性的含义：</text>
+<text x="514.0" y="330.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 剪枝作用在「通道数」（MAC 总数）</text>
+<text x="514.0" y="343.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 二值化作用在「每个 MAC 的成本」</text>
+<text x="514.0" y="356.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   （浮点乘 → XNOR 位运算）</text>
+<text x="514.0" y="369.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 两者相乘——不抢同一块蛋糕</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：精度条为笔记定性记录的示意（论文值：稀疏 >50% 时损失 <0.25%），具体数值回对原文；GSC 数据集 · CNN 基线 · 手机端实测加速</text>
+</svg>
+<div class="cap">图 3 · 主结果（定性）：精度跨阶段变化 · 加速的乘法账本</div>
+<table class="tb">
+<tr><th>配置</th><th>通道稀疏</th><th>精度变化</th><th>判断</th></tr>
+<tr><td>Stage I 剪枝后</td><td>&gt;50%</td><td>明显下降</td><td>结构手术的代价</td></tr>
+<tr class="hl"><td>Stage II 重训练</td><td>&gt;50%（保持）</td><td>接近恢复</td><td>跳过它直接二值化掉更多</td></tr>
+<tr class="hl"><td>Stage III 二值化</td><td>&gt;50% + 1-bit</td><td>&lt;0.25% 损失</td><td>养好的网络上二值化近无损</td></tr>
+<tr><td>Galaxy J7 实测</td><td>—</td><td>~2× / ~4×</td><td>标准 TF 函数即可拿到</td></tr>
+</table>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>「先养再压」的顺序是精度的保命符。</b>二值化在养好的紧凑网络上近无损（&lt;0.25%），但在刚剪完的网络上直接上会掉更多——极端量化放大的是「网络当前的脆弱度」，先把精度养回来再压位宽，顺序不能反。</p></div>
+<div class="row"><div class="n">2</div><p><b>加速的正交性账本值得记住。</b>剪枝作用在 MAC 总数（2×）、二值化作用在单个 MAC 成本（2×）——相乘 4×；维度不重叠所以不互相蚕食，这是「压缩手段可以叠加」的数学根据。</p></div>
+<div class="row"><div class="n">3</div><p><b>标准 TF 函数拿到 2× 意味着落地门槛极低。</b>不需要 XNOR 专用加速器、不需要定制算子——手机上的标准推理框架直接受益；专用硬件（FPGA/NPU）的余量是后续空间。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">04</span><h2>边界：乘法叠加的流程税</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 三遍训练的账：总训练时间显著增加；μ · β · 学习率</text>
+<text x="72.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  三套超参联动——调优难度乘法上涨</text>
+<text x="72.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 二值化的任务边界：简单 10 词分类只掉 0.25%——</text>
+<text x="72.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  更大类数 · 噪声 · 多说话人下可能掉更多</text>
+<text x="72.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 硬件优化未吃满：XNOR 专用加速器 · FPGA 未探——</text>
+<text x="72.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  标准 TF 函数只拿到 ~2×，专用硬件还有余量</text>
+<text x="72.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 评估面窄：仅 GSC 分类——连续流的误触发控制</text>
+<text x="72.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  场景未验；无与蒸馏/NAS 的直接对比</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸 + 系列坐标</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 剪枝+二值化的联合训练（一步到位）</text>
+<text x="536.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 更细量化粒度（2/4-bit）与剪枝的组合</text>
+<text x="536.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· NPU / DSP / FPGA 上的实测</text>
+<text x="536.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 扩展到 CRNN / 注意力架构</text>
+<text x="536.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 按层自适应的剪枝比例</text>
+<text x="536.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系列坐标（压缩家族的坐标图）：</text>
+<text x="536.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #1（2020）PTQ 数据地图 · #8（2020）QAT</text>
+<text x="536.0" y="240.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2022 亚 8 比特：分布整形</text>
+<text x="536.0" y="254.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文（2019）：剪枝×二值化的正交叠加</text>
+<text x="536.0" y="268.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 压缩的四个维度：位宽 · 通道数 · 结构 · 蒸馏</text>
+<text x="536.0" y="281.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——本文证明了「不同维度可以乘起来」</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：压缩手段的价值取决于它作用在哪个维度——位宽（量化）、结构（剪枝）、容量（蒸馏）正交，可乘法叠加；但每加一维就多一遍训练与一套超参，「维度收益」与「流程成本」要一起核算</text>
+</svg>
+<div class="cap">图 4 · 边界与延伸：三遍训练 · 二值化的任务边界 · 硬件余量 + 压缩家族坐标</div>
+<div class="cards">
+<div class="card bad"><h4>三遍训练的账</h4><p>总训练时间显著增加；μ、β、学习率三套超参联动——调优难度乘法上涨；联合训练（一步到位）是明确的改进方向。</p></div>
+<div class="card bad"><h4>二值化的任务边界</h4><p>简单 10 词分类只掉 0.25%——更大类数、噪声、多说话人下可能掉更多；结论不能直接外推到复杂场景。</p></div>
+<div class="card bad"><h4>硬件优化未吃满</h4><p>标准 TF 函数只拿到 ~2×——XNOR 专用加速器、FPGA 的位运算余量未开发；「压缩潜力」与「硬件兑现」之间还有缺口。</p></div>
+<div class="card"><h4>评估面窄</h4><p>仅 GSC 分类任务——连续音频流的误触发控制场景未验；也无与蒸馏/NAS 的直接对比。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">05</span><h2>可迁移的判断</h2>
+<div class="judge">
+<div class="jt">JUDGMENTS · 能带走的三条</div>
+<p>① 压缩手段按「作用维度」分类，不同维度可乘法叠加。</p>
+<div class="rw">位宽（量化/二值化）、结构（通道剪枝）、容量（蒸馏）作用于不同维度——正交所以收益相乘；但每加一维就多一遍训练与一套超参，「维度收益 × 流程成本」要一起核算，不是叠加越多越好。</div>
+<p>② 极端量化放大网络当前的脆弱度——先恢复再压缩。</p>
+<div class="rw">剪枝后立刻二值化 = 在受伤的网络上做激进手术；Stage II 的精度恢复是 Stage III 近无损的前提——顺序化流水线（动结构 → 养精度 → 压位宽）是压缩工程的可复用模板。</div>
+<p>③ 落地门槛低的方案优先于理论上限高的方案。</p>
+<div class="rw">标准 TF 函数拿 2× vs 专用硬件理论拿 10×——前者今天就能上线、后者要等硬件生态；本文选择先兑现低门槛收益、把硬件优化留作余量，这个优先级对工程团队更实用。</div>
+</div>
+<p><b>系列坐标</b>：压缩家族的「维度叠加」节点——#1（2020）PTQ 数据地图与 #8（2020）QAT 框架管<b>位宽</b>维，2022 亚 8 比特走分布整形把位宽维推到极限，本文（2019）证明<b>位宽 × 结构</b>两维可乘；加上蒸馏（容量维），KWS 压缩的四维坐标系在这几篇论文里完整成形。</p>
+</section>
+
+<div class="foot">
+<span class="pill">arXiv 1909.05623</span><span class="pill">UC Irvine / UCSD</span><span class="pill">RGSM 剪枝</span><span class="pill">1-bit 权重</span>
+<div class="foot-note">本页精度条为定性示意（论文值：稀疏 &gt;50% 时损失 &lt;0.25%、加速 ~2×/~4×），具体回对原文 · 本页为可视化精读笔记，图表由 SVG 重绘</div>
+</div>
+
+</div>
+</body>
+</html>
