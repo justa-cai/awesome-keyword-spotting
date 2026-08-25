@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>高效动态滤波器：CS-Conv + 注意力池化的鲁棒特征提取</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 15.5px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №14</div>
+  <h1 class="hero">加 5K 参数，−5dB 噪声下多扛 5 个点：<br>瓶颈在<span class="g">条件嵌入的提取</span></h1>
+  <div class="chips">
+    <span class="chip">SLT 2022 · Kim 等</span>
+    <span class="chip">韩国大学 × 德雷塞尔大学</span>
+    <span class="chip">CS-Conv + 动态注意力池化</span>
+    <span class="chip">KWS + SV 双任务验证</span>
+  </div>
+  <div class="meta">实例级动态滤波器（IDF）按输入生成滤波器权重，而现有方法用全局平均池化提条件嵌入——把 T×F 的时频结构压成一个 F 维均值向量。换掉这一步，就换掉了动态滤波器的天花板。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>问题</b>：固定卷积核训练后参数不变——训练-测试域失配，未见噪声下性能骤降。IDF（实例级动态滤波器）按每个输入样本动态生成权重 θ = h(e)，e = g(x) 是条件嵌入，<b>e 的质量决定 θ 的质量</b>。</li>
+      <li><b>瓶颈</b>：现有 IDF 用 GAP 提 e——时间维所有帧等权 1/T（分不清语音帧和纯噪声帧）；频率维每个 bin 独立压均值（丢掉共振峰位置和宽度这类相邻通道能量对比模式）。</li>
+      <li><b>CS-Conv</b>：借 Dual-Path RNN 的「分块 + 双路径」——时间切成 K 个不重叠块，块内 1D 深度可分离卷积捕局部动态（风扇周期调制、键盘脉冲），块间沿块索引卷积捕全局趋势（强度渐变、噪声切换）。</li>
+      <li><b>DAP</b>：轻量 1D 卷积给每帧打分 → softmax → 加权求和——语音帧权重自动升高、纯噪声相对均匀，「聚焦」而非「平均」。</li>
+      <li><b>主结果（KWS）</b>：干净 +0.5 → 0dB +4.5 → −5dB +5.0——越吵越值钱；开销仅 5–10K 参数 / 1–2M FLOPs（&lt;5%）。</li>
+      <li><b>跨任务（SV）</b>：VoxCeleb1-E EER −0.5~1.0、1-H −1.0~1.5 个点——跨域场景时频建模优势更明显，证明改进是任务无关的。</li>
+      <li><b>消融</b>：CS-Conv 单独 +1~2、DAP 单独 +1~2、组合 +3~5——组合大于各自之和，功能互补（一个提供更好的特征，一个选最关键的信息）。</li>
+      <li><b>块大小甜点</b>：P=4–8（块内 40–80ms 恰好覆盖噪声短时模式）；P=2 太小、P=16 失去细粒度且块间只剩 2–3 块。</li>
+      <li><b>池化排序</b>：DAP &gt; 最大池化 &gt; 均匀 GAP——最大池化突出峰值但丢分布信息。</li>
+      <li><b>边界</b>：只改了「聚合」环节，生成网络 h(·) 没动——IDF 框架的表达上限还在；P 手动调；噪声增强 ≠ 真实远场（混响长尾衰减可能超过块内感受野）。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：GAP 把信息平均掉了</h2>
+  <div class="h2sub">动态滤波器的生成链路里，嵌入提取是最薄弱一环</div>
+  <p class="lead">真实噪声在频谱分布（窄带电力线嗡嗡声到宽带空调气流）、时间模式（平稳风扇到间歇性键盘/人声）、强度（&gt;20dB 到 &lt;−5dB）三个维度上多样——训练阶段不可能枚举，模型必须泛化到未见噪声。IDF 框架给了这个潜力：按输入生成滤波器权重；但大多数实现用 GAP 把整个 T×F 时频图压成 F 维均值——数据增强是「反应式」的（只模拟已知噪声），而 GAP 的信息丢失让「主动适应」的原料先天不足。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>时间维：均匀权重稀释语音帧</h4>
+      <p>GAP 给所有帧 1/T 的相同权重——关键词语音帧和纯噪声帧的信息价值截然不同，噪声帧多的时候语音帧信息被大量稀释。</p>
+    </div>
+    <div class="card bad">
+      <h4>表达力与开销的张力</h4>
+      <p>自注意力、双向 LSTM 能捕获更丰富的时频结构，但 O(T²) 的复杂度不适合资源受限的 KWS 部署——需要线性复杂度下保留结构信息的方案。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：分块双路径 + 选择性聚合</h2>
+  <div class="h2sub">从语音分离借来的 Dual-Path 范式</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 960">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="960.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CS-Conv + DAP：动态滤波器的条件嵌入，换个方式提</text>
+<line x1="36.0" y1="60.0" x2="470.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 背景：IDF 框架的瓶颈藏在「嵌入提取」里</text>
+<rect x="36.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么需要动态滤波器</text>
+<text x="52.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">固定卷积核训练后参数不变 → 训练-测试域失配</text>
+<text x="52.0" y="155.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声多维多样（频谱分布/时间模式/强度），训练时</text>
+<text x="52.0" y="168.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  不可能枚举——模型必须泛化到未见噪声</text>
+<text x="52.0" y="181.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">IDF：每个输入样本动态生成滤波器权重 θ = h(e)，</text>
+<text x="52.0" y="194.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  e = g(x) 是条件嵌入，e 的质量决定 θ 的质量</text>
+<rect x="474.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">现有 IDF 用 GAP 提 e：两个维度的信息丢失</text>
+<text x="490.0" y="140.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">时间维：所有帧等权重 1/T——分不清关键词语音帧</text>
+<text x="490.0" y="153.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  和纯噪声帧（信息价值截然不同）</text>
+<text x="490.0" y="166.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">频率维：每个频率 bin 独立压成均值——丢失相邻通道</text>
+<text x="490.0" y="179.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  的能量对比模式（共振峰位置和宽度，正是判别关键）</text>
+<text x="490.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">自注意力/LSTM 表达力够但太贵（O(T²)）不适合端侧</text>
+<text x="36.0" y="206.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">目标：额外参数 &lt;10K、额外计算 &lt;2M FLOPs（&lt;5% 开销），把 T×F 的信息保留进条件嵌入——并在 KWS 和 SV 两个任务上验证通用性</text>
+<text x="36.0" y="232.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② CS-Conv：分块 + 双路径（借 Dual-Path RNN 的范式）</text>
+<rect x="36.0" y="246.0" width="848.0" height="150.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="60.0" y="272.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">输入时频图 X ∈ R^(T×F) 沿时间切成 K 个不重叠块：</text>
+<rect x="60.0" y="284.0" width="110.0" height="52.0" rx="6" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<line x1="74.0" y1="292.0" x2="74.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<line x1="102.0" y1="292.0" x2="102.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<line x1="130.0" y1="292.0" x2="130.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<line x1="158.0" y1="292.0" x2="158.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<text x="115.0" y="346.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">块 1（P 帧）</text>
+<rect x="200.0" y="284.0" width="110.0" height="52.0" rx="6" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<line x1="214.0" y1="292.0" x2="214.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<line x1="242.0" y1="292.0" x2="242.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<line x1="270.0" y1="292.0" x2="270.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<line x1="298.0" y1="292.0" x2="298.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<text x="255.0" y="346.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">块 2（P 帧）</text>
+<rect x="340.0" y="284.0" width="110.0" height="52.0" rx="6" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<line x1="354.0" y1="292.0" x2="354.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<line x1="382.0" y1="292.0" x2="382.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<line x1="410.0" y1="292.0" x2="410.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<line x1="438.0" y1="292.0" x2="438.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<text x="395.0" y="346.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">块 3（P 帧）</text>
+<rect x="480.0" y="284.0" width="110.0" height="52.0" rx="6" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<line x1="494.0" y1="292.0" x2="494.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<line x1="522.0" y1="292.0" x2="522.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<line x1="550.0" y1="292.0" x2="550.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<line x1="578.0" y1="292.0" x2="578.0" y2="328.0" stroke="#5aa886" stroke-width="5"/>
+<text x="535.0" y="346.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">块 4（P 帧）</text>
+<text x="610.0" y="298.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">块内路径（intra）：块内沿时间 1D 深度可分离卷积</text>
+<text x="610.0" y="316.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 捕获局部时间动态（噪声短时波动：风扇周期</text>
+<text x="610.0" y="331.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  调制、键盘短脉冲）；感受野 P 帧（40–80ms）</text>
+<text x="610.0" y="353.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">块间路径（inter）：沿块索引维 1D 深度可分离卷积</text>
+<text x="610.0" y="371.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 捕获全局趋势（噪声强度渐变、平稳↔间歇切换）</text>
+<text x="60.0" y="382.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">参数账：标准 1D 卷积 Cin·Cout·k → 分离卷积 Cin·k + Cin·Cout，约减 k 倍；输出 K′×F 保留时频结构（GAP 只剩 F）</text>
+<text x="36.0" y="402.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ DAP：时间维的选择性聚合——语音帧权重大，噪声帧被压低</text>
+<rect x="36.0" y="416.0" width="414.0" height="128.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="440.0" font-size="12" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三步（式 9–11）</text>
+<text x="52.0" y="460.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">① 轻量 1D 卷积给每帧打分：sk = wᵀ·Hk + b</text>
+<text x="52.0" y="472.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② softmax 归一化：αk = exp(sk) / Σ exp(sj)</text>
+<text x="52.0" y="485.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 加权求和：e = Σ αk · Hk</text>
+<text x="52.0" y="497.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="510.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">α 是输入依赖的——不同输入得到不同注意力分布：</text>
+<text x="52.0" y="522.5" font-size="9.5" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· KWS：语音帧频谱模式更丰富 → 权重自动升高</text>
+<text x="52.0" y="535.0" font-size="9.5" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SV：元音稳态段（共振峰清晰）权重升高</text>
+<text x="52.0" y="547.5" font-size="9.5" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 纯噪声：没有显著帧 → 相对均匀</text>
+<rect x="474.0" y="416.0" width="414.0" height="128.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="490.0" y="440.0" font-size="12" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GAP 被稀释 vs DAP 聚焦</text>
+<rect x="490.0" y="480.0" width="26.0" height="12.0" rx="3" fill="#c9d8e8"/>
+<rect x="490.0" y="502.0" width="26.0" height="2.0" rx="2" fill="#d97a2b"/>
+<rect x="528.0" y="480.0" width="26.0" height="12.0" rx="3" fill="#c9d8e8"/>
+<rect x="528.0" y="502.0" width="26.0" height="2.0" rx="2" fill="#d97a2b"/>
+<rect x="566.0" y="480.0" width="26.0" height="12.0" rx="3" fill="#c9d8e8"/>
+<rect x="566.0" y="502.0" width="26.0" height="2.0" rx="2" fill="#d97a2b"/>
+<rect x="604.0" y="462.0" width="26.0" height="30.0" rx="3" fill="#0b6e52"/>
+<rect x="604.0" y="502.0" width="26.0" height="10.0" rx="2" fill="#d97a2b"/>
+<rect x="642.0" y="462.0" width="26.0" height="30.0" rx="3" fill="#0b6e52"/>
+<rect x="642.0" y="502.0" width="26.0" height="10.0" rx="2" fill="#d97a2b"/>
+<rect x="680.0" y="462.0" width="26.0" height="30.0" rx="3" fill="#0b6e52"/>
+<rect x="680.0" y="502.0" width="26.0" height="10.0" rx="2" fill="#d97a2b"/>
+<rect x="718.0" y="480.0" width="26.0" height="12.0" rx="3" fill="#c9d8e8"/>
+<rect x="718.0" y="502.0" width="26.0" height="2.0" rx="2" fill="#d97a2b"/>
+<rect x="756.0" y="480.0" width="26.0" height="12.0" rx="3" fill="#c9d8e8"/>
+<rect x="756.0" y="502.0" width="26.0" height="2.0" rx="2" fill="#d97a2b"/>
+<rect x="794.0" y="480.0" width="26.0" height="12.0" rx="3" fill="#c9d8e8"/>
+<rect x="794.0" y="502.0" width="26.0" height="2.0" rx="2" fill="#d97a2b"/>
+<rect x="832.0" y="480.0" width="26.0" height="12.0" rx="3" fill="#c9d8e8"/>
+<rect x="832.0" y="502.0" width="26.0" height="2.0" rx="2" fill="#d97a2b"/>
+<text x="490.0" y="524.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">上柱 = 帧特征（绿=语音帧），下柱 = DAP 注意力权重</text>
+<text x="490.0" y="460.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">GAP：均匀 1/T——大量噪声帧把语音帧的信息稀释掉</text>
+<text x="490.0" y="474.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DAP：注意力集中到信息量最大的帧，「聚焦」而非「平均」</text>
+<rect x="36.0" y="562.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="588.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+5.0</text>
+<text x="130.0" y="608.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">−5dB 提升（72.0→77.0）</text>
+<text x="298.0" y="588.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+4.5</text>
+<text x="298.0" y="608.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0dB 提升（79.5→84.0）</text>
+<text x="466.0" y="588.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5–10K</text>
+<text x="466.0" y="608.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">额外参数（&lt;5% 开销）</text>
+<text x="634.0" y="588.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1–2M</text>
+<text x="634.0" y="608.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">额外 FLOPs</text>
+<text x="802.0" y="588.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2 任务</text>
+<text x="802.0" y="608.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS + SV 双验证</text>
+<text x="36.0" y="646.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据：KWS 用 GSC 12 类（MUSAN 约 900 种 + DEMAND 16 种环境噪声，20dB→−5dB）；SV 用 VoxCeleb1/2（约 1251/6112 说话人）+ VoxCeleb1-H/E 测试协议；训练与整个网络联合优化，e 的梯度直达</text>
+</svg>
+    <p class="cap"><b>图1 · 机制全景</b>：IDF 框架与 GAP 的两个维度信息丢失；CS-Conv 分块双路径（块内局部动态 / 块间全局趋势）；DAP 注意力聚合示意（语音帧权重高、噪声帧被压低）。
+  </div>
+  </div>
+  <div class="formula">
+    <div class="f">e = Σ αk · Hk，其中 αk = softmax(wᵀ·Hk + b)，H = CS-Conv(X)</div>
+    <div class="why"><b>人话</b>：先用 CS-Conv 把时频图变成保留结构信息的 K′×F 特征（块内卷积管局部、块间卷积管全局），再用一个一层卷积打的注意力分数做加权平均——<b>哪些帧重要让输入自己说了算</b>。整套替换只加 5–10K 参数。</div>
+  </div>
+  <p class="sub"><b>为什么从 Dual-Path RNN 借</b>：语音分离已经证明「分块处理 + 双路径建模」是高效且有效的时频结构建模方法——本文把它迁移到新问题：不是从混合信号分离语音，而是从噪声污染的特征中提取鲁棒嵌入。<b>训练方式</b>：与整个网络联合优化（KWS 用 CE；SV 加角度边际损失增强说话人嵌入判别性），e 的梯度直达。</p>
+
+  <h2><span class="no">§03</span>实验：KWS + SV 双任务</h2>
+  <div class="h2sub">MUSAN + DEMAND 未见噪声，20dB → −5dB</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 未见噪声：越吵，CS-Conv+DAP 越值钱</text>
+<line x1="36.0" y1="56.0" x2="380.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="106.0" y1="314.7" x2="670.0" y2="314.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="318.7" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">70</text>
+<line x1="106.0" y1="276.3" x2="670.0" y2="276.3" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="280.3" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">75</text>
+<line x1="106.0" y1="238.0" x2="670.0" y2="238.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="242.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">80</text>
+<line x1="106.0" y1="199.7" x2="670.0" y2="199.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="203.7" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">85</text>
+<line x1="106.0" y1="161.3" x2="670.0" y2="161.3" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="165.3" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="106.0" y1="123.0" x2="670.0" y2="123.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="127.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">95</text>
+<rect x="160.0" y="134.5" width="52.0" height="195.5" rx="4" fill="#c9d8e8"/>
+<rect x="220.0" y="130.7" width="52.0" height="199.3" rx="4" fill="#0b6e52"/>
+<text x="186.0" y="128.5" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">93.5</text>
+<text x="246.0" y="124.7" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">94.0</text>
+<rect x="154.0" y="96.7" width="72.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="190.0" y="111.7" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+0.5</text>
+<text x="216.0" y="350.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">干净</text>
+<rect x="292.0" y="175.1" width="52.0" height="154.9" rx="4" fill="#c9d8e8"/>
+<rect x="352.0" y="153.7" width="52.0" height="176.3" rx="4" fill="#0b6e52"/>
+<text x="318.0" y="169.1" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">88.2</text>
+<text x="378.0" y="147.7" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">91.0</text>
+<rect x="286.0" y="119.7" width="72.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="322.0" y="134.7" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+2.8</text>
+<text x="348.0" y="350.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10dB</text>
+<rect x="424.0" y="241.8" width="52.0" height="88.2" rx="4" fill="#c9d8e8"/>
+<rect x="484.0" y="207.3" width="52.0" height="122.7" rx="4" fill="#0b6e52"/>
+<text x="450.0" y="235.8" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">79.5</text>
+<text x="510.0" y="201.3" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">84.0</text>
+<rect x="418.0" y="173.3" width="72.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="454.0" y="188.3" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+4.5</text>
+<text x="480.0" y="350.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0dB</text>
+<rect x="556.0" y="299.3" width="52.0" height="30.7" rx="4" fill="#c9d8e8"/>
+<rect x="616.0" y="261.0" width="52.0" height="69.0" rx="4" fill="#0b6e52"/>
+<text x="582.0" y="293.3" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">72.0</text>
+<text x="642.0" y="255.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">77.0</text>
+<rect x="550.0" y="227.0" width="72.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="586.0" y="242.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+5.0</text>
+<text x="612.0" y="350.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">−5dB</text>
+<rect x="470.0" y="110.0" width="12.0" height="12.0" rx="3" fill="#c9d8e8"/>
+<text x="486.0" y="121.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">GAP-IDF（基线）</text>
+<rect x="470.0" y="132.0" width="12.0" height="12.0" rx="3" fill="#0b6e52"/>
+<text x="486.0" y="143.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">CS-Conv+DAP-IDF（本文）</text>
+<text x="470.0" y="168.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">改进幅度随 SNR 降低而增大：</text>
+<text x="470.0" y="184.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">干净 +0.5 → −5dB +5.0——高噪声下</text>
+<text x="470.0" y="199.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">GAP 的信息丢失伤害更大，保留时频</text>
+<text x="470.0" y="214.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">结构的嵌入正好补上这块</text>
+<text x="390.0" y="86.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率（%）· 未见噪声（MUSAN + DEMAND）· 约 值</text>
+<text x="36.0" y="408.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：5K 参数换低 SNR 下 5 个点——计算效率比（提升/开销）极高；同一组合在 SV 上也有效（VoxCeleb1-E EER −0.5~1.0、1-H −1.0~1.5，跨域场景时频建模优势更明显）</text>
+</svg>
+    <p class="cap"><b>图2 · KWS 未见噪声结果（约 值）</b>：改进幅度随 SNR 降低而增大——干净 +0.5 → −5dB +5.0；SV 任务同样有效（VoxCeleb1-E EER −0.5~1.0、1-H −1.0~1.5）。
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 420">
+<rect x="0.0" y="0.0" width="880.0" height="420.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融：两个组件互补，组合有超额收益</text>
+<line x1="36.0" y1="56.0" x2="300.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="235.0" y="92.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">组件独立贡献 vs 组合（约 值）</text>
+<rect x="250.0" y="114.0" width="4.0" height="34.0" rx="5" fill="#e8b8b0"/>
+<text x="260.0" y="136.0" font-size="10.5" fill="#e8b8b0" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">基线</text>
+<text x="244.0" y="136.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">GAP-IDF 基线</text>
+<rect x="250.0" y="170.0" width="75.0" height="34.0" rx="5" fill="#9fc8b8"/>
+<text x="331.0" y="192.0" font-size="10.5" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1.5</text>
+<text x="244.0" y="192.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+ 只换 CS-Conv</text>
+<rect x="250.0" y="226.0" width="75.0" height="34.0" rx="5" fill="#9fc8b8"/>
+<text x="331.0" y="248.0" font-size="10.5" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1.5</text>
+<text x="244.0" y="248.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+ 只换 DAP</text>
+<rect x="250.0" y="282.0" width="200.0" height="34.0" rx="5" fill="#0b6e52"/>
+<text x="456.0" y="304.0" font-size="10.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+4.0</text>
+<text x="244.0" y="304.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CS-Conv + DAP ★</text>
+<text x="380.0" y="136.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">组合（+3~5）大于各自之和（+2~4）</text>
+<text x="380.0" y="154.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——功能互补：CS-Conv 提供更好的时频</text>
+<text x="380.0" y="169.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">结构特征，DAP 从中选择最关键的信息</text>
+<text x="690.0" y="92.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">块大小 P 与池化策略</text>
+<rect x="530.0" y="112.0" width="39.0" height="20.0" rx="4" fill="#9fc8b8"/>
+<text x="575.0" y="126.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">P=2</text>
+<text x="680.0" y="126.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">块太小，块内仅 20ms；块间要处理太多块</text>
+<rect x="530.0" y="164.0" width="130.0" height="20.0" rx="4" fill="#0b6e52"/>
+<text x="666.0" y="178.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">P=4–8</text>
+<text x="680.0" y="178.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">甜点：块内 40–80ms 恰好覆盖噪声短时模式</text>
+<rect x="530.0" y="216.0" width="58.5" height="20.0" rx="4" fill="#9fc8b8"/>
+<text x="594.5" y="230.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">P=16</text>
+<text x="680.0" y="230.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">块内失去细粒度分辨率；块间只剩 2–3 块</text>
+<text x="530.0" y="272.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">池化策略排序：DAP &gt; 最大池化 &gt; 均匀（GAP）</text>
+<text x="530.0" y="288.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">最大池化突出峰值但丢分布信息；DAP 在权重里</text>
+<text x="530.0" y="303.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">编码了「哪些帧最重要」</text>
+<text x="36.0" y="400.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">P 的甜点依赖时频分辨率（帧长 25ms vs 10ms 的 MFCC 可能要不同 P）——无自动确定机制；不重叠分块在块边界产生信息断裂（跨块的渐变过渡被切开），重叠分块可缓解但更贵</text>
+</svg>
+    <p class="cap"><b>图3 · 消融</b>：组件独立贡献（各 +1~2）vs 组合（+3~5）——超加性证明功能互补；块大小 P 甜点 4–8；池化排序 DAP &gt; 最大池化 &gt; GAP。
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法定位 + 边界：改的是「聚合」，不是整个框架</text>
+<line x1="36.0" y1="56.0" x2="480.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="92.0" width="400.0" height="168.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="256.0" y="116.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">复杂度与路线定位</text>
+<rect x="72.0" y="134.0" width="368.0" height="32.0" rx="6" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="86.0" y="155.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">GAP（现有 IDF）</text>
+<text x="216.0" y="155.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">O(F)</text>
+<text x="316.0" y="155.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">信息量最小</text>
+<rect x="72.0" y="174.0" width="368.0" height="32.0" rx="6" fill="#dcefe6" stroke="#cfe9de" stroke-width="1"/>
+<text x="86.0" y="195.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CS-Conv + DAP ★</text>
+<text x="216.0" y="195.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">O(K′×F) 线性</text>
+<text x="316.0" y="195.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">K′≪T 但远大于 1</text>
+<rect x="72.0" y="214.0" width="368.0" height="32.0" rx="6" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="86.0" y="235.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">自注意力</text>
+<text x="216.0" y="235.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">O(K′²×F)</text>
+<text x="316.0" y="235.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">表达力够但端侧太贵</text>
+<text x="256.0" y="258.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">与数据增强正交互补——可在增强训练之上叠加架构层增益</text>
+<rect x="520.0" y="92.0" width="324.0" height="290.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="116.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界</text>
+<text x="536.0" y="136.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 只改嵌入提取的「聚合」环节：权重生成网络</text>
+<text x="536.0" y="150.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  h(·) 和滤波器应用方式都没动——性能仍受 IDF</text>
+<text x="536.0" y="164.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  框架表达能力上限约束（e 再准，h 不强也白搭）</text>
+<text x="536.0" y="178.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 块大小 P 手动调，无自动机制；不重叠分块在</text>
+<text x="536.0" y="206.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  边界产生信息断裂</text>
+<text x="536.0" y="220.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="234.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声增强 ≠ 真实远场：混响在时间维引入长尾</text>
+<text x="536.0" y="248.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  指数衰减，可能超过块内路径的感受野；多说话</text>
+<text x="536.0" y="262.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  人、设备自噪声音未覆盖</text>
+<text x="536.0" y="276.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="290.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未与同期强基线（BC-ResNet / KWT / ConvMixer+）</text>
+<text x="536.0" y="304.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  同噪声条件同台对比——「动态滤波器 vs 架构改进」</text>
+<text x="536.0" y="318.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  哪条路线更优无法判断；推理延迟未报告</text>
+<rect x="36.0" y="276.0" width="400.0" height="106.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="300.0" font-size="12" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移洞见</text>
+<text x="52.0" y="320.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「动态特征聚合」是噪声鲁棒性的关键环节——</text>
+<text x="52.0" y="333.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">简单池化（GAP）本身就是鲁棒性瓶颈之一；</text>
+<text x="52.0" y="347.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">这个洞见适用于任何需要从噪声输入提取判别</text>
+<text x="52.0" y="360.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">特征的架构：注意力的 query/key 投影、</text>
+<text x="52.0" y="374.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">分类头的特征聚合，都值得检查「谁被平均掉了」</text>
+</svg>
+    <p class="cap"><b>图4 · 定位与边界</b>：复杂度对比（O(F) vs O(K′×F) 线性 vs O(K′²×F)）；只改聚合环节不动 h(·) 的天花板；噪声增强与真实远场的差距。
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：四条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>CS-Conv 用于动态滤波器嵌入提取</b>：首次把 Dual-Path 分块分离卷积从语音分离迁移到条件嵌入提取——保留时间局部与全局模式，为权重生成提供更精确的输入描述。</p></div>
+    <div class="row"><div class="n">2</div><p><b>DAP 时间维选择性聚合</b>：「关注关键帧、忽略噪声帧」——功能上优于均匀池化，计算上只加一个轻量卷积层。</p></div>
+    <div class="row"><div class="n">3</div><p><b>跨任务验证</b>：KWS 和 SV 双任务改进——证明是对「动态滤波器嵌入提取」这一通用环节的根本改进，不是单任务过拟合。</p></div>
+    <div class="row"><div class="n">4</div><p><b>极高的计算效率比</b>：&lt;5% 额外开销换 2–5 个点提升——每 1% 额外参数约换 0.5–1.0% 准确率。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">改进范围与验证范围都有限</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>只改了聚合环节</h4>
+      <p>权重生成网络 h(·) 的架构和滤波器的应用方式（简单卷积滤波）都没动——性能仍受 IDF 框架表达能力上限约束：e 再精确，h 不够强生成的权重也白搭。</p>
+    </div>
+    <div class="card bad">
+      <h4>超参敏感 + 块边界断裂</h4>
+      <p>块大小 P 需按时频分辨率手动调（25ms vs 10ms 帧长可能要不同 P），无自动机制；不重叠分块在边界产生信息断裂——跨块的渐变过渡（噪声到语音）被切进两个块。</p>
+    </div>
+    <div class="card bad">
+      <h4>噪声增强 ≠ 真实远场</h4>
+      <p>叠加 MUSAN/DEMAND 与真实远场录音（混响、多说话人、设备自噪声复合退化）有差距——混响在时间维引入长尾指数衰减，可能超过块内路径 40–80ms 的感受野。</p>
+    </div>
+    <div class="card bad">
+      <h4>缺同期对比与延迟数据</h4>
+      <p>未与 BC-ResNet/KWT/ConvMixer+ 同噪声条件同台对比——「动态滤波器 vs 架构改进」哪条路线更优无从判断；推理延迟未验证，额外计算是否成为部署瓶颈未知。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>条件生成类模块（动态滤波/超网络）的质量上限卡在条件嵌入的提取——先检查「喂给生成器的信息」够不够，再考虑加大生成器。</li>
+      <li>简单池化（GAP）本身就是鲁棒性瓶颈：均匀平均会把少数关键帧的信息稀释掉——任何「从噪声输入聚合特征」的环节都值得换成选择性聚合。</li>
+      <li>分块 + 双路径是线性复杂度下保留时序结构的成熟范式，可从分离任务迁移到任何需要全局上下文但预算有限的模块。</li>
+      <li>组合效果大于组件之和 = 功能互补的证据（一个造特征、一个选信息）——消融时检查超加性，能判断两个组件是否在解决同一问题。</li>
+      <li>在两个任务上验证同一改进——是区分「通用环节改进」与「单任务 trick」的最省力方法。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2205.01304" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="Efficient_Dynamic_Filter_for_Robust_and_Low_Computational_Feature_Extraction.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
