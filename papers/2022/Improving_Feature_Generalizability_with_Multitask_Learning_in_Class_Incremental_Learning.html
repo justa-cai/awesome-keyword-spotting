@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MT-BT：多任务基础训练提升类别增量学习的特征泛化性</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 16px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  table.tb { width: 100%; border-collapse: collapse; margin: 18px 0; background: var(--card);
+    border-radius: 12px; overflow: hidden; font-size: 13.8px; }
+  table.tb th { background: var(--acc-lt); color: var(--acc-dk); font-weight: 700;
+    padding: 10px 12px; text-align: left; }
+  table.tb td { padding: 9px 12px; border-top: 1px solid var(--line); color: var(--ink2); }
+  table.tb td b { color: var(--ink); }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №20</div>
+  <h1 class="hero">增量学习的上限，<br>在<span class="g">基础训练时</span>已经定死</h1>
+  <div class="chips">
+    <span class="chip">MT-BT + AS-ES · arXiv 2204.12915</span>
+    <span class="chip">剑桥大学 × 新加坡管理大学</span>
+    <span class="chip">类别增量学习 / 灾难性遗忘</span>
+    <span class="chip">GSC-12/35 + UrbanSound8K</span>
+  </div>
+  <div class="meta">现有 CIL 方法全部聚焦「增量阶段怎么补救遗忘」——治标。本文证明：如果基础模型的特征过拟合于基础类别，增量性能的上限已被卡死；从基础训练阶段下手，+4~5%。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>场景</b>：真实 KWS 产品的词表动态演进——今天 Ok Google，明天加自定义词。边缘三约束：旧类数据可能因隐私不可用、算力有限无法回放大量历史、增量须在端上完成。</li>
+      <li><b>老方法的盲区</b>：LwF 蒸馏 / Replay 回放 / EWC 正则全在增量阶段做文章；但如果基础特征提取器学到的是「恰好能区分这几个基础词」的最短路径（类别特有特征），新类必须复用它——无论增量阶段怎么补，上限已定。</li>
+      <li><b>MT-BT 机制</b>：N 个基础类随机分 K 个子集，每子集独立分类头、共享 backbone——不同子任务梯度方向冲突，聚合时相互抵消，迫使提取器学「对所有子任务都有用的折中特征」= 更通用的音素级特征。</li>
+      <li><b>负迁移的账</b>：基础准确率可能低 0.5–1%（子任务冲突的代价），换增量阶段 +4–5%——总收益远大于基础损失。</li>
+      <li><b>AS-ES 早停</b>：增量数据不平衡时固定轮次要么过拟合要么欠拟合（不同场景最优 10–200 epochs）；验证集 + patience 5–10 + best checkpoint——零额外开销，+1–2%。</li>
+      <li><b>主结果</b>：五种 CIL 策略上 MT-BT 一致 +3~5%，AS-ES 再 +1%；最强组合 MT-BT + AS-ES + LwF 达 90.5%（GSC-12，10 基础类 + 5 增量步）。</li>
+      <li><b>K 的甜点</b>：K=1 退化单任务无增益；K=3–4 最优（+3~4%）；K≥6 每子集类太少、子任务太简单、梯度冲突不足。</li>
+      <li><b>优势随增量步放大</b>：第 1 步 +1% → 第 5 步 +3–5%——每加一个新类，好基础特征就多提供一次「便利」。</li>
+      <li><b>任务无关</b>：UrbanSound8K 上同样 3–5 点改进——不只语音 KWS，适用一般声音分类 CIL。</li>
+      <li><b>边界</b>：K 是经验超参无自动机制；基础训练开销 1.2–1.5×（推理零增量）；基础类只验证了 10 个（100+ 类时子任务可能仍太简单）；单一小 CNN 骨干；未与数据增强组合评估。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：增量阶段的方法治标不治本</h2>
+  <div class="h2sub">基础模型的质量是增量学习性能的上限决定因素</div>
+  <p class="lead">单一分类任务联合训练 N 个基础类时，梯度方向是「最小化基础类别的分类误差」——模型寻找最容易区分这些类别的特征维度。如果某些声学特征（特定关键词的共振峰频率）恰好能完美区分基础类别，模型会过度依赖它们而忽略其他同样有用的维度。当新类别（stop、go）的声学特性与基础类别差异大时，共享提取器给不出有效表示。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>灾难性遗忘 + 边缘约束</h4>
+      <p>学新类时新任务的梯度覆盖旧权重——旧类识别急剧退化；而边缘场景旧类原始数据可能不再可用（隐私法规）、设备无法存储回放大量历史、增量须在端上完成。</p>
+    </div>
+    <div class="card bad">
+      <h4>缺训练终止策略</h4>
+      <p>增量场景数据天然不平衡（新类样本少、回放样本有限）——不同场景最优训练轮次差异巨大（10 到 200 epochs），固定轮次在新类样本少时严重过拟合：新类准确率虚高、旧类急剧下降。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：多任务基础训练 + 自适应早停</h2>
+  <div class="h2sub">根源层（MT-BT）+ 工程层（AS-ES）的配合</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 960">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="960.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MT-BT：增量学习的上限，在基础训练时已经定死</text>
+<line x1="36.0" y1="60.0" x2="520.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 场景与核心洞察</text>
+<rect x="36.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边缘 KWS 的增量约束 + 灾难性遗忘</text>
+<text x="52.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 用户需求动态演进：今天 Ok Google，明天加自定义词</text>
+<text x="52.0" y="154.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 旧类数据可能不可用（隐私法规禁长期存储）</text>
+<text x="52.0" y="167.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 设备算力有限——无法存/回放大量历史数据</text>
+<text x="52.0" y="179.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 增量须在端上完成，不能依赖云端</text>
+<text x="52.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 学新词时梯度覆盖旧权重 → 对旧类识别急剧退化</text>
+<rect x="474.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">核心洞察：良好的增量学习始于良好的基础模型</text>
+<text x="490.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">现有 CIL 方法（LwF 蒸馏 / Replay 回放 / EWC 正则）</text>
+<text x="490.0" y="154.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  全部聚焦增量阶段——治标</text>
+<text x="490.0" y="167.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">更根本的问题：基础特征提取器过拟合于基础类别——</text>
+<text x="490.0" y="179.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  学到「恰好能区分这几个词」的最短路径（类别特有特征），</text>
+<text x="490.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  新类必须复用它 → 无论增量阶段怎么补，上限已被卡死</text>
+<text x="490.0" y="204.5" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">MT-BT 从根源入手：让基础特征本身更通用</text>
+<text x="36.0" y="216.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② MT-BT：多任务基础训练——梯度冲突逼出通用特征</text>
+<rect x="36.0" y="230.0" width="414.0" height="168.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="254.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制（式：θ ← θ − η·Σk ∇θ Lk）</text>
+<text x="52.0" y="274.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">N 个基础类随机分 K 个子集（每子集 ≈N/K 类）</text>
+<text x="52.0" y="285.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每个子集独立分类头（FC+softmax），共享同一 backbone</text>
+<text x="52.0" y="297.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="308.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不同子任务梯度方向可能冲突——某特征维对子任务 1</text>
+<text x="52.0" y="320.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  有用但对子任务 2 无用/有害；聚合时冲突相互抵消，</text>
+<text x="52.0" y="331.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  迫使提取器找「对所有子任务都有用的折中特征」</text>
+<text x="52.0" y="343.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——恰好是更通用、更具迁移性的声学特征</text>
+<text x="52.0" y="354.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （音素级，而非特定词汇级）</text>
+<text x="52.0" y="366.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="377.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">与 MAML 思想类似但更简单：无需内外循环优化</text>
+<rect x="474.0" y="230.0" width="414.0" height="168.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="490.0" y="254.0" font-size="12" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">负迁移的账 + AS-ES 自适应早停</text>
+<text x="490.0" y="274.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">负迁移风险：子任务冲突可能让每个子任务都变差——</text>
+<text x="490.0" y="285.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  实测基础准确率低 0.5–1%，但换增量阶段 +4–5%，</text>
+<text x="490.0" y="297.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  总收益远大于基础损失</text>
+<text x="490.0" y="308.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="320.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">AS-ES（工程层）：增量数据不平衡（新类样本少、回放样本</text>
+<text x="490.0" y="331.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  有限），固定轮次要么过拟合要么欠拟合——不同场景最优轮次</text>
+<text x="490.0" y="343.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  差异巨大（10 到 200 epochs）</text>
+<text x="490.0" y="354.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="366.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">做法：增量训练数据划 10–20% 做验证集，每 epoch 评估，</text>
+<text x="490.0" y="377.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  连续 P=5–10 个 epoch 无改善即停，保存最佳 checkpoint</text>
+<text x="490.0" y="389.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——零额外计算开销，只多一个 patience 超参</text>
+<text x="36.0" y="402.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 与现有 CIL 方法正交叠加</text>
+<rect x="36.0" y="418.0" width="276.0" height="84.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="174.0" y="444.0" font-size="11.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">增量阶段策略（任选其一）</text>
+<text x="174.0" y="466.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">LwF / EWC / GEM / Repl</text>
+<text x="174.0" y="480.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ay / 纯微调</text>
+<rect x="322.0" y="418.0" width="276.0" height="84.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="460.0" y="444.0" font-size="11.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">＋ AS-ES 自适应早停</text>
+<text x="460.0" y="466.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">验证集 + patience + best </text>
+<text x="460.0" y="480.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">checkpoint（+1%）</text>
+<rect x="608.0" y="418.0" width="276.0" height="84.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="746.0" y="444.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">＋ MT-BT 基础训练 ★</text>
+<text x="746.0" y="466.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">多任务分解基础类别（+3–5%，上限决定因素</text>
+<text x="746.0" y="480.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">）</text>
+<text x="460.0" y="518.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">MT-BT 不替代任何现有策略——作为「基础训练增强模块」叠加，与 4 种 CIL 策略的组合实验均验证一致增益</text>
+<rect x="36.0" y="542.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="568.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+4~5%</text>
+<text x="130.0" y="588.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">MT-BT 在各 CIL 策略上的增益</text>
+<text x="298.0" y="568.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">90.5%</text>
+<text x="298.0" y="588.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">最佳组合（MT-BT+AS-ES+LwF）</text>
+<text x="466.0" y="568.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">K=3–4</text>
+<text x="466.0" y="588.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">子集数甜点</text>
+<text x="634.0" y="568.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1.2–1.5×</text>
+<text x="634.0" y="588.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">基础训练开销（推理零增量）</text>
+<text x="802.0" y="568.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1–2%</text>
+<text x="802.0" y="588.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">AS-ES 额外收益</text>
+<text x="36.0" y="626.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">实验：GSC-12（10 基础类 + 5 增量步 × 每步 2 新类）/ GSC-35 / UrbanSound8K（10 类环境声，验证任务无关性）；骨干 3–4 层小 CNN 约 50K 参数</text>
+</svg>
+    <p class="cap"><b>图1 · 机制全景</b>：CIL 场景与「上限决定因素」洞察；MT-BT 的梯度冲突机制与负迁移的账；AS-ES 早停；与现有 CIL 方法正交叠加的三层结构。</p>
+  </div>
+  </div>
+  <div class="formula">
+    <div class="f">θ ← θ − η · Σ(k=1..K) ∇θ L_k(θ)　（K 个子任务梯度聚合更新共享 backbone）</div>
+    <div class="why"><b>人话</b>：把 N 个基础类随机分成 K 个子集，每个子集一个独立分类头，交替/混合训练——某个特征维对子任务 1 有用但对子任务 2 无用甚至有害，梯度聚合时冲突相互抵消，<b>提取器被迫寻找对所有子任务都通用的折中特征</b>。与 MAML 思想类似但无需内外循环，训练更简单。</div>
+  </div>
+  <p class="sub"><b>正交叠加</b>：MT-BT 不替代任何现有 CIL 策略——它是「基础训练增强模块」：MT-BT 提供更好的基础特征，LwF/EWC/GEM/Replay 在增量阶段各自保留旧知识，两者作用在不同阶段所以可叠加。推理时只用一个分类头，推理零增量。</p>
+
+  <h2><span class="no">§03</span>实验：五种 CIL 策略的一致增益</h2>
+  <div class="h2sub">GSC-12（10 基础类 + 5 增量步）+ UrbanSound8K</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 450">
+<rect x="0.0" y="0.0" width="880.0" height="450.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC-12 主对比（约 值）：MT-BT 对所有 CIL 策略一致增益</text>
+<line x1="36.0" y1="56.0" x2="600.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="86.0" y1="292.0" x2="710.0" y2="292.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="296.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">75</text>
+<line x1="86.0" y1="244.0" x2="710.0" y2="244.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="248.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">80</text>
+<line x1="86.0" y1="196.0" x2="710.0" y2="196.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="200.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">85</text>
+<line x1="86.0" y1="148.0" x2="710.0" y2="148.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="152.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="86.0" y1="100.0" x2="710.0" y2="100.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="104.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">95</text>
+<rect x="130.0" y="292.0" width="32.0" height="48.0" rx="3" fill="#c9d8e8"/>
+<rect x="166.0" y="263.2" width="32.0" height="76.8" rx="3" fill="#7fbd9f"/>
+<rect x="202.0" y="253.6" width="32.0" height="86.4" rx="3" fill="#0b6e52"/>
+<text x="146.0" y="286.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">75</text>
+<text x="182.0" y="257.2" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">78</text>
+<text x="218.0" y="247.6" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">79.0</text>
+<text x="170.0" y="358.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Fine-tuning</text>
+<text x="170.0" y="370.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">下界</text>
+<rect x="246.0" y="196.0" width="32.0" height="144.0" rx="3" fill="#c9d8e8"/>
+<rect x="282.0" y="157.6" width="32.0" height="182.4" rx="3" fill="#7fbd9f"/>
+<rect x="318.0" y="143.2" width="32.0" height="196.8" rx="3" fill="#0b6e52"/>
+<text x="262.0" y="190.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">85</text>
+<text x="298.0" y="151.6" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">89</text>
+<text x="334.0" y="137.2" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">90.5</text>
+<text x="286.0" y="358.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">LwF</text>
+<rect x="362.0" y="215.2" width="32.0" height="124.8" rx="3" fill="#c9d8e8"/>
+<rect x="398.0" y="186.4" width="32.0" height="153.6" rx="3" fill="#7fbd9f"/>
+<rect x="434.0" y="172.0" width="32.0" height="168.0" rx="3" fill="#0b6e52"/>
+<text x="378.0" y="209.2" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">83</text>
+<text x="414.0" y="180.4" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">86</text>
+<text x="450.0" y="166.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">87.5</text>
+<text x="402.0" y="358.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">EWC</text>
+<rect x="478.0" y="167.2" width="32.0" height="172.8" rx="3" fill="#c9d8e8"/>
+<rect x="514.0" y="138.4" width="32.0" height="201.6" rx="3" fill="#7fbd9f"/>
+<rect x="550.0" y="128.8" width="32.0" height="211.2" rx="3" fill="#0b6e52"/>
+<text x="494.0" y="161.2" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">88</text>
+<text x="530.0" y="132.4" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">91</text>
+<text x="566.0" y="122.8" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">92.0</text>
+<text x="518.0" y="358.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GEM</text>
+<rect x="594.0" y="176.8" width="32.0" height="163.2" rx="3" fill="#c9d8e8"/>
+<rect x="630.0" y="148.0" width="32.0" height="192.0" rx="3" fill="#7fbd9f"/>
+<rect x="666.0" y="133.6" width="32.0" height="206.4" rx="3" fill="#0b6e52"/>
+<text x="610.0" y="170.8" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">87</text>
+<text x="646.0" y="142.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<text x="682.0" y="127.6" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">91.5</text>
+<text x="634.0" y="358.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Replay</text>
+<rect x="470.0" y="106.0" width="12.0" height="12.0" rx="3" fill="#c9d8e8"/>
+<text x="486.0" y="116.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标准训练</text>
+<rect x="470.0" y="124.0" width="12.0" height="12.0" rx="3" fill="#7fbd9f"/>
+<text x="486.0" y="134.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">+ MT-BT</text>
+<rect x="470.0" y="142.0" width="12.0" height="12.0" rx="3" fill="#0b6e52"/>
+<text x="486.0" y="152.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">+ MT-BT + AS-ES</text>
+<text x="400.0" y="86.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">平均增量准确率（%）· 10 基础类 + 5 增量步 × 每步 2 新类</text>
+<text x="36.0" y="420.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">UrbanSound8K 上同样 3–5 点一致改进——任务无关（不只语音 KWS，也适用一般声音分类 CIL）；最强组合 MT-BT + AS-ES + LwF 达 90.5%</text>
+</svg>
+    <p class="cap"><b>图2 · GSC-12 主对比（约 值）</b>：五种 CIL 策略下标准训练 → +MT-BT → +MT-BT+AS-ES——一致 +3~5%，最强组合 90.5%；UrbanSound8K 同样有效（任务无关）。</p>
+  </div>
+  </div>
+  <table class="tb">
+    <tr><th>CIL 策略</th><th>标准训练</th><th>+MT-BT</th><th>+MT-BT+AS-ES</th><th>总增益</th></tr>
+    <tr><td>Fine-tuning（下界）</td><td>~75%</td><td>~78%</td><td>~79%</td><td>+4%</td></tr>
+    <tr class="hl"><td><b>LwF</b></td><td>~85%</td><td>~89%</td><td><b>~90.5%</b></td><td><b>+5.5%</b></td></tr>
+    <tr><td>EWC</td><td>~83%</td><td>~86%</td><td>~87.5%</td><td>+4.5%</td></tr>
+    <tr><td>GEM</td><td>~88%</td><td>~91%</td><td>~92%</td><td>+4%</td></tr>
+    <tr><td>Replay</td><td>~87%</td><td>~90%</td><td>~91.5%</td><td>+4.5%</td></tr>
+  </table>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融：子集数 K 的甜点 + 增益随增量步放大 + 早停</text>
+<line x1="36.0" y1="56.0" x2="500.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="225.0" y="92.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">子集数 K vs 增益</text>
+<line x1="60.0" y1="292.0" x2="380.0" y2="292.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="52.0" y="296.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+0</text>
+<line x1="60.0" y1="254.5" x2="380.0" y2="254.5" stroke="#eef0ec" stroke-width="1"/>
+<text x="52.0" y="258.5" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+1</text>
+<line x1="60.0" y1="217.0" x2="380.0" y2="217.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="52.0" y="221.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+2</text>
+<line x1="60.0" y1="179.5" x2="380.0" y2="179.5" stroke="#eef0ec" stroke-width="1"/>
+<text x="52.0" y="183.5" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+3</text>
+<line x1="60.0" y1="142.0" x2="380.0" y2="142.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="52.0" y="146.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+4</text>
+<line x1="80.0" y1="292.0" x2="111.1" y2="217.0" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="111.1" y1="217.0" x2="142.2" y2="160.8" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="142.2" y1="160.8" x2="173.3" y2="172.0" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="173.3" y1="172.0" x2="235.6" y2="254.5" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="235.6" y1="254.5" x2="360.0" y2="280.8" stroke="#0b6e52" stroke-width="2.2"/>
+<circle cx="80.0" cy="292.0" r="6" fill="#9fc8b8" stroke="#fff" stroke-width="1.5"/>
+<circle cx="111.1" cy="217.0" r="6" fill="#9fc8b8" stroke="#fff" stroke-width="1.5"/>
+<circle cx="142.2" cy="160.8" r="6" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<circle cx="173.3" cy="172.0" r="6" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<circle cx="235.6" cy="254.5" r="6" fill="#9fc8b8" stroke="#fff" stroke-width="1.5"/>
+<circle cx="360.0" cy="280.8" r="6" fill="#9fc8b8" stroke="#fff" stroke-width="1.5"/>
+<text x="80.0" y="308.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1</text>
+<text x="111.1" y="308.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2</text>
+<text x="142.2" y="308.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3</text>
+<text x="235.6" y="308.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">6</text>
+<text x="360.0" y="308.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10</text>
+<text x="220.0" y="326.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">子集数 K（每个子集的类别数 = N/K）</text>
+<rect x="190.0" y="132.0" width="190.0" height="40.0" rx="6" fill="#eef6f1"/>
+<text x="285.0" y="148.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">K=3–4 最优；K=1 退化单任务；</text>
+<text x="285.0" y="162.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">K≥6 子任务太简单（梯度冲突不足）</text>
+<text x="660.0" y="92.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">优势随增量步数放大</text>
+<line x1="520.0" y1="190.4" x2="587.5" y2="178.0" stroke="#5aa886" stroke-width="2.2"/>
+<line x1="587.5" y1="178.0" x2="655.0" y2="167.1" stroke="#5aa886" stroke-width="2.2"/>
+<line x1="655.0" y1="167.1" x2="722.5" y2="156.2" stroke="#5aa886" stroke-width="2.2"/>
+<line x1="722.5" y1="156.2" x2="790.0" y2="143.8" stroke="#5aa886" stroke-width="2.2"/>
+<circle cx="520.0" cy="190.4" r="5.5" fill="#5aa886" stroke="#fff" stroke-width="1.5"/>
+<text x="520.0" y="180.4" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1%</text>
+<text x="520.0" y="220.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">步1</text>
+<circle cx="587.5" cy="178.0" r="5.5" fill="#5aa886" stroke="#fff" stroke-width="1.5"/>
+<text x="587.5" y="168.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+2%</text>
+<text x="587.5" y="220.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">步2</text>
+<circle cx="655.0" cy="167.1" r="5.5" fill="#5aa886" stroke="#fff" stroke-width="1.5"/>
+<text x="655.0" y="157.1" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+2%</text>
+<text x="655.0" y="220.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">步3</text>
+<circle cx="722.5" cy="156.2" r="5.5" fill="#5aa886" stroke="#fff" stroke-width="1.5"/>
+<text x="722.5" y="146.2" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+3%</text>
+<text x="722.5" y="220.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">步4</text>
+<circle cx="790.0" cy="143.8" r="5.5" fill="#5aa886" stroke="#fff" stroke-width="1.5"/>
+<text x="790.0" y="133.8" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+4%</text>
+<text x="790.0" y="220.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">步5</text>
+<text x="660.0" y="234.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每加一个新类，好基础特征就多「便利」一次</text>
+<text x="660.0" y="250.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AS-ES 早停</text>
+<rect x="500.0" y="268.0" width="320.0" height="36.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="512.0" y="284.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">固定 50 epochs（新类样本少时）</text>
+<text x="512.0" y="298.0" font-size="9" fill="#e8b8b0" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">旧类准确率急剧下降——过拟合</text>
+<rect x="500.0" y="312.0" width="320.0" height="36.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="512.0" y="328.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AS-ES：样本多 → 自动 ~20 ep</text>
+<text x="512.0" y="342.0" font-size="9" fill="#0b6e52" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">样本少 → 5–8 ep 快速终止</text>
+<text x="660.0" y="360.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">净收益 +1–2 个百分点</text>
+<text x="36.0" y="410.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">另：随机划分 vs 按声学相似度划分差异 &lt;0.5%——随机化已保证子集类别多样性，足以产生有效梯度冲突</text>
+</svg>
+    <p class="cap"><b>图3 · 消融</b>：子集数 K 的甜点（3–4 最优，K≥6 子任务太简单）；优势随增量步数放大（第 1 步 +1% → 第 5 步 3–5%）；AS-ES vs 固定 50 epochs。</p>
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">「预防优于治疗」+ 边界</text>
+<line x1="36.0" y1="56.0" x2="260.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="250.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">基础特征质量 = 增量学习的上限（示意）</text>
+<rect x="70.0" y="112.0" width="360.0" height="200.0" rx="6" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="70.0" y1="278.7" x2="430.0" y2="278.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="64.0" y="282.7" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">70</text>
+<line x1="70.0" y1="212.0" x2="430.0" y2="212.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="64.0" y="216.0" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">80</text>
+<line x1="70.0" y1="145.3" x2="430.0" y2="145.3" stroke="#eef0ec" stroke-width="1"/>
+<text x="64.0" y="149.3" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="84.0" y1="125.3" x2="148.0" y2="158.7" stroke="#c0392b" stroke-width="2.2"/>
+<line x1="148.0" y1="158.7" x2="212.0" y2="185.3" stroke="#c0392b" stroke-width="2.2"/>
+<line x1="212.0" y1="185.3" x2="276.0" y2="212.0" stroke="#c0392b" stroke-width="2.2"/>
+<line x1="276.0" y1="212.0" x2="340.0" y2="232.0" stroke="#c0392b" stroke-width="2.2"/>
+<line x1="340.0" y1="232.0" x2="404.0" y2="245.3" stroke="#c0392b" stroke-width="2.2"/>
+<line x1="84.0" y1="132.0" x2="148.0" y2="152.0" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="148.0" y1="152.0" x2="212.0" y2="165.3" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="212.0" y1="165.3" x2="276.0" y2="175.3" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="276.0" y1="175.3" x2="340.0" y2="185.3" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="340.0" y1="185.3" x2="404.0" y2="192.0" stroke="#0b6e52" stroke-width="2.2"/>
+<text x="422.0" y="237.3" font-size="9.5" fill="#c0392b" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标准基础训练</text>
+<text x="422.0" y="184.0" font-size="9.5" fill="#0a6b4e" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MT-BT 基础训练</text>
+<text x="84.0" y="326.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<text x="148.0" y="326.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1</text>
+<text x="212.0" y="326.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2</text>
+<text x="276.0" y="326.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3</text>
+<text x="340.0" y="326.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4</text>
+<text x="404.0" y="326.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5</text>
+<text x="250.0" y="340.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">增量步骤（同一增量策略 LwF 下）</text>
+<text x="250.0" y="356.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">差距随步骤拉大：第 1 步 ~1 点 → 第 5 步 3–5 点</text>
+<rect x="530.0" y="88.0" width="320.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="690.0" y="108.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界</text>
+<text x="546.0" y="128.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· K 是经验超参：3–4 最优但无自动确定机制；极端划分</text>
+<text x="546.0" y="142.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （声学极相似的类被分开）可能产生过多梯度冲突</text>
+<text x="546.0" y="156.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="546.0" y="170.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 基础训练开销 1.2–1.5×（K 个分类头分别算损失梯度）；</text>
+<text x="546.0" y="184.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  推理只用一个分类头——推理零增量</text>
+<text x="546.0" y="198.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="546.0" y="212.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 基础类只有 10 个：100+ 类时 K=4 每子集仍有 25+ 类，</text>
+<text x="546.0" y="226.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  子任务可能仍太简单（可扩展性未验证）</text>
+<text x="546.0" y="240.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="546.0" y="254.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 单一小 CNN 骨干（3–4 层 50K）：Transformer / 更深网络</text>
+<text x="546.0" y="268.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  对基础训练策略的敏感度可能不同</text>
+<text x="546.0" y="282.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="546.0" y="296.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未与数据增强组合评估：SpecAugment/噪声增强本身是正则，</text>
+<text x="546.0" y="310.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  与 MT-BT 的隐式正则可能协同也可能冗余</text>
+<text x="36.0" y="420.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断（预防优于治疗）：所有需要持续学习的 AI 系统，都应在基础训练阶段投入更多精力优化特征表示（多任务/增强/预训练），而非仅在增量阶段修补遗忘</text>
+</svg>
+    <p class="cap"><b>图4 · 上限示意 + 边界</b>：同一增量策略下标准 vs MT-BT 基础模型的准确率轨迹（示意形态，差距随步骤拉大）；K 经验性、训练开销、可扩展性等边界。</p>
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：四条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>重新审视基础训练阶段</b>：首次系统性证明「基础模型训练质量对增量学习性能的决定性影响」——此前研究几乎全部集中在增量阶段的遗忘缓解。</p></div>
+    <div class="row"><div class="n">2</div><p><b>多任务学习提升特征泛化性</b>：梯度冲突逼出通用特征——简单（K 个独立分类头）、通用（与任何 CIL 策略兼容）、推理零成本。</p></div>
+    <div class="row"><div class="n">3</div><p><b>自适应早停的实用性</b>：解决实际部署「不知道训练多少轮才够」——数据不平衡下 +1–2%。</p></div>
+    <div class="row"><div class="n">4</div><p><b>正交叠加性验证</b>：与 4 种 CIL 策略组合均一致增益（3–5%），证明通用性；UrbanSound8K 上同样有效。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">预防的代价与验证范围</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>K 是经验决策</h4>
+      <p>K=3–4 在大多数场景最优但无自动确定机制；极端情况下（声学极相似的两类被分到不同子集）可能产生过多梯度冲突、降低训练效率。</p>
+    </div>
+    <div class="card bad">
+      <h4>训练开销与可扩展性</h4>
+      <p>基础训练需同时训 K 个分类头（1.2–1.5× 计算量）；基础类只验证 10 个——100+ 类时 K=4 每子集仍有 25+ 类，子任务可能仍太简单，可扩展性未知。</p>
+    </div>
+    <div class="card bad">
+      <h4>骨干单一</h4>
+      <p>全部实验用 3–4 层小 CNN（约 50K 参数）——Transformer 或更深 CNN 的冗余参数更多，对基础训练策略的敏感度可能不同。</p>
+    </div>
+    <div class="card bad">
+      <h4>未与数据增强组合评估</h4>
+      <p>SpecAugment/噪声增强本身是正则化手段，与 MT-BT 的隐式正则可能协同也可能冗余——组合效果未测；主表数字为约值，无方差报告。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>预防优于治疗：持续学习系统的上限由基础模型质量决定——基础训练阶段投资特征表示（多任务/增强/预训练）比增量阶段修补遗忘回报更高。</li>
+      <li>梯度冲突是特性不是缺陷：子任务间的目标冲突在聚合时相互抵消，逼出「对所有任务都有用的折中特征」——这正是迁移性的来源。</li>
+      <li>接受小幅基础性能损失换大幅下游增益：0.5–1% 的基础掉点换 4–5% 的增量增益——评价多任务训练要看全生命周期，不只看基础任务。</li>
+      <li>子任务难度要适中：任务太简单（每子集类太少）梯度冲突不足、正则失效；任务太难（K=1 退化单任务）没有冲突——甜点在中间。</li>
+      <li>数据不平衡下「训练多少轮」本身是个超参：验证集 + patience 早停是最便宜的自适应方案，任何增量/微调流程都该默认带上。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2204.12915" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="Improving_Feature_Generalizability_with_Multitask_Learning_in_Class_Incremental_Learning.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>

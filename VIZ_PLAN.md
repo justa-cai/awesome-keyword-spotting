@@ -1,7 +1,7 @@
 # 可视化精读页计划（VIZ_PLAN）
 
 全量清单与进度真源。每完成一页重新生成。
-**进度：163 / 305**
+**进度：164 / 305**
 
 ## 2026（24 / 24 ✅）
 - [✅] A Multiplication-Free Feature Extractor for Signal Classification: Keyword Spotting Case Study（面向信号分类的无乘法特征提取器：关键词检测案例研究）
@@ -156,7 +156,7 @@
 - [✅] VE-KWS：视觉模态增强的端到端关键词检测
 - [⬜] VIC-KD：方差-不变性-协方差知识蒸馏，让关键词检测更能抵御对抗攻击
 
-## 2022（19 / 42 ）
+## 2022（20 / 42 ）
 - [✅] AB/BA Analysis: A Framework for Estimating Keyword Spotting Recall Improvement While Maintaining Audio Privacy
 - [✅] 23 μW 关键词检测芯片：基于环形振荡器的时域特征提取
 - [✅] A Fast Network Exploration Strategy to Profile Low Energy Consumption for Keyword Spotting
@@ -176,7 +176,7 @@
 - [✅] Fully Unsupervised Training of Few-shot Keyword Spotting（少样本关键词检测的全无监督训练）
 - [✅] Hi,KIA: 面向唤醒词的语音情感识别数据集
 - [✅] I2CR：用类间-类内对比正则化提升关键词检测的噪声鲁棒性
-- [⬜] Improving Feature Generalizability with Multitask Learning in Class Incremental Learning
+- [✅] Improving Feature Generalizability with Multitask Learning in Class Incremental Learning
 - [⬜] Improving Label-Deficient Keyword Spotting Through Self-Supervised Pretraining
 - [⬜] Keyword Spotting System and Evaluation of Pruning and Quantization Methods on Low-power Edge Microcontrollers（低功耗边缘微控制器上的关键词检测系统及剪枝与量化方法评估）
 - [⬜] Latency Control for Keyword Spotting：在损失函数里放一个伯努利随机数，把唤醒词检测延迟变成可调旋钮
