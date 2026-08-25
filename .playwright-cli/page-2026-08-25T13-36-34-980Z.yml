@@ -1,0 +1,328 @@
+- generic [ref=f252e2]:
+  - generic [ref=f252e3]: 论文精读 · 可视化版 · 2022 №39
+  - heading "把唤醒词当成第 528 种声音： 一个 2.9M 模型同时听关键词和声环境" [level=1] [ref=f252e4]: 把唤醒词当成第 528 种声音：一个 2.9M 模型同时听关键词和声环境
+  - generic [ref=f252e5]:
+    - generic [ref=f252e6]: UniKW-AT · 小米
+    - generic [ref=f252e7]: arXiv 2209.11377 · MobileNetV2 2.9M
+    - generic [ref=f252e8]: 527 AT + 10 KWS = 537 输出节点
+    - generic [ref=f252e9]: Musan 拒识 84.88→99.86% · 真实困难负例 0→82.73%
+  - generic [ref=f252e10]: 一句话：KWS 与音频打标（AT）抽象后是同一个任务——输入固定时长音频、输出标签。UniKW-AT 把 KWS 重建为 AT 的子任务：Audioset 527 类本体直接并入 10 个关键词成 537 维多标签输出，删掉 noise 标签（噪声变成有名有姓的类别）、非目标词映射到 Speech（两级判别）。单模型单次前向同时产出关键词与声事件语义，Musan 拒识从 84.88% 跳到 99.86%，小米真实产品困难负例从内部模型的 0% 提到 82.73%。
+  - generic [ref=f252e11]:
+    - generic [ref=f252e12]: TL;DR
+    - listitem [ref=f252e13]: ◈ KWS 与 AT 长期是两个领域（各自数据集/基准/会议轨道），但端侧常驻模型只养得起一个——双能力要么双模型翻倍，要么统一建模。联合训练横着三重阻碍：监督强度、目标函数、样本时长（1s vs 10s）。
+    - listitem [ref=f252e14]: ◈ 核心是任务表述层的创新而非结构：标签集直接并集 527+10=537，多标签 BCE 训练，骨干就是普通 MobileNetV2（2.9M）。
+    - listitem [ref=f252e15]: ◈ 两个标签映射决策最关键：删掉 noise 标签——噪声从无结构拒识桶升级为有语义的显式类别，「这不是我的词」变成「这是音乐」；非目标词 → Speech——形成先判语音再判关键词的两级结构，天然开放集友好（106 种外语拒识 99.91%）。
+    - listitem [ref=f252e16]: ◈ 时长失配是地基问题：朴素零填充 KWS 到 10s 会让准确率崩 27.94 个点；反过来随机裁剪 AT 到 1s + 机器标注器产伪强标签 PSL，去掉 PSL 则 AS mAP 掉 12.65 点、KWS 也跟着掉——标签噪声经共享编码器跨任务传染。
+    - listitem [ref=f252e17]: ◈ BCE 的独立 sigmoid 节点带来输出层可剥离：不想要的标签整行删掉（2.9M→2.2M 精度不变）——按地区/场景裁剪输出子集，一套训练多种部署；CE 的 softmax 耦合归一化做不到。
+    - listitem [ref=f252e18]: ◈ 诚实的读数：鲁棒性大头来自「引入 AS 数据」本身（对照组已拿 99.80+），多标签框架的净增量只有 +0.06~0.10 点——不可替代的价值在 AT 语义输出与条件唤醒能力。
+    - listitem [ref=f252e19]: ◈ 真实产品（小爱同学）：Common 集 99.85%（略逊内部模型 0.13 点），Difficult 集 82.73% vs 内部模型 0%——传统二分类 KWS 在相近发音/童声/带唱音乐面前全军覆没。
+  - heading "§01 问题：常驻模型只养得起一个" [level=2] [ref=f252e20]:
+    - generic [ref=f252e21]: §01
+    - text: 问题：常驻模型只养得起一个
+  - generic [ref=f252e22]: 同构性洞察 + 三个痛点 + 联合训练的三重阻碍
+  - generic [ref=f252e23]:
+    - generic [ref=f252e24]:
+      - heading "两条研究线各自的死结" [level=3] [ref=f252e25]
+      - paragraph [ref=f252e26]: KWS 线：TC-ResNet（0.06–0.3M）、NAS、KWT 刷到 96–97%，但标签体系是「目标词 + 笼统 unknown 桶」，从未被教导理解非目标音频的语义构成——二值化拒识知识的外推天然脆弱，换个域就崩（VL106 掉 14 点）。AT 线：CNN14（76M）、AST（87M）握着海量声事件语义，却需要 GPU 才能推理，根本进不了端侧常驻场景。
+    - generic [ref=f252e27]:
+      - heading "噪声鲁棒性短板有数字" [level=3] [ref=f252e28]
+      - paragraph [ref=f252e29]: 纯 GSCV1 训练的基线在 Musan（音乐/语声/babble）上拒识率只有 84.88%——每 6-7 条噪声就放行一条误唤醒。训练数据是干净近讲语音，非目标类又没有内部结构，模型对音乐、童声咿呀、发音相近的干扰词毫无招架。
+    - generic [ref=f252e30]:
+      - heading "语义盲区" [level=3] [ref=f252e31]
+      - paragraph [ref=f252e32]: 传统 KWS 对「这段音频里除了语音还有什么」一无所知——「检测到儿童说话才允许唤醒」这类条件逻辑无从谈起，也无法向用户回报声环境。而这类逻辑恰是真实产品的刚需（家长控制、场景适配）。
+    - generic [ref=f252e33]:
+      - heading "三重阻碍解释了为什么没人做过" [level=3] [ref=f252e34]
+      - paragraph [ref=f252e35]: 监督强度不同（AT 靠弱监督——只有片段级标签；KWS 用强监督）；目标函数不同（多标签 vs 单标签 CE）；样本时长不同（1s vs 10s，直接混合产生严重填充错配）。不是没想到统一，是每一关都要单独设计方案。
+  - generic [ref=f252e36]:
+    - img [ref=f252e37]:
+      - generic [ref=f252e39]: UniKW-AT：把唤醒词当成第 528 种声音——一个模型同时听关键词和声环境
+      - generic [ref=f252e40]: ① 同构性洞察 + 三个现实痛点
+      - generic [ref=f252e42]: 同构性：KWS 与 AT 都可抽象为「输入固定时长音频（如 1 秒）→ 输出关键词/声事件是否存在的标签」——实现层面是同一个任务
+      - generic [ref=f252e43]: 但两领域长期各自有数据集、基准、会议轨道；联合训练横着三重阻碍：监督强度不同（弱/强）· 目标函数不同（多标签/单标签 CE）· 样本时长不同（10s/1s）
+      - generic [ref=f252e45]: 资源互斥
+      - generic [ref=f252e46]: 端侧常驻模型只养得起一个：同一时刻要么跑 KWS 要么跑 AT；双模型部署存储
+      - generic [ref=f252e47]: 与内存直接翻倍，低功耗语音前端不可接受——需要单模型承载双能力
+      - generic [ref=f252e49]: 噪声鲁棒性短板
+      - generic [ref=f252e50]: 标准 KWS 的非目标类是无内部结构的大杂烩（noise/unknown 一桶），训练数据又是
+      - generic [ref=f252e51]: 干净近讲语音——真实场景遇音乐/童声/相近干扰词误唤醒飙升：Musan 拒识仅 84.88%
+      - generic [ref=f252e53]: 语义盲区
+      - generic [ref=f252e54]: 传统 KWS 对「这段音频里除了语音还有什么」一无所知——无法支撑「检测到儿童
+      - generic [ref=f252e55]: 说话才允许唤醒」这类条件唤醒逻辑，也无法向用户回报声环境信息
+      - generic [ref=f252e56]: ② 核心动作：KWS 重建为 AT 的子任务，标签集直接并集
+      - generic [ref=f252e58]: 标签空间合并
+      - generic [ref=f252e59]: L = L_KWS ∪ L_AT
+      - generic [ref=f252e60]: L_AT：Audioset 本体 527 类声事件
+      - generic [ref=f252e61]: L_KWS：GSCV1 目标词 10 个
+      - generic [ref=f252e62]: （Yes/No/Up/Down/Left/Right/
+      - generic [ref=f252e63]: On/Off/Stop/Go）
+      - generic [ref=f252e64]: 输出节点 = 527 + 10 = 537
+      - generic [ref=f252e65]: 骨干 MobileNetV2（2.9M 参数）
+      - generic [ref=f252e66]: 64 维对数梅尔谱 · 32ms 窗 · 10ms 移
+      - generic [ref=f252e67]: Adam · mAP 做模型选择指标
+      - generic [ref=f252e69]: 两个标签映射决策
+      - generic [ref=f252e70]: 决策一：删掉 KWS 传统 noise 标签
+      - generic [ref=f252e71]: Audioset 527 类已涵盖绝大多数噪声
+      - generic [ref=f252e72]: （音乐/犬吠/风雨/电视声各有自己的类）
+      - generic [ref=f252e73]: 「噪声」从无结构拒识桶升级为有语义
+      - generic [ref=f252e74]: 的显式类别——负向判断变正向判断
+      - generic [ref=f252e75]: 决策二：非目标关键词 → 映射为 Speech
+      - generic [ref=f252e76]: GSCV1 其余 20 词不设类不做 noise，
+      - generic [ref=f252e77]: 统一当「语音」事件；两级判别结构：
+      - generic [ref=f252e78]: 先「是不是语音」再「是不是关键词」
+      - generic [ref=f252e79]: ——天然开放集友好（任何语言的非目标
+      - generic [ref=f252e80]: 语音都应落在 Speech 上）
+      - generic [ref=f252e82]: BCE 目标 + 可剥离输出
+      - generic [ref=f252e83]: 多标签二元交叉熵：
+      - generic [ref=f252e84]: L_BCE = y·log ŷ + (1−y)·log(1−ŷ)
+      - generic [ref=f252e85]: 每节点独立 sigmoid，无归一化耦合
+      - generic [ref=f252e86]: 推理单标签化（式 2）：
+      - generic [ref=f252e87]: max ŷ_KWS ≥ γ → 在关键词内 argmax
+      - generic [ref=f252e88]: 否则退回 AT 分支 argmax（通常落
+      - generic [ref=f252e89]: Speech，正确表达「是语音非关键词」）
+      - generic [ref=f252e90]: γ=0.4（验证集调出）= 部署期灵敏度旋钮
+      - generic [ref=f252e91]: 输出节点可物理删除（CE 的 softmax 不行）
+      - generic [ref=f252e92]: ③ 时长失配的解法：随机裁剪 + 伪强标签（PSL）
+      - generic [ref=f252e94]: GSCV1 样本 < 1s，Audioset 多为 10s——朴素方案只能把 KWS 零填充到 10s：关键词只占感受野十分之一，输入统计与 1s 评测完全错位，
+      - generic [ref=f252e95]: GSCV1 准确率崩到 69.59%（消融掉 27.94 个点）。
+      - generic [ref=f252e96]: 反过来做：把 AT 样本随机裁剪成 1s 对齐 KWS。但随即引入标签错位——10s 片段级弱标签贴到恰好安静的 1s 裁剪上就是标注噪声。
+      - generic [ref=f252e97]: 解法（引团队 ICASSP 2022 前作）：预训练机器标注器对每个随机裁剪估计软标签 = 伪强标签 PSL，作 AT 分支训练目标。作者自评只「部分解决」错位。
+      - generic [ref=f252e98]: 消融：去掉 PSL → AS mAP 33.42 掉到 20.77（−12.65）；GSCV1 也从 97.53 掉到 96.94——跨任务标签噪声经共享编码器互相传染
+      - generic [ref=f252e100]: "537"
+      - generic [ref=f252e101]: 输出节点（527 AT + 10 关键词）
+      - generic [ref=f252e102]: 99.86%
+      - generic [ref=f252e103]: Musan 拒识（基线 84.88）
+      - generic [ref=f252e104]: 99.91%
+      - generic [ref=f252e105]: VL106 外语拒识（基线 83.48）
+      - generic [ref=f252e106]: 82.73%
+      - generic [ref=f252e107]: 真实困难负例（内部模型 0%）
+      - generic [ref=f252e108]: 2.2M
+      - generic [ref=f252e109]: Ours-Strip（97.53% 不变）
+      - generic [ref=f252e110]: 小米（北京）· arXiv 2209.11377；GSCV1 65K 条（51,088 训练 / 约 18h）+ Audioset balanced 21,155 条（58h）；评测漏斗：GSCV1 闭集 → GSCV2 域内拒识 → Musan 噪声 → VL106 跨语言（106 种外语）→ 小爱同学真实产品集
+    - generic [ref=f252e111]: 图1 · 机制全景：上半是同构性洞察与三个痛点，中段是标签空间合并与两个映射决策，下半是 PSL 数据流的来龙去脉与关键数字。
+  - heading "§02 方法：KWS 重建为 AT 的子任务" [level=2] [ref=f252e112]:
+    - generic [ref=f252e113]: §02
+    - text: 方法：KWS 重建为 AT 的子任务
+  - generic [ref=f252e114]: 标签并集 · 随机裁剪 + PSL · BCE 可剥离
+  - generic [ref=f252e115]:
+    - generic [ref=f252e116]: "L_BCE(ŷ, y) = y·log ŷ + (1−y)·log(1−ŷ) # 多标签 BCE，y 可有多个正标签 ȳ = argmax ŷ_KWS 若 max ŷ_KWS ≥ γ # 推理单标签化（式 2） = argmax ŷ_AT 否则 # γ=0.4，验证集调出"
+    - generic [ref=f252e117]: 人话：每个输出节点是独立的 sigmoid 概率，节点之间没有归一化耦合——这个数学性质是「输出层可剥离」的根基。推理时只要任一关键词节点超阈值 γ 就在关键词表内 argmax，否则退回 AT 分支（通常落在 Speech，正确表达「是语音但不是关键词」）。γ 是部署期灵敏度旋钮：0.4→0.01 时 Common 99.85→99.96% 但 Difficult 82.73→57.45%。
+  - generic [ref=f252e118]:
+    - generic [ref=f252e119]: AS 片段（10s，弱标签）→ 随机裁剪 1s（对齐 KWS） → 预训练机器标注器估计软标签 = PSL → 监督 527 维输出
+    - generic [ref=f252e120]: 人话：Audioset 标签是 10 秒片段级的——随机裁出的 1 秒里未必有标签所指的事件，硬贴上去就是系统性标注噪声。PSL 用一个预训练标注器给每个裁剪重新估计软标签。作者自评只「部分解决」错位；消融显示这步值 12.65 个 mAP，且 KWS 侧也跟着受益——两路监督的清洁度通过共享编码器耦合在一起。
+  - generic [ref=f252e121]:
+    - generic [ref=f252e122]:
+      - heading "删掉 noise 标签的观念转换" [level=3] [ref=f252e123]
+      - paragraph [ref=f252e124]: 常规 KWS 必须带非目标标签，UniKW-AT 把它整个删除——Audioset 的 527 类已涵盖绝大多数噪声类型，音乐、犬吠、风雨、电视声都有自己的类。模型从「不是我的词」的负向判断变成「这是音乐」的正向判断，后者泛化强得多，因为每个噪声类别背后有真实数据支撑。
+    - generic [ref=f252e125]:
+      - heading "非目标词 → Speech 的两级结构" [level=3] [ref=f252e126]
+      - paragraph [ref=f252e127]: GSCV1 其余 20 词统一映射为 Speech 事件：目标词样本同时激活 (Speech, 关键词)，非目标语音只激活 Speech。用多标签机制复现了「语音检测→关键词确认」的层级，且对开放集天然友好——任何语言的非目标语音都应落在 Speech 上，VL106 的 99.91% 拒识就是回报。
+    - generic [ref=f252e128]:
+      - heading "Ours-Strip：一套训练多种部署" [level=3] [ref=f252e129]
+      - paragraph [ref=f252e130]: BCE 独立节点意味着最终线性层里不想要的标签行（权重+偏置）可以物理删除——模型变小变快省电，剩余标签不受影响（2.9M→2.2M，97.53% 不变）。厂商可按场景裁剪：音乐多的家庭保留 Music+Speech+关键词做条件唤醒，低端设备只留 K+1 类。
+    - generic [ref=f252e131]:
+      - heading "骨干选型的两头讨好" [level=3] [ref=f252e132]
+      - paragraph [ref=f252e133]: 对 KWS 社区 2.9M 偏大（TC-ResNet8 只要 0.06M），对 AT 社区又算轻量（CNN14 是 76M）——论文坦承这是务实折中：它已是能以合理精度覆盖 537 类输出空间的最小档位之一。前端 64 维对数梅尔谱、32ms 窗、10ms 帧移，模型选择以 mAP 为主指标。
+  - generic [ref=f252e134]:
+    - img [ref=f252e135]:
+      - generic [ref=f252e137]: 机制解剖：两级判别结构 · PSL 数据流 · 输出层可剥离
+      - generic [ref=f252e138]: 两级判别结构（多标签复现层级）
+      - generic [ref=f252e141]: 1s 音频
+      - generic [ref=f252e142]: （64 维 LMS）
+      - generic [ref=f252e144]: MobileNetV2
+      - generic [ref=f252e145]: 共享编码器
+      - generic [ref=f252e146]: 2.9M 参数
+      - generic [ref=f252e150]: Speech 节点
+      - generic [ref=f252e152]: 527 AT 节点
+      - generic [ref=f252e154]: 10 关键词节点
+      - generic [ref=f252e155]: 说「Yes」→（Speech, Yes）双激活；说非目标词 → 只激活 Speech
+      - generic [ref=f252e156]: 放音乐 → Music；狗叫 → Dog——每段音频的声环境都显式可读
+      - generic [ref=f252e157]: 先判「是不是语音」再判「是不是关键词」，开放集天然友好
+      - generic [ref=f252e159]: γ 阈值：部署期的灵敏度旋钮
+      - generic [ref=f252e160]: γ=0.4（默认）：Common 99.85% · Difficult 82.73%
+      - generic [ref=f252e161]: γ=0.01（更灵敏）：Common 99.96% · Difficult 57.45%
+      - generic [ref=f252e162]: 安静卧室调低 γ 减漏唤醒 · 嘈杂客厅调高 γ 压误唤醒
+      - generic [ref=f252e163]: 还可组合 AT 标签做条件唤醒（Speech ∧ 目标词 ∧ …）
+      - generic [ref=f252e164]: ——论文举「儿童说话才唤醒」，但无定量实验
+      - generic [ref=f252e165]: PSL 数据流 + 输出层可剥离
+      - generic [ref=f252e168]: AS 片段 10s 弱标签
+      - generic [ref=f252e170]: → 随机裁剪 1s（对齐 KWS）
+      - generic [ref=f252e172]: → 机器标注器估计软标签
+      - generic [ref=f252e174]: → PSL 监督 527 维输出
+      - generic [ref=f252e175]: 若用原始硬标签：
+      - generic [ref=f252e176]: 「有狗叫」贴到安静
+      - generic [ref=f252e177]: 的 1s 裁剪上
+      - generic [ref=f252e178]: = 系统性标注噪声
+      - generic [ref=f252e179]: AS mAP −12.65
+      - generic [ref=f252e180]: GSCV1 −0.59（传染）
+      - generic [ref=f252e182]: BCE → 输出层可剥离（Ours-Strip）
+      - generic [ref=f252e183]: BCE 每个节点独立 sigmoid——最终线性层里不想要的标签
+      - generic [ref=f252e184]: 对应的行（权重+偏置）可直接物理删除：模型变小变快省电，
+      - generic [ref=f252e185]: 剩余标签性能不受影响
+      - generic [ref=f252e186]: CE 的 softmax 把所有类别耦合进一个归一化分布——删任何
+      - generic [ref=f252e187]: 节点都会改变剩余类的概率语义，根本不可剥离
+      - generic [ref=f252e188]: Ours-Strip：2.9M → 2.2M，GSCV1 97.53% 保持不变
+      - generic [ref=f252e189]: 产品意义：按地区/场景裁剪输出子集（音乐多的家保留
+      - generic [ref=f252e190]: Music+Speech+关键词做条件唤醒；低端设备只留 K+1 类）
+      - generic [ref=f252e191]: 一套训练产出多个部署形态——CE 框架给不了的自由度
+      - generic [ref=f252e192]: 左：目标词双激活、非目标词只激活 Speech——多标签机制天然编码了「语音检测→关键词确认」的层级。右：PSL 把 10s 弱标签转成 1s 软标签；BCE 的独立节点让输出层变成可按需裁剪的货架
+    - generic [ref=f252e193]: 图2 · 机制解剖：左是共享编码器上的两级判别结构（目标词双激活、非目标词只激活 Speech）与 γ 旋钮，右是 PSL 数据流（含不用 PSL 的代价）与输出层可剥离的产品意义。
+  - heading "§03 实验：拒识跃迁与真实世界碾压" [level=2] [ref=f252e194]:
+    - generic [ref=f252e195]: §03
+    - text: 实验：拒识跃迁与真实世界碾压
+  - generic [ref=f252e196]: 学术漏斗四层 → 小爱同学真实产品
+  - generic [ref=f252e197]:
+    - img [ref=f252e198]:
+      - generic [ref=f252e200]: 主结果：拒识率的跃迁 + 真实困难负例的碾压
+      - generic [ref=f252e201]: 拒识率/准确率（%）· Table 3
+      - generic [ref=f252e202]: "80"
+      - generic [ref=f252e204]: "85"
+      - generic [ref=f252e206]: "90"
+      - generic [ref=f252e208]: "95"
+      - generic [ref=f252e210]: "100"
+      - generic [ref=f252e214]: GSCV1
+      - generic [ref=f252e215]: 干净闭集
+      - generic [ref=f252e219]: GSCV2
+      - generic [ref=f252e220]: 域内负例
+      - generic [ref=f252e222]: "83"
+      - generic [ref=f252e225]: VL106
+      - generic [ref=f252e226]: 106 种外语
+      - generic [ref=f252e228]: "85"
+      - generic [ref=f252e231]: Musan
+      - generic [ref=f252e232]: 音乐/语声/babble
+      - generic [ref=f252e234]: 基线（纯 GSCV1·CE）
+      - generic [ref=f252e236]: 基线+AS 当噪声
+      - generic [ref=f252e238]: UniKW-AT ★
+      - generic [ref=f252e239]: 三条读数：① 纯净训练域外崩塌（VL106 −14 · Musan −13 点）；
+      - generic [ref=f252e240]: ② 把 AS 数据当噪声加进来就解决了大头（VL106 +16.33）；
+      - generic [ref=f252e241]: ③ UniKW-AT 在所有负例集不输或更优，代价是干净集 −0.22 点
+      - generic [ref=f252e243]: 诚实结论：鲁棒性大头来自「引入 AS 数据」，多标签语义框架的净增量
+      - generic [ref=f252e244]: 只有 +0.10/+0.06 点——不可替代价值在 AT 输出与条件唤醒能力，
+      - generic [ref=f252e245]: 不在拒识率本身（摘要措辞容易让读者高估框架贡献）
+      - generic [ref=f252e246]: 真实世界（小爱同学）+ 参数-精度档位
+      - generic [ref=f252e248]: 困难负例集 Difficult（3,731 条：相近发音/童声/带唱音乐）
+      - generic [ref=f252e250]: 内部模型 0%
+      - generic [ref=f252e252]: UniKW-AT 82.73%
+      - generic [ref=f252e253]: 内部模型对全部困难负例误唤醒（可能为低漏唤醒做了极端阈值，
+      - generic [ref=f252e254]: 配置未报告）；Common 集两者 99.98 vs 99.85（略逊 0.13）
+      - generic [ref=f252e255]: 真实产品 t=3s（学术 1s）——框架对目标时长不敏感
+      - generic [ref=f252e257]: 参数-精度档位（GSCV1 · 3M 以内最高）
+      - generic [ref=f252e258]: TC-ResNet8
+      - generic [ref=f252e259]: 0.06M
+      - generic [ref=f252e260]: 96.10%
+      - generic [ref=f252e261]: NAS1
+      - generic [ref=f252e262]: 0.28M
+      - generic [ref=f252e263]: 97.06%
+      - generic [ref=f252e264]: KWT-2
+      - generic [ref=f252e265]: 2.4M
+      - generic [ref=f252e266]: 97.36%
+      - generic [ref=f252e267]: UniKW-AT ★
+      - generic [ref=f252e268]: 2.9M
+      - generic [ref=f252e269]: 97.53%
+      - generic [ref=f252e270]: Wav2KWS
+      - generic [ref=f252e271]: 225M
+      - generic [ref=f252e272]: 97.90%
+      - generic [ref=f252e273]: 唯一超过它的 Wav2KWS 参数量约 80 倍且用大规模预训练
+      - generic [ref=f252e274]: AT 侧：33.42 mAP（超所有无预训练对手，参数最少）
+      - generic [ref=f252e275]: 注：VL106 = VoxLingua107 去英语后 106 种语言；Musan 含音乐/语声/babble 三类。结论部分写 VL106 99.86% 与表内 99.91 不符（疑笔误，引用注意核对）；Table 3/5 的 GSCV2 亦有 98.90/98.92 微差
+    - generic [ref=f252e276]: 图3 · 主结果：左是 Table 3 的三方对比（纯净基线域外崩塌、加 AS 数据解决大头、UniKW-AT 全面不输或更优）与诚实结论，右是真实困难负例 0%→82.73% 的碾压和参数-精度档位表。
+  - table [ref=f252e277]:
+    - rowgroup [ref=f252e278]:
+      - row [ref=f252e279]:
+        - columnheader "评测集" [ref=f252e280]
+        - columnheader "基线（纯 GSCV1）" [ref=f252e281]
+        - columnheader "基线 + AS 当噪声" [ref=f252e282]
+        - columnheader "UniKW-AT ★" [ref=f252e283]
+        - columnheader "考察什么" [ref=f252e284]
+      - row [ref=f252e285]:
+        - cell "GSCV1（干净闭集）" [ref=f252e286]
+        - cell "97.63" [ref=f252e287]
+        - cell "97.75" [ref=f252e288]
+        - cell "97.53" [ref=f252e289]
+        - cell "闭集精度（−0.22 税）" [ref=f252e290]
+      - row [ref=f252e291]:
+        - cell "GSCV2（域内负例）" [ref=f252e292]
+        - cell "97.47" [ref=f252e293]
+        - cell "98.90" [ref=f252e294]
+        - cell "98.90" [ref=f252e295]
+        - cell "域内拒识" [ref=f252e296]
+      - row [ref=f252e297]:
+        - cell "VL106（106 种外语）" [ref=f252e298]
+        - cell "83.48" [ref=f252e299]
+        - cell "99.81" [ref=f252e300]
+        - cell "99.91" [ref=f252e301]
+        - cell "跨语言外推" [ref=f252e302]
+      - row [ref=f252e303]:
+        - cell "Musan（三类噪声）" [ref=f252e304]
+        - cell "84.88" [ref=f252e305]
+        - cell "99.80" [ref=f252e306]
+        - cell "99.86" [ref=f252e307]
+        - cell "噪声鲁棒性" [ref=f252e308]
+  - generic [ref=f252e309]:
+    - generic [ref=f252e310]: 读表要点
+    - listitem [ref=f252e311]: ◈ 消融两根支柱：去随机裁剪（改零填充）GSCV1 崩到 69.59%（−27.94）且负例集「更好看」是假象——正例崩掉的镜像，模型变成极端保守的拒识机器；去 PSL 则 AS mAP 33.42→20.77、GSCV1 97.53→96.94。
+    - listitem [ref=f252e312]: ◈ 3M 参数以内 GSCV1 最高（97.53%）；唯一超过的 Wav2KWS 是 225M（约 80 倍）且用大规模预训练。AT 侧 33.42 mAP 超过所有无预训练对手、参数最少，距带 ImageNet 预训练的 EfficientNet-B0/B2 只差 0.08/0.64。
+    - listitem [ref=f252e313]: ◈ 真实产品 t=3s（学术 1s）照样工作——框架对目标时长不敏感。真实训练集 131 小时（70% 含「小爱同学」），Difficult 集 3,731 条全是相近发音（「这为同学」）、童声咿呀、带人声音乐。
+    - listitem [ref=f252e314]: ◈ 引用注意：论文内部有几处数字不一致（结论文字 VL106 99.86% vs 表内 99.91；GSCV2 98.90/98.92；AS 训练集 21,292/21,155 条）——引用时以 Table 为准并核对。
+  - heading "§04 贡献" [level=2] [ref=f252e315]:
+    - generic [ref=f252e316]: §04
+    - text: 贡献
+  - generic [ref=f252e317]: 五点：从任务表述到工程副产品
+  - generic [ref=f252e318]:
+    - generic [ref=f252e319]:
+      - generic [ref=f252e320]: "1"
+      - paragraph [ref=f252e321]: 首次提出并验证 KWS 与 AT 的统一建模：KWS 重新定义为多标签声事件检测的子任务，标签并集 + 两个映射决策构成完整可复用配方——贡献发生在任务表述层而非网络结构层。
+    - generic [ref=f252e322]:
+      - generic [ref=f252e323]: "2"
+      - paragraph [ref=f252e324]: 随机裁剪 + 伪强标签解决跨任务时长失配，并给出硬核消融（−27.94 / −12.65）——对任何想做多任务音频联合训练的人都有直接参考价值。
+    - generic [ref=f252e325]:
+      - generic [ref=f252e326]: "3"
+      - paragraph [ref=f252e327]: 端侧可行的双任务性能：单一 2.9M 模型，GSCV1 97.53% + AS 33.42 mAP，无 ImageNet 预训练无数据增强，当时参数最少的 AT 可用模型。
+    - generic [ref=f252e328]:
+      - generic [ref=f252e329]: "4"
+      - paragraph [ref=f252e330]: 噪声鲁棒性从「加噪声数据」推进到「语义化噪声」：三个域外集全面优于基线，真实产品困难负例拒识 0%→82.73%。
+    - generic [ref=f252e331]:
+      - generic [ref=f252e332]: "5"
+      - paragraph [ref=f252e333]: 工程副产品：BCE 输出节点可剥离（Ours-Strip 2.9M→2.2M 精度不损）+ γ 阈值部署期可调——「一次训练、多种部署」的机制。
+  - heading "§05 局限与判断" [level=2] [ref=f252e334]:
+    - generic [ref=f252e335]: §05
+    - text: 局限与判断
+  - generic [ref=f252e336]: 2.9M 仍偏大 · 零部署侧指标 · 条件唤醒无实验
+  - generic [ref=f252e337]:
+    - img [ref=f252e338]:
+      - generic [ref=f252e340]: 边界与延伸
+      - generic [ref=f252e342]: 技术边界
+      - generic [ref=f252e343]: · 2.9M 对 KWS 社区仍偏大（论文自认）：TC-ResNet8 只要 0.06M，
+      - generic [ref=f252e344]: 差近 50 倍；Ours-Strip 压到 2.2M 但离微型档仍有数量级差距，
+      - generic [ref=f252e345]: 无量化/剪枝/蒸馏配套——几百 KB 内存的 MCU 上不去
+      - generic [ref=f252e346]: · 干净集有可感知精度税：97.53 低于 Baseline w/AS 的 97.75 与
+      - generic [ref=f252e347]: Wav2KWS 的 97.90——537 维输出稀释容量 + 阈值后处理摩擦
+      - generic [ref=f252e348]: · 鲁棒性主要来源存疑：净增量只有 +0.10/+0.06（见主结果）
+      - generic [ref=f252e349]: · PSL 依赖外部机器标注器：多一个组件要维护，标注器质量=PSL
+      - generic [ref=f252e350]: 上限，推理成本未报告，新类/新语言覆盖是隐性约束
+      - generic [ref=f252e351]: · 条件唤醒无定量实验：逻辑上支持，全文没有一个实验数字
+      - generic [ref=f252e353]: 实验边界 + 延伸
+      - generic [ref=f252e354]: · 零部署侧指标：延迟/实时率/内存/功耗一项未报——「端侧可行」
+      - generic [ref=f252e355]: 只是参数量推断
+      - generic [ref=f252e356]: · 指标体系学术：闭集准确率+全量拒识率，无 FA/h 下的 FRR 或
+      - generic [ref=f252e357]: DET 曲线，与真实验收指标无法直接换算
+      - generic [ref=f252e358]: · 对比不对齐处：YAMNet 配置未说明；内部模型 0% 无配置细节；
+      - generic [ref=f252e359]: 正文与表格多处数字微差（21292/21155 等）
+      - generic [ref=f252e360]: · 规模未探明：AS 只用 balanced 58h（200 万片段未用）；K 只验了
+      - generic [ref=f252e361]: 10 和 1；真实实验仅中文单语
+      - generic [ref=f252e362]: 延伸：接入 AS unbalanced 全量（PSL 本就为弱监督设计）；量化+蒸馏
+      - generic [ref=f252e363]: 压进微型档；条件唤醒定量验证；多语种/多关键词复验；输出层级化
+      - generic [ref=f252e364]: （Audioset 本体树做层级损失）；从打标走向时序定位（SED）
+      - generic [ref=f252e365]: 可迁移判断：联合训练的收益前提是两路监督都足够干净——任何一路的标注噪声都会通过共享编码器传染另一路；而数据工程（时长对齐）比任何结构设计都致命
+    - generic [ref=f252e366]: 图4 · 边界与延伸：左技术边界（参数偏大、干净集精度税、鲁棒性来源存疑、PSL 依赖外部标注器、条件唤醒无定量），右实验边界（零延迟/功耗数据、学术指标体系、对比不对齐、规模未探明）+ 延伸方向。
+  - generic [ref=f252e367]:
+    - generic [ref=f252e368]: 可迁移判断
+    - paragraph [ref=f252e369]: ↳ 联合训练的收益前提是两路监督都干净：AT 侧的标签噪声会通过共享编码器污染 KWS 分支的表征（PSL 消融里 GSCV1 也掉了 0.59）——多任务框架里任何一路的脏监督都是全体的税。
+    - paragraph [ref=f252e370]: ↳ 数据工程比结构设计致命：时长对齐这个最不起眼的环节错了直接崩 27.94 个点，比任何网络结构选择的影响都大——先对齐数据统计，再谈模型。
+    - paragraph [ref=f252e371]: ↳ 拒识桶应该语义化：把无结构的 unknown 桶升级为一组显式类别，负向判断变正向判断——泛化能力的来源是每个类别背后有真实数据支撑，这条对任何开放集识别问题都成立。
+    - paragraph [ref=f252e372]: ↳ 选损失函数要看部署形态：CE 的 softmax 把所有类别耦合进归一化分布，不可裁剪；BCE 的独立节点让输出层变成可按需裁剪的货架——如果产品要「一套训练多种部署」，这个数学性质就是选型依据。
+  - generic [ref=f252e373]:
+    - link "arXiv 2209.11377 ↗" [ref=f252e374] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2209.11377
+    - link "← 返回总目录" [ref=f252e375] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f252e376]: 笔记与可视化页基于 arXiv v1 整理 · 论文自称 initial approach，是「KWS 是 AT 子问题」表述的开山之作 · 2022 №39 · 182+/305
