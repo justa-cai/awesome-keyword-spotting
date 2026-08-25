@@ -1,7 +1,7 @@
 # 可视化精读计划（VIZ_PLAN）
 
 > 逐篇把 305 篇深读笔记重写为 HTML+SVG 可视化页（2026→2018 倒序）。
-**进度：127 / 305**
+**进度：128 / 305**
 > 进度以本文件为准；`viz_manifest.json` 是机器可读版（站点 viz 按钮按它门控）。
 
 ## 2026（24/24）
@@ -117,7 +117,7 @@
 - [✅] Utilizing TTS Synthesized Data for Efficient Development o…
 - [✅] Wake Word and Speech Recognition Application on Edge Devic…
 
-## 2023（23/41）
+## 2023（24/41）
 
 - [✅] A 3.8μW 10 关键词抗噪关键词检出处理器：对称压缩三值权重神经网络
 - [✅] 少神经元神经形态关键词检测的时间编码器对比：TDE 与双突触 E-I 元件
@@ -142,7 +142,7 @@
 - [✅] Matching Latent Encoding for Audio-Text based Keyword Spot…
 - [✅] Meta-AF Echo Cancellation for Improved Keyword Spotting
 - [✅] Multichannel Voice Trigger Detection Based on Transform-Av…
-- [⬜] Multilingual Query-by-Example Keyword Spotting with Metric…
+- [✅] Multilingual Query-by-Example Keyword Spotting with Metric…
 - [⬜] On-Device Constrained Self-Supervised Speech Representatio…
 - [⬜] On-Device Customization of Tiny Deep Learning Models for K…
 - [⬜] TAP-SLDA：用高阶时间统计量池化实现低资源设备关键词检测的在线持续学习
