@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>正交性正则化：KWS 与说话人验证的联合解耦学习</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 15.5px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  table.tb { width: 100%; border-collapse: collapse; margin: 18px 0; background: var(--card);
+    border-radius: 12px; overflow: hidden; font-size: 13.8px; }
+  table.tb th { background: var(--acc-lt); color: var(--acc-dk); font-weight: 700;
+    padding: 10px 12px; text-align: left; }
+  table.tb td { padding: 9px 12px; border-top: 1px solid var(--line); color: var(--ink2); }
+  table.tb td b { color: var(--ink); }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №25</div>
+  <h1 class="hero">「说什么词」⊥「谁说的」：<br>一个内积损失做<span class="g">双向解耦</span></h1>
+  <div class="chips">
+    <span class="chip">北大深研院 ADSPLAB × 小米 · arXiv 2203.16772</span>
+    <span class="chip">KWS + SV 联合训练</span>
+    <span class="chip">正交性正则 L_orth</span>
+    <span class="chip">GSCD 英文 + 小米中文唤醒词</span>
+  </div>
+  <div class="meta">独立训练的 KWS 隐含说话人偏差（男声训练集 → 女性唤醒率降）、SV 隐含内容偏差——一个对称的双分支网络加正交约束，两个任务同时涨、参数还省三成。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>场景</b>：智能设备唤醒时既要确认「说了正确的词」（KWS）又要验证「是授权用户说的」（SV）——两个功能同时、连续运行；同一段语音同时编码内容与身份两类信息。</li>
+      <li><b>独立训练的偏差</b>：KWS 可能隐含编码说话人信息（对特定说话人更敏感、不公平）；SV 可能隐含编码内容信息（对高频词验证更准）——耦合表示在对抗攻击前也更脆弱。</li>
+      <li><b>老路线的坑</b>：串联/注意力的信息流单向且不保证「净化」（辅助信息可能带噪声）；双重注意力无显式解耦——表示是混合的；对抗解耦（GRL）min-max 不稳定、只能单向、难调参。</li>
+      <li><b>方法</b>：共享 1D 卷积底层（通用声学特征）→ 对称双分支 GRU（各 128 维）→ 正交约束 L_orth = ‖(1/N)Σ f_KWS·(f_SV)ᵀ‖²_F——内积为零意味着任何维度上都没有共变关系。</li>
+      <li><b>为什么正交合适</b>：优化上良态（二次函数、梯度连续——不像 min-max 有不连续梯度）；天然双向（f_KWS⊥f_SV ⟺ f_SV⊥f_KWS）；一个标量损失同时解决两个方向。</li>
+      <li><b>总损失</b>：L_KWS + L_SV + λ·L_orth，每个分支 = CE + α·Triplet——CE 优化分类面、Triplet 优化嵌入结构，两者互补。</li>
+      <li><b>主结果</b>：KWS EER 1.31%（独立训练 1.8–2.0，相对降 30–35%）；SV EER 1.87%（独立 2.2–2.5，相对降 15–25%）；参数 280K = 独立模型总和的 60–70%。</li>
+      <li><b>打破固有认知</b>：联合训练必然性能折衷？——信息被正确解耦后共享底层特征被两个互补监督共同打磨，反而更好（双赢）。</li>
+      <li><b>消融</b>：有 vs 无正交 KWS 准确率 +1–2%、SV EER −0.5~1 点——解耦不是限制表达而是去干扰；λ∈[0.1,1.0] 稳定（&lt;0.3%）、最优 0.5、&gt;10 被正交主导；去三元组掉 0.5–1%。</li>
+      <li><b>边界</b>：线性正交 ≠ 高阶独立（f² 间可能仍相关）；对称架构要求同维；batch 内均值近似有误差；文本相关 SV 可能过严；全干净条件无噪声测试；未与 HSIC/CCA 对比。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：互相污染的双任务特征</h2>
+  <div class="h2sub">判别目标正交但底层表示共享</div>
+  <p class="lead">人类听觉系统能自然分离「说什么」和「谁说的」，人工神经网络能否学会这种分离是本文的研究问题。KWS 与 SV 使用不同数据集和架构独立训练，无法利用两任务间的互补信息——更深层的问题是互相隐含编码对方的信息产生偏差，对公平性（不同性别/年龄/口音用户的一致服务质量）和安全性（模仿攻击绕过双重验证）都有影响。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>单向信息流的局限</h4>
+      <p>串联（SV 特征拼接到 KWS 特征后）或注意力（SV 特征加权 KWS 特征）——信息流单向，缺乏双向交互与互惠学习；更无法保证「净化」：SV 特征中混入的内容信息可能误导 KWS。</p>
+    </div>
+    <div class="card bad">
+      <h4>对抗解耦的三个根本困难</h4>
+      <p>梯度反转层需要额外判别器在 min-max 博弈中优化——判别器与主干需精确平衡否则发散；只能保证单向解耦；对抗损失对 λ 极其敏感。正交性正则三个困难全部绕开。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：对称双分支 + 内积正则</h2>
+  <div class="h2sub">几何意义清晰的最小改动</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 960">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="960.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">「说什么词」⊥「谁说的」：一个内积损失做双向解耦</text>
+<line x1="36.0" y1="60.0" x2="540.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 场景与偏差</text>
+<rect x="36.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两个任务同时、连续运行</text>
+<text x="52.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 判断「说了什么词」（唤醒词检测）</text>
+<text x="52.0" y="154.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SV 判断「是谁说的」（声纹认证，只有主人能唤醒）</text>
+<text x="52.0" y="167.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">同一段语音同时编码内容信息（音素序列+韵律）与</text>
+<text x="52.0" y="179.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  身份信息（声道长度、声带特性、发音习惯）</text>
+<text x="52.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">人类听觉自然分离这两类信息——ANN 能学会吗？</text>
+<rect x="474.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">独立训练的两个隐含偏差</text>
+<text x="490.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 隐含编码说话人信息 → 对特定说话人更敏感</text>
+<text x="490.0" y="154.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （男声为主的训练集 → 女性用户唤醒率下降）</text>
+<text x="490.0" y="167.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SV 隐含编码语言内容 → 对高频词验证更准（内容依赖偏差）</text>
+<text x="490.0" y="179.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">耦合表示在对抗攻击前更脆弱——模仿目标说话人</text>
+<text x="490.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  的声音可能绕过 SV+KWS 双重验证</text>
+<text x="36.0" y="218.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 对称双分支 + 正交约束</text>
+<rect x="36.0" y="234.0" width="200.0" height="120.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="136.0" y="258.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">共享时间卷积层</text>
+<text x="136.0" y="280.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2–3 层 1D 卷积</text>
+<text x="136.0" y="294.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">输入 40 维梅尔能量</text>
+<text x="136.0" y="308.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">低级声学特征（频谱包络、</text>
+<text x="136.0" y="322.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">短时动态）对两任务通用</text>
+<line x1="236.0" y1="284.0" x2="260.0" y2="264.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<line x1="236.0" y1="304.0" x2="260.0" y2="324.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="260.0" y="234.0" width="250.0" height="56.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="385.0" y="256.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 分支：GRU ×2–3（128 维）</text>
+<text x="385.0" y="276.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">输出 f_KWS ∈ R^128</text>
+<rect x="260.0" y="300.0" width="250.0" height="56.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="385.0" y="322.0" font-size="10.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SV 分支：GRU ×2–3（同结构）</text>
+<text x="385.0" y="342.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">输出 f_SV ∈ R^128</text>
+<rect x="530.0" y="234.0" width="354.0" height="122.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="707.0" y="256.0" font-size="11.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">正交性正则（核心约束）</text>
+<text x="707.0" y="278.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">L_orth = ‖ (1/N) Σ f_KWS·(f_SV)ᵀ ‖²_F</text>
+<text x="707.0" y="300.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">内积为零 = 两个向量在任何维度上都没有共变关系</text>
+<text x="707.0" y="315.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">→ f_KWS 不含说话人线性信息 / f_SV 不含内容线性信息</text>
+<text x="707.0" y="330.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">对称：f_KWS ⊥ f_SV ⟺ f_SV ⊥ f_KWS（天然双向）</text>
+<text x="460.0" y="376.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么对称双分支：正交约束在两个同维特征空间上操作，几何意义清晰；为什么共享底层：低级声学特征本就是两任务共同需要的基础表示</text>
+<text x="36.0" y="400.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 总损失与「为什么不用对抗解耦」</text>
+<rect x="36.0" y="414.0" width="414.0" height="118.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="438.0" font-size="12.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">L_total = L_KWS + L_SV + λ·L_orth</text>
+<text x="52.0" y="460.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">L_KWS = CE(关键词) + α·Triplet(关键词)</text>
+<text x="52.0" y="471.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">L_SV = CE(说话人) + α·Triplet(说话人)</text>
+<text x="52.0" y="483.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="494.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">CE 优化「分类面」，Triplet 优化「嵌入空间结构」——互补</text>
+<text x="52.0" y="506.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">协同：Triplet 拉出紧凑类簇，正交性保证 KWS 簇和 SV 簇</text>
+<text x="52.0" y="517.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  落在不同子空间——共同创造结构良好的双任务嵌入空间</text>
+<rect x="474.0" y="414.0" width="414.0" height="118.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="490.0" y="438.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">对抗解耦（GRL）的三个根本困难</text>
+<text x="490.0" y="460.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">① min-max 优化不稳定——判别器与主干需精确平衡否则发散</text>
+<text x="490.0" y="471.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② 只能单向解耦（KWS 去说话人 ≠ SV 去内容）</text>
+<text x="490.0" y="483.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 对抗损失难调参（λ 对稳定性影响极大）</text>
+<text x="490.0" y="494.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="506.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">正交性：无需额外判别器（只算内积）、梯度良态连续、</text>
+<text x="490.0" y="517.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  一个标量损失同时解决两个方向的解耦</text>
+<rect x="36.0" y="548.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="574.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1.31%</text>
+<text x="130.0" y="594.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS EER（独立训练 1.8–2.0）</text>
+<text x="298.0" y="574.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1.87%</text>
+<text x="298.0" y="594.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">SV EER（独立训练 2.2–2.5）</text>
+<text x="466.0" y="574.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−30~40%</text>
+<text x="466.0" y="594.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数 vs 两个独立模型总和</text>
+<text x="634.0" y="574.0" font-size="14.5" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">λ=0.5</text>
+<text x="634.0" y="594.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">正交权重最优点</text>
+<text x="802.0" y="574.0" font-size="14.5" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2 数据集</text>
+<text x="802.0" y="594.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GSCD 英文 + 小米中文唤醒词</text>
+<text x="36.0" y="632.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">信息论视角：线性正交（E[f_KWS·f_SVᵀ]≈0）是互信息为零的必要非充分条件——高阶统计依赖可能残留；正交向量集在 d 维空间信息压缩效率最优（每维携带独特信息）</text>
+</svg>
+    <p class="cap"><b>图1 · 机制全景</b>：双任务场景与两个隐含偏差；对称双分支架构与正交约束（内积为零 = 无共变）；总损失（CE+Triplet 互补）与对抗解耦的三个根本困难对照。</p>
+  </div>
+  </div>
+  <div class="formula">
+    <div class="f">L_total = L_KWS + L_SV + λ·L_orth　；　L_orth = ‖(1/N) Σᵢ f_KWSⁱ·(f_SVⁱ)ᵀ‖²_F</div>
+    <div class="why"><b>人话</b>：batch 内把每个样本的 KWS 特征与 SV 特征做内积再取平均——最小化它的范数，就是逼两个特征空间<b>统计上互不共变</b>。信息论视角：线性正交是互信息为零的必要条件（非充分——高阶依赖可能残留）；正交向量集在 d 维空间信息压缩效率最优（每维携带独特信息无冗余）。</div>
+  </div>
+  <p class="sub"><b>为什么对称双分支</b>：两个分支同结构同维度，正交约束才在几何上有意义（d 维向量内积良定义）；<b>为什么共享底层卷积</b>：低级声学特征（频谱包络形状、短时能量变化）本就是两个任务共同需要的基础表示。若两任务最优架构差异大（KWS 要 CNN、SV 要 Transformer），需额外线性投影到同维。</p>
+
+  <h2><span class="no">§03</span>实验：双赢的联合训练</h2>
+  <div class="h2sub">GSCD 英文 + 小米中文唤醒词（约 1000 说话人 × 4 环境）</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主对比：参数更少，两个任务同时更好（双赢）</text>
+<line x1="36.0" y1="56.0" x2="480.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="330.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">EER（%，GSCD）· 独立模型为区间中值示意</text>
+<rect x="70.0" y="112.0" width="520.0" height="50.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="84.0" y="142.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 独立模型</text>
+<rect x="290.0" y="124.0" width="65.6" height="12.0" rx="3" fill="#9fc8b8"/>
+<text x="359.6" y="134.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">1.8–2.0</text>
+<text x="302.0" y="154.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS</text>
+<text x="560.0" y="142.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">200K</text>
+<rect x="70.0" y="174.0" width="520.0" height="50.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="84.0" y="204.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SV 独立模型</text>
+<rect x="430.0" y="186.0" width="23.4" height="12.0" rx="3" fill="#c9d8e8"/>
+<text x="457.4" y="196.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">2.2–2.5</text>
+<text x="442.0" y="216.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SV</text>
+<text x="560.0" y="204.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">200K</text>
+<rect x="70.0" y="236.0" width="520.0" height="50.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="84.0" y="266.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">联合训练（无正交）</text>
+<rect x="290.0" y="248.0" width="103.1" height="12.0" rx="3" fill="#9fc8b8"/>
+<text x="397.1" y="258.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">1.50</text>
+<text x="302.0" y="278.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS</text>
+<rect x="430.0" y="248.0" width="56.3" height="12.0" rx="3" fill="#c9d8e8"/>
+<text x="490.2" y="258.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">2.00</text>
+<text x="442.0" y="278.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SV</text>
+<text x="560.0" y="266.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">280K</text>
+<rect x="70.0" y="298.0" width="520.0" height="50.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="84.0" y="328.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">联合 + 正交 ★</text>
+<rect x="290.0" y="310.0" width="120.9" height="12.0" rx="3" fill="#0b6e52"/>
+<text x="414.9" y="320.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">1.31</text>
+<text x="302.0" y="340.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS</text>
+<rect x="430.0" y="310.0" width="68.4" height="12.0" rx="3" fill="#33507a"/>
+<text x="502.4" y="320.0" font-size="9" fill="#33507a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">1.87</text>
+<text x="442.0" y="340.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SV</text>
+<text x="560.0" y="328.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">280K</text>
+<text x="560.0" y="102.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数</text>
+<rect x="70.0" y="362.0" width="520.0" height="26.0" rx="6" fill="#e6f4ee"/>
+<text x="330.0" y="379.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">联合模型 = 独立模型总和的 60–70%（共享底层卷积省约 120K 参数）</text>
+<text x="36.0" y="420.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">打破「联合训练必然性能折衷」的固有认知——两个任务的信息被正确解耦后，共享底层特征被两个互补监督信号共同打磨，反而更好；中文数据集（小米约 1000 说话人 × 4 环境）同样显著提升（具体数字未公开）</text>
+</svg>
+    <p class="cap"><b>图2 · 主对比</b>：独立训练 vs 联合无正交 vs 联合+正交——两个任务 EER 同时下降，参数只有独立模型总和的 60–70%（双赢）。</p>
+  </div>
+  </div>
+  <table class="tb">
+    <tr><th>方法</th><th>KWS EER（%）</th><th>SV EER（%）</th><th>参数量</th></tr>
+    <tr><td>KWS 独立模型</td><td>1.8–2.0</td><td>—</td><td>~200K</td></tr>
+    <tr><td>SV 独立模型</td><td>—</td><td>2.2–2.5</td><td>~200K</td></tr>
+    <tr><td>联合训练（无正交）</td><td>~1.5</td><td>~2.0</td><td>~280K</td></tr>
+    <tr class="hl"><td><b>联合训练 + 正交（本文）</b></td><td><b>1.31</b></td><td><b>1.87</b></td><td><b>~280K</b></td></tr>
+  </table>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融：λ 扫描 · 三元组 α · 有/无正交</text>
+<line x1="36.0" y1="56.0" x2="400.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="230.0" y="92.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">λ（正交权重）vs 准确率（示意形态）</text>
+<rect x="60.0" y="112.0" width="340.0" height="200.0" rx="6" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="70.0" y1="265.0" x2="390.0" y2="265.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="66.0" y="268.0" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.90</text>
+<line x1="70.0" y1="215.0" x2="390.0" y2="215.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="66.0" y="218.0" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.94</text>
+<line x1="70.0" y1="165.0" x2="390.0" y2="165.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="66.0" y="168.0" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.98</text>
+<line x1="84.0" y1="196.3" x2="87.0" y2="171.3" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="87.0" y1="171.3" x2="91.4" y2="167.5" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="91.4" y1="167.5" x2="98.8" y2="165.0" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="98.8" y1="165.0" x2="113.6" y2="167.5" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="113.6" y1="167.5" x2="232.0" y2="215.0" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="232.0" y1="215.0" x2="380.0" y2="265.0" stroke="#0b6e52" stroke-width="2.2"/>
+<circle cx="84.0" cy="196.3" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<circle cx="87.0" cy="171.3" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<circle cx="91.4" cy="167.5" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<circle cx="98.8" cy="165.0" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<circle cx="113.6" cy="167.5" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<circle cx="232.0" cy="215.0" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<circle cx="380.0" cy="265.0" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<circle cx="98.8" cy="165.0" r="10" fill="none" stroke="#d97a2b" stroke-width="2.5"/>
+<text x="98.8" y="149.0" font-size="9.5" fill="#b25f1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">λ=0.5 最优</text>
+<text x="84.0" y="304.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.0</text>
+<text x="98.8" y="304.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.5</text>
+<text x="113.6" y="304.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1.0</text>
+<text x="380.0" y="304.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10.0</text>
+<text x="230.0" y="326.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">λ（log 间距示意）</text>
+<text x="150.0" y="152.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">λ=0 退化标准联合训练</text>
+<text x="230.0" y="242.0" font-size="8.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">λ&gt;10 正交主导，</text>
+<text x="230.0" y="255.0" font-size="8.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">分类梯度被压制</text>
+<text x="670.0" y="92.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">其他消融（约 值）</text>
+<rect x="500.0" y="112.0" width="340.0" height="44.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="130.0" font-size="10" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">有 vs 无正交</text>
+<text x="514.0" y="146.0" font-size="9" fill="#0b6e52" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 准确率 +1–2%；SV EER −0.5~1 点</text>
+<rect x="500.0" y="164.0" width="340.0" height="44.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="182.0" font-size="10" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">λ ∈ [0.1, 1.0]</text>
+<text x="514.0" y="198.0" font-size="9" fill="#5aa886" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">效果稳定（准确率变化 &lt;0.3%）</text>
+<rect x="500.0" y="216.0" width="340.0" height="44.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="234.0" font-size="10" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">α = 0（去三元组）</text>
+<text x="514.0" y="250.0" font-size="9" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率 −0.5~1%——嵌入结构贡献显著</text>
+<rect x="500.0" y="268.0" width="340.0" height="44.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="286.0" font-size="10" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">α ∈ [0.1, 0.5]</text>
+<text x="514.0" y="302.0" font-size="9" fill="#5aa886" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">最佳区间</text>
+<rect x="500.0" y="322.0" width="340.0" height="40.0" rx="6" fill="#eef6f1"/>
+<text x="670.0" y="338.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">关键发现：解耦没有损害性能——反而帮每个</text>
+<text x="670.0" y="352.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">分支学到更「纯净」的判别特征</text>
+<text x="36.0" y="412.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：正交约束的限制不是「解耦限制了表达能力」——KWS 分支不再被说话人信息干扰、SV 分支不再被内容信息干扰，各自更专注自己的判别任务</text>
+</svg>
+    <p class="cap"><b>图3 · 消融（约 值 / 示意形态）</b>：λ 扫描的甜点与失稳区（0.5 最优、&gt;10 被正交主导）；有/无正交与三元组 α 的贡献——解耦不是限制表达而是去干扰。</p>
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 对称架构要求：两分支需同维才能让内积良定义——</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  KWS 要 CNN 而 SV 要 Transformer 时需额外线性投影</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 线性正交 ≠ 高阶独立：f_KWS² 与 f_SV² 可能相关但线性</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  正交——KWS 特征可能仍含说话人的高阶信息</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· batch 内均值近似总体期望：小 batch 时近似误差大，</text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  正交性约束效果不稳定</text>
+<text x="72.0" y="238.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· λ 与 α 需按数据重调（虽 [0.1,1.0] 内稳定）</text>
+<text x="72.0" y="265.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="278.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 文本相关 SV（语音密码）中两任务信息耦合更强——</text>
+<text x="72.0" y="292.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  正交可能过严，约束掉对两任务都有用的信息</text>
+<text x="72.0" y="305.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="319.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全部干净条件下实验：噪声/远场/混响未测；</text>
+<text x="72.0" y="332.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  未与 HSIC / CCA 等其他独立性度量对比</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸方向</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 非线性独立：HSIC 在 RKHS 度量独立性，捕获高阶依赖</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——计算从 O(d) 涨到 O(N²)（N 为 batch）</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多任务扩展：KWS+SV+情感+语言识别——M 个任务需</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  约束 C(M,2) 对特征两两正交</text>
+<text x="536.0" y="197.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 自适应 λ：训练初期小（自由学习）、后期大（强制解耦）</text>
+<text x="536.0" y="224.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">·「联合+解耦」设计原则可推广：KWS+VAD、</text>
+<text x="536.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  SV+反欺骗检测等多任务语音场景</text>
+<text x="536.0" y="265.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="278.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 统一声学前端 + 正交解耦，替代独立模块部署</text>
+<text x="36.0" y="412.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：两任务共享底层但判别目标正交时，「联合训练 + 显式解耦」优于独立部署——互补监督打磨共享特征，解耦约束又防止信息互相污染</text>
+</svg>
+    <p class="cap"><b>图4 · 边界与延伸</b>：线性正交≠高阶独立、对称架构要求、batch 近似误差、文本相关 SV 风险、无噪声测试；HSIC/多任务/自适应 λ/联合+解耦设计原则等延伸。</p>
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：四条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>正交性正则首次用于 KWS-SV 双向特征解耦</b>：一个简单标量损失（内积范数）同时解决两个方向的解耦，避开对抗训练的复杂与不稳定。</p></div>
+    <div class="row"><div class="n">2</div><p><b>互惠学习的实证</b>：中英文双数据集证明联合训练 + 正交不仅不折衷，反而同时提升两个任务的性能——打破「联合必折衷」认知。</p></div>
+    <div class="row"><div class="n">3</div><p><b>效率提升</b>：共享底层省约 30–40% 参数——存储计算受限设备上的部署优势。</p></div>
+    <div class="row"><div class="n">4</div><p><b>偏差缓解</b>：正交约束天然缓解 KWS 说话人偏差与 SV 内容偏差——公平性（所有用户群体一致服务质量）与安全性收益。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">线性正交的天花板</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>线性 ≠ 高阶独立</h4>
+      <p>正交保证线性相关性为零，但 f_KWS² 与 f_SV² 可能统计相关——KWS 特征可能仍含说话人的高阶信息；HSIC 等核方法可捕获高阶依赖但计算从 O(d) 涨到 O(N²)。</p>
+    </div>
+    <div class="card bad">
+      <h4>对称架构 + batch 近似</h4>
+      <p>两分支需同维（内积良定义）——最优架构差异大时需额外投影；L_orth 用 batch 内均值近似总体期望，小 batch 时误差大约束不稳。</p>
+    </div>
+    <div class="card bad">
+      <h4>文本相关 SV 可能过严</h4>
+      <p>语音密码场景中 SV 必须同时验证「说了什么」和「谁说的」——两任务信息耦合更强，正交可能约束掉对两任务都有用的信息。</p>
+    </div>
+    <div class="card bad">
+      <h4>验证范围</h4>
+      <p>全部干净条件下实验——噪声/远场/混响未测（共享底层特征质量下降时正交是否仍有效未知）；未与 HSIC/CCA 等其他独立性度量系统对比；中文数据集未公开、只报相对趋势；λ 与 α 需按数据重调。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>两任务共享底层但判别目标正交时，「联合训练 + 显式解耦」优于独立部署——互补监督打磨共享特征，解耦约束防止信息互相污染。</li>
+      <li>对抗训练能做的解耦，先看一个内积正则能不能做——良态梯度、天然双向、零额外网络，性价比高一个数量级。</li>
+      <li>解耦约束不是表达能力的敌人：去掉干扰信息后每个分支反而更专注——担心「约束限制表达」前先做消融。</li>
+      <li>特征空间的偏差（说话人/内容）会在下游变成产品的不公平——公平性问题的源头可能在表示层而不在决策层。</li>
+      <li>多任务扩展的成本是组合数：M 个任务需 C(M,2) 对两两正交约束——任务数增长时约束数量平方级增长。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2203.16772" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="Learning_Decoupling_Features_Through_Orthogonality_Regularization.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
