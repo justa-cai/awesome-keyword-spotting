@@ -1,7 +1,7 @@
 # 可视化精读改写计划（VIZ_PLAN）
 
 按年份倒序把全部论文笔记重写为自包含 HTML+SVG 可视化精读页。每篇：读笔记 → python 生成 4 张 SVG → 注入统一模板 HTML → 校验 → 截图自查 → 提交推送。
-**总进度：217 / 305**
+**总进度：218 / 305**
 
 ## 2026（24 篇）
 **进度：24 / 24**
@@ -243,12 +243,12 @@
 - [⬜] Zero-Shot Federated Learning with New Classes for Audio Classification
 
 ## 2020（29 篇）
-**进度：3 / 29**
+**进度：4 / 29**
 
 - [x] A Depthwise Separable Convolutional Neural Network for Keyword Spotting on an Embedded System
 - [⬜] AutoKWS: Keyword Spotting with Differentiable Architecture Search
 - [x] Depthwise Separable Convolutional ResNet with Squeeze-and-Excitation Blocks for Small-footprint Keyword Spotting
-- [⬜] Domain Aware Training for Far-field Small-footprint Keyword Spotting
+- [x] Domain Aware Training for Far-field Small-footprint Keyword Spotting
 - [⬜] End-to-End Multi-Look Keyword Spotting
 - [⬜] Exploring Filterbank Learning for Keyword Spotting
 - [⬜] Few-Shot Keyword Spotting With Prototypical Networks
