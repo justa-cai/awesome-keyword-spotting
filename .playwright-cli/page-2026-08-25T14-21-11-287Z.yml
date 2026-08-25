@@ -1,0 +1,270 @@
+- generic [ref=f265e2]:
+  - generic [ref=f265e3]: 论文精读 · 可视化版 · 2021 №3
+  - heading "别转写成文字再理解： 语音直连意图，KWS 只是其中一个特例" [level=1] [ref=f265e4]: 别转写成文字再理解：语音直连意图，KWS 只是其中一个特例
+  - generic [ref=f265e5]:
+    - generic [ref=f265e6]: Streaming E2E SLU · 滑铁卢 + 华为 + 清华
+    - generic [ref=f265e7]: arXiv 2105.10042 · 流式 Conformer
+    - generic [ref=f265e8]: 因果注意力 + LCA 限窗 + 分块推理
+    - generic [ref=f265e9]: 延迟 200–400ms（级联 500–800）· KWS 差距 <1%
+  - generic [ref=f265e10]: 一句话：级联 ASR→NLU 的四个老毛病——错误传播、延迟叠加、优化目标错位、配对数据贵。本文把语音直接映射到意图（无中间文本），用流式 Conformer（因果注意力 + 有限上下文窗口 + 因果卷积）做分块增量推理，多任务头联合 ASR 辅助（CTC）与意图分类。KWS 被统一为意图检测的特例——关键词即意图类别，与复杂意图任务共享同一编码器；端到端延迟比级联低 40–60%，意图准确率差距 1–2%，KWS 性能与专用模型差不到 1%。
+  - generic [ref=f265e11]:
+    - generic [ref=f265e12]: TL;DR
+    - listitem [ref=f265e13]: ◈ 级联四缺陷有数字：ASR 词错率 5%→15% 时意图准确率掉 10–20%（错误传播）；级联延迟约 500–800ms，而 200–300ms 以上就伤体验；ASR 优化字级准确率、SLU 要意图级——目标错位；三方标注（音频-文本-意图）成本高。
+    - listitem [ref=f265e14]: ◈ 流式编码器三刀：因果注意力（砍掉「看未来」的上三角）、有限上下文注意力 LCA（每帧只看自身和前 L 帧，L=10–50，复杂度 O(T²)→O(T·L)）、卷积模块因果化（左侧填充）——Conformer 的卷积+自注意力混合骨干本来就比纯 Transformer 高 1–2%。
+    - listitem [ref=f265e15]: ◈ 分块推理：音频切成重叠分块（320/640ms），每块独立编码 + carryover 状态缓存（前块信息传下块，模拟有限回看），块级中间预测聚合出最终判定——分块大小同时是延迟下限与上下文预算。
+    - listitem [ref=f265e16]: ◈ 多任务头：L = α·L_CTC + (1−α)·L_intent——CTC 给编码器帧级声学对齐监督（不需要帧级标注），消融显示这层辅助值 2–5%（意图）/1–3%（KWS）。α 是「给谁让路」的旋钮：0.3 SLU 最佳、0.7 ASR 最佳、0.4–0.5 平衡。
+    - listitem [ref=f265e17]: ◈ KWS = 意图检测特例：关键词 ↔ 意图类别，非关键词 ↔ 无意图——KWS 与复杂意图共享同一流式编码器，部署少一份模型；KWS 性能与 DS-CNN/CRNN 差距 <1%，副产品几乎白拿。
+    - listitem [ref=f265e18]: ◈ 甜点与税：分块 160→1280ms 准确率持续升、延迟线性涨，640ms 是平衡点；上下文窗口收益 L=30 帧后递减；流式相对全上下文的固有税 2–4%——这是只用历史信息的代价。
+    - listitem [ref=f265e19]: ◈ 有意思的反超：部分意图类别端到端优于级联——ASR 容易识别错但语义无关的词，端到端直接跳过、只看语义关键信息——这正是「优化目标对齐」的红利。
+    - listitem [ref=f265e20]: ◈ 边界：配对标注仍贵（意图标注成本高）；框架复杂度对 KWS-only 场景是杀鸡用牛刀；长尾意图可能不如级联（NLU 能用文本预训练知识）；未在真实边缘设备实测延迟。
+  - heading "§01 问题：级联流水线的四个老毛病" [level=2] [ref=f265e21]:
+    - generic [ref=f265e22]: §01
+    - text: 问题：级联流水线的四个老毛病
+  - generic [ref=f265e23]: 错误传播 · 延迟叠加 · 目标错位 · 数据昂贵
+  - generic [ref=f265e24]:
+    - generic [ref=f265e25]:
+      - heading "错误传播有量化" [level=3] [ref=f265e26]
+      - paragraph [ref=f265e27]: ASR 词错率从 5% 升到 15%，SLU 意图分类准确率可能掉 10–20%——下游性能被上游绑架。NLU 模块拿到的已经是带噪文本，识别错的关键音素无法在文本层挽回。
+    - generic [ref=f265e28]:
+      - heading "延迟叠加 + 目标错位" [level=3] [ref=f265e29]
+      - paragraph [ref=f265e30]: 两段推理延迟叠加到 500–800ms，实时助手场景 200–300ms 以上就显著伤体验；ASR 优化字/词级识别、SLU 需要意图级分类——ASR 可能在语义无关细节上过度优化，却错判对意图关键的信息。
+    - generic [ref=f265e31]:
+      - heading "流式的独特挑战" [level=3] [ref=f265e32]
+      - paragraph [ref=f265e33]: 端到端 SLU 不等于流式端到端——流式要求只用当前和过去的信息（不等待未来上下文）还能准确分类。对 KWS 这个 SLU 子任务，流式是刚需：系统必须实时监听即时响应。
+    - generic [ref=f265e34]:
+      - heading "KWS 的位置" [level=3] [ref=f265e35]
+      - paragraph [ref=f265e36]: 关键词检测被看作意图检测的特殊形式：目标词 = 意图类别、非关键词 = 无意图——统一视角让 KWS 受益于 SLU 框架的语义理解能力，也让两者共享编码器省部署开销。
+  - generic [ref=f265e37]:
+    - img [ref=f265e38]:
+      - generic [ref=f265e40]: 流式端到端 SLU：跳过转写文本，语音直连意图——KWS 是它的特例
+      - generic [ref=f265e41]: ① 级联 ASR→NLU 的四个根本缺陷
+      - generic [ref=f265e43]: 错误传播
+      - generic [ref=f265e44]: ASR 词错率 5%→15% 时，SLU 意图分类准确率可能掉 10–20%——下游性能被上游
+      - generic [ref=f265e45]: 绑架；识别错的关键音素无法在 NLU 层挽回
+      - generic [ref=f265e47]: 延迟叠加
+      - generic [ref=f265e48]: ASR 与 NLU 两段推理延迟叠加，级联系统端到端约 500–800ms——实时语音助手
+      - generic [ref=f265e49]: 场景超过 200–300ms 就显著伤体验
+      - generic [ref=f265e51]: 优化目标错位
+      - generic [ref=f265e52]: ASR 优化字/词级识别准确率，SLU 需要意图级分类准确率——ASR 可能在语义无关
+      - generic [ref=f265e53]: 细节上过度优化，却识别错对意图关键的信息
+      - generic [ref=f265e55]: 配对数据昂贵
+      - generic [ref=f265e56]: 级联要大量「音频-文本-意图」三方标注；端到端可从音频-意图对直接学
+      - generic [ref=f265e57]: ——省掉中间文本这一层标注
+      - generic [ref=f265e58]: ② 框架：流式 Conformer 编码器 + 分块推理 + 多任务头
+      - generic [ref=f265e60]: 流式 Conformer 编码器
+      - generic [ref=f265e61]: Conformer = 卷积（局部特征）+ 自注意力
+      - generic [ref=f265e62]: （全局上下文）的混合，ASR 上已优于纯 Transformer
+      - generic [ref=f265e63]: 流式三刀：
+      - generic [ref=f265e64]: · 因果注意力：从左到右，不偷看未来
+      - generic [ref=f265e65]: · 有限上下文注意力（LCA）：每帧只看自身和
+      - generic [ref=f265e66]: 前 L 帧（L=10–50），降复杂度降延迟
+      - generic [ref=f265e67]: · 卷积模块因果化：左侧填充，不用未来信息
+      - generic [ref=f265e68]: 输入 80 维 log-mel · 25ms 窗 / 10ms 步长
+      - generic [ref=f265e70]: 分块（Chunk）流式推理
+      - generic [ref=f265e71]: ① 音频按固定大小切重叠分块
+      - generic [ref=f265e72]: （如 320ms / 640ms）
+      - generic [ref=f265e73]: ② 增量编码：每块独立编码 + 状态缓存
+      - generic [ref=f265e74]: （carryover state）把前块部分信息传给下块
+      - generic [ref=f265e75]: ——模拟有限上下文回看
+      - generic [ref=f265e76]: ③ 分块级预测：每块输出中间预测，
+      - generic [ref=f265e77]: 聚合多块预测得最终关键词/意图判定
+      - generic [ref=f265e78]: ④ 延迟-准确率权衡：分块大小是延迟下限
+      - generic [ref=f265e79]: ——块更大上下文更多（更准）但延迟线性涨
+      - generic [ref=f265e80]: 训练时用与推理相同的分块逻辑（一致性）
+      - generic [ref=f265e82]: 多任务头：ASR 辅助 + SLU 主任务
+      - generic [ref=f265e83]: L_total = α·L_CTC + (1−α)·L_intent
+      - generic [ref=f265e84]: ASR 辅助（CTC）：帧级声学对齐监督，
+      - generic [ref=f265e85]: 不需要帧级标注（前向-后向高效计算）
+      - generic [ref=f265e86]: SLU 主任务（意图 CE）：池化聚合帧级特征
+      - generic [ref=f265e87]: → FC → softmax
+      - generic [ref=f265e88]: 动机：即使 SLU 不用文本输出，CTC 仍强制
+      - generic [ref=f265e89]: 编码器学准确音素表示——消融里值 2–5%
+      - generic [ref=f265e90]: α 消融：0.3 SLU 最佳 · 0.7 ASR 最佳 ·
+      - generic [ref=f265e91]: 0.4–0.5 两任务平衡
+      - generic [ref=f265e92]: ③ 统一视角：关键词 = 一种意图，KWS = 意图检测的特例
+      - generic [ref=f265e94]: 每个目标关键词 ↔ 一个意图类别；「非关键词」↔「无意图」类别——KWS 就是在意图分类头上加几个关键词类别
+      - generic [ref=f265e95]: 收益：KWS 与复杂意图检测共享同一个流式编码器——部署时模型数量与计算开销都减一份；实测 KWS 性能与专用模型
+      - generic [ref=f265e96]: （DS-CNN / CRNN）差距在 1% 以内，作为统一框架的副产品几乎白拿
+      - generic [ref=f265e97]: 视角转换的价值：KWS 不只是分类问题，是从语音中提取特定语义信息的问题——更高层语义（上下文意图）可能突破纯分类的性能上限
+      - generic [ref=f265e99]: −40–60%
+      - generic [ref=f265e100]: 延迟 vs 级联（200–400ms 档）
+      - generic [ref=f265e101]: 640ms
+      - generic [ref=f265e102]: 分块甜点（160→1280 扫描）
+      - generic [ref=f265e103]: L=30
+      - generic [ref=f265e104]: 上下文收益递减点（帧）
+      - generic [ref=f265e105]: −2–4%
+      - generic [ref=f265e106]: 流式 vs 全上下文的固有税
+      - generic [ref=f265e107]: +2–5%
+      - generic [ref=f265e108]: CTC 辅助对意图准确率
+      - generic [ref=f265e109]: 滑铁卢大学 + 华为 + 清华 · arXiv 2105.10042；SLU 基准（Fluent Speech Commands / SNIPS）+ GSC 与内部 KWS 数据；指标 = 意图准确率 · KWS 准确率 · 端到端延迟 ms；数字为笔记记录的约值
+    - generic [ref=f265e110]: 图1 · 机制全景：上半是级联四缺陷，中段是框架三组件（流式编码器 / 分块推理 / 多任务头），下半是 KWS-as-intent 的统一视角与关键数字。
+  - heading "§02 方法：编码器动手术，推理切成块" [level=2] [ref=f265e111]:
+    - generic [ref=f265e112]: §02
+    - text: 方法：编码器动手术，推理切成块
+  - generic [ref=f265e113]: 因果化 + 限窗 + 状态缓存 + 训练推理一致
+  - generic [ref=f265e114]:
+    - generic [ref=f265e115]: "L_total = α · L_CTC + (1−α) · L_intent L_CTC = −log P(text | audio) # ASR 辅助：帧级对齐监督，无需帧级标注 L_intent = CE(predicted_intent, true) # SLU 主任务：池化 → FC → softmax"
+    - generic [ref=f265e116]: 人话：即使 SLU 主任务不输出文本，CTC 仍强迫编码器学会「音素级别的准确表示」——这层声学监督让意图分类白拿 2–5%。α 是资源分配旋钮：主任务要最优就压辅助权重（α=0.3 时 SLU 最佳）。
+  - generic [ref=f265e117]:
+    - generic [ref=f265e118]: 流式改造 = 因果注意力（砍上三角） + LCA（每帧只看前 L 帧，L=10–50） + 卷积模块因果化（左侧填充） 推理形态 = 重叠分块（320/640ms） + carryover 状态缓存 + 块级预测聚合 训练 = 与推理完全相同的分块逻辑（一致性）
+    - generic [ref=f265e119]: 人话：双向注意力的上三角「看未来」是流式不可用的根源——因果化砍掉它，LCA 再把全历史压成最近 L 帧的带状窗口。分块大小是延迟下限（块内必须攒齐才出预测），也是上下文预算（块越大信息越全）——一个旋钮拧两头，640ms 是甜点。训练用同样的分块逻辑，避免离线全上下文训练、在线限窗推理的分布错配。
+  - generic [ref=f265e120]:
+    - generic [ref=f265e121]:
+      - heading "Conformer 骨干的理由" [level=3] [ref=f265e122]
+      - paragraph [ref=f265e123]: 卷积模块管局部特征建模、自注意力管全局上下文——混合架构在 ASR 上已优于纯 Transformer，本文消融再验证 +1–2%。语音信号恰好需要这两种尺度：音素的局部模式 + 跨帧的韵律上下文。
+    - generic [ref=f265e124]:
+      - heading "KWS 作为副产品的工程含义" [level=3] [ref=f265e125]
+      - paragraph [ref=f265e126]: 统一框架下 KWS 不需要独立模型——在意图分类头上加几个关键词类别即可。设备上少一个常驻模型就是省一份内存与功耗；实测代价是 KWS 准确率与专用模型差距 <1%。
+  - generic [ref=f265e127]:
+    - img [ref=f265e128]:
+      - generic [ref=f265e130]: 机制解剖：编码器的流式手术 · 分块推理的时间线
+      - generic [ref=f265e131]: 注意力与卷积的因果化
+      - generic [ref=f265e133]: 双向注意力
+      - generic [ref=f265e198]: 上三角=看未来（流式不可用）
+      - generic [ref=f265e199]: 因果 + 限窗 LCA
+      - generic [ref=f265e264]: 对角带宽 L=3（示意）= 只看前 L 帧
+      - generic [ref=f265e266]: 行=当前帧 · 列=被关注的帧：LCA 把全序列注意力压成带宽 L 的带状——
+      - generic [ref=f265e267]: 复杂度从 O(T²) 降到 O(T·L)；L 消融：收益在 30 帧后递减
+      - generic [ref=f265e268]: 分块推理时间线
+      - generic [ref=f265e301]: 块 1
+      - generic [ref=f265e303]: 中间预测
+      - generic [ref=f265e306]: 块 2
+      - generic [ref=f265e308]: 中间预测
+      - generic [ref=f265e311]: 块 3
+      - generic [ref=f265e313]: 中间预测
+      - generic [ref=f265e315]: 块间重叠 + carryover 状态缓存：前块信息传给下块
+      - generic [ref=f265e317]: · 延迟下限 = 分块大小：块内必须攒齐才出预测——块从 160ms 加到
+      - generic [ref=f265e318]: 1280ms，准确率持续升、延迟线性涨，640ms 是甜点
+      - generic [ref=f265e319]: · 训练用与推理相同的分块逻辑——训练/推理分布一致，
+      - generic [ref=f265e320]: 避免离线全上下文训练、在线限窗推理的错配
+      - generic [ref=f265e321]: 左：双向自注意力的上三角「看未来」是流式不可用的根源——因果化砍掉上三角，LCA 再把全历史压成最近 L 帧的带状窗口。右：分块 + 状态缓存是工程化的流式形态，块大小同时是延迟下限与上下文预算
+    - generic [ref=f265e322]: 图2 · 机制解剖：左是注意力矩阵的因果化手术（双向上三角 vs 因果+LCA 带状窗口），右是分块推理时间线（重叠分块、carryover 缓存、块级预测聚合与延迟下限）。
+  - heading "§03 实验：延迟砍半，准确率贴住级联" [level=2] [ref=f265e323]:
+    - generic [ref=f265e324]: §03
+    - text: 实验：延迟砍半，准确率贴住级联
+  - generic [ref=f265e325]: Fluent Speech Commands / SNIPS + GSC 与内部 KWS 数据
+  - generic [ref=f265e326]:
+    - img [ref=f265e327]:
+      - generic [ref=f265e329]: 主结果（约值）：延迟砍半，准确率贴住级联
+      - generic [ref=f265e330]: 延迟对比与分块甜点
+      - generic [ref=f265e331]: 级联 ASR+NLU
+      - generic [ref=f265e333]: 500–800ms
+      - generic [ref=f265e334]: 端到端流式 ★
+      - generic [ref=f265e336]: 200–400ms
+      - generic [ref=f265e337]: 端到端延迟约降 40–60%（消除中间文本生成步骤）
+      - generic [ref=f265e338]: 分块大小扫描：准确率 vs 延迟（示意趋势）
+      - generic [ref=f265e399]: 640ms 甜点
+      - generic [ref=f265e400]: 160ms
+      - generic [ref=f265e401]: 640ms
+      - generic [ref=f265e402]: 1280ms
+      - generic [ref=f265e403]: 准确率↑
+      - generic [ref=f265e404]: 分块大小（延迟随之线性涨）→
+      - generic [ref=f265e406]: 意图准确率与级联差距 1–2%；部分类别反超——
+      - generic [ref=f265e407]: 端到端可跳过「ASR 易错但语义无关」的词直接看关键信息
+      - generic [ref=f265e408]: 消融四连读
+      - generic [ref=f265e411]: 去 CTC 辅助
+      - generic [ref=f265e412]: 意图 −2–5% · KWS −1–3%
+      - generic [ref=f265e415]: 流式 vs 全上下文
+      - generic [ref=f265e416]: −2–4%（流式固有税）
+      - generic [ref=f265e419]: Conformer vs Transformer
+      - generic [ref=f265e420]: +1–2%（混合架构优势）
+      - generic [ref=f265e423]: KWS vs 专用模型（DS-CNN/CRNN）
+      - generic [ref=f265e424]: 差距 <1%（副产品白拿）
+      - generic [ref=f265e426]: α 的作用域（联合损失权重）
+      - generic [ref=f265e427]: α=0.3 → SLU 任务最佳（ASR 权重低）
+      - generic [ref=f265e428]: α=0.7 → ASR 任务最佳
+      - generic [ref=f265e429]: α=0.4–0.5 → 两任务平衡的甜点带
+      - generic [ref=f265e430]: 读法：辅助任务权重是「给谁让路」的旋钮——
+      - generic [ref=f265e431]: 主任务优先就压辅助权重
+      - generic [ref=f265e432]: 注：数字为笔记记录的约值（原文见 arXiv 2105.10042）；延迟取决于分块大小与实现，未在真实边缘设备上实测；噪声/远场评估有限
+    - generic [ref=f265e433]: 图3 · 主结果：左是延迟对比与分块大小扫描曲线（640ms 甜点）、意图准确率读数，右是消融四连读（CTC 辅助、流式税、Conformer、KWS 对比）与 α 的作用域。
+  - table [ref=f265e434]:
+    - rowgroup [ref=f265e435]:
+      - row [ref=f265e436]:
+        - columnheader "消融/对比项" [ref=f265e437]
+        - columnheader "结果（约值）" [ref=f265e438]
+        - columnheader "含义" [ref=f265e439]
+      - row [ref=f265e440]:
+        - cell "去 CTC 辅助损失" [ref=f265e441]
+        - cell "意图 −2–5% · KWS −1–3%" [ref=f265e442]
+        - cell "声学监督是表示质量的来源" [ref=f265e443]
+      - row [ref=f265e444]:
+        - cell "流式 vs 全上下文" [ref=f265e445]
+        - cell "−2–4%" [ref=f265e446]
+        - cell "只用历史信息的固有税" [ref=f265e447]
+      - row [ref=f265e448]:
+        - cell "Conformer vs Transformer" [ref=f265e449]
+        - cell "+1–2%" [ref=f265e450]
+        - cell "卷积+注意力混合的优势" [ref=f265e451]
+      - row [ref=f265e452]:
+        - cell "KWS vs 专用模型" [ref=f265e453]
+        - cell "差距 <1%" [ref=f265e454]
+        - cell "统一框架的副产品白拿" [ref=f265e455]
+      - row [ref=f265e456]:
+        - cell "α 扫描" [ref=f265e457]
+        - cell "0.3 SLU 最佳 · 0.7 ASR 最佳" [ref=f265e458]
+        - cell "辅助任务权重 = 让路旋钮" [ref=f265e459]
+  - generic [ref=f265e460]:
+    - generic [ref=f265e461]: 读表要点
+    - listitem [ref=f265e462]: ◈ 延迟 200–400ms（取决于分块大小）vs 级联 500–800ms——约降 40–60%，来源是消除中间文本生成这个串行环节。
+    - listitem [ref=f265e463]: ◈ 分块 160ms→1280ms：准确率持续提升但边际递减、延迟线性增加——640ms 取得最佳平衡；上下文窗口 L 的收益在 30 帧后递减。
+    - listitem [ref=f265e464]: ◈ 注意证据边界：延迟数字未在真实边缘设备实测；噪声/远场评估有限；声调语言（中文）的适用性分析不足；只评估了单意图分类。
+  - heading "§04 贡献" [level=2] [ref=f265e465]:
+    - generic [ref=f265e466]: §04
+    - text: 贡献
+  - generic [ref=f265e467]: 五点：从框架统一到流式差距量化
+  - generic [ref=f265e468]:
+    - generic [ref=f265e469]:
+      - generic [ref=f265e470]: "1"
+      - paragraph [ref=f265e471]: 支持 KWS 的流式端到端 SLU 框架：首次把流式端到端 SLU 与 KWS 统一——KWS 作为通用 SLU 任务的特例，能受益于框架的语义理解能力。
+    - generic [ref=f265e472]:
+      - generic [ref=f265e473]: "2"
+      - paragraph [ref=f265e474]: 消除级联延迟：语音直连意图，砍掉中间文本生成——端到端延迟比级联低约 40–60%。
+    - generic [ref=f265e475]:
+      - generic [ref=f265e476]: "3"
+      - paragraph [ref=f265e477]: 分块流式推理机制：模型在音频流上增量运行，分块大小灵活适配不同延迟预算。
+    - generic [ref=f265e478]:
+      - generic [ref=f265e479]: "4"
+      - paragraph [ref=f265e480]: 联合 ASR+SLU 训练互益的证据：CTC 声学监督 + 意图语义监督相互促进——联合训练比单独训练 SLU 提升准确率 2–5%。
+    - generic [ref=f265e481]:
+      - generic [ref=f265e482]: "5"
+      - paragraph [ref=f265e483]: 流式/非流式差距的量化：系统分析有限上下文相对全上下文的准确率损失（2–4%），为选上下文窗口大小提供参考。
+  - heading "§05 局限与判断" [level=2] [ref=f265e484]:
+    - generic [ref=f265e485]: §05
+    - text: 局限与判断
+  - generic [ref=f265e486]: 流式固有税 · 配对数据贵 · 复杂度与长尾
+  - generic [ref=f265e487]:
+    - img [ref=f265e488]:
+      - generic [ref=f265e490]: 边界与延伸
+      - generic [ref=f265e492]: 技术边界
+      - generic [ref=f265e493]: · 流式固有税 2–4%：因果注意力 + 有限窗口用不上未来信息——需要最高
+      - generic [ref=f265e494]: 准确率的场景可能仍要非流式或两阶段（流式初筛 + 非流式精排）
+      - generic [ref=f265e495]: · 配对标注贵：需要音频-文本-意图三方标注，意图标注成本高——
+      - generic [ref=f265e496]: 比纯 KWS 分类任务的数据准备成本显著增加
+      - generic [ref=f265e497]: · 框架复杂度：流式编码器 + CTC + 意图头 + 分块逻辑多个组件——
+      - generic [ref=f265e498]: 只要 KWS 功能的场景这套复杂度可能不必要
+      - generic [ref=f265e499]: · 长尾意图：罕见意图类别上可能不如级联——NLU 模块能利用文本层
+      - generic [ref=f265e500]: 面的预训练知识，端到端音频模型没有这层红利
+      - generic [ref=f265e502]: 实验边界 + 延伸
+      - generic [ref=f265e503]: · 噪声/远场评估有限——实际语音助手最常见的挑战
+      - generic [ref=f265e504]: · 未在真实边缘设备实测（延迟/内存/功耗）
+      - generic [ref=f265e505]: · 声调语言（中文）适用性分析不足
+      - generic [ref=f265e506]: · 与 SpeechTransformer / 音频-文本多模态方法对比不全
+      - generic [ref=f265e507]: · 只评估单意图分类——连续语音多意图检测未做
+      - generic [ref=f265e508]: 延伸：两阶段流式（轻量初筛 + 非流式精排）；自监督预训练
+      - generic [ref=f265e509]: （wav2vec 2.0 / HuBERT）减标注依赖；多语言迁移；槽位填充纳入
+      - generic [ref=f265e510]: 流式框架；蒸馏 + 量化上边缘设备
+      - generic [ref=f265e511]: 可迁移判断：KWS 放进更通用的 SLU 框架思考是有价值的视角转换——KWS 不只是分类，是从语音提取特定语义；共享编码器的多任务头让 KWS 成为统一框架的免费副产品
+    - generic [ref=f265e512]: 图4 · 边界与延伸：左技术边界（流式税 2–4%、意图标注成本、框架复杂度、长尾意图），右实验边界（噪声/远场/边缘实测/声调语言/多意图）+ 延伸方向。
+  - generic [ref=f265e513]:
+    - generic [ref=f265e514]: 可迁移判断
+    - paragraph [ref=f265e515]: ↳ KWS 不只是分类，是从语音提取特定语义：把 KWS 放进更通用的 SLU 框架思考是有价值的视角转换——端到端允许利用更高层语义（上下文意图），可能突破纯分类方法的性能上限。
+    - paragraph [ref=f265e516]: ↳ 辅助任务是便宜的表示监督：CTC 不需要在推理时存在，只在训练时给编码器一层声学对齐信号——值 2–5%。「训完即扔」的辅助头是提升表示质量的低成本手段。
+    - paragraph [ref=f265e517]: ↳ 分块大小是一个旋钮拧两头：延迟下限与上下文预算同源——产品上线时按延迟预算选块大小，再接受对应的准确率代价；640ms 与 L=30 帧的甜点可作起点但要按任务重扫。
+    - paragraph [ref=f265e518]: ↳ 训练/推理一致性是流式的隐形坑：离线全上下文训练 + 在线限窗推理的分布错配会白丢精度——训练就用推理的分块逻辑，这条纪律比任何单点技巧都值钱。
+  - generic [ref=f265e519]:
+    - link "arXiv 2105.10042 ↗" [ref=f265e520] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2105.10042
+    - link "← 返回总目录" [ref=f265e521] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f265e522]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值 · 2021 №3 · 188+/305
