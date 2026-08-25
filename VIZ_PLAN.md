@@ -1,7 +1,7 @@
 # 可视化精读页计划（VIZ_PLAN）
 
 全量清单与进度真源。每完成一页重新生成。
-**进度：170 / 305**
+**进度：171 / 305**
 
 ## 2026（24 / 24 ✅）
 - [✅] A Multiplication-Free Feature Extractor for Signal Classification: Keyword Spotting Case Study（面向信号分类的无乘法特征提取器：关键词检测案例研究）
@@ -156,7 +156,7 @@
 - [✅] VE-KWS：视觉模态增强的端到端关键词检测
 - [⬜] VIC-KD：方差-不变性-协方差知识蒸馏，让关键词检测更能抵御对抗攻击
 
-## 2022（26 / 42 ）
+## 2022（27 / 42 ）
 - [✅] AB/BA Analysis: A Framework for Estimating Keyword Spotting Recall Improvement While Maintaining Audio Privacy
 - [✅] 23 μW 关键词检测芯片：基于环形振荡器的时域特征提取
 - [✅] A Fast Network Exploration Strategy to Profile Low Energy Consumption for Keyword Spotting
@@ -183,7 +183,7 @@
 - [✅] Learning Audio-Text Agreement for Open-vocabulary Keyword Spotting（学习音文本一致性：面向开放词表的用户自定义关键词检测）
 - [✅] Learning Decoupling Features Through Orthogonality Regularization
 - [✅] LiCo-Net: Linearized Convolution Network for Hardware-efficient Keyword Spotting
-- [⬜] On the Efficiency of Integrating Self-Supervised Learning and Meta-Learning for User-Defined Few-Shot Keyword Spotting
+- [✅] On the Efficiency of Integrating Self-Supervised Learning and Meta-Learning for User-Defined Few-Shot Keyword Spotting
 - [⬜] PBSM：基于音高提升与声音掩蔽的关键词检测后门攻击
 - [⬜] Personalized Keyword Spotting through Multi-task Learning（基于多任务学习的个性化关键词检测）
 - [⬜] Production Federated Keyword Spotting via Distillation, Filtering, and Joint Federated-Centralized Training
