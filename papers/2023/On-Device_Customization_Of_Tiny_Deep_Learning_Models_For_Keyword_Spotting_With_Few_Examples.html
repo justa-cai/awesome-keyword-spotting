@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>少样本端侧定制 KWS · 原型注册零反向传播 · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2023/On-Device_Customization_Of_Tiny_Deep_Learning_Models_For_Keyword_Spotting_With_Few_Examples.md">深读笔记</a>
+    <a href="/papers/2023/On-Device_Customization_Of_Tiny_Deep_Learning_Models_For_Keyword_Spotting_With_Few_Examples.pdf">PDF 原稿</a>
+    <a href="https://doi.org/10.1109/mm.2023.3311826" target="_blank">DOI</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2023 №26</p>
+  <h1>反向传播在 MCU 上爆 RAM——鲁汶大学把定制压缩成「录 3 条 → 3 次前向 → 平均存一根向量」，<br>γ=m 免标定开集阈值 + GAP9 实测 9.7ms / 247µJ，跨域十样本 80% 准确率</h1>
+  <p class="sub">On-Device Customization of Tiny Deep Learning Models for Keyword Spotting with Few Examples</p>
+  <p class="meta"><b>作者</b>：Manuele Rusci（MSCA 博士后）、Tinne Tuytelaars（KU Leuven 鲁汶大学）· IEEE MultiMedia（2023-09，TinyML 专题）</p>
+  <p class="meta"><b>硬件</b>：GAP9（9 核 RISC-V + 卷积加速器，240MHz / 0.65V / 25.5mW）· <b>数据</b>：MSWC 英语（源）→ GSC（目标），完全不相交</p>
+  <div class="chips">
+    <span class="chip">端侧零反向传播定制</span><span class="chip">triplet + 原型分类器</span><span class="chip">γ=m 免标定开集阈值</span>
+    <span class="chip">跨域词级泛化</span><span class="chip">8bit PTQ 无损</span><span class="chip">「MAC 少 ≠ 硬件上快」</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>痛点在「定制」不在「推理」</b>：几十万参数的 DNN KWS 已经能跑在 MCU 上——但换一个部署环境、换一组目标词，整个「采集 + 标注 + 服务器重训 + 回部署」链条就要重走一遍。端侧直接做反向传播不现实：需暂存激活（ResNet15 最大激活 537.3k）+ 等量梯度 + 优化器状态，数倍于推理工作集直接爆 RAM。<b>「让用户用几个录音教会设备新命令」是被内存和能耗约束逼出来的算法设计问题</b>。</li>
+      <li><b>方案：学习与部署彻底解耦</b>。阶段一（离线一次性）：在 MSWC 英语 top-500 类 / 270 万条上用 triplet 损失训练特征提取器，冻结 + 8bit PTQ 烧进 Flash。阶段二（设备端）：用户每词录 K 条 → K 次前向 → 平均成原型向量；另存静音 + 未知两根预计算原型，合计 N+2 根向量（8bit 不足 1KB）。推理 = L2 最近原型 + 阈值 γ——<b>定制动作里没有任何梯度</b>。</li>
+      <li><b>三个关键「为什么」</b>：① triplet 不用交叉熵——交叉熵优化固定标签集可分性，对未见类无距离语义；triplet 优化「同类聚拢、异类拉开 ≥ m」的相对几何，可迁移到新类。② 必须做嵌入 L2 归一化——压到单位球面后距离有界且跨样本可比，<b>单一固定阈值 γ 才在数学上成立</b>。③ 不做 softmax 归一化——softmax 把距离变成「候选间相对竞争」，破坏绝对幅度，而「离所有原型都远」正是开集拒识的唯一证据；消融证实不加 softmax 系统性更优。</li>
+      <li><b>γ = m 是最巧妙的免标定设计</b>：把 FAR 调到目标值常规需要目标域标注负样本——端侧定制恰恰没有。triplet 训练本身驱动「类内距 + m ≤ 类间距」，m 就是训练保证的同类距离尺度——用 m 当接受半径 = 由训练过程背书、<b>无需任何标定数据</b>。代价是保守：类簇松的大模型会把正样本推出 γ 球（ResNet15 固定阈值下只剩 54%，换 FAR 低至 0.1–0.2%）。</li>
+      <li><b>少样本精度（Table 2，后验调阈值 FAR=5%，十词）</b>：ResNet15 十样本 0.80、五样本 0.78、三样本 0.74、单样本 0.55——1→3 条增益最大（~19 点）、5→10 边际递减，<b>甜点在 3–5 条</b>；骨干排序稳定 ResNet15 &gt; DS-CNN-L &gt; M &gt; S ≈ TCResNet8。</li>
+      <li><b>GAP9 部署账单（Table 3）</b>：ResNet15 前向 9.21ms + 嵌入 0.48ms = 9.7ms 处理 1 秒语音、246.9µJ/次（TCResNet8 的 8.7 倍，换 ~10 点准确率）；执行效率 66.8 MAC/cyc 全场最高。三个硬件发现：<b>ResNet15 的 MAC 是 DS-CNN-L 的 8.4 倍但只慢 2.25 倍</b>（加速器 3×3 卷积 100 MAC/cyc、pointwise 只有 40——「MAC 少 ≠ 这块硬件上快」）；DS-CNN 的 LayerNorm 头跑在集群核上占其总负载 44%；8bit PTQ 全骨干无损（ResNet15 的 BN 无法折叠，改投 FP16 修复）。</li>
+      <li><b>范式分水岭（Table 4）</b>：γ=0 时原型法与迁移学习线性头准确率相当（0.88 vs 0.87），但压到 FAR=5% 时迁移学习崩到 0.56、原型法保 0.80——<b>线性头没有距离幅度语义的拒识能力</b>，开集稳健性才是两种范式的真正分水岭。端到端全数据 0.95、同域 kNN 0.98——差距 15–18 点就是「跨域 + 少样本 + 免训练」三重代价。</li>
+      <li><b>固定阈值的容量反转（Fig. 3）</b>：γ=m 免标定下小容量模型反而更准（DS-CNN-L 58% vs ResNet15 54%）——大模型以放松类内紧致度换更强类间距离，绝对阈值下正样本更易掉出 γ 球；但 ResNet15 的 FAR（0.1–0.2%）是 DS-CNN-L（0.6%）的 1/3。<b>后验调阈值的最优骨干 ≠ 免标定部署的最优骨干——阈值策略与骨干选型是耦合决策</b>。</li>
+      <li><b>失败模式安全（Fig. 4）</b>：错误以「判为未知」为绝对主体（on 行 261 判未知 vs 134 正确），跨词严重错误极小——<b>保守漏检而非张冠李戴</b>，对唤醒应用是安全方向。stop 79%/yes 78%/no 75% 最高（擦塞音结构 + 时间支撑长），on 34%/up 45%/off 47% 最低（短单音节功能词难聚拢——恰是语音命令高频词，这是明确短板）。</li>
+      <li><b>边界</b>：绝对精度差距（0.80 vs 0.95/0.98；免标定下只剩 54%）；阈值两难（免标定 vs 需标注数据不可兼得）；单样本仅 0.55、注册质量决定原型质量；短功能词系统性劣化；GSC 目标域干净近讲无远场噪声；语言泛化未验证（MSWC 多语但只做英语）；能耗单工作点、无系统级电池寿命。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">从「少样本学习」收紧为「跨域、开集、免训练、量化友好的少样本学习」</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>四条既有路线的缺陷</b>：① 端到端 softmax 多分类（DS-CNN 系）——类别集合焊死在网络结构里，新增词全量重训；闭集分类器对未知词和静音没有原则性拒识机制。② KWS 少样本度量学习（ProtoNet / triplet+kNN / SVM）——训练测试同域（GSC→GSC，同域红利抬升数字如 0.98）；多数只报目标词准确率<b>完全不分析 FAR</b>（误触发恰是常驻传感器第一等风险）；kNN 存全部样本、SVM 存支持向量——内存随数据增长与 MCU 预算冲突；没有一个落到 TinyML 部署。③ QbE 的 RNN 方案——访存受限型负载在目标硬件等级效率低至 28 倍；原型验证板是 Cortex-A7 应用处理器等级远超 MCU。④ 迁移学习少样本（EfficientNet + 线性头）——骨干 1100 万参数超 MCU 内存；测试时仍需 8 epoch 反向传播；Table 4 证明其开集下显著更易误接受（FAR=5% 时准确率 0.87→0.56 崩落，本文只 0.88→0.80 缓降）。
+  </div>
+
+  <div class="formula">
+    L<sub>TR</sub> = Σ max(d(z<sup>s</sup><sub>i,c</sub>, z<sup>s</sup><sub>j≠i,c</sub>) − d(z<sup>s</sup><sub>i,c</sub>, z<sup>s</sup><sub>neg</sub>) + m, 0)（式 1）；c<sub>j</sub> = (1/K)Σ z<sup>T</sup><sub>i,j</sub>（式 2）；y = argmin<sub>j</sub> d(f(x), c<sub>j</sub>) 若 d &lt; γ，否则未知（式 3）
+    <div class="why">式 1 只在「类内距 + m 超过类间距」时惩罚——直接优化度量空间几何。情景式训练（每 episode 从 500 类随机抽 M 类每类 Q 条）本身在模拟少样本测试条件，训练分布与测试分布一致。式 2 均值原型对 K 条嵌入取平均能压制单条录音噪声；式 3 的 γ 把闭集最近原型分类器变成开集检测器。</div>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">所有「学习」前置到一次性度量空间</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 970">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="970.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="18" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段管线：学习与部署彻底解耦（Fig. 1 复绘）</text>
+<line x1="36.0" y1="60.0" x2="350.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="86.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 阶段一（离线，一次性）：在源语料上训练度量空间</text>
+<rect x="36.0" y="100.0" width="848.0" height="108.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<rect x="52.0" y="116.0" width="190.0" height="76.0" rx="9" fill="#eef1f5" stroke="#d9dee6" stroke-width="1"/>
+<text x="147.0" y="138.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MSWC 英语训练分区</text>
+<text x="147.0" y="156.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">top-500 类 · 270 万条</text>
+<text x="147.0" y="174.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">平均每类约 5470 条</text>
+<rect x="262.0" y="116.0" width="250.0" height="76.0" rx="9" fill="#e3ecf6" stroke="#cfdce9" stroke-width="1"/>
+<text x="387.0" y="138.0" font-size="11.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">triplet 损失训练特征提取器</text>
+<text x="387.0" y="156.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">情景采样：40 epoch × 400 episode</text>
+<text x="387.0" y="174.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每批 20 类 × 80 条 · m=0.5 · 3 种子</text>
+<rect x="532.0" y="116.0" width="334.0" height="76.0" rx="9" fill="#f2f3f0" stroke="#e6e6df" stroke-width="1"/>
+<text x="699.0" y="138.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">冻结 + 8bit PTQ → 只读烧进 MCU Flash</text>
+<text x="699.0" y="156.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">非对称逐通道 · 只用 4 条随机样本标定</text>
+<text x="699.0" y="174.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（量化对本少样本问题无损）</text>
+<line x1="242.0" y1="154.0" x2="260.0" y2="154.0" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#ar)"/>
+<line x1="512.0" y1="154.0" x2="530.0" y2="154.0" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#ar)"/>
+<text x="36.0" y="224.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">源（MSWC）与目标（GSC）完全不相交——十个目标词的具体语音在训练中从未出现：真正的跨域、词级泛化</text>
+<text x="36.0" y="248.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 阶段二（设备端，每个关键词集合一次）：零反向传播的原型注册</text>
+<rect x="36.0" y="262.0" width="848.0" height="122.0" rx="10" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<rect x="52.0" y="278.0" width="200.0" height="90.0" rx="9" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="152.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">用户每词录 K 条 1 秒语音</text>
+<text x="152.0" y="318.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">逐条前向得嵌入（ResNet15</text>
+<text x="152.0" y="334.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每条约 9.7 ms）</text>
+<text x="152.0" y="354.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">按类平均 → 原型 c_j（式 2）</text>
+<rect x="272.0" y="278.0" width="250.0" height="90.0" rx="9" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="397.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">另存 2 根预计算原型</text>
+<text x="397.0" y="318.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">静音原型（背景噪声 K 条）</text>
+<text x="397.0" y="334.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">未知原型（随机词 K 条，假设不含目标词）</text>
+<text x="397.0" y="354.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">合计 N+2 根向量，8bit 不足 1KB</text>
+<rect x="542.0" y="278.0" width="324.0" height="90.0" rx="9" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="704.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">推理（式 3）：L2 最近原型 + 阈值</text>
+<text x="704.0" y="320.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">d(f(x), c_j) < γ 才输出该类，</text>
+<text x="704.0" y="336.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">否则判未知。γ = m = 0.5（免标定）</text>
+<text x="704.0" y="356.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">16kHz · 49×10 MFCC（10 系数/40ms/20ms）</text>
+<line x1="252.0" y1="323.0" x2="270.0" y2="323.0" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#ar)"/>
+<line x1="522.0" y1="323.0" x2="540.0" y2="323.0" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#ar)"/>
+<text x="36.0" y="400.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么反向传播在 MCU 上不现实：需暂存激活（ResNet15 最大激活 537.3k）+ 等量梯度 + 优化器状态，数倍于推理工作集直接爆 RAM</text>
+<text x="36.0" y="410.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 三个「为什么」</text>
+<rect x="36.0" y="424.0" width="272.0" height="150.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="52.0" y="448.0" font-size="12" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么 triplet 不用交叉熵</text>
+<text x="52.0" y="470.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">交叉熵优化固定标签集的可分性——</text>
+<text x="52.0" y="485.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「这 500 类彼此分开」，对未见类</text>
+<text x="52.0" y="500.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">既无距离语义也不保证泛化</text>
+<text x="52.0" y="515.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">triplet 优化「同类聚拢、异类拉开 ≥ m」</text>
+<text x="52.0" y="530.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">的相对几何——可迁移到新类，</text>
+<text x="52.0" y="545.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">恰好是原型分类所消费的。情景采样</text>
+<text x="52.0" y="560.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">本身在模拟少样本测试条件</text>
+<rect x="324.0" y="424.0" width="272.0" height="150.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="340.0" y="448.0" font-size="12" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么必须 L2 归一化</text>
+<text x="340.0" y="468.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">嵌入压到单位球面 → 欧氏距离有界</text>
+<text x="340.0" y="483.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">且跨样本跨类可比——单一固定阈值 γ</text>
+<text x="340.0" y="498.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">判定「是否接受」在数学上成立的前提。</text>
+<text x="340.0" y="513.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">没有这步，不同说话人的嵌入范数</text>
+<text x="340.0" y="528.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">差异会淹没类别几何结构</text>
+<text x="340.0" y="543.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="340.0" y="558.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么均值原型不用 kNN/SVM：</text>
+<text x="340.0" y="573.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">kNN 存全部样本、SVM 存支持向量，</text>
+<text x="340.0" y="588.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">内存随数据增长；原型只是一根 D 维</text>
+<text x="340.0" y="603.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">向量，最近原型判决只是 N 次 D 维距离</text>
+<rect x="612.0" y="424.0" width="272.0" height="150.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="628.0" y="448.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么不做 softmax 归一化</text>
+<text x="628.0" y="470.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">softmax 把距离向量重归一成「几个候选</text>
+<text x="628.0" y="485.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">间的相对竞争」，破坏距离的绝对幅度</text>
+<text x="628.0" y="500.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——而「离所有原型都远」这一绝对信息</text>
+<text x="628.0" y="515.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">正是开集拒识的唯一证据；相对化后未知</text>
+<text x="628.0" y="530.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">样本也被迫挑一个最近的，误接受上升。</text>
+<text x="628.0" y="545.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">消融：不加 softmax 系统性更优，</text>
+<text x="628.0" y="560.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">样本越少、FAR 越紧差距越大</text>
+<text x="628.0" y="575.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（TCResNet8 单样本 0.38 对 0.33）</text>
+<rect x="36.0" y="580.0" width="848.0" height="62.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="604.0" font-size="13" fill="#d97a2b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">γ = m 的免标定设计（最巧妙的一步）</text>
+<text x="52.0" y="624.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">把 FAR 调到目标值常规需要目标域标注负样本做后验标定——端侧定制恰恰没有。triplet 训练本身就在驱动「类内距 + m ≤ 类间距」</text>
+<text x="52.0" y="640.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——m 就是训练所保证的同类距离尺度，用 m 当接受半径 = 由训练过程背书、无需任何标定数据的代理。代价是保守：类簇松的大模型会把正样本推出 γ 球</text>
+<text x="36.0" y="664.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">④ 五个骨干（Table 1）：参数 / 算力 / 激活 / 嵌入维</text>
+<rect x="60.0" y="678.0" width="0.0" height="0.0" rx="0" fill="#fff"/>
+<rect x="60.0" y="678.0" width="0.0" height="0.0" rx="0" fill="#fff"/>
+<rect x="60.0" y="678.0" width="0.0" height="0.0" rx="0" fill="#fff"/>
+<rect x="60.0" y="678.0" width="0.0" height="0.0" rx="0" fill="#fff"/>
+<rect x="60.0" y="678.0" width="0.0" height="0.0" rx="0" fill="#fff"/>
+<text x="135.0" y="696.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">骨干</text>
+<text x="265.0" y="696.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">参数</text>
+<text x="370.0" y="696.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MMAC</text>
+<text x="490.0" y="696.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">最大激活</text>
+<text x="615.0" y="696.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">嵌入维</text>
+<line x1="60.0" y1="706.0" x2="860.0" y2="706.0" stroke="#e6e6df" stroke-width="1"/>
+<text x="135.0" y="724.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TCResNet8</text>
+<text x="265.0" y="724.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">61.2k</text>
+<text x="370.0" y="724.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3.0</text>
+<text x="490.0" y="724.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">23.1k</text>
+<text x="615.0" y="724.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">48</text>
+<text x="135.0" y="752.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN-S</text>
+<text x="265.0" y="752.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">21.8k</text>
+<text x="370.0" y="752.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2.6</text>
+<text x="490.0" y="752.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">—</text>
+<text x="615.0" y="752.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">64</text>
+<text x="135.0" y="780.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN-M</text>
+<text x="265.0" y="780.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">132.9k</text>
+<text x="370.0" y="780.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">9.4</text>
+<text x="490.0" y="780.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~52k</text>
+<text x="615.0" y="780.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">172</text>
+<text x="135.0" y="808.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN-L</text>
+<text x="265.0" y="808.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">407.3k</text>
+<text x="370.0" y="808.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">28.0</text>
+<text x="490.0" y="808.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">—</text>
+<text x="615.0" y="808.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">276</text>
+<text x="135.0" y="836.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ResNet15</text>
+<text x="265.0" y="836.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">482.3k</text>
+<text x="370.0" y="836.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">235.1</text>
+<text x="490.0" y="836.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">537.3k</text>
+<text x="615.0" y="836.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">64</text>
+<text x="36.0" y="876.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">选型逻辑：DS-CNN 深度可分离卷积省参数算子；TCResNet8 重排后 1D 时间卷积算子最少；ResNet15 普通 2D 卷积 MMAC 反而最大——但保留它因为</text>
+<text x="36.0" y="892.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">精度最高，且 GAP9 加速器对 3×3 稠密卷积峰值 100 MAC/cyc（pointwise 只有 40）——算子劣势在特定硬件上被部分溶解。</text>
+<text x="36.0" y="912.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">「MAC 少」≠「在这块硬件上快」——骨干必须与加速器的指令结构协同设计</text>
+</svg>
+    <p class="cap"><b>Fig. 1 / Table 1 / 式 1–3 复绘</b>：两阶段管线——离线一次性（MSWC top-500 类 270 万条 triplet 训练 → 冻结 + 8bit PTQ 烧进 Flash）与设备端零反向传播原型注册（K 条录音 → K 次前向 → 平均 → 存 N+2 根向量）；三个「为什么」（triplet vs 交叉熵 / L2 归一化的数学前提 / softmax 破坏绝对幅度）；γ=m 免标定设计；五个骨干的参数/算力/激活/嵌入维账目与硬件感知选型逻辑。</p>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与消融</p>
+  <h2 class="sec">两个 regime 的诚实协议</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">少样本准确率（Table 2 · 后验调阈值 · FAR=5% · 十关键词）</text>
+<line x1="36.0" y1="56.0" x2="440.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="126.0" y1="304.3" x2="690.0" y2="304.3" stroke="#eef0ec" stroke-width="1"/>
+<text x="120.0" y="308.3" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.4</text>
+<line x1="126.0" y1="262.7" x2="690.0" y2="262.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="120.0" y="266.7" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.5</text>
+<line x1="126.0" y1="221.0" x2="690.0" y2="221.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="120.0" y="225.0" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.6</text>
+<line x1="126.0" y1="179.3" x2="690.0" y2="179.3" stroke="#eef0ec" stroke-width="1"/>
+<text x="120.0" y="183.3" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.7</text>
+<line x1="126.0" y1="137.7" x2="690.0" y2="137.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="120.0" y="141.7" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.8</text>
+<line x1="126.0" y1="96.0" x2="690.0" y2="96.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="120.0" y="100.0" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.9</text>
+<line x1="130.0" y1="96.0" x2="130.0" y2="346.0" stroke="#f4f5f1" stroke-width="1"/>
+<line x1="254.4" y1="96.0" x2="254.4" y2="346.0" stroke="#f4f5f1" stroke-width="1"/>
+<line x1="378.9" y1="96.0" x2="378.9" y2="346.0" stroke="#f4f5f1" stroke-width="1"/>
+<line x1="690.0" y1="96.0" x2="690.0" y2="346.0" stroke="#f4f5f1" stroke-width="1"/>
+<text x="120.0" y="116.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ResNet15</text>
+<line x1="124.0" y1="112.0" x2="128.0" y2="112.0" stroke="#0b6e52" stroke-width="3"/>
+<line x1="130.0" y1="241.8" x2="254.4" y2="162.7" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="254.4" y1="162.7" x2="378.9" y2="146.0" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="378.9" y1="146.0" x2="690.0" y2="137.7" stroke="#0b6e52" stroke-width="2.2"/>
+<circle cx="130.0" cy="241.8" r="6" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="130.0" y="231.8" font-size="9.5" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.55</text>
+<circle cx="254.4" cy="162.7" r="6" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="254.4" y="152.7" font-size="9.5" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.74</text>
+<circle cx="378.9" cy="146.0" r="6" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="378.9" y="136.0" font-size="9.5" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.78</text>
+<circle cx="690.0" cy="137.7" r="6" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="690.0" y="127.7" font-size="9.5" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.80</text>
+<text x="120.0" y="166.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN-L</text>
+<line x1="124.0" y1="162.0" x2="128.0" y2="162.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="130.0" y1="254.3" x2="254.4" y2="187.7" stroke="#0e8a66" stroke-width="2.2"/>
+<line x1="254.4" y1="187.7" x2="378.9" y2="158.5" stroke="#0e8a66" stroke-width="2.2"/>
+<line x1="378.9" y1="158.5" x2="690.0" y2="150.2" stroke="#0e8a66" stroke-width="2.2"/>
+<circle cx="130.0" cy="254.3" r="6" fill="#0e8a66" stroke="#fff" stroke-width="1.5"/>
+<text x="130.0" y="244.3" font-size="9.5" fill="#0e8a66" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.52</text>
+<circle cx="254.4" cy="187.7" r="6" fill="#0e8a66" stroke="#fff" stroke-width="1.5"/>
+<text x="254.4" y="177.7" font-size="9.5" fill="#0e8a66" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.68</text>
+<circle cx="378.9" cy="158.5" r="6" fill="#0e8a66" stroke="#fff" stroke-width="1.5"/>
+<text x="378.9" y="148.5" font-size="9.5" fill="#0e8a66" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.75</text>
+<circle cx="690.0" cy="150.2" r="6" fill="#0e8a66" stroke="#fff" stroke-width="1.5"/>
+<text x="690.0" y="140.2" font-size="9.5" fill="#0e8a66" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.77</text>
+<text x="120.0" y="216.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN-M</text>
+<line x1="124.0" y1="212.0" x2="128.0" y2="212.0" stroke="#9fc8b8" stroke-width="3"/>
+<line x1="130.0" y1="275.2" x2="254.4" y2="212.7" stroke="#9fc8b8" stroke-width="2.2"/>
+<line x1="254.4" y1="212.7" x2="378.9" y2="183.5" stroke="#9fc8b8" stroke-width="2.2"/>
+<line x1="378.9" y1="183.5" x2="690.0" y2="175.2" stroke="#9fc8b8" stroke-width="2.2"/>
+<circle cx="130.0" cy="275.2" r="6" fill="#9fc8b8" stroke="#fff" stroke-width="1.5"/>
+<text x="130.0" y="265.2" font-size="9.5" fill="#9fc8b8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.47</text>
+<circle cx="254.4" cy="212.7" r="6" fill="#9fc8b8" stroke="#fff" stroke-width="1.5"/>
+<text x="254.4" y="202.7" font-size="9.5" fill="#9fc8b8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.62</text>
+<circle cx="378.9" cy="183.5" r="6" fill="#9fc8b8" stroke="#fff" stroke-width="1.5"/>
+<text x="378.9" y="173.5" font-size="9.5" fill="#9fc8b8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.69</text>
+<circle cx="690.0" cy="175.2" r="6" fill="#9fc8b8" stroke="#fff" stroke-width="1.5"/>
+<text x="690.0" y="165.2" font-size="9.5" fill="#9fc8b8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.71</text>
+<text x="120.0" y="266.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN-S</text>
+<line x1="124.0" y1="262.0" x2="128.0" y2="262.0" stroke="#c9d8e8" stroke-width="3"/>
+<line x1="130.0" y1="300.2" x2="254.4" y2="241.8" stroke="#c9d8e8" stroke-width="2.2"/>
+<line x1="254.4" y1="241.8" x2="378.9" y2="204.3" stroke="#c9d8e8" stroke-width="2.2"/>
+<line x1="378.9" y1="204.3" x2="690.0" y2="183.5" stroke="#c9d8e8" stroke-width="2.2"/>
+<circle cx="130.0" cy="300.2" r="6" fill="#c9d8e8" stroke="#fff" stroke-width="1.5"/>
+<text x="130.0" y="290.2" font-size="9.5" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.41</text>
+<circle cx="254.4" cy="241.8" r="6" fill="#c9d8e8" stroke="#fff" stroke-width="1.5"/>
+<text x="254.4" y="231.8" font-size="9.5" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.55</text>
+<circle cx="378.9" cy="204.3" r="6" fill="#c9d8e8" stroke="#fff" stroke-width="1.5"/>
+<text x="378.9" y="194.3" font-size="9.5" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.64</text>
+<circle cx="690.0" cy="183.5" r="6" fill="#c9d8e8" stroke="#fff" stroke-width="1.5"/>
+<text x="690.0" y="173.5" font-size="9.5" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.69</text>
+<text x="120.0" y="316.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">TCResNet8</text>
+<line x1="124.0" y1="312.0" x2="128.0" y2="312.0" stroke="#8a93a5" stroke-width="3"/>
+<line x1="130.0" y1="312.7" x2="254.4" y2="229.3" stroke="#8a93a5" stroke-width="2.2"/>
+<line x1="254.4" y1="229.3" x2="378.9" y2="208.5" stroke="#8a93a5" stroke-width="2.2"/>
+<line x1="378.9" y1="208.5" x2="690.0" y2="191.8" stroke="#8a93a5" stroke-width="2.2"/>
+<circle cx="130.0" cy="312.7" r="6" fill="#8a93a5" stroke="#fff" stroke-width="1.5"/>
+<text x="130.0" y="302.7" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.38</text>
+<circle cx="254.4" cy="229.3" r="6" fill="#8a93a5" stroke="#fff" stroke-width="1.5"/>
+<text x="254.4" y="219.3" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.58</text>
+<circle cx="378.9" cy="208.5" r="6" fill="#8a93a5" stroke="#fff" stroke-width="1.5"/>
+<text x="378.9" y="198.5" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.63</text>
+<circle cx="690.0" cy="191.8" r="6" fill="#8a93a5" stroke="#fff" stroke-width="1.5"/>
+<text x="690.0" y="181.8" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.67</text>
+<line x1="130.0" y1="96.0" x2="130.0" y2="346.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="130.0" y1="346.0" x2="690.0" y2="346.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<text x="130.0" y="364.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1 条</text>
+<text x="254.4" y="364.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3 条</text>
+<text x="378.9" y="364.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5 条</text>
+<text x="690.0" y="364.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10 条</text>
+<text x="410.0" y="384.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">注册样本数 K</text>
+<text x="36.0" y="412.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：骨干排序稳定 ResNet15 &gt; DS-CNN-L &gt; M &gt; S ≈ TCResNet8；1→3 样本增益最大（约 19 点）、5→10 边际递减到 2 点——甜点在 3–5 条；</text>
+<text x="36.0" y="430.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">单样本 0.55（单条嵌入噪声大、原型退化）；FAR=1% 时 ResNet15 十样本 0.70。加 softmax 列系统性更低（0.78 对 0.80）</text>
+</svg>
+    <p class="cap"><b>Table 2 复绘</b>：少样本准确率随注册条数 K（1/3/5/10）的曲线，FAR=5% 后验调阈值、十关键词。骨干排序稳定；1→3 条增益最大（约 19 点）、5→10 边际递减到 2 点——注册成本与精度的甜点在 3–5 条；单样本 0.55（原型退化）。FAR=1% 时 ResNet15 十样本 0.70；加 softmax 列系统性更低。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 460">
+<rect x="0.0" y="0.0" width="880.0" height="460.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GAP9 部署账单（Table 3 · 240MHz / 0.65V / 25.5mW · 4+2 词表十样本）</text>
+<line x1="36.0" y1="56.0" x2="520.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="260.0" y="94.0" font-size="12.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延迟（ms）与能耗（µJ）</text>
+<rect x="180.0" y="116.0" width="33.3" height="22.0" rx="4" fill="#8a93a5"/>
+<text x="219.3" y="132.0" font-size="11" fill="#47536a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1.11 ms</text>
+<rect x="180.0" y="142.0" width="32.7" height="16.0" rx="3" fill="#8a93a5" opacity="0.55"/>
+<text x="218.7" y="155.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">28.3 µJ</text>
+<text x="174.0" y="134.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">TCResNet8</text>
+<text x="174.0" y="154.0" font-size="10" fill="#0a6b4e" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">ACC 0.62</text>
+<rect x="180.0" y="182.0" width="219.3" height="22.0" rx="4" fill="#c9d8e8"/>
+<text x="405.3" y="198.0" font-size="11" fill="#47536a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">7.31 ms</text>
+<rect x="180.0" y="208.0" width="214.8" height="16.0" rx="3" fill="#c9d8e8" opacity="0.55"/>
+<text x="400.8" y="221.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">186.2 µJ</text>
+<text x="174.0" y="200.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN-L</text>
+<text x="174.0" y="220.0" font-size="10" fill="#0a6b4e" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">ACC 0.69</text>
+<rect x="180.0" y="248.0" width="290.7" height="22.0" rx="4" fill="#0b6e52"/>
+<text x="476.7" y="264.0" font-size="11" fill="#47536a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">9.69 ms</text>
+<rect x="180.0" y="274.0" width="284.9" height="16.0" rx="3" fill="#0b6e52" opacity="0.55"/>
+<text x="470.9" y="287.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">246.9 µJ</text>
+<text x="174.0" y="266.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ResNet15</text>
+<text x="174.0" y="286.0" font-size="10" fill="#0a6b4e" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">ACC 0.73</text>
+<text x="70.0" y="324.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">ResNet15 比 TCResNet8 费能 8.7 倍，换回 ~10 点准确率；</text>
+<text x="70.0" y="340.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">按每秒一帧折算约 0.25 mW 平均计算功耗（笔记换算）</text>
+<rect x="520.0" y="90.0" width="330.0" height="300.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="685.0" y="114.0" font-size="13" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三个硬件层发现</text>
+<rect x="536.0" y="138.0" width="298.0" height="76.0" rx="8" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="548.0" y="158.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">效率 ≠ MAC 数</text>
+<text x="548.0" y="176.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">ResNet15 的 MAC 是 DS-CNN-L</text>
+<text x="548.0" y="189.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">的 8.4 倍，前向只慢 2.25 倍——加速器</text>
+<text x="548.0" y="202.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">3×3 卷积 100</text>
+<text x="548.0" y="215.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">MAC/cyc、pointwise 只有</text>
+<rect x="536.0" y="222.0" width="298.0" height="76.0" rx="8" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="548.0" y="242.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">隐藏的归一化开销</text>
+<text x="548.0" y="260.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN 的 LayerNorm</text>
+<text x="548.0" y="273.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">头必须跑集群核（含均值方差），占 DS-CNN-L</text>
+<text x="548.0" y="286.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">总负载 44%（3.23ms/7.31ms）；Res</text>
+<text x="548.0" y="299.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Net15 的 BN+池化只要</text>
+<rect x="536.0" y="306.0" width="298.0" height="76.0" rx="8" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="548.0" y="326.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">量化无损 + 修复配方</text>
+<text x="548.0" y="344.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">8bit PTQ 全骨干无损（4</text>
+<text x="548.0" y="357.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">条样本标定）；ResNet15 的 BN</text>
+<text x="548.0" y="370.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">无法折叠（层序相反）单独量化曾掉精度——改投</text>
+<text x="548.0" y="383.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FP16 完全恢复</text>
+<text x="36.0" y="436.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">教训：「MAC 少」不等于「在这块硬件上快」，骨干必须与加速器指令结构协同设计；非卷积算子落在集群核上的代价同样要计入预算</text>
+</svg>
+    <p class="cap"><b>Table 3 复绘</b>：GAP9 部署账单（延迟实心、能耗半透明）+ 三个硬件层发现——① ResNet15 MAC 是 DS-CNN-L 的 8.4 倍但只慢 2.25 倍（加速器 3×3 卷积 100 MAC/cyc vs pointwise 40，「MAC 少 ≠ 这块硬件上快」）；② DS-CNN 的 LayerNorm 头占其总负载 44%（跑在集群核）；③ 8bit PTQ 无损 + BN 改投 FP16 的修复配方。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="16.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">范式对照 + 固定阈值的容量反转 + 失败模式（Table 4 / Fig.3 / Fig.4）</text>
+<line x1="36.0" y1="56.0" x2="560.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="240.0" y="88.0" font-size="12.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">十样本 · FAR=5% 下的 ACC</text>
+<rect x="100.0" y="106.0" width="238.3" height="26.0" rx="5" fill="#b9c4b0"/>
+<text x="344.3" y="124.0" font-size="11" fill="#b9c4b0" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.95</text>
+<text x="94.0" y="124.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">端到端（全数据，同域）</text>
+<rect x="100.0" y="152.0" width="251.3" height="26.0" rx="5" fill="#b9c4b0"/>
+<text x="357.3" y="170.0" font-size="11" fill="#b9c4b0" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.98</text>
+<text x="94.0" y="170.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">triplet+kNN（同域全数据）</text>
+<rect x="100.0" y="198.0" width="229.7" height="26.0" rx="5" fill="#b9c4b0"/>
+<text x="335.7" y="216.0" font-size="11" fill="#b9c4b0" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.93</text>
+<text x="94.0" y="216.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">triplet+SVM（同域全数据）</text>
+<rect x="100.0" y="244.0" width="69.3" height="26.0" rx="5" fill="#c0392b"/>
+<text x="175.3" y="262.0" font-size="11" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.56</text>
+<text x="94.0" y="262.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">迁移学习线性头（跨域 10 样本）</text>
+<rect x="100.0" y="290.0" width="173.3" height="26.0" rx="5" fill="#0e8a66"/>
+<text x="279.3" y="308.0" font-size="11" fill="#0e8a66" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.80</text>
+<text x="94.0" y="308.0" font-size="10" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">本文原型（跨域 10 样本）</text>
+<text x="70.0" y="344.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">灰条 = 同域全数据（不同质，仅供参考）；</text>
+<text x="70.0" y="359.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">真正的分水岭：FAR=0 时两者 0.87 vs 0.88，</text>
+<text x="70.0" y="374.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">压到 FAR 5% 时迁移学习崩到 0.56——线性头</text>
+<text x="70.0" y="389.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">没有距离幅度语义的拒识能力</text>
+<text x="670.0" y="88.0" font-size="12.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">固定 γ=m 时容量趋势反转（Fig.3）</text>
+<rect x="520.0" y="112.0" width="212.7" height="24.0" rx="4" fill="#c9d8e8"/>
+<text x="738.7" y="129.0" font-size="11" fill="#47536a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">58%</text>
+<text x="514.0" y="129.0" font-size="11" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN-L</text>
+<rect x="750.0" y="113.0" width="66.0" height="22.0" rx="11" fill="none" stroke="#cfe9de" stroke-width="1"/>
+<text x="783.0" y="128.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FAR 60.0%</text>
+<rect x="520.0" y="186.0" width="198.0" height="24.0" rx="4" fill="#0e8a66"/>
+<text x="724.0" y="203.0" font-size="11" fill="#47536a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">54%</text>
+<text x="514.0" y="203.0" font-size="11" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ResNet15</text>
+<rect x="750.0" y="187.0" width="66.0" height="22.0" rx="11" fill="none" stroke="#cfe9de" stroke-width="1"/>
+<text x="783.0" y="202.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FAR 15.0%</text>
+<text x="500.0" y="270.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">小容量反而更准（嵌入紧 → 正样本留在 γ 球内）；</text>
+<text x="500.0" y="285.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">大模型换低 FAR（按小时误触发是 1/3）。后验调</text>
+<text x="500.0" y="300.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">阈值的最优骨干 ≠ 免标定部署的最优骨干——</text>
+<text x="500.0" y="315.0" font-size="10" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">阈值策略与骨干选型是耦合决策</text>
+<rect x="36.0" y="400.0" width="848.0" height="56.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="52.0" y="422.0" font-size="11" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">失败模式（Fig.4）：错误以「判为未知」为绝对主体（on 行 261 判未知 vs 134 正确），跨词严重错误极小——保守漏检而非张冠李戴，</text>
+<text x="52.0" y="440.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">对唤醒应用是安全方向。stop 79% / yes 78% / no 75% 最高（擦塞音结构 + 时间支撑），on 34% / up 45% / off 47% 最低（短单音节功能词难聚拢）</text>
+</svg>
+    <p class="cap"><b>Table 4 / Fig. 3 / Fig. 4 复绘</b>：左——范式对照（灰条 = 同域全数据不同质仅供参考）：γ=0 时原型法与迁移学习相当（0.88 vs 0.87），FAR=5% 时 0.80 vs 0.56——线性头没有距离幅度语义的拒识能力，开集稳健性是两种范式的分水岭。右上——固定 γ=m 的容量反转：小模型更准、大模型 FAR 低 3 倍——阈值策略与骨干选型耦合。底部——失败模式保守漏检而非张冠李戴（对唤醒应用安全），短单音节功能词是明确短板。</p>
+  </div>
+
+  <div class="card">
+    <b>协议细节</b>：评测分两个 regime——(a) 后验调阈值至 FAR=5%/1%（Table 2，可达性能上界）；(b) 部署保真的固定 γ=m（Fig. 3，用户开箱即用的真实性能）。为什么必须有 (b)：此前少样本 KWS 工作或者同域训练测试、或者只报准确率不报 FAR——都系统性高估可用性；<b>诚实的定制场景就是「目标词没见过、负样本没见过、没有标注校准集」</b>。ACC = GSC+ 正确分类占比；FAR = GSC-（其余 20 词类）误判为目标词占比。每个测试重复 10 次取平均（消除少样本抽取偶然性）。负样本度量专设、静音原型用 GSC 背景噪声生成。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">三条贡献</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>首个（论文自称）TinyML 域内免反向传播的端侧 KWS 定制方案</b>——跨域十样本 80%（FAR 5%），25mW 级 MCU 上 9.7ms / 246.9µJ 每次推理，完整落进内存与能耗预算。</div>
+    <div class="c"><span class="n">2</span><b>一套完整设计方法论</b>——冻结 triplet 特征提取器 + 设备端原型注册 + γ=m 免标定开集阈值，五个骨干横向给出精度/延迟/内存/能耗完整账目。</div>
+    <div class="c" style="grid-column:1/-1;background:#fdf1e4;border-color:#f0dfc9"><span class="n" style="background:#d97a2b">★</span><b>多条可迁移工程洞察</b>——softmax 损害开集性能；固定阈值下骨干容量趋势反转（阈值策略与骨干选型耦合）；层类型执行效率（3×3 卷积 100 MAC/cyc vs pointwise 40）与集群核归一化算子的隐藏开销（44%）决定真实预算——骨干选型必须硬件感知；BatchNorm 量化改投 FP16 的修复配方。</div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">三重代价与短功能词短板</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>绝对精度差距</b>：0.80 vs 端到端 0.95 / 同域 kNN 0.98；免标定固定阈值下更只剩 54%——跨域 + 少样本 + 免训练三重代价都在这个缺口。</li>
+        <li><b>阈值两难</b>：γ=m 免标定但保守；后验调阈值性能好但需目标域标注负样本——两者不可兼得，论文没给中间道路。</li>
+        <li><b>原型脆弱</b>：单样本仅 0.55，注册录音质量直接决定原型质量；运行期无对实际使用者声音的自适应。</li>
+        <li><b>短功能词系统性劣化</b>：on 33.8% / up 44.5%——单原型无法覆盖散布类簇，而这类短词恰是语音命令高频词。</li>
+        <li><b>最大模型账单</b>：537.3k 激活（RAM 压力）、235.1 MMAC、246.9µJ——精度最优解与资源最优解分离。</li>
+        <li><b>假设理想化</b>：未知原型假设随机词不含目标词；静音/未知各只有一根向量，无法表达负空间多样性。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>目标域过干净</b>：GSC 是干净、近讲、均衡的 1 秒孤立词——无远场、混响、加性噪声、连续语流、词重叠；FAR 只在 20 个词类上度量。</li>
+        <li><b>词表规模固定</b>：十（部署 4+2）——类别数 N 增大时 ACC/FAR 缩放规律未报告。</li>
+        <li><b>对照不完整</b>：迁移学习基线只在 DS-CNN-L 上 8 epoch 复现；无 ProtoNet 式交叉熵情景训练的同设置对照；端到端/kNN/SVM 数字来自各自同域全数据协议（严格说不同质）。</li>
+        <li><b>能耗单工作点</b>：只在 240MHz/0.65V 按 25.5mW 包络换算——无 DVFS、无系统级电池寿命数据。</li>
+        <li><b>账目用代理量</b>：固件内存（Flash/RAM 字节）未逐项报告，只有参数量与最大激活两个代理。</li>
+        <li><b>训练成本未报</b>：总时长、服务器能耗、top-500 类选择的敏感性均未消融。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>自然的延伸方向</b>：注册后自适应（设备端原型迭代精炼 / 只用前向的嵌入校准 / 无标注流式自标注——关键是保持反向传播免费或近免费）；更好的免标定阈值（从注册样本自身类内距离分布估计每类接受半径，或对负样本距离建极值模型）；骨干与硬件协同（替掉吃 44% 负载的集群核 LayerNorm 头；向 3×3 友好结构倾斜吃满 100 MAC/cyc）；每类多原型覆盖 on/up/off 散布类簇、注意力加权原型、说话人条件归一化、远场增广；学习离群类/密度模型替代单一未知原型；从 1 秒孤立窗推进到滑窗流式唤醒（产品化必经之路）。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2023/On-Device_Customization_Of_Tiny_Deep_Learning_Models_For_Keyword_Spotting_With_Few_Examples.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2023/On-Device_Customization_Of_Tiny_Deep_Learning_Models_For_Keyword_Spotting_With_Few_Examples.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://doi.org/10.1109/mm.2023.3311826" target="_blank">DOI · 10.1109/mm.2023.3311826</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（Table 1–4、Fig. 1–4、式 1–3）；Fig. 4 逐词数字为文中给出的代表值。错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
