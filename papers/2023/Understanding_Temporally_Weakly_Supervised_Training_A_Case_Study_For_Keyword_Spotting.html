@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>时序弱监督 KWS · 小米案例研究 · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2023/Understanding_Temporally_Weakly_Supervised_Training_A_Case_Study_For_Keyword_Spotting.md">深读笔记</a>
+    <a href="/papers/2023/Understanding_Temporally_Weakly_Supervised_Training_A_Case_Study_For_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2305.18794" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2023 №38</p>
+  <h1>7 秒拼接数据上自动强制对齐崩掉 9 个点（96.2→87.2），弱监督模型只降 0.35 点——小米用 66k 参数<br>+ 标准交叉熵证明：KWS 训练对「精确时间标注」的依赖被行业高估了</h1>
+  <p class="sub">Understanding Temporally Weakly Supervised Training: A Case Study for Keyword Spotting</p>
+  <p class="meta"><b>作者</b>：Heinrich Dinkel、Weiji Zhuang、Zhiyong Yan、Yongqing Wang、Junbo Zhang、Yujun Wang（小米，北京）· arXiv 2305.18794（2023-05）</p>
+  <p class="meta"><b>数据</b>：GSCV1（11 类子集）+ AudioSet 5200h 噪声 · <b>模型</b>：TC-ResNet8 66k 参数 vs LF-MMI+TDNN（Kaldi）· 干净测试集恒定</p>
+  <div class="chips">
+    <span class="chip">强标签 x_i↦y_i vs 弱标签 x_{1:T}↦y</span><span class="chip">三轨 × 两模型对照矩阵</span><span class="chip">定位能力自发涌现（无定位损失）</span>
+    <span class="chip">弱监督 = 隐式标签平滑</span><span class="chip">负样本噪声曝光是前提</span><span class="chip">适用边界：存在率 &gt;15% 且 SNR &gt;0dB</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>强监督标签生产线的三个痛点</b>：① 强制对齐在重噪音频上失效（对齐崩坏 → 错位标签）——越是对齐不可靠的环境越需要可靠 KWS，供需错位；② 人工精标的成本墙（无法随规模扩展）；③ 「噪声是障碍」的预处理惯性——剪裁本身需要边界信息（绕回对齐），且模型只在净化过的短片段上训练、对连续音频流泛化存疑。<b>作者的反直觉立场</b>：强监督把训练任务简化得过于平凡（显式告知「是什么、在什么时候」）；弱监督要求模型自己定位——迫使网络学到更本质的判别与定位能力。</li>
+      <li><b>三个研究问题</b>：① 强监督真的优于弱监督吗？② 神经网络能否完全靠隐式学习掌握标签存在性——即使关键词被噪声完全掩盖、位置完全未知？③ 噪声与静音的移除对训练重不重要？<b>工程诉求</b>：若弱标注可行，标注成本从「逐帧精确边界」降到「数秒级出现与否」，训练数据量级大幅提升且天然覆盖真实噪声分布。</li>
+      <li><b>对照矩阵设计</b>：三轨数据（干净 / Weak-t_s 关键词随机插入 AudioSet 噪声不重叠——单独检验「位置未知」/ WeakSNR-t_s 按信噪比完全混合——叠加「内容被淹没」）× 两类模型（LF-MMI+TDNN 的 oracle 完美对齐上界与 FA 自动对齐现实 / TC-ResNet8 弱监督 E2E）。<b>关键控制</b>：标签数量不变只改时长内容；AudioSet 5200h 无约束真实噪声（多数含语音/音乐）；66k 参数排除「大模型记忆」解释；3/5/7 秒把标签稀释参数化。</li>
+      <li><b>Table 1（无裁剪）</b>：干净数据 oracle ≈ FA（96.23/96.21）；7 秒拼接下 <b>FA 崩 9 点（87.21）而 oracle 稳定（96.13）</b>——强监督的性能天花板由标签生产环节决定、该环节在真实噪声下最脆弱；弱监督 E2E 全程稳定（96.36/96.74/96.68），3s→7s 只降 0.35 点——<b>无显式位置监督下自动定位并提取目标关键词</b>。唯一训练目标是标准交叉熵——没有定位损失、没有 max-pooling、没有 MIL 池化。</li>
+      <li><b>时长失配诊断（聪明的细节）</b>：弱监督 accuracy 几乎不掉但 mAP 明显滑落（98.28→96.27）——3/5/7s 训练 vs 1s 测试的长度维度失配压低置信度排序质量但对 argmax 影响有限。解法极朴素：<b>训练时 1 秒随机裁剪</b>——mAP 全面回升且等效扩充样本量。可迁移判断：<b>时间维增强若与部署滑窗长度对齐，收益比盲目加噪更稳定</b>。</li>
+      <li><b>Table 2（加裁剪后反超）</b>：Weak-3s 97.25（mAP 98.58）<b>反超干净训练的 97.03</b>——「弱监督反而提升性能」的直接证据；AUC：Clean 99.83 / Weak-3s 99.88（弱监督几乎无损且最高）。答案三：噪声静音<b>无需移除</b>，保留反而可能提升。</li>
+      <li><b>Table 4 消融（机理上最有深度的一刀）</b>：Weakpos = 正样本拼噪声、负样本保持干净——崩落 92.08→87.80→86.20（对照主实验 97.25/96.75/97.10，差 5~11 点且越长掉得越狠）。解释链：7 秒段随机裁 1 秒约 <b>85% 概率裁到「纯噪声+关键词标签」的假阳性</b>；主实验负样本同分布拼噪 → 模型见过大量「同样噪声底、标签为非目标」的负样本（目标:未知 = 1:20 的拒绝先验）→ 靠内容拒绝假阳性 = <b>等效标签平滑的正则化</b>；Weakpos 的负样本干净 → 假阳性变成纯标签污染。<b>结论：噪声必须在正负两侧同分布出现——单边加噪不是增强是投毒</b>。</li>
+      <li><b>Table 3 SNR 矩阵与失效区</b>：三个规律——噪声越强一致下降、输入越长一致下降、绝大多数格子弱监督 E2E 优于 oracle 与 FA。代表数字：3s+10dB 只比干净降 0.7 点（97.03→96.36）、0dB 也有 93.69%。<b>唯一显著例外</b>：SNR0-7s 崩到 62.44（低于 oracle 85.98 和 FA 67.29）——标签稀释与内容污染叠加超过普通交叉熵的自愈能力。核心结论：<b>关键词存在率超过约 15%（1/7）且 SNR &gt; 0 dB 时弱监督胜强监督 oracle</b>——但逐格核对有两格 oracle 略占先，15% 规则是统计趋势非逐格严格。</li>
+      <li><b>边界</b>：失效区（高稀释+低 SNR）无补救手段探索；弱标注成本并未归零（FA 全自动 vs 弱标注人工粗标——对照不完全公平，「逐段标注」人力仍在）；定位能力只有间接证据（无帧级热图与真实位置比对，起止点误差未报）；无部署侧指标（无延迟/算力/流式评估）；评估面单一（全部在 GSCV1 干净测试集——无带噪测试、无真实弱标注数据、无每小时误唤醒率；ROC 只展示到 FPR 0.10 而产品关心远低于此）；噪声仿真不含真实远场卷积混响；单数据集单模型单次训练无方差；15% 阈值只有 3×3 采样点；时长上限 7 秒。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">把「不精确边界」从障碍变成数据策略</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>与既有弱监督工作的分野</b>：max-pooling 损失、recycle-pooling、免对齐 LF-MMI、CNN 起止点检测、流式 Transformer——普遍把不完美标签边界当作需要「容忍和补偿」的性能障碍。没人正面回答过：<b>故意把位置信息完全丢掉、只给整段一个标签，模型到底会掉多少、甚至会不会反而变好</b>。另外常规 E2E KWS 名义上弱监督实际不是——预处理已剪除静音噪声、输入基本只剩关键词本身；「是否真的需要移除噪声」从未被对照检验。
+  </div>
+
+  <div class="formula">
+    强标签：x<sub>i</sub> ↦ y<sub>i</sub> ∈ K（帧级映射，知道精确位置）；弱标签：x<sub>1:T</sub> ↦ y ∈ K（整段映射，只知道「出现了什么」不知道「在哪」）；插入位置 ~ U(0, t−L)
+    <div class="why">均匀采样保证关键词位置先验完全平坦——模型无法从位置统计走捷径、只能从内容学习。训练配置：16kHz / 64 带 log-Mel（10ms 移 32ms 窗）/ batch 64 / 最多 200 epoch / Adam 1e-3 / 验证集最优 top-4 checkpoint 权重平均。评估只在 GSCV1 干净测试集（6835 条）——训练侧任何改动都在同一公平评估面比较。</div>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">变量可控的数据工程</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 950">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="950.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="18" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三轨数据 × 两类模型的对照矩阵（图 1 复绘）</text>
+<line x1="36.0" y1="60.0" x2="380.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 强监督标签生产线的三个痛点</text>
+<rect x="36.0" y="98.0" width="848.0" height="84.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="120.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 强制对齐在重噪音频上失效——对齐质量崩坏产生错位标签；而真实产品场景（远场/电视伴音/多人）恰是重噪：越是对齐不可靠的环境越需要可靠 KWS，供需错位</text>
+<text x="52.0" y="135.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 人工精标的成本墙——替代方案是逐帧人工标注起止点，无法随数据规模线性扩展</text>
+<text x="52.0" y="150.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 「噪声是障碍」的预处理惯性——剪裁本身需要边界信息（绕回对齐）；且模型只在净化过的短片段分布上训练，对连续音频流的泛化存疑</text>
+<text x="52.0" y="165.0" font-size="10" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 作者立场（反直觉）：强监督把训练任务简化得过于平凡——弱监督要求模型不仅发现标签还要自己定位，迫使网络学到更本质的判别与定位能力</text>
+<text x="36.0" y="200.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 三条数据轨（标签数量不变，只改时长与内容）+ 两类模型</text>
+<rect x="36.0" y="214.0" width="270.0" height="96.0" rx="9" fill="#f2f3f0" stroke="#e6e6df" stroke-width="1"/>
+<text x="50.0" y="236.0" font-size="12" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">干净轨</text>
+<text x="50.0" y="256.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">原始 GSCV1，每条 ≤1s 干净关键词</text>
+<text x="50.0" y="270.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不注入 GSC 自带噪声</text>
+<rect x="324.0" y="214.0" width="270.0" height="96.0" rx="9" fill="#e3ecf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="338.0" y="236.0" font-size="12" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Weak-t_s（t=3/5/7）</text>
+<text x="338.0" y="256.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">AudioSet 均匀采噪声段，关键词</text>
+<text x="338.0" y="270.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">随机插入不重叠——单独检验</text>
+<text x="338.0" y="284.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「位置未知」难度</text>
+<rect x="612.0" y="214.0" width="270.0" height="96.0" rx="9" fill="#cfe9de" stroke="#e6e6df" stroke-width="1"/>
+<text x="626.0" y="236.0" font-size="12" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">WeakSNR-t_s</text>
+<text x="626.0" y="256.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词与噪声按 SNR 0/5/10 dB</text>
+<text x="626.0" y="270.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">完全混合、内容被淹没——</text>
+<text x="626.0" y="284.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">叠加「位置+内容污染」双难度</text>
+<rect x="36.0" y="322.0" width="414.0" height="70.0" rx="9" fill="#eef1f5" stroke="#d9dee6" stroke-width="1"/>
+<text x="52.0" y="344.0" font-size="11.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">强监督基线：LF-MMI + TDNN（Kaldi）</text>
+<text x="52.0" y="362.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">oracle = 构造时的精确时间戳（完美对齐上界）</text>
+<text x="52.0" y="378.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FA = 自动强制对齐（现实中的标签质量）</text>
+<rect x="474.0" y="322.0" width="414.0" height="70.0" rx="9" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="490.0" y="344.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">弱监督 E2E：TC-ResNet8（66,000 参数）</text>
+<text x="490.0" y="362.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">唯一训练目标 = 标准类别交叉熵——没有定位损失、</text>
+<text x="490.0" y="378.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">没有 max-pooling、没有 MIL 池化：定位能力自发涌现</text>
+<text x="36.0" y="404.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么 AudioSet：5200 小时完全无约束真实音频（多数含语音/音乐）——真实噪声的分布复杂度远超人造噪声；为什么 66k 参数：小模型排除「大模型记忆」解释；</text>
+<text x="36.0" y="420.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么 3/5/7 秒：关键词存在率 ≈ 1/3、1/5、1/7——把「标签稀释程度」参数化，为 15% 阈值结论铺路</text>
+<text x="36.0" y="444.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 机理：弱监督 = 数据层面的隐式标签平滑（依赖负样本噪声曝光）</text>
+<rect x="36.0" y="458.0" width="280.0" height="180.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="482.0" font-size="12" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三个量化关系</text>
+<text x="52.0" y="506.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 7 秒段随机裁 1 秒：约 6/7 ≈ 85% 概率</text>
+<text x="52.0" y="521.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  裁到纯噪声却带关键词标签</text>
+<text x="52.0" y="536.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  = 事实上的假阳性样本注入</text>
+<text x="52.0" y="551.0" font-size="10" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="566.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练集目标:未知 = 1:20——遇到噪声样态</text>
+<text x="52.0" y="581.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  输入时有 20 倍先验属于非目标类</text>
+<text x="52.0" y="596.0" font-size="10" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="611.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 关键词存在率 1/7 ≈ 14.3% → 适用边界</text>
+<text x="52.0" y="626.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「出现超过 15% 且 SNR &gt; 0 dB」</text>
+<rect x="324.0" y="458.0" width="280.0" height="180.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="340.0" y="482.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Table 4 的关键一刀：Weakpos</text>
+<text x="340.0" y="502.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">正样本拼噪声、负样本保持干净</text>
+<text x="340.0" y="515.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">结果崩落：92.08 → 87.80 → 86.20</text>
+<text x="340.0" y="528.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（对照主实验 97.25/96.75/97.10）</text>
+<text x="340.0" y="541.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="340.0" y="554.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">解释：负样本没见过噪声样态 →</text>
+<text x="340.0" y="567.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">假阳性裁剪变成纯标签污染、无法被</text>
+<text x="340.0" y="580.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">先验拒绝；主实验里负样本同分布拼噪</text>
+<text x="340.0" y="593.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 模型靠内容拒绝假阳性</text>
+<text x="340.0" y="606.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="340.0" y="619.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">结论：噪声必须在正负两侧同分布</text>
+<text x="340.0" y="632.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">出现——单边加噪不是增强是投毒</text>
+<rect x="612.0" y="458.0" width="276.0" height="180.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="628.0" y="482.0" font-size="12" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">时长失配诊断与裁剪对齐</text>
+<text x="628.0" y="502.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">反常：弱监督 accuracy 几乎不掉</text>
+<text x="628.0" y="514.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（97.03→96.68）但 mAP 明显滑落</text>
+<text x="628.0" y="526.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（98.28→96.27）</text>
+<text x="628.0" y="538.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="628.0" y="550.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">诊断：3/5/7s 训练 vs 1s 测试——长度</text>
+<text x="628.0" y="562.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">维度失配压低置信度排序质量但对</text>
+<text x="628.0" y="574.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">argmax 影响有限</text>
+<text x="628.0" y="586.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="628.0" y="598.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">解法：训练时 1 秒随机裁剪——mAP 全面</text>
+<text x="628.0" y="610.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">回升且等效扩充训练样本量；</text>
+<text x="628.0" y="622.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：时间维增强若与部署滑窗</text>
+<text x="628.0" y="634.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">长度对齐，收益比盲目加噪更稳定</text>
+</svg>
+    <p class="cap"><b>图 1 复绘</b>：强监督标签生产线三痛点与作者的反直觉立场；三轨数据 × 两类模型的对照矩阵（标签数量不变只改时长内容；AudioSet 真实噪声；66k 参数排除大模型记忆解释；3/5/7s 把标签稀释参数化）；机理三量化关系（85% 假阳性裁剪、1:20 拒绝先验、15% 存在率边界）；Weakpos 消融的解释链；时长失配诊断与 1 秒裁剪对齐。</p>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与消融</p>
+  <h2 class="sec">三级难度的单调递进</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="16" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">强监督 FA 单边崩坏 vs 弱监督稳定（Table 1 · 无裁剪 · Accuracy%）</text>
+<line x1="36.0" y1="56.0" x2="480.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="126.0" y1="352.0" x2="830.0" y2="352.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="120.0" y="356.0" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">85</text>
+<line x1="126.0" y1="292.0" x2="830.0" y2="292.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="120.0" y="296.0" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">88</text>
+<line x1="126.0" y1="232.0" x2="830.0" y2="232.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="120.0" y="236.0" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">91</text>
+<line x1="126.0" y1="172.0" x2="830.0" y2="172.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="120.0" y="176.0" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">94</text>
+<line x1="126.0" y1="112.0" x2="830.0" y2="112.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="120.0" y="116.0" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">97</text>
+<rect x="136.5" y="127.4" width="50.0" height="224.6" rx="4" fill="#c9d8e8"/>
+<text x="161.5" y="121.4" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">96.23</text>
+<rect x="192.5" y="127.8" width="50.0" height="224.2" rx="4" fill="#c9d8e8"/>
+<text x="217.5" y="121.8" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">96.21</text>
+<rect x="248.5" y="111.4" width="50.0" height="240.6" rx="4" fill="#0e8a66"/>
+<text x="273.5" y="105.4" font-size="9.5" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">97.03</text>
+<text x="217.5" y="370.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">干净</text>
+<rect x="311.5" y="144.2" width="50.0" height="207.8" rx="4" fill="#c9d8e8"/>
+<text x="336.5" y="138.2" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">95.39</text>
+<rect x="367.5" y="150.4" width="50.0" height="201.6" rx="4" fill="#e8b8b0"/>
+<text x="392.5" y="144.4" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">95.08</text>
+<rect x="423.5" y="124.8" width="50.0" height="227.2" rx="4" fill="#0e8a66"/>
+<text x="448.5" y="118.8" font-size="9.5" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">96.36</text>
+<text x="392.5" y="370.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Weak-3s</text>
+<rect x="486.5" y="114.8" width="50.0" height="237.2" rx="4" fill="#c9d8e8"/>
+<text x="511.5" y="108.8" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">96.86</text>
+<rect x="542.5" y="183.4" width="50.0" height="168.6" rx="4" fill="#e8b8b0"/>
+<text x="567.5" y="177.4" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">93.43</text>
+<rect x="598.5" y="117.2" width="50.0" height="234.8" rx="4" fill="#0e8a66"/>
+<text x="623.5" y="111.2" font-size="9.5" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">96.74</text>
+<text x="567.5" y="370.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Weak-5s</text>
+<rect x="661.5" y="129.4" width="50.0" height="222.6" rx="4" fill="#c9d8e8"/>
+<text x="686.5" y="123.4" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">96.13</text>
+<rect x="717.5" y="307.8" width="50.0" height="44.2" rx="4" fill="#c0392b"/>
+<text x="742.5" y="301.8" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">87.21</text>
+<rect x="773.5" y="118.4" width="50.0" height="233.6" rx="4" fill="#0e8a66"/>
+<text x="798.5" y="112.4" font-size="9.5" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">96.68</text>
+<text x="742.5" y="370.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Weak-7s</text>
+<rect x="430.0" y="62.0" width="12.0" height="12.0" rx="3" fill="#c9d8e8"/>
+<text x="446.0" y="73.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">oracle（完美对齐）</text>
+<rect x="580.0" y="62.0" width="12.0" height="12.0" rx="3" fill="#e8b8b0"/>
+<text x="596.0" y="73.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FA（自动对齐）</text>
+<rect x="730.0" y="62.0" width="12.0" height="12.0" rx="3" fill="#0e8a66"/>
+<text x="746.0" y="73.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">弱监督 E2E</text>
+<text x="36.0" y="396.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：干净数据 oracle ≈ FA（96.23 vs 96.21）；7 秒拼接下 FA 崩 9 点（87.21）而 oracle 稳定（96.13）——强监督的性能天花板由标签生产环节决定，</text>
+<text x="36.0" y="414.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">而该环节在真实噪声下最脆弱；弱监督 E2E 从 3s 到 7s 只降 0.35 点——无显式位置监督下自动定位并提取目标关键词</text>
+</svg>
+    <p class="cap"><b>Table 1 复绘（无裁剪）</b>：干净数据 oracle ≈ FA；7 秒拼接下 FA 崩 9 点（87.21）而 oracle 稳定——强监督的性能天花板由标签生产环节决定、该环节在真实噪声下最脆弱；弱监督 E2E 3s→7s 只降 0.35 点——无显式位置监督下自动定位并提取目标关键词。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 480">
+<rect x="0.0" y="0.0" width="880.0" height="480.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">加 1 秒裁剪后反超干净基线（Table 2）+ SNR 矩阵与失效区（Table 3）</text>
+<line x1="36.0" y1="56.0" x2="520.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="210.0" y="86.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Table 2（Accuracy / mAP）</text>
+<rect x="190.0" y="106.0" width="127.2" height="18.0" rx="4" fill="#c9d8e8"/>
+<rect x="190.0" y="128.0" width="67.2" height="18.0" rx="4" fill="#c9d8e8" opacity="0.55"/>
+<text x="323.2" y="119.0" font-size="9.5" fill="#c9d8e8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">97.03</text>
+<text x="263.2" y="141.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">98.28</text>
+<text x="184.0" y="128.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">干净 E2E</text>
+<rect x="190.0" y="158.0" width="180.0" height="18.0" rx="4" fill="#0b6e52"/>
+<rect x="190.0" y="180.0" width="139.2" height="18.0" rx="4" fill="#0b6e52" opacity="0.55"/>
+<text x="376.0" y="171.0" font-size="9.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">97.25</text>
+<text x="335.2" y="193.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">98.58</text>
+<text x="184.0" y="180.0" font-size="10" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Weak-3s+crop ★</text>
+<rect x="190.0" y="210.0" width="60.0" height="18.0" rx="4" fill="#9fc8b8"/>
+<rect x="190.0" y="232.0" width="43.2" height="18.0" rx="4" fill="#9fc8b8" opacity="0.55"/>
+<text x="256.0" y="223.0" font-size="9.5" fill="#9fc8b8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">96.75</text>
+<text x="239.2" y="245.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">98.18</text>
+<text x="184.0" y="232.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">Weak-5s+crop</text>
+<rect x="190.0" y="262.0" width="144.0" height="18.0" rx="4" fill="#9fc8b8"/>
+<rect x="190.0" y="284.0" width="129.6" height="18.0" rx="4" fill="#9fc8b8" opacity="0.55"/>
+<text x="340.0" y="275.0" font-size="9.5" fill="#9fc8b8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">97.10</text>
+<text x="325.6" y="297.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">98.54</text>
+<text x="184.0" y="284.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">Weak-7s+crop</text>
+<text x="190.0" y="330.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">实心 = Accuracy、半透明 = mAP；Weak-3s 97.25 反超干净 97.03——</text>
+<text x="190.0" y="344.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「弱监督反而提升性能」的直接证据；AUC：Clean 99.83 / 3s 99.88</text>
+<text x="670.0" y="86.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Table 3：SNR × 时长矩阵（E2E，带裁剪）</text>
+<text x="525.0" y="108.0" font-size="10" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="605.0" y="108.0" font-size="10" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3s</text>
+<text x="695.0" y="108.0" font-size="10" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5s</text>
+<text x="785.0" y="108.0" font-size="10" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">7s</text>
+<text x="554.0" y="132.0" font-size="10" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SNR 0dB</text>
+<rect x="560" y="118" width="84" height="34" fill="rgb(89,148,98)" rx="6"/>
+<text x="602.0" y="140.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">93.7</text>
+<rect x="650" y="118" width="84" height="34" fill="rgb(103,157,111)" rx="6"/>
+<text x="692.0" y="140.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">90.8</text>
+<rect x="740" y="118" width="84" height="34" fill="rgb(192,239,217)" rx="6" stroke="#c0392b" stroke-width="2"/>
+<text x="782.0" y="140.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">62.4</text>
+<text x="554.0" y="176.0" font-size="10" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SNR 5dB</text>
+<rect x="560" y="162" width="84" height="34" fill="rgb(82,144,91)" rx="6"/>
+<text x="602.0" y="184.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">95.2</text>
+<rect x="650" y="162" width="84" height="34" fill="rgb(88,147,96)" rx="6"/>
+<text x="692.0" y="184.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">94.1</text>
+<rect x="740" y="162" width="84" height="34" fill="rgb(91,149,99)" rx="6"/>
+<text x="782.0" y="184.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">93.5</text>
+<text x="554.0" y="220.0" font-size="10" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SNR 10dB</text>
+<rect x="560" y="206" width="84" height="34" fill="rgb(77,140,86)" rx="6"/>
+<text x="602.0" y="228.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">96.4</text>
+<rect x="650" y="206" width="84" height="34" fill="rgb(82,144,91)" rx="6"/>
+<text x="692.0" y="228.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">95.3</text>
+<rect x="740" y="206" width="84" height="34" fill="rgb(85,146,94)" rx="6"/>
+<text x="782.0" y="228.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">94.6</text>
+<text x="490.0" y="272.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">三个规律：噪声越强一致下降；输入越长一致下降；</text>
+<text x="490.0" y="286.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">绝大多数格子弱监督优于 oracle 与 FA。唯一显著</text>
+<text x="490.0" y="300.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">例外：SNR0-7s 崩到 62.44（低于 oracle 85.98 和</text>
+<text x="490.0" y="314.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FA 67.29）——弱监督的失效边界</text>
+<text x="36.0" y="456.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">核心结论：关键词出现超过整段 1/7（约 15%）且 SNR &gt; 0 dB 时，弱监督胜强监督 oracle——但按逐格核对两格 oracle 略占先，15% 规则是统计趋势非逐格严格</text>
+</svg>
+    <p class="cap"><b>Table 2 / Table 3 复绘</b>：左——加 1 秒裁剪后 Weak-3s 97.25 反超干净 97.03（mAP 与 AUC 同样佐证）——「弱监督反而提升性能」的直接证据；右——SNR × 时长热图矩阵：噪声越强、输入越长一致下降，绝大多数格子弱监督占优；唯一显著例外 SNR0-7s 崩到 62.44——失效边界。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="16.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Weakpos 消融（Table 4）+ 四条工程建议（Section 6）</text>
+<line x1="36.0" y1="56.0" x2="420.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="86.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">正样本拼噪 vs 正负都拼噪（Accuracy）</text>
+<line x1="267.0" y1="112.0" x2="348.2" y2="112.0" stroke="#f0c9c2" stroke-width="6"/>
+<circle cx="267.0" cy="112.0" r="7" fill="#c0392b" stroke="#fff" stroke-width="1.5"/>
+<circle cx="348.2" cy="112.0" r="7" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="257.0" y="116.0" font-size="10" fill="#c0392b" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">92.08</text>
+<text x="358.2" y="116.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">97.25</text>
+<text x="134.0" y="116.0" font-size="11" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3s</text>
+<line x1="199.7" y1="174.0" x2="340.4" y2="174.0" stroke="#f0c9c2" stroke-width="6"/>
+<circle cx="199.7" cy="174.0" r="7" fill="#c0392b" stroke="#fff" stroke-width="1.5"/>
+<circle cx="340.4" cy="174.0" r="7" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="189.7" y="178.0" font-size="10" fill="#c0392b" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">87.80</text>
+<text x="350.4" y="178.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">96.75</text>
+<text x="134.0" y="178.0" font-size="11" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5s</text>
+<line x1="174.6" y1="236.0" x2="345.9" y2="236.0" stroke="#f0c9c2" stroke-width="6"/>
+<circle cx="174.6" cy="236.0" r="7" fill="#c0392b" stroke="#fff" stroke-width="1.5"/>
+<circle cx="345.9" cy="236.0" r="7" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="164.6" y="240.0" font-size="10" fill="#c0392b" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">86.20</text>
+<text x="355.9" y="240.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">97.10</text>
+<text x="134.0" y="240.0" font-size="11" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">7s</text>
+<rect x="600.0" y="70.0" width="12.0" height="12.0" rx="3" fill="#c0392b"/>
+<text x="616.0" y="81.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Weakpos（负样本干净）</text>
+<rect x="600.0" y="88.0" width="12.0" height="12.0" rx="3" fill="#0b6e52"/>
+<text x="616.0" y="99.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">主实验（正负都拼噪）</text>
+<text x="60.0" y="306.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">差距 5~11 点且越长掉得越狠——负样本噪声曝光</text>
+<text x="60.0" y="320.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">是弱监督有效的前提（增强分布一致性原则的实证）</text>
+<rect x="500.0" y="128.0" width="330.0" height="230.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="665.0" y="150.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条工程建议（Section 6）</text>
+<text x="516.0" y="172.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">① 训练样本内的静音/噪声对 E2E 影响甚微——</text>
+<text x="516.0" y="187.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  可保留以扩大训练集（不必剪干净）</text>
+<text x="516.0" y="202.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② 已知关键词长度时按该长度随机裁剪输入</text>
+<text x="516.0" y="217.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  通常更优（与部署滑窗对齐）</text>
+<text x="516.0" y="232.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 小型 CNN 在关键词占 ≥15% 时长时即可完成</text>
+<text x="516.0" y="247.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  定位与识别</text>
+<text x="516.0" y="262.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">④ 强噪声致强制对齐不可靠时，改用粗粒度人工</text>
+<text x="516.0" y="277.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  弱标注 + 弱监督训练可显著提升性能</text>
+<text x="516.0" y="300.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">外溢价值：可迁移到声学事件检测、VAD、</text>
+<text x="516.0" y="314.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">声学场景分类（Section 5）</text>
+<text x="36.0" y="424.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一句话总结：KWS 训练对「精确时间标注」的依赖被行业高估了——66k 参数 + 标准交叉熵即可在粗粒度标签下学到定位与判别能力</text>
+</svg>
+    <p class="cap"><b>Table 4 + Section 6 复绘</b>：左——Weakpos 消融哑铃图（红=负样本干净、绿=正负都拼噪）：差距 5~11 点且越长掉得越狠——负样本噪声曝光是弱监督有效的前提，「单边加噪不是增强是投毒」；右——四条可操作工程建议与外溢价值。</p>
+  </div>
+
+  <div class="card">
+    <b>指标</b>：accuracy（主，通行口径保外部可比）+ 宏平均 mAP（次——11 类中 unknown 吸收 20 类天然不平衡，accuracy 被多数类扭曲，mAP 暴露逐类置信度排序质量；仅为 E2E 报告因 HMM 基线不输出逐段分数）+ ROC/AUC（检测视角补充）。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">五条贡献</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>首个 KWS 时序弱监督系统性研究</b>——统一评估面完整比较 HMM 强监督（oracle/FA）与弱监督 E2E，覆盖三级难度 + 3/5/7s × 0/5/10dB 二维扫描。</div>
+    <div class="c"><span class="n">2</span><b>正面回答三个基础问题</b>——强监督不必然优于弱监督；小 CNN 无需显式定位监督即可从噪声中隐式定位并识别；噪声/静音无需移除、保留反而可能提升。</div>
+    <div class="c"><span class="n">3</span><b>机理解释与成立条件</b>——假阳性裁剪等效数据层标签平滑、依赖负样本同分布噪声曝光（Table 4）；适用边界量化为存在率 &gt;15% 且 SNR &gt;0dB。</div>
+    <div class="c"><span class="n">4</span><b>四条可操作工程建议</b>——保留噪声扩大训练集；按关键词长度裁剪对齐部署滑窗；小 CNN 在 15% 存在率即可定位识别；对齐不可靠时改粗粒度弱标注。</div>
+    <div class="c" style="grid-column:1/-1;background:#fdf1e4;border-color:#f0dfc9"><span class="n" style="background:#d97a2b">★</span><b>方法论外溢价值</b>——结论可迁移到声学事件检测、VAD、声学场景分类；弱监督把标签平滑的正则化收益落到数据采集协议上（允许无 pinpoint 精度标注 → 扩大可用数据池）。</div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">失效区与验证面单一</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>存在明确失效区</b>：WeakSNR0-7s 崩到 62.44%——高稀释+低 SNR 叠加超过交叉熵自愈能力；未探索补救（时间聚合结构、课程学习）。</li>
+        <li><b>弱标注成本并未归零</b>：FA 全自动 vs 弱标注对应人工粗标——省掉「精确到帧」但「逐段标注」人力仍在，免费午餐不存在。</li>
+        <li><b>定位只有间接证据</b>：用分类精度反推「学会了定位」——无帧级热图与真实位置比对，起止点误差未报。</li>
+        <li><b>无部署侧指标</b>：TC-ResNet8 本为移动端实时设计——但无延迟/算力/流式评估；连续音频流上的表现只能推断。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>评估面单一</b>：全部在 GSCV1 干净测试集——无带噪测试、无真实弱标注数据、无误唤醒率；ROC 只到 FPR 0.10（产品关心远低于此），AUC 99.8 对低误报区间参考有限。</li>
+        <li><b>噪声仿真保真度有限</b>：拼接与能量叠加均不含真实远场卷积混响与信道效应——模型可能在「干净目标段」上讨巧。</li>
+        <li><b>统计稳健性未报</b>：单数据集、单模型、每设定单次训练——无方差/显著性；部分差距（94.56 vs 94.66）在毫厘之间。</li>
+        <li><b>15% 阈值支撑点稀疏</b>：3×3 采样、个别格子与总趋势不符；时长上限 7 秒——更稀疏标签（10s+）行为未知。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>自然的延伸方向</b>：融合自动对齐与弱监督（论文自提——把 FA 错位样本直接并入弱监督流程：自动标签的规模优势 × 弱标注的鲁棒性，最接近落地）；真实弱标注数据验证（人工「数秒级出现与否」的真实录音复验 + 低误报工作点 ROC + 误唤醒率）；失效区算法补强（注意力池化、可控 MIL、课程式提升难度——检验能否把 15% 阈值往下压）；跨任务跨模型迁移（声学事件检测/VAD/场景分类；更大模型验证「小模型不过拟合」结论是否在容量充足时反转）；<b>定位的显式化</b>（帧级热图输出——既做机理验证也可反哺数据清洗：自动挑出标注错误的段）。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2023/Understanding_Temporally_Weakly_Supervised_Training_A_Case_Study_For_Keyword_Spotting.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2023/Understanding_Temporally_Weakly_Supervised_Training_A_Case_Study_For_Keyword_Spotting.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2305.18794" target="_blank">arXiv · 2305.18794</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（表 1–4、图 1–2）。错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
