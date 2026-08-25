@@ -1,0 +1,278 @@
+- generic [ref=f271e2]:
+  - generic [ref=f271e3]: 论文精读 · 可视化版 · 2021 №6
+  - heading "视频审核的中文关键词唤醒： 竞赛冠军 = ASR 迁移打底 + 五模块叠 buff" [level=1] [ref=f271e4]: 视频审核的中文关键词唤醒：竞赛冠军 = ASR 迁移打底 + 五模块叠 buff
+  - generic [ref=f271e5]:
+    - generic [ref=f271e6]: BBS-KWS · 网易 Yidun
+    - generic [ref=f271e7]: arXiv 2112.01757 · 挑战赛第 1 名
+    - generic [ref=f271e8]: ASR 迁移 + 六件套增强 + 双注意力 + 多尺度 + 两阶段
+    - generic [ref=f271e9]: vs 基线 +10–15% · 两阶段误报 5%→0.5%
+  - generic [ref=f271e10]: 一句话：视频内容审核要在背景音乐、多人重叠、方言口音的泥潭里检出中文关键词，误报烧人力、漏报担合规风险。BBS-KWS 拿下挑战赛第一的配方：数千小时中文 ASR 编码器做初始化（消融里贡献最大，去掉掉 5–8 个点），配六件套数据增强、SE+时间双注意力、浅中深三层特征融合，最后用粗筛+精排两阶段把误报压低一个量级（5%→0.5%），代价只是召回掉 1–2%。
+  - generic [ref=f271e11]:
+    - generic [ref=f271e12]: TL;DR
+    - listitem [ref=f271e13]: ◈ 视频场景五重挑战：声学极复杂（音乐可能含与目标词音素相似的片段、多人重叠掩蔽）· 说话人多样性极高（性别/年龄/口音/方言）· 误报代价极高（误报=人工复审成本，漏报=合规风险）· 中文声调特殊性（同一音节四声四义，要盯基频轨迹）· 实时吞吐要求。
+    - listitem [ref=f271e14]: ◈ 五模块集成（竞赛典型打法）：声学前端 → DS-CNN 骨干 + SE(r=16) 通道注意力 + 时间注意力 → 大规模 ASR 迁移 → 多尺度融合 → 两阶段检测——组合互补技术最大化性能。
+    - listitem [ref=f271e15]: ◈ 迁移学习是最大功臣：数千小时中文 ASR 编码器（Conformer/Transformer）初始化 + 渐进式解冻（冻结 1–4 层 / 微调 5–8 / 全训 9–12+头）+ 域混 mixup——去掉直接 −5–8%。声学知识的来源比结构技巧贡献大一个档。
+    - listitem [ref=f271e16]: ◈ 双注意力分工：SE 增强与目标词音素相关的频率通道、抑制噪声通道；时间注意力盯住关键声调变化时段——中文声调主要体现在基频的时间轨迹上，这把注意力恰好对上。
+    - listitem [ref=f271e17]: ◈ 六件套增强：速度扰动 0.9/1.0/1.1×（同时改时长与声调频率）· 音量 ±6dB · 噪声注入 SNR −5~20dB · RIR 混响 T60 0.1–0.8s · SpecAugment · 时间偏移 ±100ms——去掉掉 3–5%，含噪/音乐鲁棒性严重下降。
+    - listitem [ref=f271e18]: ◈ 多尺度融合：浅层（音素级、抗噪）+ 中层（音节结构、声调轨迹）+ 深层（词/短语语义、怕噪）上采样拼接 1×1 降维——细粒度区分相似词，粗粒度管整体识别。
+    - listitem [ref=f271e19]: ◈ 两阶段流水：小模型宽阈值粗筛全流（宁多勿漏）→ 大模型严阈值精排，只有 5–10% 音频进第二级——误报 5%→0.5% 降一个量级，召回只掉 1–2%，代价是推理时间 +50%。
+    - listitem [ref=f271e20]: ◈ 消融排序：ASR 迁移（−5–8%）> 数据增强（−3–5%）> 多尺度融合（−1–3%）> SE（−1–2%）> 时间注意力（−0.5–1%）。边界：服务器端场景无边缘部署讨论、中文特化、竞赛特化决策未必通用。
+  - heading "§01 问题：比家居唤醒难一个量级" [level=2] [ref=f271e21]:
+    - generic [ref=f271e22]: §01
+    - text: 问题：比家居唤醒难一个量级
+  - generic [ref=f271e23]: 内容审核场景的五重挑战
+  - generic [ref=f271e24]:
+    - generic [ref=f271e25]:
+      - heading "声学环境的泥潭" [level=3] [ref=f271e26]
+      - paragraph [ref=f271e27]: 背景音乐可能包含与目标关键词音素相似的片段；多说话人重叠让目标语音被严重掩蔽；环境噪声、音效层层叠加——干扰的多样性和强度远超家居环境的唤醒词场景。
+    - generic [ref=f271e28]:
+      - heading "错误代价不对称且都贵" [level=3] [ref=f271e29]
+      - paragraph [ref=f271e30]: 误报 → 大量人工复审（烧人力资源）；漏报 → 合规风险与法律后果。系统要同时逼近极高召回与极低误报——这不是调阈值能解决的单目标问题，是结构性双目标。
+    - generic [ref=f271e31]:
+      - heading "中文的声调关卡" [level=3] [ref=f271e32]
+      - paragraph [ref=f271e33]: 声调语言：同一音节四种声调四种含义（ma = 妈/麻/马/骂）——模型必须对基频的时间轨迹高度敏感；音节结构（声母+韵母+声调）与英语有本质差异，直接搬英语 KWS 经验未必行。
+    - generic [ref=f271e34]:
+      - heading "竞赛的现实背景" [level=3] [ref=f271e35]
+      - paragraph [ref=f271e36]: 视频关键词唤醒挑战赛提供中文数据集，按官方综合得分（准确率/召回率平衡 + 特定误报率下的召回率）排名——评估口径本身就是内容审核场景的双目标形状。
+  - generic [ref=f271e37]:
+    - img [ref=f271e38]:
+      - generic [ref=f271e40]: BBS-KWS：竞赛冠军系统——视频内容审核场景的中文关键词唤醒
+      - generic [ref=f271e41]: ① 视频场景的五重挑战（比家居唤醒难一个量级）
+      - generic [ref=f271e43]: 声学环境极复杂
+      - generic [ref=f271e44]: 背景音乐（可能含与目标词音素相似的片段）· 环境噪声 · 多说话人重叠
+      - generic [ref=f271e45]: （目标语音被严重掩蔽）· 音效——干扰的多样性和强度远超家居环境
+      - generic [ref=f271e47]: 说话人多样性极高
+      - generic [ref=f271e48]: 不同性别/年龄/口音/方言背景的说话人用同一关键词——视频创作者来自
+      - generic [ref=f271e49]: 全国各地，方言口音种类繁多，声学特性差异巨大
+      - generic [ref=f271e51]: 误报代价极高
+      - generic [ref=f271e52]: 内容审核场景：误报 → 大量人工复审（浪费人力）；漏报 → 合规风险与
+      - generic [ref=f271e53]: 法律后果——要极高召回 + 极低误报的双重要求
+      - generic [ref=f271e55]: 中文声调特殊性
+      - generic [ref=f271e56]: 声调语言：同一音节四种声调含义不同（ma = 妈/麻/马/骂）——模型要对
+      - generic [ref=f271e57]: 基频轨迹高度敏感；音节结构（声母+韵母+声调）与英语有本质差异
+      - generic [ref=f271e59]: 实时吞吐要求
+      - generic [ref=f271e60]: 内容发布后要迅速完成检测——延迟与吞吐量都有硬约束（服务器端部署）
+      - generic [ref=f271e61]: ② 五模块集成：竞赛系统的典型打法——组合互补技术最大化性能
+      - generic [ref=f271e63]: 声学前端
+      - generic [ref=f271e64]: 特征提取
+      - generic [ref=f271e66]: DS-CNN 骨干
+      - generic [ref=f271e67]: + SE(r=16) 通道注意力
+      - generic [ref=f271e68]: + 时间注意力（声调轨迹）
+      - generic [ref=f271e70]: ASR 迁移学习
+      - generic [ref=f271e71]: 数千小时中文 ASR 编码器
+      - generic [ref=f271e72]: （Conformer/Transformer）初始化
+      - generic [ref=f271e74]: 多尺度特征融合
+      - generic [ref=f271e75]: 浅/中/深三层上采样拼接
+      - generic [ref=f271e76]: → 1×1 降维
+      - generic [ref=f271e78]: 两阶段检测
+      - generic [ref=f271e79]: 粗筛（高召回）→ 精排
+      - generic [ref=f271e80]: （大模型严阈值）
+      - generic [ref=f271e82]: 两个注意力的分工（与 STCNN 同款思路）：
+      - generic [ref=f271e83]: · SE 通道注意力：GAP → FC 降维(r=16) → ReLU → FC 升维 → Sigmoid——增强与目标词音素相关的频率通道、抑制噪声通道；不同关键词激活的通道模式不同，SE 按输入动态调权
+      - generic [ref=f271e84]: · 时间注意力：沿通道聚合 → FC → Softmax → 时间步权重——中文声调主要体现在基频的时间轨迹上，这把注意力恰好盯住关键声调变化时段
+      - generic [ref=f271e86]: 第 1 名
+      - generic [ref=f271e87]: 视频关键词唤醒挑战赛
+      - generic [ref=f271e88]: +10–15%
+      - generic [ref=f271e89]: 绝对准确率 vs 官方 DS-CNN 基线
+      - generic [ref=f271e90]: 5% → 0.5%
+      - generic [ref=f271e91]: 两阶段误报率（降一个量级）
+      - generic [ref=f271e92]: −5–8%
+      - generic [ref=f271e93]: 去 ASR 迁移的代价（最大消融）
+      - generic [ref=f271e94]: 5–10%
+      - generic [ref=f271e95]: 进入精排的音频占比
+      - generic [ref=f271e96]: 网易 Yidun NISP 团队 · arXiv 2112.01757；官方评估 = 准确率/召回率综合得分 + 特定误报率下召回率；召回 +8–12% 同时误报保持极低；数字为笔记记录的约值
+    - generic [ref=f271e97]: 图1 · 机制全景：上半是五重挑战，中段是五模块流水线与双注意力分工，底部是冠军成绩的关键数字。
+  - heading "§02 方法：每个 +1% 的手段都叠上" [level=2] [ref=f271e98]:
+    - generic [ref=f271e99]: §02
+    - text: 方法：每个 +1% 的手段都叠上
+  - generic [ref=f271e100]: 渐进式解冻 · 域混 mixup · 三层融合 · 粗筛精排
+  - generic [ref=f271e101]:
+    - generic [ref=f271e102]: "迁移: ASR 编码器（数千小时中文）→ KWS 初始化 解冻: 1–4 层冻结(小 lr) · 5–8 层微调(中 lr) · 9–12 层+头全训(大 lr) 适配: 源域/目标域样本混训（domain mixup）→ 压分布差 增强: 速度 0.9/1.0/1.1× · 音量 ±6dB · 噪声 −5~20dB · RIR T60 0.1–0.8s · SpecAugment（时≤20 帧 / 频≤8 bin）· 时间偏移 ±100ms"
+    - generic [ref=f271e103]: 人话：底层是 ASR 学到的通用声学知识（音素模式、声调特征、说话人无关表示）——冻住别动；高层是任务特定层——放大学习率快速适配。速度扰动一箭双雕：既变时长又变声调频率，恰好覆盖中文声调语言的两个敏感维度。
+  - generic [ref=f271e104]:
+    - generic [ref=f271e105]:
+      - heading "多尺度融合的互补逻辑" [level=3] [ref=f271e106]
+      - paragraph [ref=f271e107]: 浅层抗噪但语义少，深层语义丰但怕噪——上采样对齐分辨率后拼接再 1×1 降维，两种粒度同时在手：细粒度声学模式区分声学相似的关键词，粗粒度语义管整体识别。单用任一尺度掉 1–3%。
+    - generic [ref=f271e108]:
+      - heading "两阶段的流量经济学" [level=3] [ref=f271e109]
+      - paragraph [ref=f271e110]: 常驻算力由便宜的第一级决定，贵的大模型只处理 5–10% 的音频——粗筛宽阈值（宁多勿漏）+ 精排严阈值（滤误报），两端各自逼近最优。内容审核要的正是这个形状：误报压一个量级、召回几乎不伤。
+  - generic [ref=f271e111]:
+    - img [ref=f271e112]:
+      - generic [ref=f271e114]: 机制解剖：ASR 迁移的分层解冻 · 多尺度融合 · 两级流水
+      - generic [ref=f271e115]: 迁移学习：渐进式解冻（最大功臣）
+      - generic [ref=f271e118]: 第 1–4 层
+      - generic [ref=f271e119]: 冻结（小 lr）
+      - generic [ref=f271e121]: 第 5–8 层
+      - generic [ref=f271e122]: 微调（中 lr）
+      - generic [ref=f271e124]: 第 9–12 层 + 头
+      - generic [ref=f271e125]: 全训（大 lr）
+      - generic [ref=f271e126]: 底层保留 ASR 学到的通用声学知识（音素模式/声调特征/
+      - generic [ref=f271e127]: 说话人无关表示），高层快速适配 KWS 任务；源域与目标域
+      - generic [ref=f271e128]: 样本混训（domain mixup）进一步压分布差
+      - generic [ref=f271e130]: 数据增强工具箱（六件套）
+      - generic [ref=f271e131]: · 速度扰动 0.9/1.0/1.1×（同时改变时长与声调频率）
+      - generic [ref=f271e132]: · 音量扰动 ±6dB · 噪声注入 SNR −5~20dB（音乐/环境/人声嘈杂）
+      - generic [ref=f271e133]: · RIR 混响仿真 T60 0.1–0.8s · SpecAugment（时≤20 帧/频≤8 bin）
+      - generic [ref=f271e134]: · 时间偏移 ±100ms（词在片段中的位置变化）
+      - generic [ref=f271e135]: 去增强 → −3–5%，含噪/背景音乐鲁棒性严重下降
+      - generic [ref=f271e136]: 多尺度融合 + 两阶段流水
+      - generic [ref=f271e139]: 浅层 L2–3
+      - generic [ref=f271e140]: 音素级频谱模式 · 抗噪强 · 语义少
+      - generic [ref=f271e142]: 中层 L5–6
+      - generic [ref=f271e143]: 音节结构 · 声调轨迹
+      - generic [ref=f271e145]: 深层 L8–10
+      - generic [ref=f271e146]: 词/短语语义 · 语义丰富 · 怕噪
+      - generic [ref=f271e147]: 上采样对齐分辨率 → 拼接 → 1×1 降维：细粒度声学（区分相似词）+ 粗粒度语义（整体识别）同时到手
+      - generic [ref=f271e149]: 两阶段检测：粗筛 + 精排
+      - generic [ref=f271e151]: ① 粗筛（小模型）
+      - generic [ref=f271e152]: 快速扫描全流 · 宽阈值高召回
+      - generic [ref=f271e153]: 「宁多勿漏」
+      - generic [ref=f271e154]: 5–10%
+      - generic [ref=f271e156]: ② 精排（大模型）
+      - generic [ref=f271e157]: 更多注意力层 · 更大特征维
+      - generic [ref=f271e158]: 严阈值滤误报
+      - generic [ref=f271e159]: · 常驻算力由便宜的第一级决定；贵的大模型只处理 5–10% 音频
+      - generic [ref=f271e160]: · 代价：推理时间 +50%（两次模型）；两阶段阈值要联合调优
+      - generic [ref=f271e161]: 内容审核语境：误报 = 人工复审成本 · 漏报 = 合规风险——
+      - generic [ref=f271e162]: 双阈值解耦让两端各自逼近最优，正是这个场景要的形状
+      - generic [ref=f271e163]: 左：ASR 迁移的渐进式解冻（冻结→微调→全训）与六件套增强；右：三层特征的互补性拼接，以及把误报压一个量级的两级流水——5–10% 的流量才走贵的模型
+    - generic [ref=f271e164]: 图2 · 机制解剖：左是迁移学习的渐进式解冻与六件套增强，右是三层特征的互补融合和 5–10% 流量的两阶段流水。
+  - heading "§03 实验：消融排序说明了一切" [level=2] [ref=f271e165]:
+    - generic [ref=f271e166]: §03
+    - text: 实验：消融排序说明了一切
+  - generic [ref=f271e167]: 迁移 > 增强 > 多尺度 > SE > 时间注意力
+  - generic [ref=f271e168]:
+    - img [ref=f271e169]:
+      - generic [ref=f271e171]: 主结果（约值）：消融排序——迁移学习是最大功臣
+      - generic [ref=f271e172]: 组件贡献排序（去掉后的损失）
+      - generic [ref=f271e174]: 去 ASR 迁移学习
+      - generic [ref=f271e177]: −5–8%
+      - generic [ref=f271e179]: 去数据增强
+      - generic [ref=f271e182]: −3–5%
+      - generic [ref=f271e184]: 去多尺度融合（单尺度）
+      - generic [ref=f271e187]: −1–3%
+      - generic [ref=f271e189]: 去 SE 注意力
+      - generic [ref=f271e192]: −1–2%
+      - generic [ref=f271e194]: 去时间注意力
+      - generic [ref=f271e197]: −0.5–1%
+      - generic [ref=f271e198]: 读数：
+      - generic [ref=f271e199]: · 迁移学习 > 增强 > 多尺度 > SE > 时间注意力——声学知识
+      - generic [ref=f271e200]: 的来源（ASR 预训练）比结构技巧贡献大一个档
+      - generic [ref=f271e201]: · SE 与时间注意力互补（通道维 vs 时间维，各 +1 档与半档）
+      - generic [ref=f271e202]: · 竞赛打法的本质：把每个 +1% 的手段叠起来
+      - generic [ref=f271e203]: 两阶段收益与鲁棒性
+      - generic [ref=f271e205]: 两阶段 vs 单阶段
+      - generic [ref=f271e206]: 误报率
+      - generic [ref=f271e207]: 5% → 0.5%（降一个量级）
+      - generic [ref=f271e208]: 召回率
+      - generic [ref=f271e209]: 只降 1–2%
+      - generic [ref=f271e210]: 推理时间
+      - generic [ref=f271e211]: +50%（跑两次模型）
+      - generic [ref=f271e213]: 鲁棒性档案
+      - generic [ref=f271e214]: · vs 官方 DS-CNN 基线：绝对准确率 +10–15%
+      - generic [ref=f271e215]: · 召回 +8–12%，同时误报保持极低
+      - generic [ref=f271e216]: · 噪声/背景音乐场景性能下降控制在 3% 以内
+      - generic [ref=f271e217]: · 男女说话人性能差异 <1%；语速 0.8–1.2× 稳定
+      - generic [ref=f271e218]: 证据边界（重要）：
+      - generic [ref=f271e219]: · 未讨论边缘部署（服务器端场景，无延迟/功耗数字）
+      - generic [ref=f271e220]: · 缺端到端方法（RNN-T / CTC / attention）对比
+      - generic [ref=f271e221]: · 各模块计算开销无分析——投入产出比无从判断
+      - generic [ref=f271e222]: · 关键词数量的可扩展性未测（竞赛词表固定）
+      - generic [ref=f271e223]: · 部分决策是竞赛特化（阈值/增强组合/模型规模）
+      - generic [ref=f271e224]: 注：数字为笔记记录的约值（原文见 arXiv 2112.01757）；竞赛第一名 = 官方综合得分（准确率/召回率平衡 + 特定误报率下召回率）显著领先其他参赛系统
+    - generic [ref=f271e225]: 图3 · 主结果：左是组件贡献排序（去掉后的损失）与读数，右是两阶段收益（误报降一个量级）与鲁棒性档案、证据边界清单。
+  - table [ref=f271e226]:
+    - rowgroup [ref=f271e227]:
+      - row [ref=f271e228]:
+        - columnheader "消融/对比项" [ref=f271e229]
+        - columnheader "结果（约值）" [ref=f271e230]
+        - columnheader "一句话" [ref=f271e231]
+      - row [ref=f271e232]:
+        - cell "去 ASR 迁移学习" [ref=f271e233]
+        - cell "−5–8%" [ref=f271e234]
+        - cell "最大功臣——声学知识来源" [ref=f271e235]
+      - row [ref=f271e236]:
+        - cell "去数据增强" [ref=f271e237]
+        - cell "−3–5%（含噪/音乐场景尤甚）" [ref=f271e238]
+        - cell "环境多样性的来源" [ref=f271e239]
+      - row [ref=f271e240]:
+        - cell "去多尺度融合（单尺度）" [ref=f271e241]
+        - cell "−1–3%" [ref=f271e242]
+        - cell "粒度互补的价值" [ref=f271e243]
+      - row [ref=f271e244]:
+        - cell "去 SE / 时间注意力" [ref=f271e245]
+        - cell "−1–2% / −0.5–1%" [ref=f271e246]
+        - cell "两个正交维度小而稳" [ref=f271e247]
+      - row [ref=f271e248]:
+        - cell "两阶段 vs 单阶段" [ref=f271e249]
+        - cell "误报 −80–90% · 推理 +50%" [ref=f271e250]
+        - cell "误报敏感场景的标配" [ref=f271e251]
+      - row [ref=f271e252]:
+        - cell "vs 官方 DS-CNN 基线" [ref=f271e253]
+        - cell "+10–15% 绝对 · 召回 +8–12%" [ref=f271e254]
+        - cell "冠军与基线的差距" [ref=f271e255]
+  - generic [ref=f271e256]:
+    - generic [ref=f271e257]: 读表要点
+    - listitem [ref=f271e258]: ◈ 鲁棒性档案：噪声/背景音乐下性能下降控制在 3% 以内；男女说话人差异 <1%；语速 0.8–1.2× 稳定——六件套增强与多尺度的功劳直接体现在这里。
+    - listitem [ref=f271e259]: ◈ 证据边界要记住：未讨论边缘部署（服务器端场景）、缺 RNN-T/CTC 等端到端方法对比、各模块计算开销无分析（投入产出比无从判断）、关键词数量可扩展性未测。
+    - listitem [ref=f271e260]: ◈ 竞赛特化提醒：增强组合/阈值/模型规模可能是对竞赛集优化的——引用为通用结论前要打折扣。
+  - heading "§04 贡献" [level=2] [ref=f271e261]:
+    - generic [ref=f271e262]: §04
+    - text: 贡献
+  - generic [ref=f271e263]: 五点：从冠军系统到工程经验
+  - generic [ref=f271e264]:
+    - generic [ref=f271e265]:
+      - generic [ref=f271e266]: "1"
+      - paragraph [ref=f271e267]: 赢得视频关键词唤醒挑战赛：严格评估标准下综合性能第一——证明多模块集成 + 精心工程优化在竞赛场景的有效性。
+    - generic [ref=f271e268]:
+      - generic [ref=f271e269]: "2"
+      - paragraph [ref=f271e270]: ASR 预训练 → KWS 的有效迁移：不同任务学到的声学特征表示具有高度通用性——对数据量有限的中文 KWS 意义重大。
+    - generic [ref=f271e271]:
+      - generic [ref=f271e272]: "3"
+      - paragraph [ref=f271e273]: 多尺度特征融合：细粒度声学 + 粗粒度语义同时利用，解决单一尺度表达能力不足。
+    - generic [ref=f271e274]:
+      - generic [ref=f271e275]: "4"
+      - paragraph [ref=f271e276]: 两阶段检测流水线：高召回 + 极低误报的双目标设计范式——对误报敏感的工业场景（内容审核）有直接参考价值。
+    - generic [ref=f271e277]:
+      - generic [ref=f271e278]: "5"
+      - paragraph [ref=f271e279]: 中文 KWS 工程经验：数据增强/注意力/迁移学习在中文声调语言上的最佳实践系统总结。
+  - heading "§05 局限与判断" [level=2] [ref=f271e280]:
+    - generic [ref=f271e281]: §05
+    - text: 局限与判断
+  - generic [ref=f271e282]: 复杂度 · 中文特化 · 竞赛特化
+  - generic [ref=f271e283]:
+    - img [ref=f271e284]:
+      - generic [ref=f271e286]: 边界与延伸
+      - generic [ref=f271e288]: 技术边界
+      - generic [ref=f271e289]: · 系统复杂度高：五模块集成，开发维护工程量大；两阶段阈值要
+      - generic [ref=f271e290]: 联合调优（召回与误报的平衡不是免费的）
+      - generic [ref=f271e291]: · 中文特化：针对声调系统优化，非声调语言泛化未验证；ASR 预训练
+      - generic [ref=f271e292]: 模型也是中文专用——换语言整套要重来
+      - generic [ref=f271e293]: · 竞赛特化：数据增强组合/阈值/模型规模可能是对竞赛集优化的，
+      - generic [ref=f271e294]: 不一定适用于所有 KWS 场景；竞赛词表不代表全部应用
+      - generic [ref=f271e295]: · ASR 预训练依赖：性能高度依赖高质量中文 ASR 模型的可用性——
+      - generic [ref=f271e296]: 缺大规模 ASR 的语言上方法受限
+      - generic [ref=f271e298]: 实验边界 + 延伸
+      - generic [ref=f271e299]: · 未讨论边缘部署（计算/延迟/功耗）——聚焦服务器端
+      - generic [ref=f271e300]: · 缺端到端方法对比（RNN-T / CTC / attention 端到端）
+      - generic [ref=f271e301]: · 各模块计算开销无分析
+      - generic [ref=f271e302]: · 关键词数量可扩展性未测
+      - generic [ref=f271e303]: 延伸：紧凑端到端架构（单阶段强骨干达到两阶段性能）；
+      - generic [ref=f271e304]: 在线/持续学习支持动态加新词；跨语言适配（多语言预训练
+      - generic [ref=f271e305]: XLSR 作迁移源）；对比学习/自监督预训练减标注依赖
+      - generic [ref=f271e306]: 竞赛 → 生产的提炼：ASR→KWS 迁移范式、增强六件套、
+      - generic [ref=f271e307]: 注意力双件套都是可独立复用的通用实践
+      - generic [ref=f271e308]: 可迁移判断：大规模 ASR 预训练 → KWS 的迁移范式值得在更多语言和场景推广——声学知识的来源（预训练）比结构技巧的贡献大一个档；竞赛系统是最佳实践的集成展览，单件技术皆可拆用
+    - generic [ref=f271e309]: 图4 · 边界与延伸：左技术边界（五模块复杂度、中文特化、竞赛特化决策、ASR 依赖），右实验边界（无边缘部署、缺端到端对比、无开销分析）+ 延伸方向。
+  - generic [ref=f271e310]:
+    - generic [ref=f271e311]: 可迁移判断
+    - paragraph [ref=f271e312]: ↳ 声学知识的来源比结构技巧贡献大一个档：ASR 迁移（−5–8%）压倒所有结构类组件（各 −0.5~3%）——先找好的预训练初始化，再谈结构创新；对低资源语言 KWS 这条优先级尤其成立。
+    - paragraph [ref=f271e313]: ↳ 增强策略要贴着语言特性设计：速度扰动对声调语言一箭双雕（时长+声调频率都变）——设计增强时先列任务的敏感维度，再挑能覆盖这些维度的扰动。
+    - paragraph [ref=f271e314]: ↳ 误报敏感场景的标配是两阶段：宽进严出 + 5–10% 流量走贵模型——误报降一个量级、召回几乎不伤；代价是推理时间 +50% 与双阈值联合调优的复杂度。
+    - paragraph [ref=f271e315]: ↳ 竞赛系统是最佳实践的集成展览：单件技术（迁移范式、增强六件套、双注意力）皆可拆出独立复用——读竞赛论文的正确姿势是拆零件，不是整体照搬。
+  - generic [ref=f271e316]:
+    - link "arXiv 2112.01757 ↗" [ref=f271e317] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2112.01757
+    - link "← 返回总目录" [ref=f271e318] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f271e319]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值（竞赛详细数字见原文）· 2021 №6 · 191+/305
