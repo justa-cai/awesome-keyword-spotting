@@ -1,0 +1,258 @@
+- generic [ref=f309e2]:
+  - generic [ref=f309e3]: 论文精读 · 可视化版 · 2021 №25
+  - heading "用户加个新唤醒词， 机器自己搜个专用模型出来——NAS × 小样本的竞赛答卷" [level=1] [ref=f309e4]: 用户加个新唤醒词，机器自己搜个专用模型出来——NAS × 小样本的竞赛答卷
+  - generic [ref=f309e5]:
+    - generic [ref=f309e6]: DKU Auto-KWS 系统 · 昆山杜克大学
+    - generic [ref=f309e7]: arXiv 2104.04993 · Interspeech 2021 挑战赛
+    - generic [ref=f309e8]: 单元搜索空间 ~10⁸ · One-Shot 超网络 · 进化搜索
+    - generic [ref=f309e9]: 单 GPU 数小时 · 迁移 +5–10% · 竞赛前排
+  - generic [ref=f309e10]: 一句话：Auto-KWS 挑战赛的问题不是「设计一个通用 KWS 模型」，而是「用户每加一个自定义唤醒词，就自动为这个词搜一个专用模型」——同时考搜索效率（分钟级而非天级）、模型效率（几十 KB 级）、小样本性能（每词 5–20 个样本）三维。DKU 系统的答案：单元搜索空间（~10⁸）→ One-Shot 超网络权重共享（单 GPU 数小时，比穷举快三个数量级）→ 进化搜索选架构 → 大规模预训练迁移（+5–10%，最大增益来源）→ 渐进解冻小样本微调 → 多重增强。竞赛前排：搜出的架构偏爱 DS 卷积 + 窄而深，与人类设计直觉一致。
+  - generic [ref=f309e11]:
+    - generic [ref=f309e12]: TL;DR
+    - listitem [ref=f309e13]: ◈ 三维同时考的赛制：搜索效率（用户加词后要分钟级适配——传统 NAS 数千 GPU 小时不可用）、模型效率（MCU/DSP 的几十 KB 参数约束）、小样本性能（每词 5–20 样本）——三个都是实际部署硬约束，偏科就输。
+    - listitem [ref=f309e14]: ◈ 六步全自动化流程：定义搜索空间 → 超网络训练 → 进化搜索 → 迁移学习初始化 → 小样本微调 → 增强与评估——尽可能减少人工干预。
+    - listitem [ref=f309e15]: ◈ 单元搜索空间（~10⁸）：正常单元（保持分辨率）+ 缩减单元（步长 2 下采样）；每单元 B=4–7 节点、边选操作；操作集 6 种（3×3/5×5 DS 卷积 · 平均/最大池化 · 恒等 · 零）——覆盖主流组件且空间可管理。
+    - listitem [ref=f309e16]: ◈ One-Shot 超网络是加速的来源：一个包含所有操作的超网络只训一次（每 batch 随机采样子架构——路径级 dropout），之后直接提取子架构权重评估——进化搜索在继承权重上跑变异/交叉，免逐个训练。单 GPU 数小时，比穷举快三个数量级。
+    - listitem [ref=f309e17]: ◈ 迁移学习是增益的大头：LibriSpeech/GSC 预训练初始化 + 渐进解冻（先只训高层）——小样本下比从头训 +5–10%；只微调顶层 3–4 层就拿到 80% 的增益；两个预训练源差异不大（收益来自通用声学特征而非领域知识）。
+    - listitem [ref=f309e18]: ◈ 搜出架构的三个共性：偏爱 3×3 深度可分离卷积、池化少（与人类设计直觉一致——NAS 学到了领域经验）；窄而深（6–10 层）优于宽而浅；同参数约束（<50K）比手工 DS-CNN 高 1–3%。
+    - listitem [ref=f309e19]: ◈ 增强账本：SpecAugment +1–2%（性价比最高）；极小样本（1/5-shot）下增强增益放大到 +3–5%（数据少时增强价值高）；组合优于单独。
+    - listitem [ref=f309e20]: ◈ 未解的悬崖：样本 <5 时准确率显著下降——1-shot 比 10-shot 低 10–15 点，迁移+增强都没填平。搜索空间无注意力/Transformer 组件；权重共享的排序偏差是已知挑战。
+  - heading "§01 问题：每个新词都要一个专用模型" [level=2] [ref=f309e21]:
+    - generic [ref=f309e22]: §01
+    - text: 问题：每个新词都要一个专用模型
+  - generic [ref=f309e23]: 三维硬约束的竞赛设定
+  - generic [ref=f309e24]:
+    - generic [ref=f309e25]:
+      - heading "搜索效率的硬时间线" [level=3] [ref=f309e26]
+      - paragraph [ref=f309e27]: 实际场景里用户添加新唤醒词后，系统要在合理时间（分钟级而非天级）完成适配——NASNet/AmoebaNet 的数千 GPU 小时意味着「加个词等一周」，产品上不可接受。
+    - generic [ref=f309e28]:
+      - heading "小样本 + 小模型的双重挤压" [level=3] [ref=f309e29]
+      - paragraph [ref=f309e30]: 每词只有 5–20 个样本（用户不会为新词录几百条），模型要塞进 MCU/DSP 的几十 KB 预算——容量小、数据少，两个约束同时压，手工设计都难，何况自动搜。
+    - generic [ref=f309e31]:
+      - heading "NAS 与小样本的组合逻辑" [level=3] [ref=f309e32]
+      - paragraph [ref=f309e33]: 两者解的是不同问题：NAS 解「架构对不对」（每个词的声学特性不同，最优架构可能不同），迁移学习解「初始化好不好」（小样本从随机起步必过拟合）——DKU 把两件事串成一条流水线。
+    - generic [ref=f309e34]:
+      - heading "与同系列论文的坐标" [level=3] [ref=f309e35]
+      - paragraph [ref=f309e36]: 编码器-解码器 NAS（2021 №10）搜潜在空间的通用架构；NAS+量化（№11）把量化塞进搜索循环；本文是竞赛语境下的完整系统——含迁移与增强的全流程答卷，三篇共同验证 NAS 在 KWS 的可行性。
+  - generic [ref=f309e37]:
+    - img [ref=f309e38]:
+      - generic [ref=f309e40]: DKU Auto-KWS 系统：用户加个新唤醒词，机器自己搜个专用模型出来
+      - generic [ref=f309e41]: ① Auto-KWS 挑战赛：三个维度同时考
+      - generic [ref=f309e43]: 问题：用户添加自定义唤醒词后，如何自动化地为这个新词发现最优 KWS 模型架构——不是设计一个通用模型，而是每个新词配一个专用模型
+      - generic [ref=f309e44]: 与传统 NAS 挑战赛不同：不止比最终精度——搜索效率、模型效率、小样本性能三个维度同时计分（都是实际部署的硬约束）
+      - generic [ref=f309e46]: 搜索效率
+      - generic [ref=f309e47]: 有限 GPU 预算内完成搜索——实际场景用户加词后要分钟级而非天级完成适配；
+      - generic [ref=f309e48]: 传统 NAS（NASNet/AmoebaNet）数千 GPU 小时完全不适用
+      - generic [ref=f309e50]: 模型效率
+      - generic [ref=f309e51]: 发现的目标模型必须满足严格参数约束（几十 KB 级）——要在 MCU/DSP 等
+      - generic [ref=f309e52]: 资源极度受限设备上跑
+      - generic [ref=f309e54]: 小样本性能
+      - generic [ref=f309e55]: 新词训练数据极有限（每词 5–20 个样本）——用户不可能为新词提供大量标注；
+      - generic [ref=f309e56]: 系统必须在少样本下就构建可靠检测模型
+      - generic [ref=f309e57]: ② DKU 系统流程：六步全自动化
+      - generic [ref=f309e59]: ① 定义搜索空间
+      - generic [ref=f309e60]: 单元重复结构（~10⁸ 空间）
+      - generic [ref=f309e62]: ② 超网络训练
+      - generic [ref=f309e63]: One-Shot 权重共享
+      - generic [ref=f309e65]: ③ 进化搜索
+      - generic [ref=f309e66]: 继承权重评估 + 变异/交叉
+      - generic [ref=f309e68]: ④ 迁移学习初始化
+      - generic [ref=f309e69]: LibriSpeech/GSC 预训练
+      - generic [ref=f309e71]: ⑤ 小样本微调
+      - generic [ref=f309e72]: 渐进解冻 + 强正则
+      - generic [ref=f309e74]: ⑥ 增强与评估
+      - generic [ref=f309e75]: SpecAugment/噪声/Mixup
+      - generic [ref=f309e77]: 单元搜索空间
+      - generic [ref=f309e78]: 正常单元：保持分辨率（特征处理）
+      - generic [ref=f309e79]: 缩减单元：步长 2 下采样（减尺寸增通道）
+      - generic [ref=f309e80]: 每单元 B=4–7 节点，边选操作，目标=为每条边挑最优
+      - generic [ref=f309e81]: 操作集（6 种）：3×3/5×5 DS 卷积 · 3×3 平均/最大池化
+      - generic [ref=f309e82]: · 恒等映射 · 零操作（无连接）
+      - generic [ref=f309e83]: 空间 ~10⁸：覆盖主流组件且可管理
+      - generic [ref=f309e85]: 超网络权重共享
+      - generic [ref=f309e86]: 超网络包含所有可能操作——所有子架构共享权重
+      - generic [ref=f309e87]: 只训一次：每 mini-batch 随机采样子架构前向反向
+      - generic [ref=f309e88]: （路径级 dropout 让权重适应不同子架构）
+      - generic [ref=f309e89]: 之后直接提取子架构权重评估——免逐个训练
+      - generic [ref=f309e90]: 整个搜索（超网训练+进化搜索）单 GPU 数小时
+      - generic [ref=f309e91]: ——比穷举快三个数量级
+      - generic [ref=f309e93]: 数小时
+      - generic [ref=f309e94]: 单 GPU 搜索（传统数千 GPU 小时）
+      - generic [ref=f309e95]: +1–3%
+      - generic [ref=f309e96]: 同参数约束 vs 手工 DS-CNN
+      - generic [ref=f309e97]: +5–10%
+      - generic [ref=f309e98]: 迁移学习 vs 从头训（5–10 样本）
+      - generic [ref=f309e99]: 80%
+      - generic [ref=f309e100]: 只微调顶层 3–4 层拿到的增益占比
+      - generic [ref=f309e101]: 1–3%
+      - generic [ref=f309e102]: SpecAugment 的一致提升
+      - generic [ref=f309e103]: 昆山杜克大学（DKU）· arXiv 2104.04993；Interspeech 2021 Auto-KWS 挑战赛系统论文——竞赛前列排名；数字为约值
+    - generic [ref=f309e104]: 图1 · 机制全景：上半是三维赛制，中段是六步流程、单元搜索空间与超网络权重共享的机制，底部是关键数字。
+  - heading "§02 方法：权重共享 + 迁移学习" [level=2] [ref=f309e105]:
+    - generic [ref=f309e106]: §02
+    - text: 方法：权重共享 + 迁移学习
+  - generic [ref=f309e107]: One-Shot 超网络 · 渐进解冻 · 多重增强
+  - generic [ref=f309e108]:
+    - generic [ref=f309e109]: "超网: Supernet ⊇ 全部子架构 · 只训一次（每 batch 随机采样路径） 搜索: 进化算法：变异（改操作）+ 交叉（交换结构） 适应度 = 子架构在验证集精度（用继承权重评估——免训练） 迁移: LibriSpeech 960h / GSC 预训练 → 初始化特征提取器 微调: 渐进解冻（先高层后逐层）· lr 1/10~1/100 · 强正则 增强: SpecAugment · 噪声注入(SNR 0–20dB) · 速度 0.9/1.0/1.1× · 音量 ±6dB · Mixup（标签插值平滑决策边界）"
+    - generic [ref=f309e110]: 人话：超网络像一栋「所有可能架构都住在里面」的大楼——训练时每批随机点亮一条通路，练完之后任何子架构都能直接摘自己的权重出来用。进化搜索就在这栋楼里挑最好的住户，不用给每个住户单独发工资（训练）。
+  - generic [ref=f309e111]:
+    - generic [ref=f309e112]:
+      - heading "渐进解冻的防过拟合逻辑" [level=3] [ref=f309e113]
+      - paragraph [ref=f309e114]: 小样本上微调整个模型 = 用 5–20 个样本去拟合几万个参数——必然过拟合。先冻结底层（通用声学特征已够好）只训高层分类器，验证有效后再逐层解冻——每一步都在「能学」与「会忘」之间控制暴露面。
+    - generic [ref=f309e115]:
+      - heading "进化 > 随机搜索的消融意义" [level=3] [ref=f309e116]
+      - paragraph [ref=f309e117]: 如果继承权重毫无指导力，进化搜索不会优于随机——这项消融证明超网络的权重确实携带了架构质量的信息（尽管排序不完全一致）——权重共享的估计偏差存在但方向正确，这是 One-Shot NAS 可用的最低保证。
+  - generic [ref=f309e118]:
+    - img [ref=f309e119]:
+      - generic [ref=f309e121]: 机制解剖：超网络怎么训 · 搜出来的架构长什么样
+      - generic [ref=f309e122]: One-Shot 超网络训练
+      - generic [ref=f309e125]: 超网络（Supernet）
+      - generic [ref=f309e150]: 随机采样子架构（每 batch 一个）
+      - generic [ref=f309e151]: 路径级 dropout——权重适应各种子架构
+      - generic [ref=f309e153]: 训练完成后 → 进化搜索：变异（改操作）+ 交叉
+      - generic [ref=f309e154]: （交换结构）· 适应度 = 继承权重的验证精度
+      - generic [ref=f309e155]: 消融：进化 > 随机搜索——继承权重确实能指导
+      - generic [ref=f309e156]: 选择；但排序非完全一致（共享偏差已知挑战）
+      - generic [ref=f309e157]: 搜出的架构 + 迁移策略
+      - generic [ref=f309e159]: NAS 发现架构的三个共性
+      - generic [ref=f309e160]: · 偏爱深度可分离卷积（尤其 3×3 核）· 池化少用
+      - generic [ref=f309e161]: ——与 KWS 人工设计经验一致：NAS 学到了人类直觉
+      - generic [ref=f309e162]: · 窄而深（6–10 层 · 适中通道）> 宽而浅——小参数
+      - generic [ref=f309e163]: 预算下的最优形状
+      - generic [ref=f309e164]: · 同参数约束（<50K）比手工 DS-CNN 准确率高 1–3%
+      - generic [ref=f309e166]: 迁移学习的四个发现
+      - generic [ref=f309e167]: · 预训练源（LibriSpeech 960h / GSC）→ 初始化特征提取器
+      - generic [ref=f309e168]: · 渐进解冻：先只训高层再逐步解冻——防小样本过拟合
+      - generic [ref=f309e169]: · 只微调顶层 3–4 层拿 80% 增益——底层已足够通用
+      - generic [ref=f309e170]: · LibriSpeech 与 GSC 源差异不大——收益来自通用声学
+      - generic [ref=f309e171]: 特征而非数据集领域知识 · 特征级迁移（拼接中间层）也试过
+      - generic [ref=f309e172]: 左：超网络一次训练覆盖全部子架构——进化搜索在继承权重上评估、免逐个训练，三个数量级的加速来自这里。右：搜出的架构与人类直觉一致（DS 卷积+窄深），迁移的收益来自通用声学而非领域
+    - generic [ref=f309e173]: 图2 · 机制解剖：左是超网络的一次训练与进化搜索图景（含排序偏差的诚实标注），右是搜出架构的三个共性（与人类直觉一致）与迁移学习的四个发现。
+  - heading "§03 实验：每个组件都在赚" [level=2] [ref=f309e174]:
+    - generic [ref=f309e175]: §03
+    - text: 实验：每个组件都在赚
+  - generic [ref=f309e176]: 增益账本 · 小样本悬崖 · 消融
+  - generic [ref=f309e177]:
+    - img [ref=f309e178]:
+      - generic [ref=f309e180]: 主结果（约值）：每个组件都在赚，组合起来够竞赛前排
+      - generic [ref=f309e181]: 各组件的增益账本
+      - generic [ref=f309e183]: NAS 架构 vs 手工 DS-CNN
+      - generic [ref=f309e185]: +1–3%（同参数）
+      - generic [ref=f309e187]: 迁移学习 vs 从头训
+      - generic [ref=f309e189]: +5–10%（5–10 样本）
+      - generic [ref=f309e191]: SpecAugment
+      - generic [ref=f309e193]: +1–2% 一致
+      - generic [ref=f309e195]: 极小样本增强增益
+      - generic [ref=f309e197]: +3–5%（1/5-shot）
+      - generic [ref=f309e198]: 读数：
+      - generic [ref=f309e199]: · 迁移学习是最大头（+5–10%）——NAS 架构增益（+1–3%）是锦上添花
+      - generic [ref=f309e200]: · 组合增强（Spec+噪声+速度）优于任一单独使用
+      - generic [ref=f309e201]: · 竞赛结果：搜索效率与最终性能双优——前排排名
+      - generic [ref=f309e202]: · 架构共性验证了 NAS 的可解释性（与人工经验一致）
+      - generic [ref=f309e203]: 小样本悬崖与消融
+      - generic [ref=f309e205]: 样本数 vs 准确率（示意趋势）
+      - generic [ref=f309e210]: "1"
+      - generic [ref=f309e212]: "5"
+      - generic [ref=f309e214]: "10"
+      - generic [ref=f309e216]: "20"
+      - generic [ref=f309e217]: 样本数/词 →（1-shot 比 10-shot 低 10–15 点）
+      - generic [ref=f309e218]: 样本 <5 时显著下降——小样本悬崖未解
+      - generic [ref=f309e220]: 三条消融读数
+      - generic [ref=f309e221]: · 进化搜索 > 随机搜索——继承权重有指导力
+      - generic [ref=f309e222]: · 超网排序与独立训练排序正相关但不完全一致
+      - generic [ref=f309e223]: （权重共享偏差——NAS 社区已知挑战）
+      - generic [ref=f309e224]: · 搜索空间大小有权衡：更大可能更好但更慢
+      - generic [ref=f309e225]: 证据边界：竞赛特定优化未必泛化；无 DARTS/ENAS
+      - generic [ref=f309e226]: 等横比；噪声/远场未充分评估；无架构可解释性深析
+      - generic [ref=f309e227]: 注：数字为笔记记录的约值（原文见 arXiv 2104.04993）；挑战赛排名为「前列/具竞争力」的定性记录；样本数曲线为趋势示意
+    - generic [ref=f309e228]: 图3 · 主结果：左是各组件的增益账本（迁移最大头、NAS 锦上添花），右是小样本悬崖的样本数曲线与三条消融读数、证据边界。
+  - table [ref=f309e229]:
+    - rowgroup [ref=f309e230]:
+      - row [ref=f309e231]:
+        - columnheader "组件/策略" [ref=f309e232]
+        - columnheader "增益（约值）" [ref=f309e233]
+        - columnheader "备注" [ref=f309e234]
+      - row [ref=f309e235]:
+        - cell "迁移学习（vs 从头训）" [ref=f309e236]
+        - cell "+5–10%" [ref=f309e237]
+        - cell "最大头；只微调顶层拿 80%" [ref=f309e238]
+      - row [ref=f309e239]:
+        - cell "NAS 架构（vs 手工 DS-CNN）" [ref=f309e240]
+        - cell "+1–3%" [ref=f309e241]
+        - cell "同参数约束 <50K" [ref=f309e242]
+      - row [ref=f309e243]:
+        - cell "SpecAugment" [ref=f309e244]
+        - cell "+1–2%" [ref=f309e245]
+        - cell "性价比最高" [ref=f309e246]
+      - row [ref=f309e247]:
+        - cell "增强（极小样本 1/5-shot）" [ref=f309e248]
+        - cell "+3–5%" [ref=f309e249]
+        - cell "数据越少增强越值" [ref=f309e250]
+      - row [ref=f309e251]:
+        - cell "进化 vs 随机搜索" [ref=f309e252]
+        - cell "一致占优" [ref=f309e253]
+        - cell "继承权重有指导力" [ref=f309e254]
+  - generic [ref=f309e255]:
+    - generic [ref=f309e256]: 读表要点
+    - listitem [ref=f309e257]: ◈ 投入产出的优先级清晰：迁移 > 增强 > 架构搜索——先把预训练骨架和增强配好，再谈搜架构；跳过前两步直接 NAS 是把钱花在回报最小的地方。
+    - listitem [ref=f309e258]: ◈ 小样本悬崖是诚实的边界：<5 样本时 1-shot 比 10-shot 低 10–15 点——NAS 与迁移都没解决「一个样本学一个词」的问题（那是度量学习/文本锚点路线的主场，见 №13/№16/№22/№23）。
+    - listitem [ref=f309e259]: ◈ 证据边界：竞赛特定优化未必泛化；无 DARTS/ENAS 横比；噪声/远场评估有限；架构为什么好缺可解释性分析——「与人类直觉一致」是观察不是解释。
+  - heading "§04 贡献" [level=2] [ref=f309e260]:
+    - generic [ref=f309e261]: §04
+    - text: 贡献
+  - generic [ref=f309e262]: 五点：从完整系统到经验验证
+  - generic [ref=f309e263]:
+    - generic [ref=f309e264]:
+      - generic [ref=f309e265]: "1"
+      - paragraph [ref=f309e266]: Auto-KWS 竞赛完整系统：从搜索空间定义到最终部署的端到端方案，竞赛前排——验证 NAS 在自动化 KWS 设计中的可行性。
+    - generic [ref=f309e267]:
+      - generic [ref=f309e268]: "2"
+      - paragraph [ref=f309e269]: NAS 与小样本学习的有效结合：搜索空间 + 权重共享 + 小样本微调协同——每词 5–20 样本即可自动发现有效架构，KWS 快速定制的关键组合。
+    - generic [ref=f309e270]:
+      - generic [ref=f309e271]: "3"
+      - paragraph [ref=f309e272]: 高效搜索流程：超网络权重共享把成本从数千 GPU 小时降到数小时——自动化架构搜索在实际场景变得可行。
+    - generic [ref=f309e273]:
+      - generic [ref=f309e274]: "4"
+      - paragraph [ref=f309e275]: 验证迁移学习对小样本 KWS 的价值：预训练的通用声学表示（音素级信息）是小样本特征提取的强初始化。
+    - generic [ref=f309e276]:
+      - generic [ref=f309e277]: "5"
+      - paragraph [ref=f309e278]: 系统性数据增强策略：多种增强组合在不增加标注的前提下扩充多样性——缓解小样本过拟合。
+  - heading "§05 局限与判断" [level=2] [ref=f309e279]:
+    - generic [ref=f309e280]: §05
+    - text: 局限与判断
+  - generic [ref=f309e281]: 空间受限 · 排序偏差 · 系统复杂度
+  - generic [ref=f309e282]:
+    - img [ref=f309e283]:
+      - generic [ref=f309e285]: 边界与延伸
+      - generic [ref=f309e287]: 技术边界
+      - generic [ref=f309e288]: · 搜索空间受限：无注意力（SE/CBAM）与 Transformer 组件——后续
+      - generic [ref=f309e289]: 证明对 KWS 有益的构建块在空间之外（可能错过更优架构）
+      - generic [ref=f309e290]: · 权重共享的排序偏差：超网中子架构互相干扰——搜索阶段排序与
+      - generic [ref=f309e291]: 独立训练排序不完全一致（NAS 社区已知挑战）
+      - generic [ref=f309e292]: · 系统复杂度：搜索空间定义→超网训练→搜索→微调全流程——
+      - generic [ref=f309e293]: 非 NAS 专家用户门槛高（「自动」的代价是系统本身复杂）
+      - generic [ref=f309e294]: · 小样本瓶颈：<5 样本准确率显著下降；1-shot 比 10-shot 低
+      - generic [ref=f309e295]: 10–15 点——迁移+增强都没填平的悬崖
+      - generic [ref=f309e297]: 实验边界 + 延伸
+      - generic [ref=f309e298]: · 竞赛特定优化未必泛化到其他 KWS 场景
+      - generic [ref=f309e299]: · 无 DARTS / ENAS / ProxylessNAS 直接对比
+      - generic [ref=f309e300]: · 噪声/远场未充分评估（挑战赛数据相对干净）
+      - generic [ref=f309e301]: · 搜出架构的可解释性分析缺失（为什么好？）
+      - generic [ref=f309e302]: 延伸：搜索空间纳入注意力/轻量 Transformer；可微 NAS 把
+      - generic [ref=f309e303]: 小时级降到分钟级；增量式架构搜索（部署模型上加词而非
+      - generic [ref=f309e304]: 从头搜）；NAS × 量化/剪枝联合优化搜量化友好架构；
+      - generic [ref=f309e305]: 硬件感知 NAS（延迟/功耗/内存实测进搜索目标）
+      - generic [ref=f309e306]: 可迁移判断：NAS + 迁移学习是 KWS 快速定制的可行组合——迁移学习贡献大头（+5–10%）、架构搜索锦上添花（+1–3%）；先冻结预训练骨干再谈搜架构，投入产出比才对
+    - generic [ref=f309e307]: 图4 · 边界与延伸：左技术边界（无注意力/Transformer 组件、权重共享排序偏差、系统复杂度高、小样本悬崖），右实验边界（竞赛特化、无 NAS 横比、噪声远场有限）+ 延伸方向。
+  - generic [ref=f309e308]:
+    - generic [ref=f309e309]: 可迁移判断
+    - paragraph [ref=f309e310]: ↳ 先冻结预训练骨干，再谈搜架构：迁移 +5–10% vs NAS +1–3%——投入产出比差 3–5 倍。任何「自动化设计」系统都该先把手动的低成本高收益项（预训练、增强）配满，自动化的预算才花得值。
+    - paragraph [ref=f309e311]: ↳ 权重共享是速度与准确性的交易：三个数量级的加速代价是排序偏差——超网里的第一名不一定是独立训练的第一名。「方向相关但不完全一致」是这类方法的可用下限，部署前要独立重训验证。
+    - paragraph [ref=f309e312]: ↳ NAS 的结果可以反哺设计直觉：搜出的架构偏爱 DS 卷积 + 窄而深，与人类经验一致——把 NAS 当「领域经验的自动验证器」用，即使不部署搜出的模型，搜索结论也能指导手工设计。
+    - paragraph [ref=f309e313]: ↳ 小样本 <5 是方法论分界线：NAS+迁移在 5–20 样本区间有效，<5 样本该换路线（度量学习/文本锚点/预训练原型）——工具选错档位，调参调不回来。
+  - generic [ref=f309e314]:
+    - link "arXiv 2104.04993 ↗" [ref=f309e315] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2104.04993
+    - link "← 返回总目录" [ref=f309e316] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f309e317]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值（竞赛具体排名与数字回对原文）· 2021 №25 · 210+/305
