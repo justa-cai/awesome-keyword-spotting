@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Delta Keyword Transformer：动态剪枝 MHSA 把 Transformer 带到边缘</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 16px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  table.tb { width: 100%; border-collapse: collapse; margin: 18px 0; background: var(--card);
+    border-radius: 12px; overflow: hidden; font-size: 13.8px; }
+  table.tb th { background: var(--acc-lt); color: var(--acc-dk); font-weight: 700;
+    padding: 10px 12px; text-align: left; }
+  table.tb td { padding: 9px 12px; border-top: 1px solid var(--line); color: var(--ink2); }
+  table.tb td b { color: var(--ink); }
+  table.tb tr.hl td { background: #f6fbf9; font-weight: 600; }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №10</div>
+  <h1 class="hero">砍掉八成注意力计算，精度几乎不掉：<br><span class="g">免训练的 Delta 剪枝</span>怎么做到</h1>
+  <div class="chips">
+    <span class="chip">Delta-KWT · tinyML Research Symposium 2022</span>
+    <span class="chip">DTU × Demant × 鲁汶大学</span>
+    <span class="chip">特征维度级动态剪枝 MHSA</span>
+    <span class="chip">KWT-1 · GSC V1-12</span>
+  </div>
+  <div class="meta">语音相邻帧频谱相关系数 &gt;0.95——这个被忽略 30 年的老事实，成了 Transformer KWS 边缘部署的杠杆：推理时逐维度判断「变没变」，没变的直接复用前一帧。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>瓶颈</b>：KWT 系列 GSC-12 到 98.4%，但 MHSA 复杂度 O(N²·d)——N=40、d=64 单层约 102,400 次乘加，叠 12 层后吃掉推理的 60–80%。</li>
+      <li><b>三类老剪枝的不足</b>：结构化/幅度剪枝需要重训（离线、不能按输入动态调）；token 级/头级剪枝「全有或全无」（一帧里判别信息和噪声混着，留不下有用的一半）；非结构化稀疏需要专用硬件（Cortex-M 上条件分支打乱流水线，可能比密集计算还慢）。</li>
+      <li><b>核心机制</b>：δt[j] = |x_t[j] − x_{t−1}[j]|，小于阈值 τ 的特征维度直接复用前一帧的计算结果——递归应用于 Q/K/V 投影、注意力分数、加权求和三个子步骤。</li>
+      <li><b>思想来源</b>：delta cepstrum 是 ASR 经典概念——语音的判别信息在「变化」而非「绝对值」中，相邻帧的「不变部分」是冗余的。</li>
+      <li><b>核心结果</b>：80% 操作减少时仍 98.4%（损失 &lt;0.1 点，理论 4.2×）；87–94% 减少时损 1–4 点（理论 7.5–16×）。</li>
+      <li><b>免训练五连</b>：不改架构、免校准数据、免微调、即插即用（任何预训练 KWT 直接加载）、τ 运行时可调（电量/CPU 负载实时权衡精度与效率）。</li>
+      <li><b>硬件友好</b>：判断只需比较指令（Cortex-M 单周期）；输出仍是密集张量不是稀疏矩阵；内存访问规则；额外存储只有前一帧向量 + d 个布尔。</li>
+      <li><b>消融</b>：冗余不均匀——底层（层 1–4）可跳 85–90%（低级声学特征变化慢），高层（层 9–12）只有 70–75%（语义特征变化频繁）；元音稳态段可跳 80–90%，辅音过渡段降到 30–50%。</li>
+      <li><b>细粒度的价值</b>：同 80% 目标下比 token 级剪枝高 3–5 个点——token 级要完全跳过 32/40 帧，Delta 每帧保留 20% 关键变化维度。</li>
+      <li><b>边界</b>：加速比是操作计数估计非实测；快速语速/爆破音密集词的可跳比例下降；噪声会拉大帧间差异（未评估）；近似误差会累积；只在 KWT-1 一个模型上验证。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：MHSA 是边缘部署的账单大头</h2>
+  <div class="h2sub">O(N²) 的注意力 × 语音的短时稳定性 = 被浪费的八成计算</div>
+  <p class="lead">Transformer KWS 的精度优势建立在 MHSA 的全局建模上——区分「yes」和「yet」这类局部相似、全局时间结构不同的词正需要它。但二次复杂度让 12 层模型的 MHSA 占掉推理计算的六到八成。而语音信号有一个被现有剪枝方法系统性忽略的物理特性：<b>短时稳定性</b>——10ms 帧移内相邻帧频谱的相关系数通常 &gt;0.95，相邻帧的注意力计算里藏着大量重复。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>剪枝要重训 = 没法按输入动态调</h4>
+      <p>不同输入样本的计算难度不同（安静语音比噪声语音更「规则」、冗余更多），但结构化/幅度剪枝是离线一次性动作，剪完还要微调恢复——推理时动不了。</p>
+    </div>
+    <div class="card bad">
+      <h4>稀疏计算 ≠ 通用硬件加速</h4>
+      <p>非结构化剪枝产生随机分布的零值，需要稀疏张量核心或定制加速器；在 ARM Cortex-M 上要引入大量条件分支和间接索引，实际加速远低于理论值，甚至更慢。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：逐维度判断「变没变」，没变就复用</h2>
+  <div class="h2sub">delta 特征的经典直觉 × MHSA 的三个子步骤</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 960">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="960.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Delta-KWT：把「delta 特征」的老直觉搬进 MHSA 推理</text>
+<line x1="36.0" y1="60.0" x2="520.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 瓶颈：MHSA 占 Transformer KWS 推理的 60–80%</text>
+<rect x="36.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">二次复杂度账</text>
+<text x="52.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">长度 N=40 帧、维度 d=64：单层 MHSA 约</text>
+<text x="52.0" y="155.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  40² × 64 = 102,400 次乘加 + O(N²) 存储</text>
+<text x="52.0" y="168.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWT 系列 GSC-12 到 98.4%，但叠 12 层后</text>
+<text x="52.0" y="181.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  MHSA 吃掉六到八成推理计算</text>
+<rect x="474.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">现有剪枝的三类不足</text>
+<text x="490.0" y="140.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">需重训：结构化/幅度剪枝后要微调恢复——离线、</text>
+<text x="490.0" y="153.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  耗时，无法按输入动态调整</text>
+<text x="490.0" y="166.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">粗粒度：token 级/头级「全有或全无」——一帧里</text>
+<text x="490.0" y="179.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  判别信息和噪声混着，留不下「有用的一半」</text>
+<text x="490.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">需专用硬件：非结构化稀疏在 Cortex-M 上要条件</text>
+<text x="36.0" y="206.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">分支 + 间接索引，实际比密集计算还慢——而语音的短时稳定性（相邻帧频谱相关系数 >0.95）一直没人系统性利用</text>
+<text x="36.0" y="232.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 核心机制：特征维度级的 delta 阈值剪枝</text>
+<rect x="36.0" y="246.0" width="414.0" height="210.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="270.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">判断 + 传播（逐维度）</text>
+<text x="52.0" y="292.0" font-size="12.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">δt[j] = | x_t[j] − x_t−1[j] |</text>
+<text x="52.0" y="314.0" font-size="12.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">δt[j] &lt; τ → 该维度复用 x_t−1 的结果</text>
+<text x="52.0" y="334.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">δt[j] ≥ τ → 正常计算（保留「关键变化」）</text>
+<text x="52.0" y="346.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="359.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">递归应用到 MHSA 所有子步骤：</text>
+<text x="52.0" y="371.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">① Q/K/V 投影：被跳维度直接用前一 token 的</text>
+<text x="52.0" y="384.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   对应值——省投影矩阵乘法</text>
+<text x="52.0" y="396.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② 注意力分数 St = QtK^T/√dk：Q 变化小，</text>
+<text x="52.0" y="409.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   St 与 St−1 差异同步减小</text>
+<text x="52.0" y="421.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 注意力加权求和：进一步省计算</text>
+<text x="52.0" y="434.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="446.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">累积效应：稳定段内只有第一帧要完整算，</text>
+<text x="52.0" y="459.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  后续帧大多数维度一路「传递」下去</text>
+<rect x="474.0" y="246.0" width="414.0" height="210.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="490.0" y="270.0" font-size="12" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么信号处理出身的人会想到这招</text>
+<text x="490.0" y="290.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">delta cepstrum / delta-delta cepstrum 是 ASR 老</text>
+<text x="490.0" y="302.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  家伙：一阶/二阶差分倒谱捕获语音动态</text>
+<text x="490.0" y="315.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="327.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">隐含假设：语音的判别信息在「变化」而非</text>
+<text x="490.0" y="340.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「绝对值」中，相邻帧的「不变部分」是冗余的</text>
+<text x="490.0" y="352.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="365.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">把这个直觉搬到推理：相邻 token 特征差异小</text>
+<text x="490.0" y="377.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  → MHSA 结果也相似 → 跳过小变化的计算，</text>
+<text x="490.0" y="390.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  直接复用前一帧结果</text>
+<text x="490.0" y="402.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="415.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">细粒度收益：同一帧内「选择性计算」——稳定</text>
+<text x="490.0" y="427.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  维度跳过、变化维度保留，token 级剪不到这一层</text>
+<text x="36.0" y="466.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 免训练 + 硬件友好：推理时优化，不动模型一根毫毛</text>
+<rect x="36.0" y="480.0" width="414.0" height="118.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="504.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">五个「无需」</text>
+<text x="52.0" y="524.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无需改架构：层数/头数/维度全不动</text>
+<text x="52.0" y="537.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无需校准数据：不统计权重重要性分布</text>
+<text x="52.0" y="550.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无需微调/重训：零训练过程</text>
+<text x="52.0" y="563.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 即插即用：直接加载任何预训练 KWT</text>
+<text x="52.0" y="576.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 动态可调：τ 运行时设置——高资源小 τ 高精度，</text>
+<text x="52.0" y="589.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">·   低电量大 τ 高效率（一档旋钮两用）</text>
+<rect x="474.0" y="480.0" width="414.0" height="118.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="490.0" y="504.0" font-size="12" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么通用 CPU 就能跑</text>
+<text x="490.0" y="524.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 判断只用比较指令（|δ| &lt; τ）——Cortex-M 上</text>
+<text x="490.0" y="537.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">·   单周期指令，全处理器最高效的一类</text>
+<text x="490.0" y="550.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输出仍是密集张量（跳过=替换成前帧值），不是</text>
+<text x="490.0" y="563.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">·   不规则稀疏矩阵——不需要稀疏加速硬件</text>
+<text x="490.0" y="576.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 内存访问模式规则（连续帧顺序处理），缓存友好</text>
+<text x="490.0" y="589.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 额外存储极小：前一帧特征向量 + d 个布尔值</text>
+<rect x="36.0" y="622.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="648.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">80% ↓ops</text>
+<text x="130.0" y="668.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">仍 98.4%（损失 &lt;0.1 点）</text>
+<text x="298.0" y="648.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4.2×</text>
+<text x="298.0" y="668.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">该点理论加速</text>
+<text x="466.0" y="648.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">94% ↓ops</text>
+<text x="466.0" y="668.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~95.0%（损 ~3.4 点）</text>
+<text x="634.0" y="648.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">16×</text>
+<text x="634.0" y="668.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">该点理论加速</text>
+<text x="802.0" y="648.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+3~5</text>
+<text x="802.0" y="668.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">vs token 级剪枝（同 80% 目标）</text>
+<text x="36.0" y="706.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">平台：预训练 KWT-1（12 层 Transformer 编码器，8 头 × 8 维，GSC V1-12 约 65,000 条 1 秒样本）；τ ∈ [0.01, 0.1]，权衡曲线平滑无突变点</text>
+</svg>
+    <p class="cap"><b>图1 · 机制全景</b>：MHSA 二次复杂度账 + 三类老剪枝的不足；核心的 delta 阈值判断与递归传播（Q/K/V 投影 → 注意力分数 → 加权求和）；免训练五连 + 硬件友好设计。
+  </div>
+  </div>
+  <div class="formula">
+    <div class="f">δt[j] = | x<sub>t</sub>[j] − x<sub>t−1</sub>[j] |　→　δt[j] &lt; τ 则 x<sub>t</sub>[j] 复用 x<sub>t−1</sub>[j] 的计算结果</div>
+    <div class="why"><b>人话</b>：对每个特征维度做一次绝对差比较——差异小于阈值就认为「这个维度没变，前面的计算结果还能用」。替换在 MHSA 内部<b>递归发生</b>：Q/K/V 投影省矩阵乘、注意力分数差异同步缩小、加权求和跟着省。连续稳定段（元音稳态）内只有第一帧要完整算，后续帧大多数维度一路传递下去。</div>
+  </div>
+  <p class="sub"><b>为什么维度级比 token 级强</b>：一个时间帧往往一半是判别信息一半是噪声——token 级剪枝只能整帧留或整帧丢，Delta 在帧内做「选择性计算」：稳定维度跳过、变化维度保留。同 80% 操作减少目标下，token 级要完全跳过 40 帧里的 32 帧（严重信息丢失），Delta 每帧保留 20% 关键变化——这就是 3–5 个点差距的来源。</p>
+
+  <h2><span class="no">§03</span>实验：KWT-1 上的精度-效率权衡</h2>
+  <div class="h2sub">预训练模型直接加载，一个阈值旋钮扫出整条曲线</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">核心结果：操作减少 vs 准确率（KWT-1 · GSC V1-12）</text>
+<line x1="36.0" y1="56.0" x2="520.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="96.0" y1="297.1" x2="660.0" y2="297.1" stroke="#eef0ec" stroke-width="1"/>
+<text x="90.0" y="301.1" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">94</text>
+<line x1="96.0" y1="264.3" x2="660.0" y2="264.3" stroke="#eef0ec" stroke-width="1"/>
+<text x="90.0" y="268.3" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">95</text>
+<line x1="96.0" y1="231.4" x2="660.0" y2="231.4" stroke="#eef0ec" stroke-width="1"/>
+<text x="90.0" y="235.4" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">96</text>
+<line x1="96.0" y1="198.6" x2="660.0" y2="198.6" stroke="#eef0ec" stroke-width="1"/>
+<text x="90.0" y="202.6" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">97</text>
+<line x1="96.0" y1="165.7" x2="660.0" y2="165.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="90.0" y="169.7" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">98</text>
+<line x1="96.0" y1="132.9" x2="660.0" y2="132.9" stroke="#eef0ec" stroke-width="1"/>
+<text x="90.0" y="136.9" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">99</text>
+<line x1="96.0" y1="100.0" x2="660.0" y2="100.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="90.0" y="104.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">100</text>
+<line x1="111.0" y1="100.0" x2="111.0" y2="330.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="111.0" y="346.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0%</text>
+<line x1="220.8" y1="100.0" x2="220.8" y2="330.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="220.8" y="346.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">20%</text>
+<line x1="330.6" y1="100.0" x2="330.6" y2="330.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="330.6" y="346.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">40%</text>
+<line x1="440.4" y1="100.0" x2="440.4" y2="330.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="440.4" y="346.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">60%</text>
+<line x1="550.2" y1="100.0" x2="550.2" y2="330.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="550.2" y="346.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">80%</text>
+<line x1="660.0" y1="100.0" x2="660.0" y2="330.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="660.0" y="346.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">100%</text>
+<line x1="100.0" y1="100.0" x2="100.0" y2="330.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="100.0" y1="330.0" x2="660.0" y2="330.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="111.0" y1="152.6" x2="550.2" y2="152.6" stroke="#0e8a66" stroke-width="2.5"/>
+<line x1="550.2" y1="152.6" x2="588.6" y2="182.1" stroke="#0e8a66" stroke-width="2.5"/>
+<line x1="588.6" y1="182.1" x2="605.1" y2="215.0" stroke="#0e8a66" stroke-width="2.5"/>
+<line x1="605.1" y1="215.0" x2="627.1" y2="264.3" stroke="#0e8a66" stroke-width="2.5"/>
+<circle cx="111.0" cy="152.6" r="6.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="121.0" y="160.6" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">原始 98.4</text>
+<circle cx="550.2" cy="152.6" r="6.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="534.2" y="142.6" font-size="10" fill="#0a6b4e" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">80%↓ 仍 ~98.4（&lt;0.1 损失）</text>
+<circle cx="588.6" cy="182.1" r="6.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="600.6" y="176.1" font-size="10" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">~97.5 · 7.5×</text>
+<circle cx="605.1" cy="215.0" r="6.5" fill="#5aa886" stroke="#fff" stroke-width="1.5"/>
+<text x="617.1" y="217.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">~96.5 · 10×</text>
+<circle cx="627.1" cy="264.3" r="6.5" fill="#5aa886" stroke="#fff" stroke-width="1.5"/>
+<text x="635.1" y="276.3" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">~95.0 · 16×</text>
+<circle cx="550.2" cy="152.6" r="12" fill="none" stroke="#d97a2b" stroke-width="2.5"/>
+<text x="380.0" y="86.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">横轴：被跳过的乘加操作占比 · 纵轴：准确率（%）· 标注为理论加速比</text>
+<rect x="430.0" y="252.0" width="226.0" height="58.0" rx="8" fill="#eef6f1"/>
+<text x="543.0" y="272.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">80% 操作确实是冗余的——且冗余源于</text>
+<text x="543.0" y="286.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">语音的时间连续性，而非模型设计冗余</text>
+<text x="543.0" y="300.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（87–94% 区间损 1–4 点，7.5–16×）</text>
+<text x="36.0" y="418.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注意：加速比为基于操作计数的理论估计——Delta 判断本身的开销、前帧缓存的读写、条件分支对流水线的影响未实测（论文无实机延迟）</text>
+</svg>
+    <p class="cap"><b>图2 · 核心结果</b>：操作减少比例 vs 准确率——80% 减少仍 98.4%（&lt;0.1 点损失，理论 4.2×），94% 减少损 ~3.4 点（理论 16×）。
+  </div>
+  </div>
+  <table class="tb">
+    <tr><th>操作减少</th><th>准确率（%）</th><th>理论加速比</th><th>准确率损失</th></tr>
+    <tr><td><b>0%（原始）</b></td><td><b>98.4</b></td><td>1.0×</td><td>0</td></tr>
+    <tr class="hl"><td><b>80%</b></td><td><b>~98.4</b></td><td><b>4.2×</b></td><td><b>&lt;0.1</b></td></tr>
+    <tr><td>87%</td><td>~97.5</td><td>7.5×</td><td>~0.9</td></tr>
+    <tr><td>90%</td><td>~96.5</td><td>10×</td><td>~1.9</td></tr>
+    <tr><td>94%</td><td>~95.0</td><td>16×</td><td>~3.4</td></tr>
+  </table>
+  <p class="sub">关键读数：80% 操作减少几乎无损——说明语音里八成的 MHSA 计算<b>确实是冗余的，且冗余源于时间连续性而非模型设计</b>。阈值 τ 在 [0.01, 0.1] 内权衡曲线平滑无突变点，部署时不需要精确定位某个「最优」阈值。</p>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融：冗余长在哪几层 + 细粒度为什么赢</text>
+<line x1="36.0" y1="56.0" x2="380.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="225.0" y="92.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">各层可跳过比例（12 层 KWT-1）</text>
+<rect x="210.0" y="116.0" width="171.9" height="34.0" rx="6" fill="#0b6e52"/>
+<text x="387.9" y="138.0" font-size="11" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~88%</text>
+<text x="204.0" y="131.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">层 1–4（近输入）</text>
+<text x="204.0" y="146.0" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">低级声学特征变化慢</text>
+<rect x="210.0" y="182.0" width="125.0" height="34.0" rx="6" fill="#5aa886"/>
+<text x="341.0" y="204.0" font-size="11" fill="#5aa886" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~80%</text>
+<text x="204.0" y="197.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">层 5–8（中层）</text>
+<rect x="210.0" y="248.0" width="78.1" height="34.0" rx="6" fill="#9fc8b8"/>
+<text x="294.1" y="270.0" font-size="11" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~72%</text>
+<text x="204.0" y="263.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">层 9–12（近输出）</text>
+<text x="204.0" y="278.0" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">语义特征变化频繁</text>
+<text x="225.0" y="320.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">与「层次化信息处理」一致：低层管缓慢变化的</text>
+<text x="225.0" y="334.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">声学特征，高层管快速变化的语义——冗余不是均匀的</text>
+<text x="670.0" y="92.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">稳态 vs 过渡 + 细粒度对比</text>
+<text x="520.0" y="120.0" font-size="10" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">语音段类型决定可跳比例：</text>
+<rect x="520.0" y="138.0" width="144.5" height="22.0" rx="5" fill="#0b6e52"/>
+<text x="670.5" y="154.0" font-size="10" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">85%</text>
+<text x="520.0" y="176.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">差异主要来自频谱随机波动，可跳 80–90%</text>
+<rect x="520.0" y="192.0" width="68.0" height="22.0" rx="5" fill="#d97a2b"/>
+<text x="594.0" y="208.0" font-size="10" fill="#d97a2b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">40%</text>
+<text x="520.0" y="230.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">判别信息密集，可跳降到 30–50%</text>
+<rect x="520.0" y="252.0" width="300.0" height="96.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="670.0" y="272.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">vs token 级剪枝（同 80% 目标）</text>
+<text x="534.0" y="292.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">token 级：要完全跳过 40 帧里的 32 帧——</text>
+<text x="534.0" y="306.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  整帧信息直接丢，准确率低 3–5 个点</text>
+<text x="534.0" y="324.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Delta 级：每帧只跳 80% 特征维度，保留 20%</text>
+<text x="534.0" y="338.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  关键变化——「留下有用的一半」才可能</text>
+<text x="36.0" y="418.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">另：vs 静态幅度剪枝——Delta 保留的是「关键变化」（δ 大的维度）而非随机保留；静态剪枝可能剪掉权重小但对变化敏感的关键连接</text>
+</svg>
+    <p class="cap"><b>图3 · 消融</b>：冗余的分布不均匀——底层可跳 85–90%、高层 70–75%；元音稳态段 80–90% vs 辅音过渡段 30–50%；与 token 级剪枝的细粒度对比。
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界：这招什么时候不灵 + 正交组合空间</text>
+<line x1="36.0" y1="56.0" x2="420.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="92.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="116.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">五个边界</text>
+<text x="72.0" y="136.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 依赖时间稳定性：快速语速、爆破音密集词（stop/go）</text>
+<text x="72.0" y="149.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  相邻帧差异大 → 可跳比例降、加速减弱；</text>
+<text x="72.0" y="163.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  跳变信号场景可能无显著加速</text>
+<text x="72.0" y="176.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="190.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 加速比是操作计数估计，非实测：判断开销 + 前帧</text>
+<text x="72.0" y="203.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  缓存读写 + 条件分支打乱流水线，三项都没上机验证</text>
+<text x="72.0" y="217.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="230.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声未评估：噪声随机波动会拉大相邻帧差异，</text>
+<text x="72.0" y="244.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  可跳比例降——重要场景缺实验</text>
+<text x="72.0" y="257.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="271.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 递归替换的近似误差随序列增长在层间/帧间累积，</text>
+<text x="72.0" y="284.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  长期效应无系统分析</text>
+<text x="72.0" y="298.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="311.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 只在 KWT-1 验证（12 层 8 头 64 维）；更大模型</text>
+<text x="72.0" y="325.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （KWT-3 约 3M / AST-Base 约 85M）冗余度可能不同</text>
+<rect x="520.0" y="92.0" width="324.0" height="140.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="682.0" y="116.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">正交组合空间</text>
+<text x="682.0" y="140.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">量化：减少每次操作的开销</text>
+<text x="682.0" y="158.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">×  Delta：减少要执行的操作数</text>
+<text x="682.0" y="182.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">联合应用初步估算：50–100× 综合加速</text>
+<text x="682.0" y="202.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（论文未做，方向声明）</text>
+<rect x="520.0" y="244.0" width="324.0" height="148.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="682.0" y="266.0" font-size="12.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">改进方向</text>
+<text x="536.0" y="286.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 自适应阈值：按帧间差异统计量动态调 τ</text>
+<text x="536.0" y="300.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （稳态段大 τ 多剪、过渡段小 τ 保信息）</text>
+<text x="536.0" y="314.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 学习型判断：小网络替代阈值比较，更准地</text>
+<text x="536.0" y="328.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  识别真冗余</text>
+<text x="536.0" y="342.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 扩展到长序列任务：ASR / 语音翻译动辄数百帧，</text>
+<text x="536.0" y="356.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  Delta 的加速潜力更大</text>
+<text x="536.0" y="370.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 阈值搜索自动化：给定目标准确率约束反解 τ</text>
+<text x="36.0" y="412.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移洞见：KWS 推理时的计算冗余是「有结构的、可预测的」——结构源于输入的物理特性（时间连续性），不是模型结构的偶然；基于输入特性的动态优化是一整类被低估的方法</text>
+</svg>
+    <p class="cap"><b>图4 · 边界与正交组合</b>：五个边界（依赖时间稳定性、理论加速未实测、噪声未评估、误差累积、单模型验证）+ 与量化正交组合的 50–100× 估算。
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：四条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>首个特征维度级的 MHSA 动态剪枝</b>：把「delta 计算」这一经典信号处理概念（判别信息在变化而非绝对值中）接进现代 Transformer 推理。</p></div>
+    <div class="row"><div class="n">2</div><p><b>即插即用的模型后处理</b>：任何预训练 Transformer 直接加载，一个超参数（τ）在精度与效率间连续权衡——工业部署时间从数小时缩短到零。</p></div>
+    <div class="row"><div class="n">3</div><p><b>极致操作减少</b>：80% 减少保 98.4%（4.2×），87–94% 减少仅损 1–4 点（7.5–16×），远超同期动态剪枝方法。</p></div>
+    <div class="row"><div class="n">4</div><p><b>纯比较操作的硬件友好设计</b>：不需要任何专用硬件即可在通用处理器上实现。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">对时间稳定性的依赖是双刃剑</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>输入越跳变，加速越弱</h4>
+      <p>快速语速、爆破音密集的关键词（stop/go）相邻帧差异大，可跳比例降低；跳变信号场景可能无显著加速——方法本质上在「赌」输入平稳。</p>
+    </div>
+    <div class="card bad">
+      <h4>理论加速 ≠ 实测加速</h4>
+      <p>4.2–16× 是操作计数估计；判断指令开销、前帧缓存读写、条件分支对流水线的影响都未在 Cortex-M4/RISC-V 等实机上测端到端延迟，功耗能量数据也没有。</p>
+    </div>
+    <div class="card bad">
+      <h4>噪声场景未评估</h4>
+      <p>全部实验在干净条件下做。噪声的随机波动会拉大相邻帧差异、降低可跳比例——对常驻 KWS 这是关键场景，缺实验。</p>
+    </div>
+    <div class="card bad">
+      <h4>误差累积 + 单模型验证</h4>
+      <p>递归替换每帧引入微小近似误差，层间帧间累积的长期效应无分析；只在 KWT-1（12 层 8 头 64 维）上验证，更大模型（KWT-3 约 3M、AST-Base 约 85M）的冗余度可能不同；也缺与动态深度/动态宽度方法的系统对比。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>推理时的计算冗余是「有结构的、可预测的」——结构源于输入的物理特性（时间连续性），不是模型结构的偶然；基于输入特性的动态优化是一整类被低估的方法。</li>
+      <li>剪枝粒度决定信息保留能力：能到特征维度就不要停在 token/头级——「保留有用的一半、丢弃冗余的一半」比「全有或全无」多 3–5 个点。</li>
+      <li>替换成密集值比产生稀疏模式更硬件友好——优化方法要过「通用 CPU 流水线」这一关才算边缘可用。</li>
+      <li>运行时可调的单旋钮（τ）让同一模型覆盖高精度/低功耗两档——比训练多个模型版本便宜得多。</li>
+      <li>与量化正交：一个减少操作数、一个减少单次操作开销，联合估算可达 50–100×——论文没做，留给后人。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2204.03479" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="Delta_Keyword_Transformer_Bringing_Transformers_to_the_Edge_through_Dynamically_Pruned_Multi_Head_Self_Attention.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
