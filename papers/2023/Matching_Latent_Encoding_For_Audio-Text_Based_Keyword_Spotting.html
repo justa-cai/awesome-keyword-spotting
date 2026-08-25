@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMKWS · 音频-文本柔性 KWS 的动态序列划分 · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2023/Matching_Latent_Encoding_For_Audio-Text_Based_Keyword_Spotting.md">深读笔记</a>
+    <a href="/papers/2023/Matching_Latent_Encoding_For_Audio-Text_Based_Keyword_Spotting.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2306.05245" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2023 №21</p>
+  <h1>一帧音频不可能同时属于两个词——Apple 把这个朴素约束写进动态规划，<br>两个冻结的异构编码器（144 维声学 × 768 维语义）被 3.7M 参数拉进同一度量空间</h1>
+  <p class="sub">Matching Latent Encoding for Audio-Text based Keyword Spotting（EMKWS）</p>
+  <p class="meta"><b>作者</b>：Kumari Nishu、Minsik Cho、Devang Naik（Apple）· arXiv 2306.05245（2023-06，ICASSP 格式短文）</p>
+  <p class="meta"><b>数据</b>：LibriSpeech 预训练 + Libriphrase Easy/Hard 评测 · <b>骨干</b>：Conformer-tiny（144 维）+ DistilBERT（768 维）双冻结</p>
+  <div class="chips">
+    <span class="chip">柔性 KWS（文本注册）</span><span class="chip">DSP 动态序列划分</span><span class="chip">单向一对多 ≠ DTW</span>
+    <span class="chip">长度保持投影器</span><span class="chip">LH 难集 AUC +14.4% / EER −28.9%</span><span class="chip">推理 3.7M，文本编码器离场</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>问题</b>：柔性 KWS（用户任意注册训练时未见过的关键词）。相比录音频的 QbE，文本注册门槛更低且是无噪声的符号监督——但把问题变成真正的<b>跨模态比较</b>：判断音频口语内容与文本序列是否一致。结构性矛盾：音频嵌入是上百帧的帧级序列（一索引 ≈ 25ms），文本嵌入是少数词级 token（本文 m ≤ 4，一索引 = 一个完整的词）——长度鸿沟 + 粒度鸿沟 + 空间异构（144 vs 768 维）三重叠加。</li>
+      <li><b>词时长天然不均</b>：正例 "the old man" 总长 550ms，三个词分别 90/230/230ms（占比 0.16:0.42:0.42）——短功能词与长实词差近三倍，任何「等分音频序列」的朴素方案从物理上就是错的。</li>
+      <li><b>四条老路各有靶心</b>：DTW 系——对称一对多在异质模态下是错误归纳偏置（一帧不可能同时属于两个词）；投影系——把两序列投影到固定长度即压缩语义，多词场景表现差；音素系——GRU 汇成单向量，词级判别力丢失；SOTA 基线 [Shin 2022]——字素/音素文本编码器抓不住语义（对近音词弱）+ 单调匹配损失把对齐「学死」，牺牲柔性。</li>
+      <li><b>核心增量：DSP 动态序列划分</b>。三条约束形式化：内容单调对齐、短序列→长序列一对多（一词对多帧）、长序列→短序列一一对应（每帧归且只归一词）。在此约束下求音频序列最优划分——这个组合优化问题恰好有经典 DP 精确解：时间 O(mn²)、m ≤ 4 退化 O(n²)、空间 O(n)。<b>min 嵌在训练目标里</b>：每个 step 对当前嵌入重解最优划分，对齐隐式随表示演化（对比基线把对齐学死在参数里）。</li>
+      <li><b>架构三段式</b>：双冻结编码器（Conformer-tiny 144 维 / DistilBERT 768 维）→ 轻量投影器（2×LayerNorm+2×Linear，把两者变换进同一 144 维空间，<b>长度保持</b>只做空间变换）→ DSP 对齐器（划分 + 块内均值聚合 + 逐位 L2）。对比损失双 hinge。证明「跨模态配对必须联合预训练」的隐含假设可以被打破——任何现成强编码器都能插入。</li>
+      <li><b>主结果</b>：LE 易集 AUC 96.7→97.83（相对 +1.2%）、EER 8.42→7.36（−12.6%）；<b>LH 难集 AUC 73.58→84.21（+14.4%）、EER 32.9→23.36（−28.9%）</b>。难集提升远大于易集：LH 难负例是 Levenshtein 近音词，正是基线字素/音素编码器的靶点；LE 天花板效应（基线已 96.7）。三次运行方差极小（LH AUC 84.18–84.24）。</li>
+      <li><b>最硬核的可解释性证据：时长对账</b>。图 3 相关性矩阵显示 DSP 对 "the old man" 给出划分 (2,5,5) 帧 ≈ 0.17:0.42:0.42，与真实发音占比 0.16:0.42:0.42 吻合——<b>全程零词级时间戳监督</b>，词时长结构纯从「L2 最优」目标里恢复出来。划分消融（图 2）：DSP 一致优于随机 / 等分——即使单词内部，静音低能段也不应与语义核心帧等权。</li>
+      <li><b>部署红利</b>：注册时文本嵌入离线预计算，推理时文本编码器整个不在场——总参数 3.7M。</li>
+      <li><b>边界</b>：严格单调连续假设偏强（词间停顿被硬塞、重复/语气词/口吃/倒装出局）；均值聚合抹掉词内时序；双冻结封住上限（弥合跨模态鸿沟的全部容量只有投影器四层）；训练期每步解一次 O(n²) DP；子词问题被「宽松处理」（实际对齐单元是子词）；数据域窄（朗读有声书、干净近讲、无远场噪声）；3/4 词样本仅 467/56——核心卖点是多词、验证强度却最弱；单基线、无端侧实测。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">不等长 × 异粒度 × 异构空间的序列比较</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>挑战拆成三层</b>：① 长度 + 粒度双鸿沟——就算把音频缩到与文本等长，每「格」该装哪些帧仍未知；② 词时长天然不均（90ms vs 230ms）；③ 两套嵌入空间异构——音频编码器为 ASR 优化（声学倾向），文本编码器为 NLU 优化（语义倾向），优化目标不同、维度不同、从未见过彼此，直接比距离没有意义。<b>指标</b>：AUC（阈值无关，公平比较正负例排序质量）+ EER（两类错误压成一个数）——都是基线报告过的口径，直接对齐。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">把连续对齐问题转成有精确解的组合问题</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 940">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="940.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="18" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">EMKWS 三段式架构 + DSP 对齐（图 1 复绘）</text>
+<line x1="36.0" y1="60.0" x2="330.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="26.0" y="84.0" width="420.0" height="150.0" rx="12" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="46.0" y="110.0" font-size="14" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音频通路</text>
+<rect x="46.0" y="122.0" width="150.0" height="48.0" rx="9" fill="#eef1f5" stroke="#d9dee6" stroke-width="1"/>
+<text x="121.0" y="143.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Conformer-tiny（冻结 ❄）</text>
+<text x="121.0" y="159.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">6 层 · 144 维 · ASR/CTC 预训练</text>
+<text x="121.0" y="200.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">80 通道 Fbank，25ms/10ms → 子采样后 n 帧</text>
+<line x1="196.0" y1="146.0" x2="226.0" y2="146.0" stroke="#8a93a5" stroke-width="1.5" marker-end="url(#ar)"/>
+<rect x="230.0" y="122.0" width="120.0" height="48.0" rx="9" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="290.0" y="143.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">投影器</text>
+<text x="290.0" y="159.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2×LN + 2×Linear</text>
+<text x="290.0" y="200.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">长度保持：进 n 帧出 n 帧</text>
+<line x1="350.0" y1="146.0" x2="380.0" y2="146.0" stroke="#8a93a5" stroke-width="1.5" marker-end="url(#ar)"/>
+<rect x="384.0" y="122.0" width="46.0" height="48.0" rx="9" fill="#e8ecf2" stroke="#d9dee6" stroke-width="1"/>
+<text x="407.0" y="143.0" font-size="12" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">n×d</text>
+<text x="407.0" y="159.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">d=144</text>
+<rect x="474.0" y="84.0" width="420.0" height="150.0" rx="12" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="494.0" y="110.0" font-size="14" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">文本通路（注册时一次，推理时离场）</text>
+<rect x="494.0" y="122.0" width="170.0" height="48.0" rx="9" fill="#eef1f5" stroke="#d9dee6" stroke-width="1"/>
+<text x="579.0" y="143.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DistilBERT（冻结 ❄）</text>
+<text x="579.0" y="159.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">768 维 · NLU 语义预训练</text>
+<text x="579.0" y="200.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">词/子词 token 序列（m ≤ 4，m ≥ m′）</text>
+<line x1="664.0" y1="146.0" x2="694.0" y2="146.0" stroke="#8a93a5" stroke-width="1.5" marker-end="url(#ar)"/>
+<rect x="698.0" y="122.0" width="120.0" height="48.0" rx="9" fill="#e3ecf6" stroke="#cfdce9" stroke-width="1"/>
+<text x="758.0" y="143.0" font-size="12" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">投影器</text>
+<text x="758.0" y="159.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">768 → 144 压维</text>
+<text x="758.0" y="200.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">文本嵌入离线预计算</text>
+<line x1="818.0" y1="146.0" x2="848.0" y2="146.0" stroke="#8a93a5" stroke-width="1.5" marker-end="url(#ar)"/>
+<rect x="852.0" y="122.0" width="34.0" height="48.0" rx="9" fill="#e8ecf2" stroke="#d9dee6" stroke-width="1"/>
+<text x="869.0" y="143.0" font-size="12" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">m×d</text>
+<text x="869.0" y="159.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">词向量</text>
+<rect x="26.0" y="258.0" width="868.0" height="190.0" rx="12" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="46.0" y="284.0" font-size="14" fill="#d97a2b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DSP 音频-文本对齐器（核心增量）：划分 + 聚合</text>
+<text x="46.0" y="300.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">正例音频 550ms（真实发音时长）</text>
+<rect x="46.0" y="320.0" width="110.5" height="34.0" rx="6" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="101.3" y="341.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">the</text>
+<text x="101.3" y="368.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">90ms · 2 帧</text>
+<rect x="160.5" y="320.0" width="288.7" height="34.0" rx="6" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="304.9" y="341.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">old</text>
+<text x="304.9" y="368.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">230ms · 5 帧</text>
+<rect x="453.3" y="320.0" width="288.7" height="34.0" rx="6" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="597.6" y="341.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">man</text>
+<text x="597.6" y="368.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">230ms · 5 帧</text>
+<text x="46.0" y="416.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DSP 划分尺寸 (2,5,5)/12 帧 ≈ 0.17:0.42:0.42 —— 与真实发音占比 0.16:0.42:0.42 吻合（图 3 时长对账）</text>
+<text x="46.0" y="436.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">全程零词级时间戳监督：词时长结构纯从「L2 距离最优」目标里恢复出来——对齐可解释性的硬核证据</text>
+<rect x="46.0" y="442.0" width="40.0" height="26.0" rx="5" fill="#fdf1e4" stroke="#f0dfc9" stroke-width="1"/>
+<text x="66.0" y="459.0" font-size="10" fill="#d97a2b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">均值</text>
+<line x1="88.0" y1="455.0" x2="108.0" y2="455.0" stroke="#d97a2b" stroke-width="1.4"/>
+<rect x="112.0" y="442.0" width="40.0" height="26.0" rx="5" fill="#e8ecf2" stroke="#d9dee6" stroke-width="1"/>
+<text x="132.0" y="459.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">t1</text>
+<text x="99.0" y="430.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">L2</text>
+<rect x="286.0" y="442.0" width="40.0" height="26.0" rx="5" fill="#fdf1e4" stroke="#f0dfc9" stroke-width="1"/>
+<text x="306.0" y="459.0" font-size="10" fill="#d97a2b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">均值</text>
+<line x1="328.0" y1="455.0" x2="348.0" y2="455.0" stroke="#d97a2b" stroke-width="1.4"/>
+<rect x="352.0" y="442.0" width="40.0" height="26.0" rx="5" fill="#e8ecf2" stroke="#d9dee6" stroke-width="1"/>
+<text x="372.0" y="459.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">t2</text>
+<text x="339.0" y="430.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">L2</text>
+<rect x="526.0" y="442.0" width="40.0" height="26.0" rx="5" fill="#fdf1e4" stroke="#f0dfc9" stroke-width="1"/>
+<text x="546.0" y="459.0" font-size="10" fill="#d97a2b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">均值</text>
+<line x1="568.0" y1="455.0" x2="588.0" y2="455.0" stroke="#d97a2b" stroke-width="1.4"/>
+<rect x="592.0" y="442.0" width="40.0" height="26.0" rx="5" fill="#e8ecf2" stroke="#d9dee6" stroke-width="1"/>
+<text x="612.0" y="459.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">t3</text>
+<text x="579.0" y="430.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">L2</text>
+<text x="46.0" y="487.0" font-size="1" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<rect x="26.0" y="484.0" width="420.0" height="176.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="46.0" y="508.0" font-size="13" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三条对齐约束（贡献一）</text>
+<text x="46.0" y="532.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">(a) 内容单调对齐——音频里词的顺序与文本一致</text>
+<text x="46.0" y="554.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">(b) 短序列→长序列一对多——一个词对应若干连续帧</text>
+<text x="46.0" y="576.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">(c) 长序列→短序列一一对应——每帧必须归且只归一个词</text>
+<text x="46.0" y="608.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DTW 为什么不行：对称一对多（一帧可对多个词）</text>
+<text x="46.0" y="628.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">在异质模态下是错误归纳偏置——一帧音频不可能</text>
+<text x="46.0" y="644.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">同时属于两个词。DSP 的划分式建模即此约束的</text>
+<text x="46.0" y="660.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">最直接数学表达</text>
+<rect x="474.0" y="484.0" width="420.0" height="176.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="494.0" y="508.0" font-size="13" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">算法 1：动态规划求精确最优划分</text>
+<text x="494.0" y="532.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">D[k][i] = 把 a_{i:n+1} 划成 k 块、对齐文本末 k 词的最优损失</text>
+<text x="494.0" y="554.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">边界：D[1][i] = ‖mean(a_{i:n+1}) − t_m‖²</text>
+<text x="494.0" y="576.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">递推：D[k][i] = min_j ( ‖mean(a_{i:j}) − t_{m−k+1}‖² + D[k−1][j] )</text>
+<text x="494.0" y="598.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输出 D[m][1]/m。最优子结构 → 多项式复杂度</text>
+<rect x="494.0" y="612.0" width="380.0" height="24.0" rx="6" fill="#e6f4ee"/>
+<text x="684.0" y="629.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">时间 O(mn²)（m≤4 退化 O(n²)）· 空间 O(n)</text>
+<text x="494.0" y="654.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">min 嵌在训练目标里：每个 step 对当前嵌入重解最优划分</text>
+<rect x="26.0" y="686.0" width="868.0" height="66.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="46.0" y="710.0" font-size="12.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">式 1（最优划分）：z(a,t) = min over p∈Partition(a,m) of (1/m)·Σ‖p̄k − tk‖²　　式 2（对比损失）：</text>
+<text x="46.0" y="732.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">L = l′·max(z − m_pos, 0) + (1−l′)·max(m_neg − z, 0)，最优 (m_pos, m_neg) = (0.2, 7)——负间隔大一个数量级：近音负例共享</text>
+<text x="46.0" y="748.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">大量声学内容、L2 天然偏小，负边界必须推得更远</text>
+<rect x="26.0" y="772.0" width="868.0" height="142.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="46.0" y="796.0" font-size="13.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">架构决策的「为什么」</text>
+<text x="46.0" y="820.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 为什么冻结复用而不联合从头训：两个编码器是各自领域被验证的资产；冻结省算力 + 注册文本嵌入离线预计算 → 推理时文本编码器整个不在场</text>
+<text x="46.0" y="842.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 为什么投影器必须存在：144（偏声学）vs 768（偏语义）维度不同、优化目标不同，直接比距离无意义；投影只做空间变换、不改序列长度——与既有投影系</text>
+<text x="46.0" y="864.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （改变长度压缩语义）的本质差别，多词能力因序列结构保留而恢复</text>
+<text x="46.0" y="886.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 为什么「划分+聚合」高明：把不等长序列对齐（连续优化）转成连续整数划分（组合优化），而后者恰好有经典 DP 精确解——对齐柔性来自每步重解最优</text>
+</svg>
+    <p class="cap"><b>图 1 复绘</b>：EMKWS 三段式架构——音频通路（冻结 Conformer-tiny 144 维 → 长度保持投影器 → n×d）与文本通路（冻结 DistilBERT 768 维 → 投影压到 144 → 离线预计算，推理时离场）；DSP 对齐器的划分+均值聚合+逐位 L2（含 550ms 正例的时长对账）；三条对齐约束与「DTW 为什么不行」；算法 1 的 DP 边界与递推、复杂度；式 1/2；架构决策的三条「为什么」。</p>
+  </div>
+
+  <div class="formula">
+    z(a,t) = min<sub>p∈Partition(a,m)</sub> (1/m)·Σ<sub>k=1..m</sub> ‖p̄<sub>k</sub> − t<sub>k</sub>‖²（式 1）；L = l′·max(z − m<sub>pos</sub>, 0) + (1−l′)·max(m<sub>neg</sub> − z, 0)（式 2）
+    <div class="why">式 1 的 min 嵌在训练目标里——每个 step、每个样本都对当前嵌入重解一次最优划分，这就是「对齐柔性」的来源：理论上每一步看到的都是当前表示下最好可能的映射视角（论文 3.3 节）。式 2 双 hinge 之外梯度为零：正例不必无限贴近、负例不必无限推远，避免表示空间被过度拉伸。超参网格搜索（m_pos 六档 × m_neg 六档）最优 (0.2, 7)——负间隔大一个数量级：近音负例共享大量声学内容、L2 天然偏小，负边界必须推得更远。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与消融</p>
+  <h2 class="sec">难集是方法的试金石</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主对比：LE 易集 vs LH 难集（Table 1 · 3 runs 平均）</text>
+<line x1="36.0" y1="56.0" x2="330.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="265.0" y="96.0" font-size="13" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AUC（越高越好）</text>
+<rect x="140.0" y="112.6" width="26.0" height="217.4" rx="4" fill="#b9c4b0"/>
+<text x="153.0" y="107.6" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">96.7</text>
+<text x="153.0" y="346.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">基线[5]</text>
+<rect x="171.0" y="104.9" width="26.0" height="225.1" rx="4" fill="#8fc7b1"/>
+<text x="184.0" y="99.9" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">97.8</text>
+<text x="184.0" y="346.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">run1</text>
+<rect x="202.0" y="104.8" width="26.0" height="225.2" rx="4" fill="#8fc7b1"/>
+<text x="215.0" y="99.8" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">97.8</text>
+<text x="215.0" y="346.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">run2</text>
+<rect x="233.0" y="105.0" width="26.0" height="225.0" rx="4" fill="#8fc7b1"/>
+<text x="246.0" y="100.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">97.8</text>
+<text x="246.0" y="346.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">run3</text>
+<rect x="264.0" y="104.9" width="26.0" height="225.1" rx="4" fill="#0e8a66"/>
+<text x="277.0" y="99.9" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">97.8</text>
+<text x="277.0" y="346.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">平均</text>
+<text x="222.0" y="366.0" font-size="12" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LE 易</text>
+<text x="222.0" y="382.0" font-size="11" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">相对 +1.2%</text>
+<rect x="290.0" y="271.2" width="26.0" height="58.8" rx="4" fill="#b9c4b0"/>
+<text x="303.0" y="266.2" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">73.6</text>
+<text x="303.0" y="346.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">基线[5]</text>
+<rect x="321.0" y="198.3" width="26.0" height="131.7" rx="4" fill="#8fc7b1"/>
+<text x="334.0" y="193.3" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">84.2</text>
+<text x="334.0" y="346.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">run1</text>
+<rect x="352.0" y="198.5" width="26.0" height="131.5" rx="4" fill="#8fc7b1"/>
+<text x="365.0" y="193.5" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">84.2</text>
+<text x="365.0" y="346.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">run2</text>
+<rect x="383.0" y="198.1" width="26.0" height="131.9" rx="4" fill="#8fc7b1"/>
+<text x="396.0" y="193.1" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">84.2</text>
+<text x="396.0" y="346.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">run3</text>
+<rect x="414.0" y="198.3" width="26.0" height="131.7" rx="4" fill="#0e8a66"/>
+<text x="427.0" y="193.3" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">84.2</text>
+<text x="427.0" y="346.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">平均</text>
+<text x="372.0" y="366.0" font-size="12" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LH 难</text>
+<text x="372.0" y="382.0" font-size="11" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">相对 +14.4%</text>
+<line x1="36.0" y1="380.0" x2="844.0" y2="380.0" stroke="#e6e6df" stroke-width="1"/>
+<text x="670.0" y="96.0" font-size="13" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">EER（越低越好）</text>
+<rect x="550.0" y="284.5" width="44.0" height="45.5" rx="5" fill="#b9c4b0"/>
+<text x="572.0" y="278.5" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">8.42</text>
+<text x="572.0" y="344.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">基线</text>
+<rect x="612.0" y="290.3" width="44.0" height="39.7" rx="5" fill="#0e8a66"/>
+<text x="634.0" y="284.3" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">7.36</text>
+<text x="634.0" y="344.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">EMKWS</text>
+<text x="603.0" y="362.0" font-size="12" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LE</text>
+<text x="603.0" y="378.0" font-size="11" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">相对 −12.6%</text>
+<rect x="690.0" y="152.3" width="44.0" height="177.7" rx="5" fill="#b9c4b0"/>
+<text x="712.0" y="146.3" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">32.90</text>
+<text x="712.0" y="344.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">基线</text>
+<rect x="752.0" y="203.9" width="44.0" height="126.1" rx="5" fill="#0e8a66"/>
+<text x="774.0" y="197.9" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">23.36</text>
+<text x="774.0" y="344.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">EMKWS</text>
+<text x="743.0" y="362.0" font-size="12" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LH</text>
+<text x="743.0" y="378.0" font-size="11" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">相对 −28.9%</text>
+<text x="36.0" y="412.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">难集提升远大于易集：LH 难负例 = Levenshtein 近音词，正是基线字素/音素文本编码器「抓不住语义」的靶点；LE 天花板效应（基线已 96.7）。</text>
+</svg>
+    <p class="cap"><b>Table 1 复绘</b>：主对比（3 runs + 平均）。左 AUC：LE 96.7→97.83（+1.2% 相对）、LH 73.58→84.21（+14.4% 相对）；右 EER：LE 8.42→7.36（−12.6%）、LH 32.9→23.36（−28.9%）。三次运行方差极小（LH AUC 84.18–84.24）——结果不靠运气种子。难集提升远大于易集：近音难负例是基线字素/音素编码器的靶点，语义文本编码器 + 最优划分的区分度在难样本上才真正显出来。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 420">
+<rect x="0.0" y="0.0" width="880.0" height="420.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">划分方案消融 + 对齐可视化（图 2 / 图 3 复绘，曲线为示意形态）</text>
+<line x1="36.0" y1="56.0" x2="480.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="260.0" y="98.0" font-size="12.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">图 2：只换划分算法（AUC，示意）</text>
+<line x1="110.0" y1="122.0" x2="110.0" y2="312.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="110.0" y1="312.0" x2="450.0" y2="312.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="106.0" y1="284.9" x2="450.0" y2="284.9" stroke="#eef0ec" stroke-width="1"/>
+<text x="102.0" y="288.9" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">70</text>
+<line x1="106.0" y1="230.6" x2="450.0" y2="230.6" stroke="#eef0ec" stroke-width="1"/>
+<text x="102.0" y="234.6" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">80</text>
+<line x1="106.0" y1="176.3" x2="450.0" y2="176.3" stroke="#eef0ec" stroke-width="1"/>
+<text x="102.0" y="180.3" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="106.0" y1="122.0" x2="450.0" y2="122.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="102.0" y="126.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">100</text>
+<rect x="140.0" y="149.1" width="34.0" height="162.9" rx="4" fill="#8a93a5"/>
+<rect x="180.0" y="279.4" width="34.0" height="32.6" rx="4" fill="#8a93a5"/>
+<text x="157.0" y="144.1" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">95</text>
+<text x="197.0" y="274.4" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">71</text>
+<text x="177.0" y="330.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">随机划分</text>
+<rect x="250.0" y="143.7" width="34.0" height="168.3" rx="4" fill="#d97a2b"/>
+<rect x="290.0" y="263.1" width="34.0" height="48.9" rx="4" fill="#d97a2b"/>
+<text x="267.0" y="138.7" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">96</text>
+<text x="307.0" y="258.1" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">74</text>
+<text x="287.0" y="330.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">等分划分</text>
+<rect x="360.0" y="133.9" width="34.0" height="178.1" rx="4" fill="#0e8a66"/>
+<rect x="400.0" y="207.8" width="34.0" height="104.2" rx="4" fill="#0e8a66"/>
+<text x="377.0" y="128.9" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">98</text>
+<text x="417.0" y="202.8" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">84</text>
+<text x="397.0" y="330.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DSP ★</text>
+<rect x="370.0" y="126.0" width="12.0" height="12.0" rx="3" fill="#c9d8e8"/>
+<text x="386.0" y="137.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">LE</text>
+<rect x="418.0" y="126.0" width="12.0" height="12.0" rx="3" fill="#b9c4b0"/>
+<text x="434.0" y="137.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">LH</text>
+<text x="670.0" y="98.0" font-size="12.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">图 3：text-to-audio 相关性（示意）</text>
+<rect x="580.0" y="118.0" width="23" height="19" fill="#0e8a66" opacity="1.00" stroke="#ffffff"/>
+<rect x="604.0" y="118.0" width="23" height="19" fill="#0e8a66" opacity="1.00" stroke="#ffffff"/>
+<rect x="628.0" y="118.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="652.0" y="118.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="676.0" y="118.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="700.0" y="118.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="724.0" y="118.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="748.0" y="118.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="772.0" y="118.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="796.0" y="118.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="820.0" y="118.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="844.0" y="118.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<text x="572.0" y="133.0" font-size="11" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">the</text>
+<rect x="580.0" y="138.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="604.0" y="138.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="628.0" y="138.0" width="23" height="19" fill="#0e8a66" opacity="1.00" stroke="#ffffff"/>
+<rect x="652.0" y="138.0" width="23" height="19" fill="#0e8a66" opacity="1.00" stroke="#ffffff"/>
+<rect x="676.0" y="138.0" width="23" height="19" fill="#0e8a66" opacity="1.00" stroke="#ffffff"/>
+<rect x="700.0" y="138.0" width="23" height="19" fill="#0e8a66" opacity="1.00" stroke="#ffffff"/>
+<rect x="724.0" y="138.0" width="23" height="19" fill="#0e8a66" opacity="1.00" stroke="#ffffff"/>
+<rect x="748.0" y="138.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="772.0" y="138.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="796.0" y="138.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="820.0" y="138.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="844.0" y="138.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<text x="572.0" y="153.0" font-size="11" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">old</text>
+<rect x="580.0" y="158.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="604.0" y="158.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="628.0" y="158.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="652.0" y="158.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="676.0" y="158.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="700.0" y="158.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="724.0" y="158.0" width="23" height="19" fill="#eef1f5" opacity="1.00" stroke="#ffffff"/>
+<rect x="748.0" y="158.0" width="23" height="19" fill="#0e8a66" opacity="1.00" stroke="#ffffff"/>
+<rect x="772.0" y="158.0" width="23" height="19" fill="#0e8a66" opacity="1.00" stroke="#ffffff"/>
+<rect x="796.0" y="158.0" width="23" height="19" fill="#0e8a66" opacity="1.00" stroke="#ffffff"/>
+<rect x="820.0" y="158.0" width="23" height="19" fill="#0e8a66" opacity="1.00" stroke="#ffffff"/>
+<rect x="844.0" y="158.0" width="23" height="19" fill="#0e8a66" opacity="1.00" stroke="#ffffff"/>
+<text x="572.0" y="173.0" font-size="11" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">man</text>
+<text x="591.5" y="192.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1</text>
+<text x="615.5" y="192.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2</text>
+<text x="639.5" y="192.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3</text>
+<text x="663.5" y="192.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4</text>
+<text x="687.5" y="192.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5</text>
+<text x="711.5" y="192.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">6</text>
+<text x="735.5" y="192.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">7</text>
+<text x="759.5" y="192.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">8</text>
+<text x="783.5" y="192.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">9</text>
+<text x="807.5" y="192.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10</text>
+<text x="831.5" y="192.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">11</text>
+<text x="855.5" y="192.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">12</text>
+<text x="724.0" y="208.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">音频帧（子采样后 12 帧）</text>
+<line x1="580.0" y1="114.0" x2="580.0" y2="178.0" stroke="#d97a2b" stroke-width="1" stroke-dasharray="3 3"/>
+<line x1="628.0" y1="114.0" x2="628.0" y2="178.0" stroke="#d97a2b" stroke-width="1" stroke-dasharray="3 3"/>
+<line x1="748.0" y1="114.0" x2="748.0" y2="178.0" stroke="#d97a2b" stroke-width="1" stroke-dasharray="3 3"/>
+<text x="510.0" y="234.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">三个强单调相关块 = DSP 学到的词对齐；块内帧彼此自相关；</text>
+<text x="510.0" y="250.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">橙虚线 = 划分边界 (2,5,5)，与发音时长 90/230/230ms 吻合</text>
+<text x="36.0" y="404.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">图 2 说明：即使单词内部，帧到块的归属也不均匀（静音/低能段不应与语义核心帧等权）——最优划分在以单词为主的分布上仍有稳定增益。</text>
+</svg>
+    <p class="cap"><b>图 2 / 图 3 复绘（示意形态，趋势与甜点位有据）</b>：左——划分方案消融，只换划分算法时 DSP 在 LE/LH 一致优于随机/等分；右——text-to-audio 相关性示意：三个强单调相关块对应三个词、块内帧自相关，橙虚线为 DSP 划分边界 (2,5,5)，与发音时长 90/230/230ms 吻合——零词级时间戳监督下恢复出的词时长结构。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 400">
+<rect x="0.0" y="0.0" width="880.0" height="400.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">超参网格 + 评测集词长分布（4.2 / 4.1 节）</text>
+<line x1="36.0" y1="56.0" x2="330.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="100" y="100" width="43" height="37" fill="rgb(204,210,201)"/>
+<rect x="146" y="100" width="43" height="37" fill="rgb(189,192,182)"/>
+<rect x="192" y="100" width="43" height="37" fill="rgb(153,147,135)"/>
+<rect x="238" y="100" width="43" height="37" fill="rgb(130,119,105)"/>
+<rect x="284" y="100" width="43" height="37" fill="rgb(140,131,118)"/>
+<rect x="330" y="100" width="43" height="37" fill="rgb(169,166,156)"/>
+<rect x="100" y="140" width="43" height="37" fill="rgb(198,203,194)"/>
+<rect x="146" y="140" width="43" height="37" fill="rgb(181,181,171)"/>
+<rect x="192" y="140" width="43" height="37" fill="rgb(137,128,114)"/>
+<rect x="238" y="140" width="43" height="37" fill="rgb(109,93,78)"/>
+<rect x="284" y="140" width="43" height="37" fill="rgb(122,108,94)"/>
+<rect x="330" y="140" width="43" height="37" fill="rgb(156,151,139)"/>
+<rect x="100" y="180" width="43" height="37" fill="rgb(196,200,191)"/>
+<rect x="146" y="180" width="43" height="37" fill="rgb(177,177,167)"/>
+<rect x="192" y="180" width="43" height="37" fill="rgb(131,120,106)"/>
+<rect x="238" y="180" width="43" height="37" fill="rgb(102,84,68)" stroke="#0a6b4e" stroke-width="2.5"/>
+<text x="259.5" y="202.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">★</text>
+<rect x="284" y="180" width="43" height="37" fill="rgb(115,100,85)"/>
+<rect x="330" y="180" width="43" height="37" fill="rgb(151,145,132)"/>
+<rect x="100" y="220" width="43" height="37" fill="rgb(197,201,192)"/>
+<rect x="146" y="220" width="43" height="37" fill="rgb(178,178,168)"/>
+<rect x="192" y="220" width="43" height="37" fill="rgb(133,122,108)"/>
+<rect x="238" y="220" width="43" height="37" fill="rgb(104,86,70)"/>
+<rect x="284" y="220" width="43" height="37" fill="rgb(116,102,87)"/>
+<rect x="330" y="220" width="43" height="37" fill="rgb(152,146,134)"/>
+<rect x="100" y="260" width="43" height="37" fill="rgb(204,210,201)"/>
+<rect x="146" y="260" width="43" height="37" fill="rgb(189,192,182)"/>
+<rect x="192" y="260" width="43" height="37" fill="rgb(153,147,135)"/>
+<rect x="238" y="260" width="43" height="37" fill="rgb(130,119,105)"/>
+<rect x="284" y="260" width="43" height="37" fill="rgb(140,131,118)"/>
+<rect x="330" y="260" width="43" height="37" fill="rgb(169,166,156)"/>
+<rect x="100" y="300" width="43" height="37" fill="rgb(231,243,237)"/>
+<rect x="146" y="300" width="43" height="37" fill="rgb(231,242,236)"/>
+<rect x="192" y="300" width="43" height="37" fill="rgb(230,241,235)"/>
+<rect x="238" y="300" width="43" height="37" fill="rgb(229,241,234)"/>
+<rect x="284" y="300" width="43" height="37" fill="rgb(229,241,235)"/>
+<rect x="330" y="300" width="43" height="37" fill="rgb(230,242,236)"/>
+<text x="121.5" y="92.0" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2</text>
+<text x="167.5" y="92.0" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2.5</text>
+<text x="213.5" y="92.0" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4</text>
+<text x="259.5" y="92.0" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">7</text>
+<text x="305.5" y="92.0" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10</text>
+<text x="351.5" y="92.0" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">15</text>
+<text x="90.0" y="120.0" font-size="11" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<text x="90.0" y="160.0" font-size="11" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.1</text>
+<text x="90.0" y="200.0" font-size="11" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.2</text>
+<text x="90.0" y="240.0" font-size="11" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.25</text>
+<text x="90.0" y="280.0" font-size="11" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.4</text>
+<text x="90.0" y="320.0" font-size="11" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">1.0</text>
+<text x="178.0" y="358.0" font-size="12" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">m_neg（负间隔）</text>
+<text x="40.0" y="220.0" font-size="12" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">m_pos</text>
+<text x="100.0" y="380.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">最优 (0.2, 7)。负间隔大一个数量级：近音负例共享大量声学、L2 天然偏小，负边界必须推得更远</text>
+<text x="690.0" y="100.0" font-size="12.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">评测集词长分布（episode 数）</text>
+<rect x="620.0" y="-56.0" width="44.0" height="210.0" rx="4" fill="#0e8a66"/>
+<text x="642.0" y="-62.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4391</text>
+<text x="610.0" y="150.0" font-size="11" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">1 词</text>
+<text x="676.0" y="144.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每个 episode</text>
+<text x="676.0" y="157.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">3 正 + 3 负</text>
+<rect x="620.0" y="87.4" width="44.0" height="124.6" rx="4" fill="#0e8a66"/>
+<text x="642.0" y="81.4" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2605</text>
+<text x="610.0" y="208.0" font-size="11" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">2 词</text>
+<rect x="620.0" y="247.7" width="44.0" height="22.3" rx="4" fill="#c0392b"/>
+<text x="642.0" y="241.7" font-size="10.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">467</text>
+<text x="610.0" y="266.0" font-size="11" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">3 词</text>
+<rect x="620.0" y="325.3" width="44.0" height="2.7" rx="4" fill="#c0392b"/>
+<text x="642.0" y="319.3" font-size="10.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">56</text>
+<text x="610.0" y="324.0" font-size="11" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">4 词</text>
+<text x="560.0" y="372.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">3/4 词样本稀少（467/56）——论文自认多词验证薄弱，</text>
+<text x="560.0" y="387.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">而 DSP 的核心卖点恰是多词对齐：主张与验证强度不匹配</text>
+<text x="100.0" y="387.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">网格热图（示意形态，甜点位有据）：颜色越深 = 该组合越优</text>
+</svg>
+    <p class="cap"><b>4.1 / 4.2 节复绘</b>：左——超参网格热图（m_pos 六档 × m_neg 六档，示意形态、甜点位有据）：最优 (0.2, 7)，负间隔大一个数量级；右——评测集词长分布：1/2/3/4 词 episode 数 4391/2605/467/56——3/4 词样本稀少，DSP 的多词主张与验证强度不匹配。</p>
+  </div>
+
+  <div class="card">
+    <b>数据栈与训练配置</b>：底层 LibriSpeech（train-clean-100/360 做 Conformer 的 ASR/CTC 预训练，字符级 29 维输出）→ 上层 Libriphrase（按基线方法从 LibriSpeech 生成短语级数据：评测集自 train-others-500，按词长 1/2/3/4 含 4391/2605/467/56 个 episode，每 episode 3 正 + 3 负；负例按 Levenshtein 距离分易/难）。特征 80 通道 Fbank、25ms/10ms。可训练部分（投影器 + 对齐可微路径）165 epoch、Adam、transformer 调度 + 2k warm-up，双编码器全程冻结。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">四条贡献</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>DSP 算法本身</b>：形式化一类不等长序列比较问题（单调对齐 + 单向一对多 + 一一对应）并给出 DP 精确最优解——超出 KWS 单一任务，任何「细粒度序列对粗粒度序列」的对齐（视频帧对句子、字符对词）都适用。</div>
+    <div class="c"><span class="n">2</span><b>灵活嵌入匹配设定</b>：证明两个独立预训练、维度不同（144/768）的编码器经轻量投影器即可有效配对——打破「跨模态配对必须联合预训练」的隐含假设。</div>
+    <div class="c"><span class="n">3</span><b>单词与多词统一</b>：DSP 距离为核心的判别式端到端训练同时覆盖单词（m=1 退化）与多词，配合冻结编码器 + 预计算文本嵌入形成 3.7M 推理形态。</div>
+    <div class="c"><span class="n">4</span><b>SOTA + 可解释性</b>：LH AUC +14.4% / EER −28.9%；图 3 时长对账证明零监督下恢复出语言学有意义的词时长结构。</div>
+  </div>
+
+  <div class="card">
+    <b>工程读者的两条可迁移判断（笔记综合评价）</b>：① 异质模态对齐，先想清楚「一对多的方向」这个归纳偏置，比堆模型容量更关键；② 冻结大编码器 + 轻量投影头的组合，是端侧跨模态任务在算力约束下的现实模板。
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">单调假设、均值聚合与多词验证缺口</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>严格单调连续划分假设偏强</b>：词间停顿被硬塞进相邻词块；「ok ok，请…」重复、插入语气词违反单调假设；口吃 / 倒装直接出局——论文未讨论这些边界。</li>
+        <li><b>均值聚合抹掉词内时序</b>：词内动态（音素先后、协同发音）不参与距离——「词内不同、词均值相同」的混淆对无法被察觉。这是让目标函数可 DP 的必要代价。</li>
+        <li><b>双冻结封住上限</b>：全部可学习容量只有投影器四层——两个冻结空间若有本质不对齐区域，投影器无力回天。</li>
+        <li><b>训练期 O(n²)</b>：每个前向解一次 DP；短音频没事，长音频或细粒度分段会显形。</li>
+        <li><b>子词被宽松处理</b>：实际对齐单元是子词 token（m ≥ m′），「词级语义」的说法与实现之间有缝隙。</li>
+        <li><b>度量结构简单</b>：L2 + 双 hinge、嵌入未归一化——margin 实际尺度依赖范数分布，跨数据集超参大概率重调。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>数据域窄</b>：LibriSpeech 是朗读有声书、干净近讲英语——无远场 / 加噪 / 混响 / 口音，与智能音箱真实环境显著域差；零鲁棒性实验。</li>
+        <li><b>多词验证薄弱</b>：4 词 episode 仅 56 个，而核心卖点恰是多词对齐——主张与验证强度不匹配，是本文实验设计最大缺口。</li>
+        <li><b>基线单一</b>：只与 [5] 比数字；DTW 系、投影系、音素系、QbE 系无直接对比——无法定位方法在柔性 KWS 版图的相对位置。</li>
+        <li><b>无效率实测</b>：只报 3.7M 参数；延迟、实时率、内存、端侧 benchmark 一概没有；DSP 能否流式化未讨论。</li>
+        <li><b>口径与明细</b>：headline 的 14.4%/28.9% 均来自难集（合理但需换算绝对量）；无按词长分层的明细表；三次运行稳定但无显著性检验。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>自然的延伸方向</b>：LoRA / adapter 参数高效微调让编码器向 KWS 判别适度适配（破冻结上限）；注意力池化等可学习聚合替代均值（保词内时序，或改近似搜索）；子词感知对齐或词级分词编码器；把 3/4 词样本提到与 1 词同量级 + 远场加噪评测集；<b>增量式 DP</b>（新帧到达只更新受影响表项）——走向实时唤醒的必经之路；同义词 / 同首词语义近负例 + 难负例挖掘继续压 EER；多语言扩展（DistilBERT 是英语单语——方法产品化的必答题）。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2023/Matching_Latent_Encoding_For_Audio-Text_Based_Keyword_Spotting.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2023/Matching_Latent_Encoding_For_Audio-Text_Based_Keyword_Spotting.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2306.05245" target="_blank">arXiv · 2306.05245</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（表 1、图 1–3、算法 1、式 1–2）；图 2 柱值与图 3 相关格为示意形态（趋势与甜点位有据）。错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
