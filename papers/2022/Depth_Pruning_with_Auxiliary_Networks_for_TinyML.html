@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>辅助网络增强的深度剪枝：TinyML 模型的 MCU 部署</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 15px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  table.tb { width: 100%; border-collapse: collapse; margin: 18px 0; background: var(--card);
+    border-radius: 12px; overflow: hidden; font-size: 13.8px; }
+  table.tb th { background: var(--acc-lt); color: var(--acc-dk); font-weight: 700;
+    padding: 10px 12px; text-align: left; }
+  table.tb td { padding: 9px 12px; border-top: 1px solid var(--line); color: var(--ink2); }
+  table.tb td b { color: var(--ink); }
+  table.tb tr.hl td { background: #f6fbf9; font-weight: 600; }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №11</div>
+  <h1 class="hero">砍掉 93% 参数只掉 0.65 个点：<br>秘密不在「少剪」，在<span class="g">换掉分类头</span></h1>
+  <div class="chips">
+    <span class="chip">ICASSP 2022 · De Leon &amp; Atienza</span>
+    <span class="chip">菲律宾大学 × 三星研究院</span>
+    <span class="chip">深度剪枝 + 辅助网络</span>
+    <span class="chip">MLPerf Tiny · Cortex-M0 实测</span>
+  </div>
+  <div class="meta">标准深度剪枝掉点 5–15% 的根因不是丢了参数，而是浅层特征语义不够用——一个 &lt;5K 参数的深度可分离卷积辅助网络把这句话变成了可部署的密集小模型。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>约束</b>：Cortex-M0 只有 32–64KB SRAM、128–256KB Flash、48MHz 无 FPU 无分支预测器——MobileNetV1-0.25× FP32 要 902KB Flash，直接超限。</li>
+      <li><b>三条老路的坑</b>：幅度剪枝产出非结构化稀疏（M0 无分支预测，分支 miss 清空流水线，可能比密集还慢）；标准深度剪枝 + 线性头掉 5–15 点；紧凑模型（DS-CNN 42K）冗余本就小，大模型「剪一半没事」的结论不能搬。</li>
+      <li><b>核心洞察</b>：深度剪枝掉准确率的根因不在「丢失深层参数」，而在「浅层特征图的语义表达能力不足以支撑分类」——解法不是少剪，是增强浅层的分类能力。</li>
+      <li><b>方法</b>：保前 k 层 + 换上一个 &lt;5K 参数的辅助网络（2–3 个 DWSConv 块 + BN + ReLU6 + GAP + FC）当「浅层特征语义提升器」——产物仍是标准密集网络，任何 MCU 直接跑。</li>
+      <li><b>VWW 结果</b>：226K→16K 参数（−93%），准确率 88.5%→87.85%（−0.65%）——比参数多 4 倍的标准深剪（70K，82.5%）高 5.35 个点，「剪多必掉多」被打破。</li>
+      <li><b>M0 实测</b>：Flash 902KB→192KB（4.7×），SRAM 80→40KB，延迟 470→290ms（1.6×），准确率反而 +1.0（辅助网络起了正则化作用）。</li>
+      <li><b>KWS 结果弱得多</b>：42K→30K 只减 28%，掉 1.06 点；INT8 量化再掉 2.21 点——DS-CNN 本就超紧凑 + KWS 更依赖高级时序特征。</li>
+      <li><b>消融</b>：辅助网络比线性头高 3–8 点（剪越深差距越大）；DWS 辅助比全连接辅助同参数下高约 2 点；冻结式两阶段训练 20 epoch ≈ 端到端 80 epoch（免灾难性干扰）。</li>
+      <li><b>边界</b>：辅助网络能弥补浅层、不能创造深层里不存在的信息——yes/yet 这类最后 50ms 细粒度区分的损失不可恢复；只适用于顺序架构，ResNet 的残差连接会被剪断。</li>
+      <li><b>可迁移判断</b>：对已紧凑的模型，「重构分类器」比「删参数」更有杠杆——重新定义问题比优化旧解法有效。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：MCU 三重约束下的剪枝困局</h2>
+  <div class="h2sub">Flash 装参数、SRAM 装激活、延迟要实时——三者相互牵制</div>
+  <p class="lead">TinyML 要把神经网络塞进 Cortex-M0/M4：SRAM 装所有运行时激活值、Flash 装所有参数、推理延迟满足实时性（KWS 通常 &lt;100ms）。当预训练模型超出约束（902KB Flash vs 256KB 上限），压缩是唯一出路——但压缩目标不只是参数量：SRAM 和延迟约束同样硬，且三者相互影响。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>幅度剪枝：理论压缩 ≠ MCU 加速</h4>
+      <p>小权重置零产生非结构化稀疏，需要稀疏计算支持才能兑现加速。Cortex-M 上要引入大量条件分支和 CSR/CSC 索引——M0 没有分支预测器，每次分支 miss 清空 3 级流水线，有时比密集计算还慢。</p>
+    </div>
+    <div class="card bad">
+      <h4>标准深度剪枝：浅层特征撑不住分类</h4>
+      <p>移除深层后在新末端接线性分类器，准确率掉 5–15%——网络浅层捕获的是边缘纹理这类低级特征，判别性不足。而紧凑模型剪枝研究本身是空白：大多剪枝论文的对象是 ResNet-50（25M）/VGG-16（138M）这类冗余 50–90% 的大模型。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：保前 k 层，换上「语义提升器」</h2>
+  <div class="h2sub">两阶段训练：冻结训辅助网络，可选联合微调</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 960">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="960.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">深度剪枝 + 辅助网络：掉点的根因不是丢参数，是浅层特征不够用</text>
+<line x1="36.0" y1="60.0" x2="620.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① MCU 三重约束 × 三条老路的坑</text>
+<rect x="36.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Cortex-M0 的账（TinyML 最低档）</text>
+<text x="52.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SRAM 32–64KB：装所有运行时激活值</text>
+<text x="52.0" y="155.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Flash 128–256KB：装所有参数（FP32 下</text>
+<text x="52.0" y="168.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">·   MobileNetV1-0.25× 要 902KB——直接超限）</text>
+<text x="52.0" y="181.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 48MHz 无 FPU 无分支预测器；KWS 要 &lt;100ms 延迟</text>
+<rect x="474.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三条老路各自的坑</text>
+<text x="490.0" y="140.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">幅度剪枝→非结构化稀疏：M0 无分支预测，分支 miss</text>
+<text x="490.0" y="153.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  清空 3 级流水线——实测可能比密集还慢</text>
+<text x="490.0" y="166.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标准深度剪枝+线性头：浅层特征缺语义，掉 5–15 点</text>
+<text x="490.0" y="179.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">紧凑模型研究空白：DS-CNN 42K 冗余本就小，</text>
+<text x="490.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  大模型「剪一半没事」的结论不能搬</text>
+<text x="36.0" y="220.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 核心洞察：重新定义问题——「增强浅层」而非「少剪点」</text>
+<rect x="36.0" y="234.0" width="848.0" height="150.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="56.0" y="260.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">深度剪枝掉准确率的根本原因：不在于「丢失了深层参数」，而在于「浅层特征图的语义表达能力不足以支撑分类」</text>
+<rect x="56.0" y="282.0" width="160.0" height="76.0" rx="8" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="136.0" y="304.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">预训练紧凑模型</text>
+<text x="136.0" y="322.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">VWW: MobileNetV1</text>
+<text x="136.0" y="334.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">  -0.25×（13 层）</text>
+<text x="136.0" y="346.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS: DS-CNN（6 层）</text>
+<line x1="216.0" y1="320.0" x2="240.0" y2="320.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="240.0" y="282.0" width="190.0" height="76.0" rx="8" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="335.0" y="304.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">深度剪枝（保前 k 层）</text>
+<text x="335.0" y="322.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">VWW: k=7 / 13 层</text>
+<text x="335.0" y="334.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS: k=5 / 6 层</text>
+<text x="335.0" y="346.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">移除第 k+1 层及之后</text>
+<line x1="430.0" y1="320.0" x2="454.0" y2="320.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="454.0" y="282.0" width="200.0" height="76.0" rx="8" fill="#0e8a66"/>
+<text x="554.0" y="304.0" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">辅助网络（&lt;5K 参数）</text>
+<text x="554.0" y="322.0" font-size="8.5" fill="#e6f4ee" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2–3 个 DWSConv 块（3×3 DW + PW）</text>
+<text x="554.0" y="334.0" font-size="8.5" fill="#e6f4ee" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">+ BN + ReLU6 → GAP → FC</text>
+<text x="554.0" y="346.0" font-size="8.5" fill="#e6f4ee" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">「浅层特征语义提升器」</text>
+<line x1="654.0" y1="320.0" x2="678.0" y2="320.0" stroke="#0e8a66" stroke-width="2" marker-end="url(#arg)"/>
+<rect x="678.0" y="282.0" width="186.0" height="76.0" rx="8" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="771.0" y="304.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标准密集网络</text>
+<text x="771.0" y="322.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">任何 MCU 直接跑</text>
+<text x="771.0" y="334.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CMSIS-NN / TFLite Micro</text>
+<text x="771.0" y="346.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">零框架修改、零专用硬件</text>
+<text x="460.0" y="376.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么不用线性头：线性分类器假设特征线性可分，但中间层特征图保留着复杂时频空间结构——需要非线性变换才能有效分类</text>
+<text x="36.0" y="396.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 两阶段训练 + 与三条老路的技术差异</text>
+<rect x="36.0" y="410.0" width="414.0" height="128.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="434.0" font-size="12" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段训练</text>
+<text x="52.0" y="454.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">阶段1（主训练）：冻结保留层，只训辅助网络</text>
+<text x="52.0" y="466.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——保留层的特征已够好，辅助网络只学「怎么从</text>
+<text x="52.0" y="479.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  这些特征提取分类信息」；20–30 epoch 收敛，</text>
+<text x="52.0" y="491.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  Adam lr=0.001</text>
+<text x="52.0" y="504.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">阶段2（可选微调）：解冻全部，lr=0.0001 端到端</text>
+<text x="52.0" y="516.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——提升通常仅 0.3–0.5 点；冻结训练避免联合训练</text>
+<text x="52.0" y="529.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  的灾难性干扰（20 vs 80 epochs，最终准确率相当）</text>
+<rect x="474.0" y="410.0" width="414.0" height="128.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="490.0" y="434.0" font-size="12" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">横向差异</text>
+<text x="490.0" y="454.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">vs 幅度剪枝：产出是密集标准网络——稀疏计算在</text>
+<text x="490.0" y="466.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  MCU 上的效率损失远大于 GPU/TPU，这是根本优势</text>
+<text x="490.0" y="479.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">vs 蒸馏：不需完整训练集，仅 10% 校准数据；不需</text>
+<text x="490.0" y="491.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  多轮训练</text>
+<text x="490.0" y="504.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">vs NAS：无昂贵搜索过程，辅助网络架构固定（只调</text>
+<text x="490.0" y="516.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  通道数这类超参）</text>
+<text x="490.0" y="529.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">vs 线性头深剪：非线性 2–3 层 DWSConv 提准确率 3–8 点</text>
+<rect x="36.0" y="558.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="584.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−93%</text>
+<text x="130.0" y="604.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">VWW 参数（226K→16K）</text>
+<text x="298.0" y="584.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−0.65%</text>
+<text x="298.0" y="604.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">VWW 准确率代价（88.5→87.85）</text>
+<text x="466.0" y="584.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4.7×</text>
+<text x="466.0" y="604.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Flash 缩小（M0 实测）</text>
+<text x="634.0" y="584.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1.0</text>
+<text x="634.0" y="604.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">VWW 实测准确率反升</text>
+<text x="802.0" y="584.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−28%</text>
+<text x="802.0" y="604.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 参数（42K→30K）</text>
+<text x="36.0" y="642.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">基准：MLPerf Tiny 两个任务（VWW 有人/无人二分类 约 115K 张 64×64 灰度；KWS 基于 GSC V1 12 类 约 51K 条 1 秒 MFCC 49×10）· 目标硬件 Cortex-M0 · TFLite Micro</text>
+</svg>
+    <p class="cap"><b>图1 · 方法全景</b>：MCU 三重约束与三条老路的坑；「保前 k 层 + 辅助网络」管线与两阶段训练；与幅度剪枝/蒸馏/NAS/线性头深剪的横向差异。
+  </div>
+  </div>
+  <div class="formula">
+    <div class="f">块结构：DWSConv(3×3) → BN → ReLU6 → PWConv → BN → ReLU6　（×2–3 块，&lt;5K 参数）→ GAP → FC</div>
+    <div class="why"><b>人话</b>：辅助网络就是一串小卷积块。参数预算必须极小（&lt;5K），否则抵消剪枝收益——靠小通道数（32/64）+ 深度可分离卷积（参数约为标准卷积的 1/C_out）实现。<b>为什么必须非线性</b>：线性分类器假设特征线性可分，但中间层特征图保留着复杂的时频空间结构，需要非线性变换才能有效分类。</div>
+  </div>
+  <p class="sub"><b>剪枝深度 k 怎么选</b>：逐层评估——对每个候选 k 训练辅助网络、评估验证集准确率，选准确率-模型大小权衡最优点。结果 VWW 是 k=7（13 层留 7 层）、KWS 是 k=5（6 层留 5 层）；超过最优 k 后准确率急剧下降——过浅的特征图连辅助网络也救不回来。</p>
+
+  <h2><span class="no">§03</span>实验：MLPerf Tiny 双任务 + Cortex-M0 实测</h2>
+  <div class="h2sub">VWW（有人/无人二分类）与 KWS（GSC V1 12 类）</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 460">
+<rect x="0.0" y="0.0" width="880.0" height="460.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">VWW 主对比：更激进的剪枝，更高的准确率（颠覆直觉）</text>
+<line x1="36.0" y1="56.0" x2="560.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="106.0" y1="297.9" x2="670.0" y2="297.9" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="301.9" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">50K</text>
+<line x1="106.0" y1="245.8" x2="670.0" y2="245.8" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="249.8" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">100K</text>
+<line x1="106.0" y1="193.8" x2="670.0" y2="193.8" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="197.8" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">150K</text>
+<line x1="106.0" y1="141.7" x2="670.0" y2="141.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="145.7" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">200K</text>
+<rect x="150.0" y="114.6" width="56.0" height="235.4" rx="5" fill="#c9d8e8"/>
+<text x="178.0" y="106.6" font-size="10.5" fill="#c9d8e8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~226K</text>
+<rect x="132.0" y="364.0" width="92.0" height="22.0" rx="11" fill="#f4f8f6" stroke="#cfe9de" stroke-width="1"/>
+<text x="178.0" y="379.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">88.50%</text>
+<text x="178.0" y="402.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">原始</text>
+<text x="178.0" y="413.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">MobileNetV1-0.25×</text>
+<rect x="280.0" y="161.5" width="56.0" height="188.5" rx="5" fill="#e8b8b0"/>
+<text x="308.0" y="153.5" font-size="10.5" fill="#e8b8b0" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~181K</text>
+<rect x="262.0" y="364.0" width="92.0" height="22.0" rx="11" fill="#f4f8f6" stroke="#cfe9de" stroke-width="1"/>
+<text x="308.0" y="379.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">87.50%</text>
+<text x="308.0" y="402.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">幅度剪枝</text>
+<text x="308.0" y="413.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">20%</text>
+<rect x="410.0" y="277.1" width="56.0" height="72.9" rx="5" fill="#e8d5c4"/>
+<text x="438.0" y="269.1" font-size="10.5" fill="#e8d5c4" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~70K</text>
+<rect x="392.0" y="364.0" width="92.0" height="22.0" rx="11" fill="#f4f8f6" stroke="#cfe9de" stroke-width="1"/>
+<text x="438.0" y="379.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">82.50%</text>
+<text x="438.0" y="402.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">标准深度剪枝</text>
+<text x="438.0" y="413.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">+</text>
+<text x="438.0" y="424.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">线性头</text>
+<rect x="540.0" y="333.3" width="56.0" height="16.7" rx="5" fill="#0b6e52"/>
+<text x="568.0" y="325.3" font-size="10.5" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~16K</text>
+<rect x="522.0" y="364.0" width="92.0" height="22.0" rx="11" fill="#e6f4ee" stroke="#9fd8bf" stroke-width="1"/>
+<text x="568.0" y="379.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">87.85%</text>
+<text x="568.0" y="402.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">辅助网络深度剪枝</text>
+<text x="568.0" y="413.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">★</text>
+<text x="390.0" y="86.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">柱高 = 参数量（越矮越好）· 下方胶囊 = 准确率（越高越好）</text>
+<rect x="360.0" y="160.0" width="320.0" height="118.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="376.0" y="184.0" font-size="11" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">关键读数：</text>
+<text x="376.0" y="204.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 标准深剪（70K）只有 82.5%——参数多 4 倍</text>
+<text x="376.0" y="222.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  反而更差；浅层特征 + 线性头撑不住分类</text>
+<text x="376.0" y="242.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文 16K（更激进的剪枝）达 87.85%</text>
+<text x="376.0" y="260.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——「辅助网络」把 5.35 个点找回来了</text>
+<text x="36.0" y="438.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">VWW = Visual Wakewords（MLPerf Tiny 视觉唤醒词任务，COCO 构建有人/无人二分类）——本文最强的结果在这个任务上；KWS 任务的改进幅度小得多（见图4）</text>
+</svg>
+    <p class="cap"><b>图2 · VWW 主对比</b>：柱高 = 参数量、胶囊 = 准确率——本文 16K 参数（最激进剪枝）反而比 70K 的标准深剪高 5.35 个点，「剪多必掉多」被辅助网络打破。
+  </div>
+  </div>
+  <table class="tb">
+    <tr><th>方法</th><th>参数量</th><th>参数减少</th><th>准确率</th><th>变化</th></tr>
+    <tr><td>原始 MobileNetV1-0.25×</td><td>~226K</td><td>—</td><td>88.5%</td><td>基线</td></tr>
+    <tr><td>幅度剪枝（20%）</td><td>~181K</td><td>20%</td><td>87.5%</td><td>−1.0%</td></tr>
+    <tr><td>标准深度剪枝（线性头）</td><td>~70K</td><td>68.9%</td><td>82.5%</td><td>−6.0%</td></tr>
+    <tr class="hl"><td><b>辅助网络深度剪枝（本文）</b></td><td><b>~16K</b></td><td><b>93%</b></td><td><b>87.85%</b></td><td><b>−0.65%</b></td></tr>
+  </table>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 420">
+<rect x="0.0" y="0.0" width="880.0" height="420.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Cortex-M0 实测（VWW）：不是理论操作量，是上机数字</text>
+<line x1="36.0" y1="56.0" x2="560.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="190.0" y="104.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Flash 占用</text>
+<rect x="210.0" y="88.0" width="420.0" height="22.0" rx="4" fill="#c9d8e8"/>
+<text x="638.0" y="104.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">原始 902KB</text>
+<rect x="210.0" y="116.0" width="89.4" height="22.0" rx="4" fill="#33507a"/>
+<text x="307.4" y="132.0" font-size="10" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">剪枝后 192KB</text>
+<rect x="650.0" y="98.0" width="100.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="700.0" y="113.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4.7× 缩小</text>
+<text x="190.0" y="192.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SRAM 占用</text>
+<rect x="210.0" y="176.0" width="37.3" height="22.0" rx="4" fill="#c9d8e8"/>
+<text x="255.3" y="192.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">原始 80KB</text>
+<rect x="210.0" y="204.0" width="18.6" height="22.0" rx="4" fill="#5aa886"/>
+<text x="236.6" y="220.0" font-size="10" fill="#5aa886" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">剪枝后 40KB</text>
+<rect x="650.0" y="186.0" width="100.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="700.0" y="201.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2× 缩小</text>
+<text x="190.0" y="280.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">推理延迟</text>
+<rect x="210.0" y="264.0" width="218.8" height="22.0" rx="4" fill="#c9d8e8"/>
+<text x="436.8" y="280.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">原始 470ms</text>
+<rect x="210.0" y="292.0" width="135.0" height="22.0" rx="4" fill="#d97a2b"/>
+<text x="353.0" y="308.0" font-size="10" fill="#d97a2b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">剪枝后 290ms</text>
+<rect x="650.0" y="274.0" width="100.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="700.0" y="289.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1.6× 加速</text>
+<rect x="210.0" y="354.0" width="540.0" height="40.0" rx="8" fill="#eef6f1"/>
+<text x="480.0" y="371.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">意外收获：实测准确率 88.5% → 89.5%（反升 1 个点）</text>
+<text x="480.0" y="387.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">推测：辅助网络起了正则化作用——更小的模型避开了原始模型的过拟合</text>
+<text x="36.0" y="400.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">意义：从 902KB 降到 192KB，让 Cortex-M0（通常 128–256KB Flash）上的部署从「不可行」变「可行」；M0 级 MCU 成本低于 1 美元——方法可扩展到几乎所有物联网设备</text>
+</svg>
+    <p class="cap"><b>图3 · Cortex-M0 实测（VWW）</b>：Flash 4.7× 缩小（902KB→192KB）、SRAM 减半、1.6× 加速，实测准确率反升 1 个点（辅助网络的正则化效应）。
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 任务 + 消融：同一招在语音上没那么灵</text>
+<line x1="36.0" y1="56.0" x2="420.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="225.0" y="92.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS（DS-CNN，GSC V1-12）</text>
+<rect x="60.0" y="114.0" width="330.0" height="44.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="74.0" y="141.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">原始 DS-CNN</text>
+<text x="190.0" y="141.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">42K</text>
+<rect x="240.0" y="122.0" width="140.0" height="26.0" rx="13" fill="#c9d8e8"/>
+<text x="310.0" y="139.0" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">93.8%</text>
+<rect x="60.0" y="170.0" width="330.0" height="44.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="74.0" y="197.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">辅助网络深剪 ★</text>
+<text x="190.0" y="197.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">30K</text>
+<rect x="240.0" y="178.0" width="140.0" height="26.0" rx="13" fill="#0b6e52"/>
+<text x="310.0" y="195.0" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">92.7%</text>
+<rect x="60.0" y="226.0" width="330.0" height="44.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="74.0" y="253.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">再 INT8 量化</text>
+<text x="190.0" y="253.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">—</text>
+<rect x="240.0" y="234.0" width="140.0" height="26.0" rx="13" fill="#e8b8b0"/>
+<text x="310.0" y="251.0" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−2.21 点</text>
+<text x="60.0" y="286.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">参数只减 28%（vs VWW 的 93%）——原因：</text>
+<text x="60.0" y="301.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">① DS-CNN 本就 42K 超紧凑，冗余远小于 226K</text>
+<text x="60.0" y="316.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② KWS 分类更依赖高级时序特征，深剪损失难弥补</text>
+<text x="60.0" y="331.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 论文未深入分析 VWW/KWS 差异——留白</text>
+<text x="680.0" y="92.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四个消融</text>
+<rect x="520.0" y="112.0" width="320.0" height="52.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="534.0" y="133.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">辅助网络 vs 线性头</text>
+<text x="534.0" y="150.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">同剪枝深度 +3~8 点；剪越深差距越大</text>
+<rect x="520.0" y="174.0" width="320.0" height="52.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="534.0" y="195.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DWS vs 全连接辅助</text>
+<text x="534.0" y="212.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">同 5K 参数：DWS 高约 2 点</text>
+<rect x="520.0" y="236.0" width="320.0" height="52.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="534.0" y="257.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段 vs 端到端</text>
+<text x="534.0" y="274.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">冻结训练 20ep ≈ 端到端 80ep（免</text>
+<text x="534.0" y="286.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">灾难干扰）</text>
+<rect x="520.0" y="298.0" width="320.0" height="52.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="534.0" y="319.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">剪枝深度 k</text>
+<text x="534.0" y="336.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">VWW k=7/13 最优；KWS k=5/</text>
+<text x="534.0" y="348.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">6；超过最优 k 急剧下降</text>
+<rect x="36.0" y="356.0" width="848.0" height="92.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="52.0" y="378.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界：辅助网络能「弥补」浅层，不能「创造」深层里不存在的信息</text>
+<text x="52.0" y="398.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 细粒度时序区分（yes vs yet，最后 50ms 差异）依赖深层高级时序模式——过度深剪的损失不可恢复</text>
+<text x="52.0" y="412.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 只适用于顺序架构（VGG/MobileNet/DS-CNN）；ResNet/EfficientNet 的残差连接会被剪断（第 k 层输出被多层引用）</text>
+<text x="52.0" y="426.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 辅助网络架构手工设计，可能不是所有剪枝深度最优；量化误差可能在剪枝后的浅层特征上被放大（未系统分析）</text>
+</svg>
+    <p class="cap"><b>图4 · KWS 任务 + 消融</b>：KWS 上参数只减 28%（DS-CNN 本就超紧凑 + 时序特征更依赖深层）；四个消融——辅助网络 vs 线性头 +3~8 点、DWS vs 全连接 +2 点、冻结两阶段 20ep≈端到端 80ep、k 的选择。
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：四条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>辅助网络增强的深度剪枝范式</b>：用精心设计的小辅助网络替代线性头，重新定义了深度剪枝的问题——不是「如何减少参数损失」而是「如何增强浅层特征的分类能力」。</p></div>
+    <div class="row"><div class="n">2</div><p><b>极端压缩 + 微小代价</b>：VWW 93% 参数减少只掉 0.65 点；KWS 28% 减少掉 1.06 点。</p></div>
+    <div class="row"><div class="n">3</div><p><b>真实 MCU 部署验证</b>：Cortex-M0 上实测 Flash 4.7× 缩小、1.6× 加速——902KB→192KB 让 M0（&lt;1 美元）上的部署从不可行变可行，可扩展到几乎所有物联网设备。</p></div>
+    <div class="row"><div class="n">4</div><p><b>零专用硬件零框架修改</b>：产物是标准密集网络，CMSIS-NN / TFLite Micro 直接跑。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">「弥补」与「创造」的区别</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>浅层语义瓶颈</h4>
+      <p>细粒度时序区分（yes vs yet，最后 50ms 音素差异）依赖深层高级时序模式——过度深剪的损失不可恢复，辅助网络能弥补不能创造原始网络里不存在的信息。</p>
+    </div>
+    <div class="card bad">
+      <h4>只适用于顺序架构</h4>
+      <p>VGG/MobileNet/DS-CNN 可从末端逐层移除；ResNet/EfficientNet 的残差连接会被剪断——第 k 层输出被多个后续层引用，移除引用层破坏残差加法，需要同时剪跳跃连接两端的更复杂策略。</p>
+    </div>
+    <div class="card bad">
+      <h4>KWS 上改进有限且未深究</h4>
+      <p>28% vs 93% 的巨大任务差异没有深入分析；INT8 量化与剪枝的交互效应（量化误差可能在浅层特征上放大）未系统研究。</p>
+    </div>
+    <div class="card bad">
+      <h4>覆盖面不足</h4>
+      <p>只有 MLPerf Tiny 两个任务；噪声、多说话人、远场条件未验证；辅助网络架构手工设计，未必是所有剪枝深度的最优。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 TinyML 也成立）</h4>
+    <ul>
+      <li>压缩掉点的根因诊断决定方法选型：是「丢了参数」还是「丢了表达」——后者要用结构补（换分类头/加非线性），不是少剪。</li>
+      <li>对已紧凑的模型，「重构分类器」比「删参数」更有杠杆——冗余小的模型里每个参数都重要，但分类端还有改良空间。</li>
+      <li>稀疏化方法在 MCU 上天然吃亏（无分支预测 + 无稀疏加速器）；产出密集结构的方法才在边缘侧兑现理论收益。</li>
+      <li>冻结预训练层只训新增部分：收敛快 4 倍且避免灾难性干扰——增量改造大模型时的默认姿势。</li>
+      <li>小模型反而在实测中可能涨点（辅助网络当正则）——压缩不一定伤泛化，别默认「剪必掉」。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2204.10546" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="Depth_Pruning_with_Auxiliary_Networks_for_TinyML.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
