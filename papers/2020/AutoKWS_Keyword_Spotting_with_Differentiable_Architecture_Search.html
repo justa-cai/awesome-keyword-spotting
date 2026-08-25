@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoKWS：把 DARTS 搬进唤醒词——梯度直接流过架构选择 | 论文精读 2020 №2</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.22em;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:14px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.sub{font-size:17px;color:var(--ink2);margin-bottom:22px;font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.chip{font-size:12.5px;padding:5px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2);font-weight:600}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink2);margin-bottom:40px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:10px;vertical-align:-6px}
+h2{font-size:24px;font-weight:800;margin-bottom:18px;letter-spacing:.01em}
+h3{font-size:17px;font-weight:700;margin:26px 0 10px}
+p{margin-bottom:14px;color:#2c3646}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:.14em;margin-bottom:10px}
+.tldr li{list-style:none;padding-left:22px;position:relative;margin-bottom:8px;color:#2c3646;font-size:15px}
+.tldr li::before{content:"◆";position:absolute;left:2px;color:var(--acc);font-size:10px;top:7px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px}
+.card h4{font-size:15px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13.5px;color:var(--ink2);margin-bottom:0}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h4{color:var(--dk)}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4}
+.card.bad h4{color:var(--warn)}
+.fig{margin:26px 0}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:9px;text-align:center}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 22px;margin:16px 0;font-size:15px}
+.formula .f{font-family:"SF Mono",Consolas,"Liberation Mono",monospace;font-size:14.5px;color:var(--ink);background:#f4f4ef;border-radius:8px;padding:10px 16px;margin-bottom:8px;overflow-x:auto;white-space:pre-wrap}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;margin:16px 0}
+table.tb th{background:#eff1ec;color:var(--ink);font-weight:700;text-align:left;padding:10px 14px;border-bottom:2px solid var(--line);font-size:13px}
+table.tb td{padding:9px 14px;border-bottom:1px solid #f0f0ea;color:#2c3646;vertical-align:top}
+table.tb tr:last-child td{border-bottom:none}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.contrib{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:18px 0}
+.contrib .row{display:flex;gap:14px;margin-bottom:12px;align-items:flex-start}
+.contrib .row:last-child{margin-bottom:0}
+.contrib .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lt);color:var(--dk);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.contrib .row p{margin:0;font-size:14px;color:#2c3646}
+.judge{background:#fdf8f0;border:1px solid #eadfc8;border-radius:12px;padding:20px 24px;margin:18px 0}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:#5a4a2f;margin-bottom:10px;font-weight:600}
+.judge .rw{font-size:13.5px;color:#7a6a4a;padding-left:18px;position:relative;margin-bottom:9px}
+.judge .rw::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-size:12px;padding:4px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink3);font-weight:600}
+.foot-note{font-size:12px;color:var(--ink3);width:100%;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2020 №2</div>
+<h1 class="hero">AutoKWS：让梯度直接流过「架构选择」，<span class="g">单卡 GPU 搜出一个唤醒词网络</span></h1>
+<div class="sub">AutoKWS: Keyword Spotting with Differentiable Architecture Search —— 小米 AI 实验室把 DARTS 适配到小足迹 KWS 的工程实践</div>
+<div class="chips">
+<span class="chip acc">可微分 NAS</span><span class="chip">DARTS</span><span class="chip">搜索空间设计</span><span class="chip">小足迹 KWS</span><span class="chip">小米 AI Lab</span>
+</div>
+<div class="meta">
+<b>小米 AI 实验室 · arXiv 2009.03658（2020.09）</b><br>
+任务：GSC 唤醒词分类 · 方法：连续松弛 + 双层优化的可微分架构搜索 · 搜索空间：每 Cell 4 节点 × 7 候选操作（全 stride-1 · 同尺寸 padding）<br>
+一句话：把「选哪个算子」变成可微分的加权混合，梯度下降直接学架构——单卡可搜，同参数量精度超手工 DS-CNN，搜出的模式还能反哺人工设计。
+</div>
+
+<section>
+<span class="no">01</span><h2>为什么要自动搜：手工设计的三宗罪</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>KWS 架构设计至今靠<b>专家直觉 + 大量试错</b>：DS-CNN、CRNN 这些套路是人试出来的，带设计者偏见，未必最优。</li>
+<li>不同场景（词表不同、噪声不同、硬件不同）可能各有各的最优架构——为每种组合手工设计不现实，这正是 AutoML 的入口。</li>
+<li>现成 NAS 直接拿来用有三个坑：搜索空间没有 KWS 领域知识、搜索效率低吃算力、搜出的架构可能不适合部署。AutoKWS 逐条回应。</li>
+<li>最有意思的副产品：<b>搜出的架构模式与手工套路不同</b>——浅层偏好大核、深层偏好小核+跳跃、DSConv 在大多数位置独立胜出。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AutoKWS：让梯度直接流过「架构选择」——小米把 DARTS 搬进唤醒词</text>
+<line x1="36.0" y1="60.0" x2="720.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 为什么要自动搜：手工设计的三宗罪 + 现成 NAS 的三处水土不服</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">每个场景（不同词表 · 不同噪声 · 不同硬件）可能各有各的最优架构——为每种组合手工调架构不现实</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">把 DARTS（可微分架构搜索）适配到 KWS：搜索空间带领域知识、单卡可搜、搜出的模型直接满足小足迹部署</text>
+<rect x="36.0" y="152.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="182.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">手工设计 · 三宗罪</text>
+<text x="215.0" y="173.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">需要深厚领域专业知识 · 大量试错实验 · 设计者偏见——DS-CNN/CRNN 这套套路是人试出来的</text>
+<text x="215.0" y="191.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<rect x="36.0" y="210.0" width="848.0" height="50.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="240.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">现成 NAS · 三个坑</text>
+<text x="215.0" y="231.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">搜索空间无 KWS 领域知识指导 · 搜索效率低吃算力 · 搜出的架构可能根本不适合部署（参数/延迟超标）</text>
+<text x="215.0" y="249.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<rect x="36.0" y="268.0" width="848.0" height="50.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="298.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AutoKWS 的答卷</text>
+<text x="215.0" y="289.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">DARTS 连续松弛 + 双层优化 + 小足迹专用操作集——单卡 GPU 搜完，同参数量精度超手工 DS-CNN</text>
+<text x="215.0" y="307.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="36.0" y="332.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 核心机制：连续松弛 + 双层优化</text>
+<rect x="36.0" y="348.0" width="416.0" height="178.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="370.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">连续松弛（Continuous Relaxation）</text>
+<text x="52.0" y="394.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">把「选哪个操作」的离散选择变成连续加权：</text>
+<text x="52.0" y="409.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="425.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  x_out = Σ softmax(α)_i · o_i(x)</text>
+<text x="52.0" y="440.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="456.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每条边上是全部候选操作的加权混合，α 是可训练的</text>
+<text x="52.0" y="471.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「架构参数」——梯度下降直接学出该留谁</text>
+<text x="52.0" y="487.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">搜索结束后按 α 取 argmax 离散化成真实架构</text>
+<rect x="468.0" y="348.0" width="416.0" height="178.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="676.0" y="370.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">双层优化（Bi-level）</text>
+<text x="484.0" y="394.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">两套参数交替更新，各走各的数据：</text>
+<text x="484.0" y="409.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="425.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  模型权重 w ← 训练集上更新</text>
+<text x="484.0" y="440.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  架构参数 α ← 验证集上更新</text>
+<text x="484.0" y="456.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="471.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">α 在没见过的验证集上竞争——搜出的架构有</text>
+<text x="484.0" y="487.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">泛化保证，不是在训练集上过拟合出来的形状</text>
+<text x="36.0" y="548.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 小足迹专用搜索空间 + 搜后流程</text>
+<rect x="36.0" y="564.0" width="200.0" height="48.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="136.0" y="584.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3×3 / 5×5 卷积</text>
+<text x="136.0" y="600.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">标准卷积 · 步长 1 · 同尺寸 padding</text>
+<rect x="250.0" y="564.0" width="200.0" height="48.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="350.0" y="584.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">深度可分离卷积</text>
+<text x="350.0" y="600.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">主力 · 步长 1 · 同尺寸 padding</text>
+<rect x="464.0" y="564.0" width="200.0" height="48.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="564.0" y="584.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3×3 平均/最大池化</text>
+<text x="564.0" y="600.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">降采样 · 步长 1 · 同尺寸 padding</text>
+<rect x="678.0" y="564.0" width="200.0" height="48.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="778.0" y="584.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">跳跃连接 / 零操作</text>
+<text x="778.0" y="600.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Skip · None · 步长 1 · 同尺寸 padding</text>
+<text x="52.0" y="632.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">约束：全部操作步长 1、相同 padding 保持特征图尺寸——超网络里所有候选可无冲突混合；每 Cell 4 节点 × 7 候选操作</text>
+<rect x="56.0" y="646.0" width="180.0" height="46.0" rx="8" fill="#ffffff" stroke="#d5e8df" stroke-width="1"/>
+<text x="146.0" y="665.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC 训练集</text>
+<text x="146.0" y="681.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">更新 w</text>
+<line x1="236.0" y1="669.0" x2="264.00" y2="669.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="264.0" y="646.0" width="180.0" height="46.0" rx="8" fill="#ffffff" stroke="#d5e8df" stroke-width="1"/>
+<text x="354.0" y="665.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC 验证集</text>
+<text x="354.0" y="681.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">更新 α</text>
+<line x1="444.0" y1="669.0" x2="472.00" y2="669.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="472.0" y="646.0" width="180.0" height="46.0" rx="8" fill="#ffffff" stroke="#d5e8df" stroke-width="1"/>
+<text x="562.0" y="665.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">α 取 argmax</text>
+<text x="562.0" y="681.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">离散化</text>
+<line x1="652.0" y1="669.0" x2="680.00" y2="669.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="680.0" y="646.0" width="180.0" height="46.0" rx="8" fill="#ffffff" stroke="#d5e8df" stroke-width="1"/>
+<text x="770.0" y="665.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">重训发现架构</text>
+<text x="770.0" y="681.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">评估</text>
+<rect x="36.0" y="740.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="766.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单卡 GPU</text>
+<text x="130.0" y="786.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">搜索所需算力（vs RL/进化大幅省</text>
+<text x="298.0" y="766.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">7 种</text>
+<text x="298.0" y="786.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">候选操作 × 4 节点/Cell</text>
+<text x="466.0" y="766.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">> DS-CNN</text>
+<text x="466.0" y="786.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">同参数量精度更高</text>
+<text x="634.0" y="766.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">更快</text>
+<text x="634.0" y="786.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">搜索速度 vs 非可微分 NAS</text>
+<text x="802.0" y="766.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">深度可分离</text>
+<text x="802.0" y="786.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">被选择最多的操作</text>
+<text x="36.0" y="824.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">小米 AI 实验室 · arXiv 2009.03658（2020.09）；GSC 数据集；准确率/速度为笔记定性记录，具体数值回对原文</text>
+</svg>
+<div class="cap">图 1 · 全景：手工设计与现成 NAS 的问题 → 连续松弛 + 双层优化 → 小足迹搜索空间与搜后流程</div>
+</section>
+
+<section>
+<span class="no">02</span><h2>机制：梯度怎么「流过」一个离散选择</h2>
+<p>DARTS 的核心一招是<b>连续松弛</b>：架构里每条边原本要做离散选择（用哪个算子），离散选择没有梯度、没法反向传播。把选择改成 softmax 加权的<b>全候选混合</b>，离散问题就变连续了——α 成了可训练参数，架构搜索变成普通的梯度下降。</p>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：一条边上的混合与离散化 · 双层优化的数据流</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">超网络里的一条边</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="213.0" y="112.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">softmax(α) 加权混合全部候选</text>
+<text x="64.0" y="140.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">深度可分离卷积</text>
+<rect x="178.0" y="128.0" width="79.8" height="16.0" rx="4" fill="#0b6e52"/>
+<text x="261.8" y="140.0" font-size="8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">α=0.42</text>
+<text x="64.0" y="174.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">5×5 卷积</text>
+<rect x="178.0" y="162.0" width="38.0" height="16.0" rx="4" fill="#9fc8b8"/>
+<text x="220.0" y="174.0" font-size="8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">α=0.20</text>
+<text x="64.0" y="208.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">3×3 卷积</text>
+<rect x="178.0" y="196.0" width="28.5" height="16.0" rx="4" fill="#9fc8b8"/>
+<text x="210.5" y="208.0" font-size="8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">α=0.15</text>
+<text x="64.0" y="242.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">跳跃连接</text>
+<rect x="178.0" y="230.0" width="22.8" height="16.0" rx="4" fill="#9fc8b8"/>
+<text x="204.8" y="242.0" font-size="8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">α=0.12</text>
+<text x="64.0" y="276.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">池化 ×2 / 零</text>
+<rect x="178.0" y="264.0" width="20.9" height="16.0" rx="4" fill="#9fc8b8"/>
+<text x="202.9" y="276.0" font-size="8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">α=0.11</text>
+<text x="64.0" y="296.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练中 α 互相竞争，权重向赢家集中</text>
+<rect x="64.0" y="306.0" width="318.0" height="26.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="223.0" y="323.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">离散化：α 最大者留，其余整条边丢弃</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">双层优化的数据流</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="450.0" y="114.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">交替进行，直到收敛：</text>
+<text x="450.0" y="129.5" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="145.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">① 取当前架构（α 混合的超网络）</text>
+<text x="450.0" y="160.5" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② 训练集前向/反向 → 只更新 w</text>
+<text x="450.0" y="176.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   ——「在这套架构下把任务学好」</text>
+<text x="450.0" y="191.5" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 冻结 w，验证集前向/反向 → 只更新 α</text>
+<text x="450.0" y="207.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   ——「哪套架构在没见过的数据上更好」</text>
+<text x="450.0" y="222.5" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="238.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么要分两份数据：</text>
+<text x="450.0" y="253.5" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">α 若在训练集上学，会偏向记住训练集的算子；</text>
+<text x="450.0" y="269.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">验证集把关后，留下的是泛化赢家——NAS 版的</text>
+<text x="450.0" y="284.5" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「训练/早停」分离</text>
+<rect x="450.0" y="296.0" width="380.0" height="36.0" rx="6" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="640.0" y="310.0" font-size="8.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">搜索完成后：按 α argmax 重建离散架构 →</text>
+<text x="640.0" y="324.0" font-size="8.3" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">从零重训（超网络权重只是搜索道具）</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：搜索期每条边是全部候选操作的 softmax 加权混合，α 即「架构票仓」；离散化只留票最多的一票。右：w 与 α 各在自己的数据集上更新——验证集把关是搜出泛化架构的关键</text>
+</svg>
+<div class="cap">图 2 · 机制解剖：超网络一条边上的混合与离散化 · 双层优化的数据流分离</div>
+<div class="formula">
+<div class="f">ō(x) = Σᵢ softmax(α)ᵢ · oᵢ(x)        ← 搜索期：全部候选算子的加权混合
+架构 = argmaxᵢ αᵢ（每条边）          ← 搜索后：只留票最多的算子，重建离散网络</div>
+<div class="why"><b>人话：</b>搜索期每条边是「所有算子按票数加权一起干活」，α 就是票仓，训练中票向赢家集中；搜索结束只数票——票最多的算子留下，其余丢弃，然后从零重训这个干净架构。</div>
+</div>
+<p><b>双层优化</b>回答的是「谁来投票」：模型权重 w 在训练集上更新（把任务学好），架构参数 α 在验证集上更新（哪套架构在没见过的数据上更好）。两份数据分离等于给架构选择加了一道泛化关卡——不是在训练集上过拟合出来的形状。这也是所有可微分 NAS 的标准范式。</p>
+<p><b>搜索空间的领域适配</b>是 AutoKWS 的工程贡献：候选操作限定 3×3/5×5 标准卷积与深度可分离卷积、3×3 池化、跳跃连接、零操作，全部 stride-1、同尺寸 padding——保证超网络里所有候选能无冲突混合，同时参数量与计算量天然落在小足迹范围，搜出来即可部署。</p>
+</section>
+
+<section>
+<span class="no">03</span><h2>结果：搜得快，搜出的形状更耐人寻味</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">搜出来的架构长什么样：位置偏好与手工套路不同</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">浅层 vs 深层的选择偏好</text>
+<rect x="56.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="72.0" y="114.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">浅层 Cell：偏好大核（5×5）——抓低频声学纹理</text>
+<rect x="76.0" y="124.0" width="80.0" height="34.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="116.0" y="145.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MFCC</text>
+<line x1="156.0" y1="141.0" x2="168.00" y2="141.00" stroke="#8a93a5" stroke-width="1.1"/>
+<rect x="168.0" y="124.0" width="80.0" height="34.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="208.0" y="145.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5×5</text>
+<line x1="248.0" y1="141.0" x2="260.00" y2="141.00" stroke="#8a93a5" stroke-width="1.1"/>
+<rect x="260.0" y="124.0" width="80.0" height="34.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="300.0" y="145.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5×5</text>
+<line x1="340.0" y1="141.0" x2="352.00" y2="141.00" stroke="#8a93a5" stroke-width="1.1"/>
+<rect x="352.0" y="124.0" width="80.0" height="34.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="392.0" y="145.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DSConv</text>
+<text x="72.0" y="186.0" font-size="9" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">深层 Cell：小核 + 跳跃连接——聚合与通道混合为主</text>
+<rect x="76.0" y="196.0" width="80.0" height="34.0" rx="6" fill="#e8edf5" stroke="#dde2e9" stroke-width="1"/>
+<text x="116.0" y="217.0" font-size="8.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3×3</text>
+<line x1="156.0" y1="213.0" x2="168.00" y2="213.00" stroke="#8a93a5" stroke-width="1.1"/>
+<rect x="168.0" y="196.0" width="80.0" height="34.0" rx="6" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="208.0" y="217.0" font-size="8.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Skip</text>
+<line x1="248.0" y1="213.0" x2="260.00" y2="213.00" stroke="#8a93a5" stroke-width="1.1"/>
+<rect x="260.0" y="196.0" width="80.0" height="34.0" rx="6" fill="#e8edf5" stroke="#dde2e9" stroke-width="1"/>
+<text x="300.0" y="217.0" font-size="8.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3×3</text>
+<line x1="340.0" y1="213.0" x2="352.00" y2="213.00" stroke="#8a93a5" stroke-width="1.1"/>
+<rect x="352.0" y="196.0" width="80.0" height="34.0" rx="6" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="392.0" y="217.0" font-size="8.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Skip</text>
+<text x="72.0" y="252.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 深度可分离卷积在大多数位置胜出——NAS 独立投票</text>
+<text x="72.0" y="266.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  复验了 DSConv 在 KWS 的高效性（不是人云亦云）</text>
+<text x="72.0" y="280.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 非对称连接模式与常见手工设计不同——新灵感来源</text>
+<text x="72.0" y="294.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 不同 Cell 搜出不同模式——NAS 自动适配各层功能</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">对人工基线 + 搜索效率</text>
+<rect x="500.0" y="92.0" width="324.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="114.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">同参数量对比（定性）</text>
+<rect x="520.0" y="126.0" width="130.0" height="22.0" rx="4" fill="#c9d8e8"/>
+<text x="585.0" y="141.0" font-size="8.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">手工 DS-CNN</text>
+<rect x="660.0" y="118.0" width="130.0" height="30.0" rx="4" fill="#0b6e52"/>
+<text x="725.0" y="137.0" font-size="8.5" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AutoKWS 更高</text>
+<text x="662.0" y="168.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">同参数量下精度更高（笔记定性记录）</text>
+<text x="514.0" y="196.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 搜索速度：可微分（梯度）一轮搜完 vs</text>
+<text x="514.0" y="210.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  RL/进化要成百上千次完整训练</text>
+<text x="514.0" y="225.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 单卡 GPU 即可搜——小团队可用</text>
+<text x="514.0" y="239.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 在 GSC 上达到有竞争力的准确率</text>
+<text x="514.0" y="254.0" font-size="8.5" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="268.5" font-size="8.5" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">⚠ 笔记未记录具体精度数字——对比结论以</text>
+<text x="514.0" y="283.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  定性形式转述，数值回对原文 Table 核实</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：本页数字为笔记定性记录（arXiv 2009.03658）；AutoKWS 的价值一半在「搜得快」，另一半在「搜出的模式给人启发」——大核在浅层、跳跃在深层、DSConv 全面胜出</text>
+</svg>
+<div class="cap">图 3 · 搜出架构的位置偏好 · 与手工基线及非可微分 NAS 的对比（定性）</div>
+<table class="tb">
+<tr><th>维度</th><th>AutoKWS</th><th>对照</th><th>判断</th></tr>
+<tr class="hl"><td>同参数量精度</td><td>更高（笔记定性记录）</td><td>手工 DS-CNN</td><td>NAS 在同等预算内找到了更好的结构</td></tr>
+<tr><td>搜索成本</td><td>单卡 GPU，梯度一轮搜完</td><td>RL / 进化：成百上千次完整训练</td><td>可微分路线的数量级优势</td></tr>
+<tr><td>架构模式</td><td>浅层大核 · 深层小核+Skip · 非对称连接</td><td>手工设计的均匀堆叠套路</td><td>「搜出的形状」反哺人工设计</td></tr>
+<tr><td>DSConv 地位</td><td>大多数位置被选择</td><td>人工经验：也是主力</td><td>NAS 独立投票复验了 DSConv 的高效性</td></tr>
+</table>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>不同 Cell 搜出不同模式。</b>浅层偏好 5×5 大核（抓低频声学纹理），深层更多小核与跳跃连接（聚合与通道混合）——NAS 自动适配了各层的功能分工，而不是把一种块均匀堆到底。</p></div>
+<div class="row"><div class="n">2</div><p><b>DSConv 胜出不是人云亦云。</b>人工设计用 DSConv 是经验共识；这里是在与标准卷积、池化、跳跃的公开竞争中大多数位置胜出——一次独立的「选举验证」。</p></div>
+<div class="row"><div class="n">3</div><p><b>速度优势来自问题形式而非工程优化。</b>RL/进化把架构选择当黑箱奖励信号，每个候选都要完整训练；可微分化把选择本身变成 loss 的一部分，一轮梯度下降同时评估所有候选。</p></div>
+<div class="row"><div class="n">4</div><p><b>工业界出品的务实取向。</b>小米的关注点是「小团队也能用」：单卡可搜、搜索空间直接编码小足迹约束——不是刷 SOTA，是把 NAS 做成开发流程的一部分。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">04</span><h2>边界：这套方法买不到什么</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法与实验边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 搜索空间定上限：候选操作没放进来的结构（注意力 ·</text>
+<text x="72.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  Transformer）永远搜不到——结果质量受空间定义束缚</text>
+<text x="72.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 仍需 GPU：单卡虽可搜，对小团队仍是门槛；权重共享</text>
+<text x="72.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  超网络的 α 离散化间隙（搜到的 ≠ 训练的）未讨论</text>
+<text x="72.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 仅分类式 KWS：CTC / RNN-T / attention 序列建模</text>
+<text x="72.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  完全未涉及——流式场景不覆盖</text>
+<text x="72.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 迁移性未验证：换词表/数据集/硬件后是否仍优，无数据</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸 + 系列坐标</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 硬件约束感知：延迟/内存进搜索目标</text>
+<text x="536.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 量化感知搜索：直接搜对量化友好的架构</text>
+<text x="536.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 扩空间：注意力 / Transformer 组件</text>
+<text x="536.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 一次搜索多场景通用架构</text>
+<text x="536.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系列坐标：</text>
+<text x="536.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文（2020）：可微分 NAS 进 KWS 的早期落地，</text>
+<text x="536.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  搜索空间带领域知识是适配关键</text>
+<text x="536.0" y="240.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2021 硬件感知 NAS：把延迟纳入目标——本文展望的</text>
+<text x="536.0" y="254.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  直接续作方向</text>
+<text x="536.0" y="268.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 与贝叶斯 NAS（2022）/ 潜在空间搜索（2021）构成</text>
+<text x="536.0" y="281.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「KWS × NAS」的方法谱系</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：NAS 的产出不只是更准的模型，还有「搜出的模式」——让梯度在架构空间里投票，等价于做了一次大规模受控消融，其统计结论可以直接反哺手工设计</text>
+</svg>
+<div class="cap">图 4 · 边界与延伸：搜索空间定上限 · 仅分类式 · 迁移未验证</div>
+<div class="cards">
+<div class="card bad"><h4>搜索空间定上限</h4><p>没放进候选池的结构（注意力、Transformer）永远搜不到。NAS 只能在「你给的世界」里找最优——空间定义本身就是最强的先验。</p></div>
+<div class="card bad"><h4>仅分类式 KWS</h4><p>只覆盖固定词表的分类范式；CTC、RNN-T、attention 序列建模完全未涉及——流式、开放词表场景不在此文射程内。</p></div>
+<div class="card bad"><h4>迁移性未验证</h4><p>换词表、换数据集、换硬件后搜出的架构是否仍优，无数据——「每场景各有最优架构」的立论反而暗示迁移要打问号。</p></div>
+<div class="card"><h4>离散化间隙</h4><p>搜到的是 α 最大的混合架构，训的是离散化后的架构——两者的性能间隙（DARTS 类方法的老问题）文中未讨论。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">05</span><h2>可迁移的判断</h2>
+<div class="judge">
+<div class="jt">JUDGMENTS · 能带走的三条</div>
+<p>① NAS 的产出不只是更准的模型，还有「搜出的模式」。</p>
+<div class="rw">让梯度在架构空间里投票，等价于做了一次大规模受控消融；其统计结论（浅层大核/深层跳跃/DSConv 胜出）可以直接反哺手工设计——即使不部署搜出的模型也赚了认知。</div>
+<p>② 搜索空间设计是领域适配的真正抓手。</p>
+<div class="rw">AutoKWS 不是发明新 NAS 算法，而是把候选操作集、stride、padding 这些领域约束编进搜索空间——通用方法落地到垂直任务，多数工作其实发生在「定义世界」这一步。</div>
+<p>③ 离散选择连续化，是让梯度穿越不可微处的通用手法。</p>
+<div class="rw">同一个模式后面还会反复出现：量化感知训练的 STE、门控软路由、稀疏化 L0 正则——把「选谁」变成「加权混合谁」，梯度就能替你做决定。</div>
+</div>
+<p><b>系列坐标</b>：本文是「KWS × NAS」谱系的早期落地（2020，可微分）。2021 年的硬件感知 NAS 把延迟纳入搜索目标（本文展望的直接续作），潜空间 NAS、2022 年的贝叶斯 NAS 各自换掉搜索机制——谱系的共同主线是：搜索空间里编码的领域知识，决定 NAS 能走多远。</p>
+</section>
+
+<div class="foot">
+<span class="pill">arXiv 2009.03658</span><span class="pill">DARTS</span><span class="pill">GSC</span><span class="pill">单卡可搜</span>
+<div class="foot-note">本页对比结论为笔记定性记录（未记录具体精度数值），数值以原文为准 · 本页为可视化精读笔记，图表由 SVG 重绘</div>
+</div>
+
+</div>
+</body>
+</html>
