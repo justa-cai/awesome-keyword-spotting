@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CaTT-KWS：级联 Transducer-Transformer 的多阶段定制关键词检出</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .card.good { border-color: #cfe9de; background: #f6fbf9; }
+  .card.good h4 { color: var(--acc-dk); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 16.5px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  ul.plain { margin: 12px 0 12px 4px; }
+  ul.plain li { font-size: 14.8px; color: var(--ink2); margin: 8px 0 8px 18px; }
+  ul.plain li b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+  table.tb { width: 100%; border-collapse: collapse; margin: 18px 0; background: var(--card);
+    border-radius: 12px; overflow: hidden; font-size: 13.8px; }
+  table.tb th { background: var(--acc-lt); color: var(--acc-dk); font-weight: 700;
+    padding: 10px 12px; text-align: left; }
+  table.tb td { padding: 9px 12px; border-top: 1px solid var(--line); color: var(--ink2); }
+  table.tb td b { color: var(--ink); }
+  table.tb tr.hl td { background: #f6fbf9; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №7</div>
+  <h1 class="hero">29 条命令的误报一小时 1.47 次，<br>这个级联框架把它压到 <span class="g">0.13 次</span></h1>
+  <div class="chips">
+    <span class="chip">CaTT-KWS · arXiv 2207.01267</span>
+    <span class="chip">西工大 ASLP × 腾讯</span>
+    <span class="chip">tiny transducer + 强制对齐 + transformer 终审</span>
+    <span class="chip">3.8M 参数 · 23000h 训练</span>
+  </div>
+  <div class="meta">关键词定制完全放在 WFST 搜索图——加命令零数据采集、零模型重训；误报压掉九成一的代价是准确率掉不到 2 个点。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>场景不是单唤醒词</b>：车载命令控制要同时在线检测几十上百条命令，命令越多解码路径越多，无关语音「碰巧」走进某条命令路径的先验同步放大——误报复控。</li>
+      <li><b>基线画像</b>：tiny transducer 检测级干净集准确率 96%，但每小时误报 1.47 次；高唤醒率伴随高误报是 transducer 路线的老毛病。</li>
+      <li><b>前作 MLD 的天花板</b>：后级置信度（滑窗和、编辑距离概率、近似似然）全部从同一份 transducer 输出推导——统计变换不产生新信息，transducer 估偏了它们一起错。</li>
+      <li><b>CaTT 的解法</b>：三级级联共享编码器——transducer 高召回检测 → 音素预测器 Viterbi 强制对齐（修边界 + 第一道闸 S1）→ transformer 终审（第二道闸 S2），三路证据参数独立、犯错模式不相关。</li>
+      <li><b>定制秘密</b>：关键词知识全部外置在 LG = min(det(L∘G)) 搜索图里，加新命令只改语法图 G 重复合一次，模型权重不动。</li>
+      <li><b>核心数字</b>：误报 1.47 → 0.13 次/h（相对降 91.15%），准确率干净 96 → 94.20、嘈杂 87.65 → 85.69，两端都不超 2 个点。</li>
+      <li><b>边界修正是隐藏功臣</b>：流式模型发射延迟让起点偏晚 0.29–0.44s，对齐修到 0.11–0.23s；边界不准时 transformer 单独上（误报 0.23）不如先对齐再终审（0.13）。</li>
+      <li><b>两个反直觉消融</b>：transformer 容量并非越大越好（1 块 0.9M 是甜点，4 块在低误报区反而更差）；音素 vs 汉字单元存在交叉——低误报区音素稳、高误报区汉字反超。</li>
+      <li><b>边界</b>：29 条命令就做到 0.13，「上百条」是外推；84h 负样本全在车载域，跨域误报未测；τ=1.5 / υ=5 / td=15 全是经验值，换域可能失配。</li>
+      <li><b>可迁移判断</b>：级联校验压误报的每一分收益都从召回借来；校验级的价值取决于它与检测级犯错的独立性，而不是置信度公式多精巧。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：命令词场景的误报复控</h2>
+  <div class="h2sub">关键词从 1 条扩到 29 条，误中机会放大近 30 倍</div>
+  <p class="lead">命令控制与隐私敏感应用需要端侧常驻的本地 KWS，同时在线检测几十上百条命令。机制上不难理解误报为什么会失控：解码搜索空间里的合法路径随命令数增长，任意一段广播、闲聊、驾驶噪声「碰巧」走进某条命令路径的先验同步升高。单唤醒词只有一条目标路径可以误中，二十九条命令把这个机会放大近三十倍。每次误触发的代价是系统在用户没说话时「自作多情」地执行命令——体验破坏是直接的。</p>
+  <p class="sub">另一个老痛点是定制成本：固定词表的神经 KWS 把词表烧进输出层，加一条新命令就是一轮数据采集 + 模型重训，产品迭代节奏下不可接受。理想状态是改个配置就能上线。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>注意力偏置 transducer 路线的两个缺口</h4>
+      <p>He [12]、Liu [13]、Tian [14] 用注意力偏置或 CTC 联合训练把搜索拉向关键词转写——但基本只考虑<b>单唤醒词</b>场景，多命令同时检测没人探索；且 transducer 方法唤醒率高、误报问题同样突出，命令场景下会被放大。</p>
+    </div>
+    <div class="card bad">
+      <h4>MLD 的单源证据天花板</h4>
+      <p>与本文最相关的 MLD [13]：检测级滑窗检出候选，校验级算编辑距离概率和近似似然。批评切中要害——所有置信度<b>从同一份 transducer 输出推导</b>。transducer 对噪声帧音素后验估高了，后续统计量跟着一起错：它们不是独立的第二意见，而是同一输出的不同变换。</p>
+    </div>
+  </div>
+  <p class="sub">本文要同时满足四个相互牵制的条件：准确率不能明显恶化；误报压到极低；新增关键词零采集零重训；整体约 3.8M 塞进端侧。压 FA 最直接的办法是加严阈值（伤准确率），加校验模块最直接的办法是堆模型（伤体积延迟）——解法是「级联 + 共享编码器 + 事件驱动计算」：校验模块只在触发时短暂运行，常驻开销只有第一级。</p>
+
+  <h2><span class="no">§02</span>方法：三级级联，共享编码器，多任务一次训练</h2>
+  <div class="h2sub">检测故意高召回，精度问题留给异源校验</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 980">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="980.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CaTT-KWS：三级级联 + 共享编码器，用「异源证据」压误报</text>
+<line x1="36.0" y1="60.0" x2="560.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 靶心：命令词扩到几十条，误报复控</text>
+<rect x="36.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么命令越多误报越多</text>
+<text x="52.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">解码搜索空间里合法路径随命令数线性增长，</text>
+<text x="52.0" y="155.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">一段广播/闲聊「碰巧」走进某条命令路径的先验</text>
+<text x="52.0" y="168.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">同步放大——单唤醒词 1 条路 vs 29 条命令近 30 倍</text>
+<text x="52.0" y="181.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">误中机会（实验用 29 条普通话车载命令验证）</text>
+<rect x="474.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">现有路线的两个缺口</text>
+<text x="490.0" y="140.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力偏置 transducer（[12][13][14]）：只做过单唤醒词</text>
+<text x="490.0" y="153.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  场景，且唤醒率高伴随误报高；换词表要动模型</text>
+<text x="490.0" y="166.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">MLD 多级检测（[13]）：后级置信度全部从同一份</text>
+<text x="490.0" y="179.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  transducer 输出推导——不是第二意见，是同一信息</text>
+<text x="36.0" y="214.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">MLD 单源证据的天花板：transducer 对某段音频估偏了（比如噪声帧音素后验虚高），后续滑窗和 / 编辑距离概率 / 近似似然跟着一起错——统计变换不产生新信息</text>
+<text x="36.0" y="238.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 三级流水线：检测高召回 → 对齐修边界 → 终审压误报</text>
+<rect x="36.0" y="366.0" width="848.0" height="30.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="460.0" y="386.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">共享编码器：降采样卷积 ×1 + 128 维 LSTM ×1 + 512 维 FSMN ×6（左上下文 8，右上下文 [2,2,1,2,2,1]）</text>
+<text x="460.0" y="358.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▲ 三级共用同一份声学表征，多任务一次训练成型</text>
+<rect x="36.0" y="254.0" width="276.0" height="96.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="174.0" y="274.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">第一级 · 检测</text>
+<text x="174.0" y="292.0" font-size="10" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">tiny transducer（210 CI 音素 + blank）</text>
+<text x="48.0" y="310.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">无状态预测网络（因果卷积核宽 2）</text>
+<text x="48.0" y="323.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">WFST 上 greedy + skip blank 搜索</text>
+<text x="48.0" y="337.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">设计取向：故意高召回——「在关键词上</text>
+<text x="48.0" y="350.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">召回更多案例，但不可避免产生大量误报」</text>
+<text x="48.0" y="364.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">产出：候选关键词 + 粗略时间边界</text>
+<rect x="322.0" y="254.0" width="276.0" height="96.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="460.0" y="274.0" font-size="12.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">第二级 · 强制对齐</text>
+<text x="460.0" y="292.0" font-size="10" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">音素预测器（线性头 + softmax）</text>
+<text x="334.0" y="310.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">起点回推 td=15 帧（约 0.6s）保词头</text>
+<text x="334.0" y="323.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">候选音素序列 → 线性 WFST，序列前插</text>
+<text x="334.0" y="337.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  垃圾符号 g 吸收回推进来的多余帧</text>
+<text x="334.0" y="350.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Viterbi 对齐 → 精确起点 tr + 似然 S1</text>
+<text x="334.0" y="364.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">S1 < τ=1.5 过闸（长度归一化平均 NLL）</text>
+<rect x="608.0" y="254.0" width="276.0" height="96.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="746.0" y="274.0" font-size="12.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">第三级 · 终审</text>
+<text x="746.0" y="292.0" font-size="10" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">transformer 解码器（1 块自注意力）</text>
+<text x="620.0" y="310.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">按对齐边界截取编码器输出</text>
+<text x="620.0" y="323.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">自回归 beam search，强制第 M 步截停</text>
+<text x="620.0" y="337.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （M=候选音素长度——长度先验做上界）</text>
+<text x="620.0" y="350.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">beam 无匹配直接拒；S2 < υ=5 才触发</text>
+<text x="620.0" y="364.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">S2 裸求和（假设等长，天然可比）</text>
+<line x1="312.0" y1="302.0" x2="322.0" y2="302.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<line x1="598.0" y1="302.0" x2="608.0" y2="302.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="748.0" y="404.0" width="136.0" height="26.0" rx="13" fill="#0e8a66"/>
+<text x="816.0" y="422.0" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">触发 ✓</text>
+<line x1="746.0" y1="302.0" x2="768.0" y2="302.0" stroke="#8a93a5" stroke-width="2"/>
+<line x1="768.0" y1="302.0" x2="768.0" y2="404.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<text x="520.0" y="422.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">事件驱动：对齐与终审只在第一级触发的短暂片段运行——常驻计算只有第一级，transformer 才塞得进 3.8M 预算</text>
+<text x="36.0" y="486.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 定制全在搜索图：换词不重训</text>
+<rect x="36.0" y="500.0" width="414.0" height="108.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="252.0" y="526.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LG = min(det(L ∘ G))</text>
+<text x="52.0" y="548.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">词法 L：音素串 → 词；语法 G：预定义命令集文法网络</text>
+<text x="52.0" y="561.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">加新命令 = 往 G 加一条音素序列 → 重复合 LG → 完事</text>
+<text x="52.0" y="574.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">零数据采集、零模型重训；声学模型完全不感知词表</text>
+<text x="52.0" y="587.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（与经典 DNN-HMM+WFST 混合框架同构——创新在把它</text>
+<text x="52.0" y="600.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  嫁接到流式端到端 transducer + 两级神经校验）</text>
+<rect x="474.0" y="500.0" width="414.0" height="108.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="490.0" y="524.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多任务联合训练（式 1）</text>
+<text x="490.0" y="544.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">L = α·L_Transducer + β·L_CE + γ·L_Transformer</text>
+<text x="490.0" y="557.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （α=1.0，β=0.8，γ=0.5，经验值）</text>
+<text x="490.0" y="570.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="583.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">β 给 0.8 的逻辑：帧级音素 CE 是稠密监督——每帧都有</text>
+<text x="490.0" y="596.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标签；transducer 损失只在发射边界带梯度（稀疏）——</text>
+<text x="490.0" y="609.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">稠密帧级标签加速收敛并正则化编码器训练</text>
+<text x="490.0" y="622.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练需要两套标签：转写文本 + 帧级音素对齐</text>
+<rect x="36.0" y="634.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="660.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.13 次/h</text>
+<text x="130.0" y="680.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">误报（基线 1.47，降 91.15%）</text>
+<text x="298.0" y="660.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">94.20%</text>
+<text x="298.0" y="680.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">干净集准确率（基线 96）</text>
+<text x="466.0" y="660.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.8M</text>
+<text x="466.0" y="680.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">整体参数（端侧可部署）</text>
+<text x="634.0" y="660.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">23,000h</text>
+<text x="634.0" y="680.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">训练语料（腾讯车载产品）</text>
+<text x="802.0" y="660.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.11s</text>
+<text x="802.0" y="680.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">对齐后起点误差（原 0.29）</text>
+<text x="36.0" y="718.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输入 40 维 PNCC（25ms 窗 / 10ms 移）；联合网络 100 单元 tanh 前馈；测试 6,000 句 × 29 条命令（干净 / 嘈杂各 3,000），误报评估 84 小时广播 + 闲聊 + 驾驶噪声</text>
+</svg>
+    <p class="cap"><b>图1 · 框架全景</b>：三级流水线 + 共享编码器 + 事件驱动计算。检测级故意高召回，强制对齐修边界并做第一道闸（S1），transformer 按长度先验强制截断 beam search 做终审（S2）；定制全部发生在 LG = min(det(L∘G)) 搜索图层。
+  </div>
+  </div>
+  <p class="lead">几个架构决策的「为什么」值得逐条拆。第一级为什么用 transducer 而不是封闭集分类器：建模单元是 210 个 CI 音素，关键词约束完全放在解码侧 WFST 搜索图里，模型权重不感知词表——第一级因此可以「故意」做成高召回（论文明说这一阶段试图在关键词上召回更多案例但不可避免产生大量误报），级联系统的召回天花板由第一级决定，宁可放宽。</p>
+  <p class="sub">校验证据为什么必须独立于 transducer 输出：强制对齐用的是音素预测器（挂在共享编码器上的独立线性头）的帧级后验，终审用的是另一套自注意力参数——与 transducer 联合网络不共享参数、归纳偏置不同、犯错模式不相关。三路证据都指向「是关键词」才触发，FA 被指数级压缩。</p>
+  <div class="formula">
+    <div class="f">L = α·L<sub>Transducer</sub> + β·L<sub>CE</sub> + γ·L<sub>Transformer</sub>　（α=1.0, β=0.8, γ=0.5）</div>
+    <div class="why"><b>人话</b>：一个编码器带三个头一起练。transducer 损失是主任务；帧级音素 CE 给 0.8 是因为它<b>稠密</b>——每一帧都有标签，而 transducer 损失只在发射 token 的边界带梯度，稠密帧级监督能加速收敛并正则化编码器；transformer 是校验辅助任务给 0.5。</div>
+  </div>
+  <div class="formula">
+    <div class="f">LG = min(det(L ∘ G))</div>
+    <div class="why"><b>人话</b>：词法 L 把音素串映射到词，语法 G 是命令集文法网络，复合后确定化最小化成搜索图。加新命令 = 往 G 加一条音素序列重复合一次。<b>定制的全部秘密在这个式子里</b>——与经典 DNN-HMM+WFST 混合框架同构，创新在把它嫁接到流式端到端 transducer 上并配两级神经校验。推理用 greedy + skip blank（只对非 blank 的有效 token 搜索，跳过占大头的 blank 发射）。</div>
+  </div>
+  <div class="formula">
+    <div class="f">S₁ = −Σ log(p<sub>l</sub><sup>t</sup>) / T　&lt; τ = 1.5　｜　S₂ = −Σ<sub>l∈B</sub> log(p<sub>l</sub>)　&lt; υ = 5</div>
+    <div class="why"><b>人话</b>：S1 是对齐区间上的<b>平均</b>帧级负对数似然——除以 T 做长度归一化，否则长命令似然求和天然偏大被系统性歧视。S2 是 beam 命中序列的<b>裸求和</b>——不是疏忽：beam 被强制在第 M 步截停（M = 候选音素长度），所有假设等长、天然可比。终审实际是两道闸：beam 里没有任何序列与候选匹配直接拒，有匹配才进阈值比较。</div>
+  </div>
+  <p class="sub"><b>强制截断的 transformer 终审</b>是第三个精巧设计：这一级做的是「验证」不是「生成」——答案长度是已知先验，判别信息在 M 步内必然全部展开。收益三层：计算有上界（M 通常六到十几步）；beam 假设等长，S2 无需归一化因子；顺带规避自回归解码器在短序列上拖尾输出无意义 token 的风险。</p>
+
+  <h2><span class="no">§03</span>实验：23,000 小时训练，车载双条件测试</h2>
+  <div class="h2sub">6,000 句 × 29 条命令（干净/嘈杂各半）+ 84 小时负样本</div>
+  <p class="sub">训练数据 23,000 小时普通话 ASR 语料（腾讯车载产品真实数据）——这是免采集定制的物质基础：音素级建模单元配两万三千小时通用语音，声学模型见过足够多的音素上下文变体，新命令只是旧音素的新排列。测试 6,000 句覆盖 29 条命令（每条含六个以上音素，如「打开导航」= d a3 k ai1 d ao3 h ang2），按采集条件分干净（高速）/嘈杂（市区）两组。误报在 84 小时广播+闲聊+驾驶噪声上统计。</p>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（Table 1）：不到 2 点准确率，换九成误报削减</text>
+<line x1="36.0" y1="56.0" x2="480.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="240.0" y="90.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">命令准确率（%）</text>
+<line x1="96.0" y1="309.1" x2="400.0" y2="309.1" stroke="#eef0ec" stroke-width="1"/>
+<text x="90.0" y="313.1" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">86</text>
+<line x1="96.0" y1="243.4" x2="400.0" y2="243.4" stroke="#eef0ec" stroke-width="1"/>
+<text x="90.0" y="247.4" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="96.0" y1="177.7" x2="400.0" y2="177.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="90.0" y="181.7" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">94</text>
+<line x1="96.0" y1="112.0" x2="400.0" y2="112.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="90.0" y="116.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">98</text>
+<rect x="114.0" y="144.9" width="26.0" height="197.1" rx="3" fill="#c9d8e8" opacity="0.95"/>
+<rect x="143.0" y="282.0" width="26.0" height="60.0" rx="3" fill="#c9d8e8" opacity="0.55"/>
+<text x="127.0" y="139.9" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">96.0</text>
+<text x="156.0" y="277.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">87.7</text>
+<rect x="172.0" y="172.6" width="26.0" height="169.4" rx="3" fill="#e8d5c4" opacity="0.95"/>
+<rect x="201.0" y="310.9" width="26.0" height="31.1" rx="3" fill="#e8d5c4" opacity="0.55"/>
+<text x="185.0" y="167.6" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">94.3</text>
+<text x="214.0" y="305.9" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">85.9</text>
+<rect x="230.0" y="153.4" width="26.0" height="188.6" rx="3" fill="#9fc8b8" opacity="0.95"/>
+<rect x="259.0" y="287.1" width="26.0" height="54.9" rx="3" fill="#9fc8b8" opacity="0.55"/>
+<text x="243.0" y="148.4" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">95.5</text>
+<text x="272.0" y="282.1" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">87.3</text>
+<rect x="288.0" y="174.4" width="26.0" height="167.6" rx="3" fill="#0b6e52" opacity="0.95"/>
+<rect x="317.0" y="314.2" width="26.0" height="27.8" rx="3" fill="#0b6e52" opacity="0.55"/>
+<text x="301.0" y="169.4" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">94.2</text>
+<text x="330.0" y="309.2" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">85.7</text>
+<rect x="346.0" y="171.0" width="26.0" height="171.0" rx="3" fill="#e8b8b0" opacity="0.95"/>
+<rect x="375.0" y="305.2" width="26.0" height="36.8" rx="3" fill="#e8b8b0" opacity="0.55"/>
+<text x="359.0" y="166.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">94.4</text>
+<text x="388.0" y="300.2" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">86.2</text>
+<rect x="114.0" y="352.0" width="12.0" height="12.0" rx="3" fill="#8a93a5"/>
+<text x="130.0" y="362.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">干净集</text>
+<rect x="178.0" y="352.0" width="12.0" height="12.0" rx="3" fill="#8a93a5" opacity="0.55"/>
+<text x="194.0" y="362.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">嘈杂集</text>
+<text x="140.0" y="382.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">S0 检测基线</text>
+<text x="140.0" y="393.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">transducer+WFST</text>
+<text x="198.0" y="382.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">S1 +Transformer</text>
+<text x="198.0" y="393.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（两阶段）</text>
+<text x="256.0" y="382.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">S2 +对齐</text>
+<text x="256.0" y="393.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（两阶段）</text>
+<text x="314.0" y="382.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">S3 对齐+Transformer</text>
+<text x="314.0" y="393.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（完整 CaTT）★</text>
+<text x="372.0" y="382.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">S4 MLD 复现</text>
+<text x="372.0" y="393.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（文献[13]配置）</text>
+<text x="680.0" y="90.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">每小时误报数（84h 负样本）</text>
+<rect x="520.0" y="116.0" width="211.3" height="26.0" rx="5" fill="#c9d8e8"/>
+<text x="739.3" y="134.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">1.47</text>
+<text x="512.0" y="134.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">S0 检测基线</text>
+<rect x="520.0" y="162.0" width="71.9" height="26.0" rx="5" fill="#9fc8b8"/>
+<text x="599.9" y="180.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.50</text>
+<text x="512.0" y="180.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">S2 +对齐（两阶段）</text>
+<text x="528.0" y="180.0" font-size="8.5" fill="#ffffff" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−66.0%</text>
+<rect x="520.0" y="208.0" width="38.8" height="26.0" rx="5" fill="#e8b8b0"/>
+<text x="566.8" y="226.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.27</text>
+<text x="512.0" y="226.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">S4 MLD 复现</text>
+<text x="528.0" y="226.0" font-size="8.5" fill="#ffffff" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">同为两阶段级联</text>
+<rect x="520.0" y="254.0" width="33.1" height="26.0" rx="5" fill="#e8d5c4"/>
+<text x="561.1" y="272.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.23</text>
+<text x="512.0" y="272.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">S1 +Transformer（两阶段）</text>
+<text x="528.0" y="272.0" font-size="8.5" fill="#ffffff" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−84.4%</text>
+<rect x="520.0" y="300.0" width="18.7" height="26.0" rx="5" fill="#0b6e52"/>
+<text x="546.7" y="318.0" font-size="11" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.13</text>
+<text x="512.0" y="318.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">S3 完整 CaTT ★</text>
+<text x="528.0" y="318.0" font-size="8.5" fill="#ffffff" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−91.2%</text>
+<text x="620.0" y="354.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">基线「高唤醒伴随高误报」画像：干净集 96% 准确率</text>
+<text x="620.0" y="367.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">但 1.47 次/h——产品不可用区间</text>
+<text x="36.0" y="442.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：S3 相对 S0 误报 1.47→0.13（−91.15%），准确率代价干净 −1.8 / 嘈杂 −1.96 点；对 MLD：准确率相仿（94.20 vs 94.41）但误报是其一半（0.13 vs 0.27）</text>
+</svg>
+    <p class="cap"><b>图2 · 主结果（Table 1）</b>：左为命令准确率（干净/嘈杂），右为每小时误报。完整 CaTT（S3）误报 0.13 次/h 相对基线降 91.15%；对 MLD 复现（S4）准确率相仿但误报是其一半。
+  </div>
+  </div>
+  <table class="tb">
+    <tr><th>实验</th><th>配置</th><th>准确率（干净）</th><th>准确率（嘈杂）</th><th>误报/小时</th><th>相对降幅</th></tr>
+    <tr><td><b>S0</b></td><td>transducer + WFST 基线</td><td><b>96.00</b></td><td>87.65</td><td>1.47</td><td>—</td></tr>
+    <tr><td>S1</td><td>+ Transformer（两阶段）</td><td>94.31</td><td>85.89</td><td>0.23</td><td>84.35%</td></tr>
+    <tr><td>S2</td><td>+ 强制对齐（两阶段）</td><td>95.48</td><td>87.34</td><td>0.50</td><td>65.98%</td></tr>
+    <tr class="hl"><td><b>S3</b></td><td><b>对齐 + Transformer（完整 CaTT）</b></td><td>94.20</td><td>85.69</td><td><b>0.13</b></td><td><b>91.15%</b></td></tr>
+    <tr><td>S4</td><td>transducer + MLD（[13] 复现）</td><td>94.41</td><td>86.24</td><td>0.27</td><td>—</td></tr>
+  </table>
+  <p class="sub">对 MLD 的关键差异不在平均数字而在 ROC 形状：每小时误报低于 0.15 的产品级区间里，MLD 的 FR 率急剧恶化而 CaTT 保持平缓——MLD 不是所有工作点都不行，是在「误报压到极致」这个最有价值的工作点上撑不住，恰好印证单源证据天花板的分析。</p>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两块机制证据：边界修正真的生效（表2）+ 证据异源的价值</text>
+<line x1="36.0" y1="56.0" x2="560.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="240.0" y="92.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">命令起点误差（秒，表2）</text>
+<line x1="180.0" y1="108.0" x2="180.0" y2="228.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="180.0" y="242.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.0</text>
+<line x1="246.0" y1="108.0" x2="246.0" y2="228.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="246.0" y="242.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.1</text>
+<line x1="312.0" y1="108.0" x2="312.0" y2="228.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="312.0" y="242.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.2</text>
+<line x1="378.0" y1="108.0" x2="378.0" y2="228.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="378.0" y="242.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.3</text>
+<line x1="444.0" y1="108.0" x2="444.0" y2="228.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="444.0" y="242.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.4</text>
+<line x1="510.0" y1="108.0" x2="510.0" y2="228.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="510.0" y="242.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.5</text>
+<text x="166.0" y="130.0" font-size="10.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">干净集</text>
+<line x1="371.4" y1="126.0" x2="252.6" y2="126.0" stroke="#c9c9c0" stroke-width="3"/>
+<circle cx="371.4" cy="126.0" r="8" fill="#c9d8e8" stroke="#fff" stroke-width="1.5"/>
+<circle cx="252.6" cy="126.0" r="8" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="371.4" y="113.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">检测级 0.29</text>
+<text x="252.6" y="150.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">对齐后 0.11</text>
+<text x="166.0" y="186.0" font-size="10.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">嘈杂集</text>
+<line x1="470.4" y1="182.0" x2="331.8" y2="182.0" stroke="#c9c9c0" stroke-width="3"/>
+<circle cx="470.4" cy="182.0" r="8" fill="#c9d8e8" stroke="#fff" stroke-width="1.5"/>
+<circle cx="331.8" cy="182.0" r="8" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="470.4" y="169.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">检测级 0.44</text>
+<text x="331.8" y="206.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">对齐后 0.23</text>
+<rect x="150.0" y="252.0" width="360.0" height="26.0" rx="6" fill="#eef6f1"/>
+<text x="330.0" y="269.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两种条件都缩到一半以下（38% / 52%）</text>
+<text x="240.0" y="300.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么必须修：流式模型右上下文受限 → 发射延迟 → 起点系统性偏晚，</text>
+<text x="240.0" y="314.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">按偏晚的边界截编码器输出会把词头砍掉，喂给终审的候选段残缺</text>
+<text x="240.0" y="332.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">→ S1（误报 0.23）差于 S3（0.13）的根源就在边界质量</text>
+<rect x="530.0" y="86.0" width="320.0" height="280.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="690.0" y="106.0" font-size="12" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">校验证据：单源 vs 异源</text>
+<rect x="546.0" y="122.0" width="288.0" height="88.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="690.0" y="140.0" font-size="10.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MLD（[13]）：单源统计变换</text>
+<rect x="556.0" y="152.0" width="76.0" height="34.0" rx="6" fill="#e8b8b0"/>
+<text x="594.0" y="173.0" font-size="8.5" fill="#a03325" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">transducer</text>
+<text x="594.0" y="199.0" font-size="8.5" fill="#a03325" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">输出</text>
+<line x1="634.0" y1="169.0" x2="660.0" y2="145.0" stroke="#c9a49e" stroke-width="1.4" marker-end="url(#ar)"/>
+<line x1="634.0" y1="169.0" x2="660.0" y2="169.0" stroke="#c9a49e" stroke-width="1.4" marker-end="url(#ar)"/>
+<line x1="634.0" y1="169.0" x2="660.0" y2="193.0" stroke="#c9a49e" stroke-width="1.4" marker-end="url(#ar)"/>
+<rect x="662.0" y="136.0" width="84.0" height="18.0" rx="4" fill="#f7e3df"/>
+<text x="704.0" y="149.0" font-size="8" fill="#a03325" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">滑窗后验和</text>
+<rect x="662.0" y="160.0" width="84.0" height="18.0" rx="4" fill="#f7e3df"/>
+<text x="704.0" y="173.0" font-size="8" fill="#a03325" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">编辑距离概率</text>
+<rect x="662.0" y="184.0" width="84.0" height="18.0" rx="4" fill="#f7e3df"/>
+<text x="704.0" y="197.0" font-size="8" fill="#a03325" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">近似似然</text>
+<text x="754.0" y="190.0" font-size="9.5" fill="#c0392b" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 0.27 次/h</text>
+<text x="754.0" y="203.0" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">错误相关：一起错</text>
+<rect x="546.0" y="220.0" width="288.0" height="104.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="690.0" y="238.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CaTT：参数独立的三路证据</text>
+<rect x="558.0" y="250.0" width="264.0" height="18.0" rx="4" fill="#dcefe6"/>
+<text x="690.0" y="263.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">① transducer 联合网络</text>
+<rect x="558.0" y="274.0" width="264.0" height="18.0" rx="4" fill="#dcefe6"/>
+<text x="690.0" y="287.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">② 音素预测器（帧级 NLL S1）</text>
+<rect x="558.0" y="298.0" width="264.0" height="18.0" rx="4" fill="#dcefe6"/>
+<text x="690.0" y="311.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">③ transformer 终审（序列 NLL S2）</text>
+<text x="690.0" y="316.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 0.13 次/h　异源证据错误不相关，FA 被指数级压缩</text>
+<text x="36.0" y="406.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：「校验级的价值取决于它与检测级犯错的独立性，而不是它算出的置信度公式多精巧」——同一份输出的统计变换不是第二意见</text>
+</svg>
+    <p class="cap"><b>图3 · 机制证据</b>：左为表2 起点误差哑铃图——强制对齐把检测级起点误差（干净 0.29s / 嘈杂 0.44s）修到 0.11s / 0.23s，缩到一半以下；右为 MLD 单源统计变换 vs CaTT 参数独立三路证据的对比。
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 450">
+<rect x="0.0" y="0.0" width="880.0" height="450.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融：两级校验的分工 + 容量甜点 + 建模单元交叉（图3/图4）</text>
+<line x1="36.0" y1="56.0" x2="560.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="250.0" y="88.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两级校验的角色分工（表1）</text>
+<rect x="60.0" y="110.0" width="400.0" height="72.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="72.0" y="130.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">S2 单加对齐</text>
+<rect x="72.0" y="140.0" width="120.0" height="20.0" rx="10" fill="#9fc8b8"/>
+<text x="132.0" y="154.0" font-size="8.5" fill="#ffffff" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">误报 0.50 次/h</text>
+<rect x="200.0" y="140.0" width="110.0" height="20.0" rx="10" fill="#f2f3f0"/>
+<text x="255.0" y="154.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率 −0.52 点</text>
+<text x="320.0" y="154.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">便宜的精度保持者：先干掉 2/3 误报</text>
+<rect x="60.0" y="194.0" width="400.0" height="72.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="72.0" y="214.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">S1 单加 Transformer</text>
+<rect x="72.0" y="224.0" width="120.0" height="20.0" rx="10" fill="#e8d5c4"/>
+<text x="132.0" y="238.0" font-size="8.5" fill="#ffffff" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">误报 0.23 次/h</text>
+<rect x="200.0" y="224.0" width="110.0" height="20.0" rx="10" fill="#f2f3f0"/>
+<text x="255.0" y="238.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率 −1.69 点</text>
+<text x="320.0" y="238.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">终极误报杀手：单独用连累准确率</text>
+<rect x="60.0" y="278.0" width="400.0" height="72.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="72.0" y="298.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">S3 对齐在前 + 终审在后</text>
+<rect x="72.0" y="308.0" width="120.0" height="20.0" rx="10" fill="#0b6e52"/>
+<text x="132.0" y="322.0" font-size="8.5" fill="#ffffff" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">误报 0.13 次/h</text>
+<rect x="200.0" y="308.0" width="110.0" height="20.0" rx="10" fill="#f2f3f0"/>
+<text x="255.0" y="322.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率 −1.80 点</text>
+<text x="320.0" y="322.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">顺序是依赖链：对齐产出精确边界</text>
+<text x="260.0" y="368.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">终审的输入质量前提 = 对齐的产出</text>
+<text x="680.0" y="88.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">终审器容量：并非越大越好（图3）</text>
+<rect x="530.0" y="108.0" width="300.0" height="32.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="542.0" y="129.0" font-size="10" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1 块自注意力</text>
+<text x="620.0" y="129.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.9M</text>
+<rect x="680.0" y="114.0" width="140.0" height="20.0" rx="10" fill="#0b6e52"/>
+<text x="750.0" y="128.0" font-size="9" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">甜点 ✓</text>
+<rect x="530.0" y="148.0" width="300.0" height="32.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="542.0" y="169.0" font-size="10" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">2 块</text>
+<text x="620.0" y="169.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">1.7M</text>
+<rect x="680.0" y="154.0" width="140.0" height="20.0" rx="10" fill="#9fc8b8"/>
+<text x="750.0" y="168.0" font-size="9" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">无收益</text>
+<rect x="530.0" y="188.0" width="300.0" height="32.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="542.0" y="209.0" font-size="10" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">4 块</text>
+<text x="620.0" y="209.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">3.2M</text>
+<rect x="680.0" y="194.0" width="140.0" height="20.0" rx="10" fill="#e8b8b0"/>
+<text x="750.0" y="208.0" font-size="9" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">低误报区更差</text>
+<text x="530.0" y="238.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">相近误报水平下加大解码器没有准确率收益，低误报区间</text>
+<text x="530.0" y="252.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">性能反而更差——更多参数加剧过拟合；0.9M 就是这个设置</text>
+<text x="530.0" y="266.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">的甜点，严格工作点上盲目堆料反噬</text>
+<text x="680.0" y="264.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">建模单元交叉（图4 · 示意形态）</text>
+<rect x="540.0" y="282.0" width="280.0" height="96.0" rx="6" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="582.0" y1="282.0" x2="582.0" y2="378.0" stroke="#eef0ec" stroke-width="1"/>
+<line x1="624.0" y1="282.0" x2="624.0" y2="378.0" stroke="#eef0ec" stroke-width="1"/>
+<line x1="680.0" y1="282.0" x2="680.0" y2="378.0" stroke="#eef0ec" stroke-width="1"/>
+<line x1="764.0" y1="282.0" x2="764.0" y2="378.0" stroke="#eef0ec" stroke-width="1"/>
+<line x1="556.8" y1="295.4" x2="590.4" y2="320.4" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="590.4" y1="320.4" x2="638.0" y2="343.4" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="638.0" y1="343.4" x2="694.0" y2="358.8" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="694.0" y1="358.8" x2="764.0" y2="368.4" stroke="#0b6e52" stroke-width="2.2"/>
+<circle cx="638.0" cy="343.4" r="4" fill="#0b6e52"/>
+<line x1="556.8" y1="282.0" x2="590.4" y2="301.2" stroke="#d97a2b" stroke-width="2.2"/>
+<line x1="590.4" y1="301.2" x2="638.0" y2="331.9" stroke="#d97a2b" stroke-width="2.2"/>
+<line x1="638.0" y1="331.9" x2="694.0" y2="353.0" stroke="#d97a2b" stroke-width="2.2"/>
+<line x1="694.0" y1="353.0" x2="764.0" y2="372.2" stroke="#d97a2b" stroke-width="2.2"/>
+<circle cx="638.0" cy="331.9" r="4" fill="#d97a2b"/>
+<text x="814.0" y="298.0" font-size="8.5" fill="#b25f1a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">汉字 6000 类 · 解码器 3.8M</text>
+<text x="546.0" y="370.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">音素 210 类 · 0.9M</text>
+<text x="680.0" y="392.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">横轴 FA↑（示意）· 纵轴 FR</text>
+<text x="530.0" y="410.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">低误报区音素 FR 更低（混淆空间小更稳）；高误报区汉字反超</text>
+<text x="530.0" y="424.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（序列约束强）——按工作点选粒度；大单元可裁掉不用的</text>
+<text x="530.0" y="438.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输入输出节点控体积</text>
+<text x="36.0" y="428.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">锚点有据：交叉现象与参数量来自图3/图4 及第3.4/3.5节；曲线形态为示意。全局阈值 υ=5 未按命令长度归一是已声明的局限（长命令天然偏松）</text>
+</svg>
+    <p class="cap"><b>图4 · 消融（图3/图4）</b>：两级校验角色分工（对齐是便宜的精度保持者、终审是终极误报杀手，顺序是依赖链）；transformer 容量甜点 1 块 0.9M；音素/汉字单元按工作点交叉。
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：五条能转述的判断</h2>
+  <div class="h2sub">级联异源校验在多命令定制 KWS 的完整落地</div>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>多阶段定制 KWS 框架</b>：流式 tiny transducer 检测、音素预测器强制对齐校验、transformer 解码终审的级联结构，共享编码器多任务一次训练成型——「用级联异源校验压制误报」在多命令场景的完整落地。</p></div>
+    <div class="row"><div class="n">2</div><p><b>误报压制有数据背书</b>：车载数据集做到 0.13 次/h，相对基线降 91.15%（表1 S3），准确率代价不超过 2 个点——用不到 2 个点换九成误报削减。</p></div>
+    <div class="row"><div class="n">3</div><p><b>零成本定制机制</b>：定制完全在 WFST 搜索图层面（式2 的 LG 复合），新增关键词零采集零重训；音素/汉字两种粒度可按工作点选（第3.5节）。</p></div>
+    <div class="row"><div class="n">4</div><p><b>强制对齐一器两用</b>：训练时是正则编码器的辅助任务，推理时是边界修正器 + 一级校验器——把发射延迟痛点（起点误差 0.29/0.44s）修到 0.11/0.23s，并证明准确边界是后级校验性能的前置条件（S1 对 S3）。</p></div>
+    <div class="row"><div class="n">5</div><p><b>端侧可行性标定</b>：整体 3.8M + 事件驱动校验；消融标出 transformer 容量甜点（1 块 0.9M），避免无谓堆料。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">每一分误报收益都是从召回借来的</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>准确率代价不可忽略</h4>
+      <p>干净集 96 → 94.20，约 1.8 个点的真命令被后级误杀。对命令控制，误拒同样伤体验——喊「打开导航」没反应再喊一遍的挫败感，论文没讨论商业代价。</p>
+    </div>
+    <div class="card bad">
+      <h4>超参数全靠经验</h4>
+      <p>α/β/γ=1.0/0.8/0.5、τ=1.5、υ=5、td=15 全是经验值，无敏感性分析。τ 和 υ 直接决定工作点，从车载换到家居很可能失配。</p>
+    </div>
+    <div class="card bad">
+      <h4>固定回推 vs 波动延迟</h4>
+      <p>td=15 帧是常数回推，但发射延迟随声学条件变化（嘈杂 0.44s vs 干净 0.29s）；嘈杂集对齐后仍剩 0.23s，没完全解决。</p>
+    </div>
+    <div class="card bad">
+      <h4>S2 缺跨关键词归一</h4>
+      <p>同一关键词内 beam 等长可比，但不同命令音素长度不齐，全局 υ=5 对长命令天然偏松——未按命令分别设阈值。</p>
+    </div>
+    <div class="card bad">
+      <h4>命令规模与宣称有差距</h4>
+      <p>摘要说「几十上百条」，实测 29 条。29 → 100 条时 FA 从 0.13 涨到多少没报告，「上百条」是外推。</p>
+    </div>
+    <div class="card bad">
+      <h4>负样本域单一 + 无系统级开销</h4>
+      <p>84h 负样本全在车载域，家居/电视/多说话人跨域误报未测；推理延迟、RTF、各级触发率与开销分解、内存功耗全没报——端侧论证只落在 3.8M 一个维度。MLD 基线是自行复现（S4），复现细节未给。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>级联校验压误报的每一分收益，都是从召回侧借来的——设计级联时先算清楚愿意付多少召回。</li>
+      <li>校验级的价值取决于它与检测级<b>犯错的独立性</b>，而不是它算出的置信度公式多精巧——同一份输出的统计变换不是第二意见。</li>
+      <li>验证类任务（答案长度已知）用长度先验强制截断解码：开销有上界、假设天然可比、规避拖尾——比自由生成便宜得多。</li>
+      <li>密集帧级辅助监督（每一帧都有标签）能给稀疏梯度的主任务（只在发射边界有梯度）加速收敛并正则化——一器两用的前提是头足够轻（一个线性层）。</li>
+      <li>校验器容量有甜点：严格工作点上盲目堆参数反噬（4 块 3.2M 在低误报区不如 1 块 0.9M）。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2207.01267" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="CaTT-KWS_A_Multi-stage_Customized_Keyword_Spotting_Framework_Based_On_Cascaded_Transducer-Transformer.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
