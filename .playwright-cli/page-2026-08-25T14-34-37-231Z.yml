@@ -1,0 +1,273 @@
+- generic [ref=f268e2]:
+  - generic [ref=f268e3]: 论文精读 · 可视化版 · 2021 №5
+  - heading "CNN 管局部、注意力管全局： 但注意力要线性复杂度的——Performer 进 KWS" [level=1] [ref=f268e4]: CNN 管局部、注意力管全局：但注意力要线性复杂度的——Performer 进 KWS
+  - generic [ref=f268e5]:
+    - generic [ref=f268e6]: Audiomer · 乔治梅森大学
+    - generic [ref=f268e7]: arXiv 2109.10252 · 2 页 workshop 短文
+    - generic [ref=f268e8]: 1D ResNet + FAVOR+ 随机特征 + CLS
+    - generic [ref=f268e9]: GSC 12 类约 95–96%（DS-CNN +1%）· 长序列 2–3× 加速
+  - generic [ref=f268e10]: 一句话：CNN 主导 KWS 但感受野有天花板，纯 Transformer 能建模全局韵律却背着 O(n²) 的复杂度。Audiomer 的混合方案：一维残差卷积沿时间轴提局部特征（频率维当通道），Performer 用 FAVOR+ 随机特征把注意力的平方复杂度降到线性 O(n·d·r)，再配可学习位置编码与 CLS token 分类。GSC 12 类约 95–96%，比 DS-CNN 高约 1 个点——混淆词对（go vs no）受益最大，因为这正是全局时间结构才能区分的信息。
+  - generic [ref=f268e11]:
+    - generic [ref=f268e12]: TL;DR
+    - listitem [ref=f268e13]: ◈ 两边各缺一半：CNN 的局部卷积核感受野受限，全局韵律模式、音调轨迹、跨音素时间结构建不了模；纯 Transformer 能捕全局但 O(n²) 在边缘设备的延迟/功耗预算下是部署瓶颈，且缺平移不变性与局部性归纳偏置（小数据要更多数据）。
+    - listitem [ref=f268e14]: ◈ 流水线：40 维 MFCC → 1D ResNet（时间轴卷积 · 频率当通道 · 瓶颈残差块）→ 可学习位置编码 → Performer 注意力 → CLS token → FC 分类。「CNN 主干 + Transformer 头部」是视觉/语音广泛验证的混合范式，增量在把头部换成线性注意力。
+    - listitem [ref=f268e15]: ◈ Performer 的核心是 FAVOR+：softmax 核可被随机特征近似 φ(q)·φ(k)，再用结合律换序——(φ(Q)φ(K)ᵀ)·V → φ(Q)·(φ(K)ᵀ·V)，先算与序列长度无关的 d×d 小矩阵——复杂度 O(n²d) → O(n·d·r)，近似无偏、方差可控。
+    - listitem [ref=f268e16]: ◈ 位置编码从可选变必需：标准注意力里 QKᵀ 隐式编码位置差异，随机特征近似破坏了这一点——省掉它模型就不知道谁在前谁在后。
+    - listitem [ref=f268e17]: ◈ 结果（约值）：GSC 12 类 95–96% vs DS-CNN 94–95%；混淆词对（go vs no）受益最大——区分这类词对靠的恰是全局时间结构；去 Performer 层掉约 1%；对未见说话人泛化更好（全局韵律）；变长输入鲁棒（线性复杂度不吃长度）。
+    - listitem [ref=f268e18]: ◈ 诚实的边界：KWS 的典型序列长度落在「标准注意力还不慢」的区间——线性注意力的 2–3× 加速要在长序列才兑现；常数因子（随机特征维度 r）让实际推理未必如理论线性好看；非因果（需要完整序列）流式未适配。
+    - listitem [ref=f268e19]: ◈ 证据边界：2 页 workshop 短文——无延迟/模型大小实测数字、无 Linformer/Nyströmformer 等横比、无量化分析、无方差统计、仅 GSC 干净数据。定位是「证明可行」而非给出成品。
+  - heading "§01 问题：两边的天花板" [level=2] [ref=f268e20]:
+    - generic [ref=f268e21]: §01
+    - text: 问题：两边的天花板
+  - generic [ref=f268e22]: 局部感受野 vs 二次复杂度
+  - generic [ref=f268e23]:
+    - generic [ref=f268e24]:
+      - heading "CNN 的感受野天花板" [level=3] [ref=f268e25]
+      - paragraph [ref=f268e26]: 局部卷积核捕获时频局部模式高效，但感受野受核大小与深度限制——音素序列的长程依赖（如 go 与 no 在时间结构上的差异）要靠堆很深才勉强覆盖，参数效率随之崩坏。
+    - generic [ref=f268e27]:
+      - heading "Transformer 的两块短板" [level=3] [ref=f268e28]
+      - paragraph [ref=f268e29]: O(n²) 的自注意力在边缘延迟/功耗预算下不可部署；缺乏平移不变性与局部性归纳偏置——小数据集上要更多数据才能到最佳性能，而 KWS 数据恰恰不大。
+    - generic [ref=f268e30]:
+      - heading "短音频也要全局" [level=3] [ref=f268e31]
+      - paragraph [ref=f268e32]: 1 秒的片段听起来不长，但整段上的韵律模式、音调变化轨迹、跨多音素的时间结构对判别至关重要——全局建模不是奢侈品，是混淆词对（go vs no）的判别力来源。
+    - generic [ref=f268e33]:
+      - heading "混合的分工哲学" [level=3] [ref=f268e34]
+      - paragraph [ref=f268e35]: CNN 提供 Performer 缺的归纳偏置（平移不变、局部高效、小数据友好），Performer 提供 CNN 做不到的全局交互——各补对方没有的那一半，互补而非替代。
+  - generic [ref=f268e36]:
+    - img [ref=f268e37]:
+      - generic [ref=f268e39]: Audiomer：CNN 管局部、Performer 管全局——线性注意力进 KWS
+      - generic [ref=f268e40]: ① CNN 的感受野天花板 vs Transformer 的二次复杂度
+      - generic [ref=f268e42]: CNN 局部受限
+      - generic [ref=f268e43]: 局部卷积核主导 KWS，但感受野受核大小与深度限制——全局韵律模式、
+      - generic [ref=f268e44]: 音调变化轨迹、跨多音素的时间结构难以直接建模
+      - generic [ref=f268e46]: Transformer O(n²)
+      - generic [ref=f268e47]: 自注意力能捕全局上下文，但二次复杂度在边缘设备的延迟/功耗约束下
+      - generic [ref=f268e48]: 是部署瓶颈；且缺乏平移不变性与局部性归纳偏置——小数据上要更多数据
+      - generic [ref=f268e50]: 短音频也要全局
+      - generic [ref=f268e51]: KWS 片段虽短（约 1 秒），但整段上的韵律与时间结构对判别仍关键
+      - generic [ref=f268e52]: ——全局建模不是奢侈品而是判别力的来源（如 go vs no 的混淆）
+      - generic [ref=f268e53]: ② 混合流水线：1D ResNet → 位置编码 → Performer → CLS 分类
+      - generic [ref=f268e55]: 40 维 MFCC
+      - generic [ref=f268e56]: 约 1 秒片段
+      - generic [ref=f268e58]: 1D 残差卷积
+      - generic [ref=f268e59]: 时间轴卷积
+      - generic [ref=f268e60]: 频率维当通道
+      - generic [ref=f268e62]: 位置编码（可学习）
+      - generic [ref=f268e63]: Performer 随机特征
+      - generic [ref=f268e64]: 破坏位置感知→必须补
+      - generic [ref=f268e66]: Performer 注意力
+      - generic [ref=f268e67]: 线性复杂度
+      - generic [ref=f268e68]: 全局依赖建模
+      - generic [ref=f268e70]: CLS token → FC
+      - generic [ref=f268e71]: 全局信息聚合器
+      - generic [ref=f268e72]: 经注意力收集信息
+      - generic [ref=f268e74]: 1D ResNet 的三个理由
+      - generic [ref=f268e75]: · 时序结构是核心判别信息：一维时间卷积天然匹配
+      - generic [ref=f268e76]: （yes = /j/ /ɛ/ /s/ 的序列模式）
+      - generic [ref=f268e77]: · 参数效率：参数量与频率维无关，只取决于核大小与通道数
+      - generic [ref=f268e78]: 瓶颈残差块：1×1 降维 → BN → ReLU → 时间卷积 → BN
+      - generic [ref=f268e79]: → 残差跳跃 → ReLU（深网梯度流动的保障）
+      - generic [ref=f268e81]: Performer：FAVOR+ 随机特征
+      - generic [ref=f268e82]: softmax 核可被随机特征近似：
+      - generic [ref=f268e83]: φ(x) = (1/√r)·[exp(w₁ᵀx+b₁), …, exp(w_rᵀx+b_r)]
+      - generic [ref=f268e84]: Attention ≈ φ(Q)·(φ(K)ᵀ·V) / φ(Q)·(φ(K)ᵀ·1)
+      - generic [ref=f268e85]: 复杂度 O(n²·d) → O(n·d·r)，r 可控且 ≪ n
+      - generic [ref=f268e86]: 近似无偏、方差可控——长序列不再被计算卡死
+      - generic [ref=f268e87]: 训练：CE + Adam + warmup(前 10% 步) + 余弦退火
+      - generic [ref=f268e88]: ③ 分工互补：各补对方没有的归纳偏置
+      - generic [ref=f268e90]: CNN 给出：
+      - generic [ref=f268e91]: 平移不变性 + 局部特征的高效提取
+      - generic [ref=f268e92]: ——Performer 缺的归纳偏置由它补上
+      - generic [ref=f268e93]: （小数据上收敛快、需要的数据少）
+      - generic [ref=f268e95]: Performer 给出：
+      - generic [ref=f268e96]: 全局交互建模（任意两帧的依赖）
+      - generic [ref=f268e97]: ——CNN 受局部感受野限制做不到的
+      - generic [ref=f268e98]: （全局韵律、跨音素时间结构）
+      - generic [ref=f268e99]: 「CNN 主干 + Transformer 头部」是视觉/语音领域广泛验证的混合范式——Audiomer 的增量是把头部换成线性复杂度的 Performer
+      - generic [ref=f268e101]: 95–96%
+      - generic [ref=f268e102]: GSC v2 12 类（DS-CNN 约 94–95）
+      - generic [ref=f268e103]: +1%
+      - generic [ref=f268e104]: vs 纯 CNN（混淆词对尤甚）
+      - generic [ref=f268e105]: 2–3×
+      - generic [ref=f268e106]: 长序列加速 vs 标准注意力
+      - generic [ref=f268e107]: −1%
+      - generic [ref=f268e108]: 去掉 Performer 层的代价
+      - generic [ref=f268e109]: O(n·d·r)
+      - generic [ref=f268e110]: 注意力复杂度（原 O(n²d)）
+      - generic [ref=f268e111]: 乔治梅森大学 · arXiv 2109.10252（2 页 workshop 短文）；GSC v2 12 类子集标准划分；与 KWT（标准注意力）性能相当但可扩展性更好；数字为笔记记录的约值
+    - generic [ref=f268e112]: 图1 · 机制全景：上半是两边天花板，中段是五步流水线与 1D ResNet 的理由、Performer 的数学，底部是分工互补与关键数字。
+  - heading "§02 方法：结合律换序的魔法" [level=2] [ref=f268e113]:
+    - generic [ref=f268e114]: §02
+    - text: 方法：结合律换序的魔法
+  - generic [ref=f268e115]: FAVOR+ 随机特征 · 位置编码的必要性 · CLS 聚合
+  - generic [ref=f268e116]:
+    - generic [ref=f268e117]: "标准: Attention(Q,K,V) = softmax(QKᵀ/√d)·V # O(n²·d)，先物化 n×n 大矩阵 Performer: φ(x) = (1/√r)·[exp(w₁ᵀx+b₁), …, exp(w_rᵀx+b_r)] # 随机特征 Attention ≈ φ(Q)·(φ(K)ᵀ·V) / φ(Q)·(φ(K)ᵀ·1) # O(n·d·r)，r ≪ n"
+    - generic [ref=f268e118]: 人话：标准注意力必须先把每个查询和所有键两两点积，物化出 n×n 的大矩阵——平方复杂度的根源。Performer 分两步拆掉它：① softmax 核可以用随机特征的内积近似（无偏、方差由 r 控制）；② 换结合律，先算 φ(K)ᵀ·V 这个与 n 无关的 d×d 小矩阵，再左乘 φ(Q)——n 从平方降为线性。
+  - generic [ref=f268e119]:
+    - generic [ref=f268e120]:
+      - heading "1D ResNet 的三个理由" [level=3] [ref=f268e121]
+      - paragraph [ref=f268e122]: 时序结构是核心判别信息（yes = /j/ /ɛ/ /s/ 的序列）——一维时间卷积天然匹配；参数量与频率维无关只取决于核与通道——小足迹友好；瓶颈残差块（1×1 降维 → BN → ReLU → 时间卷积 → BN → skip → ReLU）保证深网梯度流动。
+    - generic [ref=f268e123]:
+      - heading "训练配方" [level=3] [ref=f268e124]
+      - paragraph [ref=f268e125]: 标准 CE + Adam + warmup（前 10% 步线性升学习率）+ 余弦退火——Transformer 系的标准调度：warmup 稳定初期训练，余弦退火收敛到更优的局部最小。CLS token 在序列开头，经注意力从所有帧收集信息后送 FC 分类。
+  - generic [ref=f268e126]:
+    - img [ref=f268e127]:
+      - generic [ref=f268e129]: 机制解剖：结合律怎么把 O(n²) 变 O(n)
+      - generic [ref=f268e130]: 标准注意力：先算大矩阵
+      - generic [ref=f268e133]: Q
+      - generic [ref=f268e135]: K
+      - generic [ref=f268e137]: QKᵀ
+      - generic [ref=f268e138]: n×n 大矩阵
+      - generic [ref=f268e140]: V
+      - generic [ref=f268e141]: softmax(QKᵀ/√d)·V —— 时间 O(n²·d) · 空间 O(n²)
+      - generic [ref=f268e142]: 每个查询要和所有键两两点积：序列越长代价平方涨
+      - generic [ref=f268e143]: 边缘设备的延迟/功耗预算装不下这个平方
+      - generic [ref=f268e144]: Performer：结合律换序 + 随机特征
+      - generic [ref=f268e146]: ① softmax 核 → 随机特征：K(q,k) ≈ φ(q)·φ(k)
+      - generic [ref=f268e147]: ② 换结合律：(φ(Q)·φ(K)ᵀ)·V → φ(Q)·(φ(K)ᵀ·V)
+      - generic [ref=f268e149]: φ(Q)
+      - generic [ref=f268e151]: φ(K)
+      - generic [ref=f268e153]: KᵀV
+      - generic [ref=f268e154]: d×d 小矩阵
+      - generic [ref=f268e156]: 输出
+      - generic [ref=f268e157]: 先算 φ(K)ᵀ·V（d×d，与 n 无关）再左乘 φ(Q)
+      - generic [ref=f268e158]: 时间 O(n·d·r) · 空间 O(n·d) —— n 只线性进入
+      - generic [ref=f268e159]: 近似无偏、方差可控（r 越大方差越小，r ≪ n 即可）
+      - generic [ref=f268e161]: 两个不能忽视的细节
+      - generic [ref=f268e162]: · 位置编码从可选变必需：标准注意力里 QKᵀ 隐式编码了位置差异；随机特征近似破坏了这一点——
+      - generic [ref=f268e163]: Audiomer 用可学习位置编码显式补回（省掉它模型就「不知道谁在前谁在后」）
+      - generic [ref=f268e164]: · 常数因子不是免费的：随机特征映射与线性投影本身有参数和延迟——r 决定常数因子，
+      - generic [ref=f268e165]: 实际推理速度可能不如理论线性那么好看（论文未报实测延迟，只有理论复杂度）
+      - generic [ref=f268e166]: · 随机特征有方差：不同随机种子下性能可能波动——论文未分析这种不稳定性
+      - generic [ref=f268e167]: 左：标准注意力必须先物化 n×n 的注意力矩阵——平方复杂度的根源。右：Performer 用随机特征把 softmax 核变成可分解的内积，再换结合律先算 d×d 的小矩阵——n 从平方降为线性
+    - generic [ref=f268e168]: 图2 · 机制解剖：左是标准注意力必须物化 n×n 矩阵的图景，右是 Performer 的两步（随机特征 + 结合律换序）与三个不能忽视的细节（位置编码必需、常数因子、随机方差）。
+  - heading "§03 实验：+1 个点与它的边界" [level=2] [ref=f268e169]:
+    - generic [ref=f268e170]: §03
+    - text: 实验：+1 个点与它的边界
+  - generic [ref=f268e171]: GSC v2 12 类 · 标准划分 · 约值读数
+  - generic [ref=f268e172]:
+    - img [ref=f268e173]:
+      - generic [ref=f268e175]: 主结果（约值）：+1 个点的混合红利与线性注意力的边界
+      - generic [ref=f268e176]: GSC v2 12 类准确率（约值）
+      - generic [ref=f268e177]: "93"
+      - generic [ref=f268e178]: "94"
+      - generic [ref=f268e179]: "95"
+      - generic [ref=f268e180]: "96"
+      - generic [ref=f268e181]: "97"
+      - generic [ref=f268e183]: ~94.5
+      - generic [ref=f268e184]: DS-CNN（纯
+      - generic [ref=f268e185]: CNN）
+      - generic [ref=f268e187]: ~94.8
+      - generic [ref=f268e188]: Audiomer
+      - generic [ref=f268e189]: 去 Performer
+      - generic [ref=f268e191]: ~95.5
+      - generic [ref=f268e192]: Audiomer
+      - generic [ref=f268e193]: ★
+      - generic [ref=f268e194]: 读数：
+      - generic [ref=f268e195]: · vs 纯 CNN 约 +1%，混淆词对（go vs no）受益最大——全局
+      - generic [ref=f268e196]: 韵律/时间结构正是区分这类词对的信息
+      - generic [ref=f268e197]: · 去 Performer 层（纯 CNN 主干）掉约 1%——全局注意力的贡献
+      - generic [ref=f268e198]: · 对未见说话人泛化更好（Performer 捕全局韵律：语调曲线、节奏）
+      - generic [ref=f268e199]: · vs 纯 Transformer：收敛更快、所需训练数据更少（CNN 归纳偏置）
+      - generic [ref=f268e200]: · vs KWT（标准注意力）：性能相当、长序列可扩展性更好
+      - generic [ref=f268e201]: 加速比与证据边界
+      - generic [ref=f268e203]: Performer vs 标准注意力加速（示意）
+      - generic [ref=f268e227]: 长序列 2–3×
+      - generic [ref=f268e228]: 短序列差异小
+      - generic [ref=f268e229]: 序列长度 →（KWS 常规长度在左端！）
+      - generic [ref=f268e230]: 注意：KWS 的典型序列落在加速比≈1 的左端——线性注意力的
+      - generic [ref=f268e231]: 优势要在长序列才兑现，短片段场景收益有限（论文也承认）
+      - generic [ref=f268e233]: 证据边界（2 页短文的先天限制）
+      - generic [ref=f268e234]: · 未报推理延迟与模型大小的具体数字——部署可行性只能推断
+      - generic [ref=f268e235]: · 未与 Linformer / Nyströmformer / 线性 Transformer 对比
+      - generic [ref=f268e236]: ——Performer 是否最优选择未知
+      - generic [ref=f268e237]: · 无量化/剪枝后的部署分析；无多次运行方差
+      - generic [ref=f268e238]: · 仅 GSC 干净数据：噪声/远场/其他语言未验证
+      - generic [ref=f268e239]: · 非因果：随机特征映射需要完整序列，流式推理未适配
+      - generic [ref=f268e240]: 定位参考：workshop 短文的价值在「证明可行」而非给出成品
+      - generic [ref=f268e241]: 注：数字为笔记记录的约值（原文见 arXiv 2109.10252）；训练 = CE + Adam + warmup（前 10% 步线性升）+ 余弦退火；40 维 MFCC 约 1 秒片段
+    - generic [ref=f268e242]: 图3 · 主结果：左是三方准确率对比与读数（混淆词对、说话人泛化、vs 纯 Transformer / KWT），右是加速比随序列长度的示意（KWS 常规长度在左端）与证据边界清单。
+  - table [ref=f268e243]:
+    - rowgroup [ref=f268e244]:
+      - row [ref=f268e245]:
+        - columnheader "对比项" [ref=f268e246]
+        - columnheader "结果（约值）" [ref=f268e247]
+        - columnheader "含义" [ref=f268e248]
+      - row [ref=f268e249]:
+        - cell "vs DS-CNN（纯 CNN）" [ref=f268e250]
+        - cell "+1%（95–96 vs 94–95）" [ref=f268e251]
+        - cell "全局上下文的红利，混淆词对最大" [ref=f268e252]
+      - row [ref=f268e253]:
+        - cell "去 Performer 层" [ref=f268e254]
+        - cell "−1%" [ref=f268e255]
+        - cell "全局注意力的贡献下限" [ref=f268e256]
+      - row [ref=f268e257]:
+        - cell "vs 纯 Transformer" [ref=f268e258]
+        - cell "收敛更快 · 数据更省" [ref=f268e259]
+        - cell "CNN 归纳偏置的价值" [ref=f268e260]
+      - row [ref=f268e261]:
+        - cell "vs KWT（标准注意力）" [ref=f268e262]
+        - cell "性能相当 · 可扩展性更好" [ref=f268e263]
+        - cell "长序列优势" [ref=f268e264]
+      - row [ref=f268e265]:
+        - cell "标准注意力替换 Performer" [ref=f268e266]
+        - cell "短序列性能接近但更慢" [ref=f268e267]
+        - cell "近似注意力在 KWS 已足够" [ref=f268e268]
+  - generic [ref=f268e269]:
+    - generic [ref=f268e270]: 读表要点
+    - listitem [ref=f268e271]: ◈ 最有信息量的一条消融：短序列上标准注意力与 Performer 性能接近——说明注意力的精确计算并非必需，近似已足够；那 Performer 的价值就只在长序列的速度与可变长鲁棒性上。
+    - listitem [ref=f268e272]: ◈ 对未见说话人泛化更好：Performer 捕获的全局韵律（语调曲线、节奏特征）是跨说话人相对稳定的线索——这解释了泛化红利。
+    - listitem [ref=f268e273]: ◈ 引用提醒：论文未报任何延迟/模型大小实测数字，「适合边缘部署」目前只是复杂度层面的推断；数字均为笔记记录的约值。
+  - heading "§04 贡献" [level=2] [ref=f268e274]:
+    - generic [ref=f268e275]: §04
+    - text: 贡献
+  - generic [ref=f268e276]: 四点：从首次引入到范式确认
+  - generic [ref=f268e277]:
+    - generic [ref=f268e278]:
+      - generic [ref=f268e279]: "1"
+      - paragraph [ref=f268e280]: 首次把 Performer 用于 KWS：线性复杂度注意力解决标准 Transformer 在 KWS 场景的计算效率问题——不牺牲全局建模能力的前提下保持高效推理。
+    - generic [ref=f268e281]:
+      - generic [ref=f268e282]: "2"
+      - paragraph [ref=f268e283]: 1D 残差卷积 + Performer 混合架构：局部特征提取与全局上下文建模互补——CNN 补归纳偏置，Performer 补全局交互。
+    - generic [ref=f268e284]:
+      - generic [ref=f268e285]: "3"
+      - paragraph [ref=f268e286]: 证明线性注意力在 KWS 的有效性：近似注意力达到接近标准注意力的性能——短序列 KWS 任务上注意力的精确计算并非必需。
+    - generic [ref=f268e287]:
+      - generic [ref=f268e288]: "4"
+      - paragraph [ref=f268e289]: 频谱图的一维处理新范式：频率维当通道维的一维时间卷积——参数效率与时序建模能力的双重优势，为 KWS 频谱图处理提供新思路。
+  - heading "§05 局限与判断" [level=2] [ref=f268e290]:
+    - generic [ref=f268e291]: §05
+    - text: 局限与判断
+  - generic [ref=f268e292]: 常数因子 · 非流式 · 2 页短文的证据密度
+  - generic [ref=f268e293]:
+    - img [ref=f268e294]:
+      - generic [ref=f268e296]: 边界与延伸
+      - generic [ref=f268e298]: 技术边界
+      - generic [ref=f268e299]: · 常数因子陷阱：线性复杂度的前提是随机特征映射与线性投影的常数
+      - generic [ref=f268e300]: 开销可接受——r 决定这个常数，实际推理速度可能不如理论好看
+      - generic [ref=f268e301]: · 参数量略大于纯 CNN：Performer 层的映射与投影不是免费的
+      - generic [ref=f268e302]: · 非流式：随机特征映射非因果，需要完整序列——帧级实时处理未适配
+      - generic [ref=f268e303]: · 随机特征不稳定：不同种子下性能可能波动，方差影响未分析
+      - generic [ref=f268e304]: · 篇幅限制：2 页短文，消融/错误分析/超参数大量未报——复现靠猜
+      - generic [ref=f268e306]: 实验边界 + 延伸
+      - generic [ref=f268e307]: · 仅 GSC：噪声/远场/多语言（尤其中文声调语言）未验证
+      - generic [ref=f268e308]: · 未与其他高效注意力对比——「Performer 最优」无从判断
+      - generic [ref=f268e309]: · 无压缩后部署分析（量化/剪枝），面向边缘的论文却缺边缘证据
+      - generic [ref=f268e310]: · 无延迟/大小数字、无方差统计
+      - generic [ref=f268e311]: 延伸：因果 Performer（随机特征只依赖当前与过去）适配流式；
+      - generic [ref=f268e312]: 蒸馏到更小学生模型实现真边缘部署；声调语言与多声学条件验证；
+      - generic [ref=f268e313]: 与 Conformer 结合（卷积增强的 Performer）
+      - generic [ref=f268e314]: 可迁移判断：线性注意力为资源受限设备部署 Transformer 类模型提供可行路径；但短序列任务（KWS 的常态）里 O(n²) 本来就不是瓶颈——选它之前先算一算自己的 n
+    - generic [ref=f268e315]: 图4 · 边界与延伸：左技术边界（常数因子陷阱、参数略大、非因果、随机方差、篇幅限制），右实验边界（仅 GSC、无注意力横比、无压缩分析）+ 延伸方向。
+  - generic [ref=f268e316]:
+    - generic [ref=f268e317]: 可迁移判断
+    - paragraph [ref=f268e318]: ↳ 选线性注意力之前先算一算自己的 n：KWS 的典型序列长度落在 O(n²) 还不是瓶颈的区间——线性注意力的加速要在长序列兑现。复杂度级别的「更优」不等于你的工作负载上的「更快」。
+    - paragraph [ref=f268e319]: ↳ 混合架构的分工要显式设计：CNN 补归纳偏置（小数据、快收敛）、注意力补全局交互（混淆词对、跨说话人韵律）——两边各自的价值都该有对应消融格子，否则「混合」只是堆叠。
+    - paragraph [ref=f268e320]: ↳ 改注意力机制要重新检查位置信息：QKᵀ 隐式携带位置差异——任何近似掉这层信息（随机特征、低秩、局部窗口）的改动，都要把位置编码从可选升为必需。
+    - paragraph [ref=f268e321]: ↳ workshop 短文的正确读法：价值在「证明可行」——近似注意力在 KWS 够用；成品化（流式、量化、实测延迟）是留给后续工作的空地，引用时别把「可行」当「已落地」。
+  - generic [ref=f268e322]:
+    - link "arXiv 2109.10252 ↗" [ref=f268e323] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2109.10252
+    - link "← 返回总目录" [ref=f268e324] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f268e325]: 笔记与可视化页基于 arXiv 版整理 · 2 页 workshop 短文，表中数字为笔记记录的约值 · 2021 №5 · 190+/305
