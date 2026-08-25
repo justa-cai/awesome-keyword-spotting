@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>流式 Transformer：VTD + FTM 双任务 · 论文精读可视化</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;}
+.wrap{max-width:980px;margin:0 auto;padding:56px 28px 80px;}
+.kicker{font-size:13px;letter-spacing:.22em;color:var(--acc);font-weight:700;margin-bottom:14px;text-transform:uppercase;}
+h1.hero{font-size:40px;line-height:1.32;font-weight:800;letter-spacing:.01em;margin-bottom:18px;}
+h1.hero .g{color:var(--acc);}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+.chip{font-size:12.5px;padding:4px 13px;border:1px solid var(--line);border-radius:999px;color:var(--ink2);background:#fffdf8;}
+.chip.acc{background:var(--lt);border-color:#bfe5d6;color:var(--dk);}
+.meta{border-left:3px solid var(--acc);background:#fffdf8;padding:12px 18px;font-size:13.5px;color:var(--ink2);margin-bottom:40px;border-radius:0 8px 8px 0;}
+.meta b{color:var(--ink);}
+h2{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:800;margin:56px 0 6px;}
+h2 .no{flex:none;font-size:12px;font-weight:800;color:#fff;background:var(--ink);padding:3px 10px;border-radius:999px;letter-spacing:.08em;}
+.h2sub{font-size:13.5px;color:var(--ink3);margin:0 0 18px 46px;}
+.tldr{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-bottom:8px;}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--dk);letter-spacing:.12em;margin-bottom:10px;}
+.tldr li{list-style:none;font-size:14.5px;color:var(--ink2);padding-left:20px;position:relative;margin-bottom:7px;}
+.tldr li:before{content:"◈";position:absolute;left:0;color:var(--acc);font-size:12px;top:2px;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.card{background:#fffdf8;border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
+.card h3{font-size:15.5px;font-weight:700;margin-bottom:8px;}
+.card p{font-size:13.5px;color:var(--ink2);}
+.card.acc{background:var(--lt);border-color:#bfe5d6;}
+.card.acc h3{color:var(--dk);}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4;}
+.card.bad h3{color:var(--warn);}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--lt);color:var(--dk);margin-bottom:8px;}
+.fig{margin:26px 0;}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:14px;}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:10px;line-height:1.7;}
+.cap b{color:var(--ink2);}
+.formula{background:#fffdf8;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 12px 12px 0;padding:16px 20px;margin:16px 0;}
+.formula .f{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:15px;color:var(--ink);background:#f2f4ef;padding:10px 14px;border-radius:8px;margin-bottom:10px;overflow-x:auto;white-space:pre;}
+.formula .why{font-size:13.5px;color:var(--ink2);}
+.formula .why b{color:var(--dk);}
+table.tb{width:100%;border-collapse:collapse;background:#fffdf8;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:18px 0;font-size:13.5px;}
+table.tb th{background:var(--ink);color:#fff;padding:10px 14px;text-align:left;font-weight:700;font-size:13px;}
+table.tb td{padding:10px 14px;border-top:1px solid var(--line);color:var(--ink2);}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:700;}
+.contrib{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:18px 0;}
+.contrib .row{display:flex;gap:16px;padding:12px 0;border-bottom:1px dashed var(--line);}
+.contrib .row:last-child{border-bottom:none;}
+.contrib .n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.contrib .row p{font-size:14px;color:var(--ink2);}
+.contrib .row p b{color:var(--ink);}
+.lim{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.judge{background:#fffaf4;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:18px 0;}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.12em;margin-bottom:10px;}
+.judge p{font-size:14px;color:var(--ink2);margin-bottom:8px;}
+.judge p b{color:var(--ink);}
+.foot{margin-top:64px;padding-top:28px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.pill{display:inline-block;font-size:13px;font-weight:700;color:var(--dk);background:var(--lt);border:1px solid #bfe5d6;border-radius:999px;padding:7px 18px;text-decoration:none;}
+.pill.ghost{background:transparent;color:var(--ink2);border-color:var(--line);}
+.foot-note{font-size:12px;color:var(--ink3);margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2021 №21</div>
+<h1 class="hero">误触发不用 ASR 来救：<br>1 秒触发后音频 + <span class="g">纯声学模型</span>抑制 95% 误唤醒</h1>
+<div class="chips">
+<span class="chip acc">Streaming Transformer VTD+FTM · Apple</span>
+<span class="chip">arXiv 2105.06598 · 生产系统</span>
+<span class="chip">块处理流式自注意力 · 帧级 CE · uniLSTM</span>
+<span class="chip">内存 −32% · 推理 −56% · O(n²)→O(n)</span>
+</div>
+<div class="meta">
+<b>一句话</b>：两阶段语音触发检测（VTD）仍有残余误报，传统误触发缓解（FTM）靠 ASR 词格——端侧跑不动、上云有隐私问题。本文用一个共享的流式 Transformer 编码器同时做两个任务：音素转录分支（CTC）管触发检测，短语判别分支（帧级 CE + uniLSTM）用触发后音频判意图——仅声学特征、块处理流式推理。1 秒触发后音频抑制 95% 误触发，VTD 的 FRR 相对降 18%，内存省 32%、推理快 56%，资源增长从 O(n²) 降到 O(n)。
+</div>
+
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<li><b>两阶段 VTD 的残余误报</b>：低算力常开模型出候选 + 大模型二次验证——即便如此，声学相似音频段仍会错误激活助手。FTM 用触发后音频判断用户真意，但传统方案依赖 ASR 词格——完整 ASR 端侧跑不动，服务器端 ASR 把意外语音送云（隐私红线）。</li>
+<li><b>联合架构三组件</b>：共享 TF 编码器骨干（声学嵌入）+ 音素转录分支（VTD · CTC 损失）+ 短语判别分支（FTM · 帧级 CE + uniLSTM）；训练期可选挂一个 TF 解码器当正则化器（推理不加载、零开销）。</li>
+<li><b>流式自注意力 = 块处理</b>：块移位 S = 块大小 B 的一半（B=2S）；每块的 Q 只含当前 S 帧（省计算），K/V 含前块 S 帧 + 当前 S 帧（保上下文）——有限上下文的因果注意力。训练时用注意力掩码模拟同一行为，训练/推理一致。</li>
+<li><b>帧级 CE 替代 CTC 的理由</b>：CTC 的空白标签机制（任意位置插空白、重复合并）对转录是福音、对判别是灾难——触发后音频里的空白歧义让帧级判断变糊。帧级 CE 每帧独立二分类（强制对齐取标签），时间边界定位更准。</li>
+<li><b>uniLSTM 补上下文</b>：流式 SA 窗口只有 B 帧，uniLSTM 提供更长历史建模；单向保证因果。消融：去掉后 FTM 掉 2–3%。</li>
+<li><b>共享编码器 = 共享计算</b>：FTM 直接复用 VTD 已处理的音频上下文编码——不重算、不另存；两个任务一次前向全出。</li>
+<li>结果：FTM 仅 1 秒触发后音频抑制 <b>95%</b> 误触发（0.5 秒也有 ~85%）——<b>短上下文 + 纯声学就够意图判断</b>；VTD 的 FRR 相对降 18%（帧级 CE + uniLSTM + 联合训练三重贡献）。</li>
+<li>硬件（真实 Apple 设备实测）：内存 <b>−32%</b>、推理时间 <b>−56%</b>（vs 等价非流式）；资源增长 O(n²)→<b>O(n)</b>——任意长度触发后音频都能处理。K/V 缓存复用避免重复计算。</li>
+</div>
+
+<h2><span class="no">§01</span>问题：ASR 的价格与隐私</h2>
+<div class="h2sub">两阶段残余误报 + FTM 的两条老路都堵</div>
+<div class="cards">
+<div class="card bad">
+<h3>端侧 ASR 装不下</h3>
+<p>完整 ASR 解码（声学模型 + 语言模型 + 词格搜索）计算代价高昂——误触发缓解只需要「用户是不是真在跟助手说话」这个二分类判断，为此跑全套 ASR 是高射炮打蚊子，端侧预算根本不批。</p>
+</div>
+<div class="card bad">
+<h3>云 ASR 的隐私红线</h3>
+<p>把触发后音频送服务器做 ASR——用户的意外语音（跟家人聊天、自言自语）被上传云端。对 Apple 这是产品立场问题不是工程问题：误触发缓解必须完全在设备端完成。</p>
+</div>
+<div class="card">
+<h3>两任务两套账装不起</h3>
+<p>VTD 与 FTM 独立建模 = 音频编码两遍、内存延迟翻倍。而两任务的底层需求相同（同一段音频的声学表示）——共享编码器在结构上天然合理，关键是流式场景下怎么共享。</p>
+</div>
+<div class="card">
+<h3>核心假设值得注意</h3>
+<p>本文赌的是：短时意图判别（触发后 1 秒）所需的信息就藏在声学特征里——不需要词汇语义。95% 的抑制率证明这个假设大体成立，也划出了边界（纯声学不够的场景在边界一节）。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">流式 Transformer 双任务：触发检测 + 误触发缓解，一个编码器全包</text>
+<line x1="36.0" y1="60.0" x2="720.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 两阶段 VTD 的残余误报 + 传统 FTM 的两块绊脚石</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段 VTD：低算力常开模型出候选 + 大模型二次验证——即便如此，声学相似的音频段仍会错误激活助手（残余误报）</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">误触发缓解（FTM）用触发后音频判断用户意图——但传统方案靠 ASR 词格提取语言信息：设备端跑不动，上云有隐私问题（意外语音被发到云端）</text>
+<rect x="36.0" y="152.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="182.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ASR 太贵</text>
+<text x="215.0" y="173.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">完整 ASR 解码计算代价高昂，端侧装不下；服务器端 ASR 则把用户意外</text>
+<text x="215.0" y="191.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">语音查询送云——隐私红线（Apple 的立场）</text>
+<rect x="36.0" y="210.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="240.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两任务两套账</text>
+<text x="215.0" y="231.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">VTD 与 FTM 各自独立建模的话：音频被编码两遍、内存与延迟翻倍</text>
+<text x="215.0" y="249.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——端侧预算装不起两份</text>
+<rect x="36.0" y="268.0" width="848.0" height="50.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="298.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">本文的问题句</text>
+<text x="215.0" y="289.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">能否用一个流式模型同时做 VTD + FTM，仅用声学特征（不依赖 ASR），</text>
+<text x="215.0" y="307.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">设备端硬件高效推理，精度还不掉？</text>
+<text x="36.0" y="330.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 联合架构：共享 TF 编码器 + 音素分支 + 短语判别分支</text>
+<rect x="36.0" y="346.0" width="848.0" height="210.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="56.0" y="390.0" width="110.0" height="70.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="111.0" y="414.0" font-size="9.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音频流</text>
+<text x="111.0" y="430.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">声学特征</text>
+<text x="111.0" y="446.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（无 ASR）</text>
+<rect x="206.0" y="380.0" width="200.0" height="90.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="306.0" y="404.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TF 编码器骨干（共享）</text>
+<text x="306.0" y="422.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">流式自注意力（块处理）</text>
+<text x="306.0" y="438.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">有限上下文 · 因果</text>
+<text x="306.0" y="456.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">K/V 缓存复用</text>
+<line x1="166.0" y1="425.0" x2="204.00" y2="425.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="446.0" y="370.0" width="190.0" height="62.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="541.0" y="392.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音素转录分支（VTD）</text>
+<text x="541.0" y="408.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 损失</text>
+<text x="541.0" y="422.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">触发短语音素序列判断</text>
+<rect x="446.0" y="448.0" width="190.0" height="62.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="541.0" y="470.0" font-size="9" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">短语判别分支（FTM）</text>
+<text x="541.0" y="486.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级 CE 损失 + uniLSTM</text>
+<text x="541.0" y="500.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">触发后音频意图判断</text>
+<line x1="406.0" y1="410.0" x2="444.00" y2="400.00" stroke="#8a93a5" stroke-width="1.2"/>
+<line x1="406.0" y1="440.0" x2="444.00" y2="480.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="686.0" y="396.0" width="170.0" height="62.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="771.0" y="418.0" font-size="8.8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TF 解码器（仅训练）</text>
+<text x="771.0" y="434.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">正则化编码器</text>
+<text x="771.0" y="448.0" font-size="8" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">推理时不加载</text>
+<line x1="636.0" y1="430.0" x2="684.00" y2="426.00" stroke="#8a93a5" stroke-width="1" stroke-dasharray="3,3"/>
+<text x="306.0" y="546.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FTM 直接复用 VTD 已处理的音频上下文——共享编码器 = 共享计算，不重算</text>
+<text x="36.0" y="576.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 三项流式改造</text>
+<rect x="36.0" y="592.0" width="276.0" height="76.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="50.0" y="612.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">流式自注意力</text>
+<text x="50.0" y="632.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">块处理：Q 只看当前 S 帧</text>
+<text x="50.0" y="648.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">K/V 含前块 S 帧（B=2S）</text>
+<rect x="324.0" y="592.0" width="276.0" height="76.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="338.0" y="612.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级 CE 替代 CTC</text>
+<text x="338.0" y="632.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每帧二分类，去空白标签</text>
+<text x="338.0" y="648.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">强制对齐取帧级标签</text>
+<rect x="612.0" y="592.0" width="276.0" height="76.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="626.0" y="612.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">uniLSTM 补上下文</text>
+<text x="626.0" y="632.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">有限窗口外的历史</text>
+<text x="626.0" y="648.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">单向保因果</text>
+<rect x="36.0" y="692.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="718.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">95%</text>
+<text x="130.0" y="738.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">误触发抑制 @1s 触发后音频</text>
+<text x="298.0" y="718.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−18%</text>
+<text x="298.0" y="738.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">VTD 的 FRR 相对降低</text>
+<text x="466.0" y="718.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−32%</text>
+<text x="466.0" y="738.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">运行时内存 vs 非流式</text>
+<text x="634.0" y="718.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−56%</text>
+<text x="634.0" y="738.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">推理时间 vs 非流式</text>
+<text x="802.0" y="718.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">O(n)</text>
+<text x="802.0" y="738.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">资源增长（原 O(n²)）</text>
+<text x="36.0" y="776.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Apple · arXiv 2105.06598；实测于真实 Apple 设备（处理 1 秒触发后音频）；生产系统——数据细节未公开；数字为约值</text>
+</svg>
+<div class="cap"><b>图1 · 机制全景</b>：上半是两阶段 VTD 残余误报与传统 FTM 的两块绊脚石，中段是联合架构图（共享编码器 + 双分支 + 仅训练的解码器），底部是三项流式改造与关键数字。</div>
+</div>
+
+<h2><span class="no">§02</span>方法：块处理 + 损失选型</h2>
+<div class="h2sub">Q/K/V 不对称窗口 · 帧级 CE 的判别逻辑</div>
+
+<div class="formula">
+<div class="f">块处理:  B = 2S（块移位 S = B 的一半）
+第 i 块:  Q_i = 当前 S 帧          ← 只出查询（省计算）
+          K_i, V_i = 前块 S 帧 + 当前 S 帧   ← 带历史上下文
+损失:     VTD 分支 = CTC（音素转录）
+          FTM 分支 = 帧级 CE（每帧二分类 · 强制对齐标签）+ uniLSTM
+          解码器 = CE（仅训练，正则化编码器）</div>
+<div class="why"><b>人话</b>：每处理一块，查询只问「这 S 帧是什么」但可以翻「前 S 帧加当前 S 帧」的笔记——上下文不丢、计算不爆。相邻块重叠一半，帧的信息被平滑衔接。CTC 的灵活性（空白、合并）对判别是噪声，帧级 CE 的硬对齐才是 FTM 要的形状。</div>
+</div>
+
+<div class="cards">
+<div class="card acc">
+<h3>训练/推理一致性</h3>
+<p>训练时用注意力掩码（因果 + 限窗）模拟流式行为——离线训练看到的上下文结构与在线推理完全相同。这条纪律在多篇论文反复出现（cf. 流式 SLU 的分块一致性）：分布错配会白丢精度。</p>
+</div>
+<div class="card acc">
+<h3>解码器的免费午餐</h3>
+<p>训练时挂一个自回归 TF 解码器（CE 损失）迫使编码器学出更丰富的声学表示——推理时整个不加载。训完即扔的辅助头换表示质量，与流式 SLU 的 CTC 辅助同构：辅助监督的收益留在骨干里。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：块处理的因果注意力 · CTC 换帧级 CE 的理由</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">流式自注意力的块处理</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="202.0" y="112.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">帧流 →</text>
+<rect x="72.0" y="114.0" width="28.0" height="32.0" rx="4" fill="#c9d8e8"/>
+<text x="86.0" y="134.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1</text>
+<rect x="104.0" y="114.0" width="28.0" height="32.0" rx="4" fill="#c9d8e8"/>
+<text x="118.0" y="134.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2</text>
+<rect x="136.0" y="114.0" width="28.0" height="32.0" rx="4" fill="#9fc8b8"/>
+<text x="150.0" y="134.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3</text>
+<rect x="168.0" y="114.0" width="28.0" height="32.0" rx="4" fill="#9fc8b8"/>
+<text x="182.0" y="134.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4</text>
+<rect x="200.0" y="114.0" width="28.0" height="32.0" rx="4" fill="#b9d4c4"/>
+<text x="214.0" y="134.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5</text>
+<rect x="232.0" y="114.0" width="28.0" height="32.0" rx="4" fill="#b9d4c4"/>
+<text x="246.0" y="134.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">6</text>
+<rect x="264.0" y="114.0" width="28.0" height="32.0" rx="4" fill="#c9d8e8"/>
+<text x="278.0" y="134.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">7</text>
+<rect x="296.0" y="114.0" width="28.0" height="32.0" rx="4" fill="#c9d8e8"/>
+<text x="310.0" y="134.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">8</text>
+<rect x="200.0" y="100.0" width="64.0" height="62.0" rx="6" fill="none" stroke="#0b6e52" stroke-width="1.8"/>
+<text x="232.0" y="92.0" font-size="7.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Q：当前块 S 帧</text>
+<rect x="136.0" y="156.0" width="128.0" height="40.0" rx="6" fill="none" stroke="#d97a2b" stroke-width="1.6"/>
+<text x="200.0" y="182.0" font-size="7.8" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">K/V：前块 S + 当前 S（B=2S）</text>
+<text x="192.0" y="208.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">块移位 S = B/2：相邻块重叠一半——每帧</text>
+<text x="192.0" y="222.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">都被算两次查询但 K/V 只缓存一次</text>
+<text x="202.0" y="262.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练时用注意力掩码模拟流式（因果 + 限窗）</text>
+<text x="202.0" y="280.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">——离线训练与在线推理行为一致</text>
+<text x="202.0" y="308.0" font-size="8.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">未来帧永远不进 K/V——纯因果</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">损失选型：CTC vs 帧级 CE</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="450.0" y="112.0" font-size="9.3" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">短语判别分支为什么弃 CTC</text>
+<text x="450.0" y="130.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 的 blank 标签机制：允许任意位置插入空白、</text>
+<text x="450.0" y="144.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">相邻重复合并——对转录是福音，对判别是灾难：</text>
+<text x="450.0" y="158.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「触发后音频」里的空白歧义让帧级判断变糊</text>
+<text x="450.0" y="172.0" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="186.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级 CE：每帧独立二分类（目标短语 / 非目标），</text>
+<text x="450.0" y="200.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标签由强制对齐获取——时间边界定位更精确</text>
+<text x="450.0" y="214.0" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="228.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">消融：帧级 CE 在 FTM 上显著优于 CTC；</text>
+<text x="450.0" y="242.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">去 uniLSTM 层 → FTM 掉 2–3%（历史上下文的价值）</text>
+<text x="450.0" y="256.0" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="270.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练正则：TF 解码器只训不推——白拿的表示增益</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：块处理的核心是查询与键值的不对称窗口——Q 只出当前 S 帧（省计算），K/V 带上前块 S 帧（保上下文），重叠移位让信息不丢。右：CTC 的灵活性对判别任务是负资产，帧级 CE 的硬对齐才是 FTM 要的形状</text>
+</svg>
+<div class="cap"><b>图2 · 机制解剖</b>：左是块处理的帧时间线（Q 窗口只含当前 S 帧、K/V 窗口含前块+当前），右是 CTC 弃用的机理与 uniLSTM 的贡献消融。</div>
+</div>
+
+<h2><span class="no">§03</span>实验：声学特征够用</h2>
+<div class="h2sub">FTM 抑制率 · 硬件实测 · 消融</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：1 秒触发后音频抑制 95% 误触发</text>
+<line x1="36.0" y1="56.0" x2="460.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FTM：触发后音频长度 vs 抑制率</text>
+<line x1="52.0" y1="272.0" x2="456.00" y2="272.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="275.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">75</text>
+<line x1="52.0" y1="240.0" x2="456.00" y2="240.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="243.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">80</text>
+<line x1="52.0" y1="208.0" x2="456.00" y2="208.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="211.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">85</text>
+<line x1="52.0" y1="176.0" x2="456.00" y2="176.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="179.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="52.0" y1="144.0" x2="456.00" y2="144.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="147.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">95</text>
+<line x1="52.0" y1="112.0" x2="456.00" y2="112.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="115.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">100</text>
+<line x1="136.0" y1="208.0" x2="376.00" y2="144.00" stroke="#0b6e52" stroke-width="2.2"/>
+<circle cx="136.0" cy="208.0" r="5" fill="#0b6e52"/>
+<text x="136.0" y="198.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~85%</text>
+<text x="136.0" y="288.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.5 秒</text>
+<circle cx="376.0" cy="144.0" r="5" fill="#0b6e52"/>
+<text x="376.0" y="134.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~95%</text>
+<text x="376.0" y="288.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1.0 秒</text>
+<text x="256.0" y="304.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">触发后音频长度 →</text>
+<text x="56.0" y="322.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="56.0" y="336.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 仅 1 秒触发后音频 → 95% 误触发抑制——短上下文</text>
+<text x="56.0" y="349.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  已含充分判别信息，不需要完整 ASR 解码</text>
+<text x="56.0" y="362.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 仅声学特征的充分性：对短时意图判别，声学够了</text>
+<text x="56.0" y="375.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· VTD 侧：FRR 相对降低 18%（固定 FA 率下）</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">硬件效率（真实 Apple 设备）</text>
+<rect x="500.0" y="92.0" width="324.0" height="130.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="112.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">处理 1s 触发后音频 vs 非流式</text>
+<text x="514.0" y="138.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">运行时内存</text>
+<rect x="600.0" y="126.0" width="102.0" height="16.0" rx="4" fill="#e8b8b0"/>
+<text x="706.0" y="138.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−32%</text>
+<text x="514.0" y="176.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">推理时间</text>
+<rect x="600.0" y="164.0" width="66.0" height="16.0" rx="4" fill="#e8b8b0"/>
+<text x="670.0" y="176.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−56%</text>
+<text x="514.0" y="210.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">资源增长：非流式 O(n²) → 流式 O(n)</text>
+<rect x="500.0" y="230.0" width="324.0" height="182.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="514.0" y="248.0" font-size="9" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融与证据边界</text>
+<text x="514.0" y="264.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 流式 SA 在 VTD 上损失很小；FTM 上流式 SA + uniLSTM</text>
+<text x="514.0" y="276.8" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  甚至优于 vanilla SA（双向）</text>
+<text x="514.0" y="289.6" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 去 uniLSTM：FTM 掉 2–3%</text>
+<text x="514.0" y="302.4" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="315.2" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 生产数据未公开——复现性受限</text>
+<text x="514.0" y="328.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未与 Emformer / Blockformer 等流式变体对比</text>
+<text x="514.0" y="340.8" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 误触发类型未细分（电视/宠物/相似短语）</text>
+<text x="514.0" y="353.6" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无绝对延迟值与端到端延迟分析</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：FTM 指标 = 额外使用指定长度触发后音频时能正确抑制的误触发比例；VTD 指标 = 固定误报警率下的误拒绝率（FRR）相对降低；数字为约值</text>
+</svg>
+<div class="cap"><b>图3 · 主结果</b>：左是触发后音频长度与误触发抑制率的关系（1 秒 → 95%），右是真实 Apple 设备上的硬件实测与消融、证据边界。</div>
+</div>
+<table class="tb">
+<tr><th>评测线</th><th>结果（约值）</th><th>解读</th></tr>
+<tr class="hl"><td>FTM 抑制率</td><td>1s 触发后音频 → 95%</td><td>短上下文 + 纯声学够用</td></tr>
+<tr><td>VTD FRR</td><td>相对降 18%（固定 FA 率）</td><td>联合训练反哺主任务</td></tr>
+<tr><td>运行时内存</td><td>−32%（vs 非流式）</td><td>K/V 缓存 + 块处理</td></tr>
+<tr><td>推理时间</td><td>−56%</td><td>同上</td></tr>
+<tr><td>资源增长</td><td>O(n²) → O(n)</td><td>任意长触发后音频可处理</td></tr>
+<tr><td>流式 SA + uniLSTM</td><td>FTM 上优于 vanilla SA</td><td>有限窗口 + 长历史 &gt; 双向全局</td></tr>
+</table>
+<div class="tldr" style="margin-top:14px;">
+<div class="tt">读表要点</div>
+<li>最有产品含义的发现：<b>1 秒触发后音频 + 纯声学特征 → 95% 误触发抑制</b>——短时意图判别的信息密度足够高，完整 ASR 是杀鸡用牛刀。「简单专注的声学模型可能比复杂多模块系统更实用」。</li>
+<li>反直觉的消融：FTM 上<b>流式 SA + uniLSTM 优于双向 vanilla SA</b>——有限窗口 + 长程递归的组合胜过全局注意力；uniLSTM 的持续状态恰是意图判断需要的「累积证据」机制。</li>
+<li>证据边界：生产数据保密（复现性受限）；未与 Emformer/Blockformer 等流式变体对比；误触发类型未细分；无绝对延迟值——引用相对百分比时注意这些前提。</li>
+</div>
+
+<h2><span class="no">§04</span>贡献</h2>
+<div class="h2sub">五点：从流式架构到隐私方案</div>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>流式 TF 编码器架构</b>：首次把流式自注意力用于 VTD + FTM 联合任务——块处理 + 注意力掩码实现因果流式，性能与双向注意力模型相当。</p></div>
+<div class="row"><div class="n">2</div><p><b>统一 VTD 与 FTM</b>：单模型双任务，FTM 复用 VTD 的上下文编码不重算——文献中首个设备端流式双任务方案。</p></div>
+<div class="row"><div class="n">3</div><p><b>帧级 CE 替代 CTC</b>：消除空白标签歧义，提升 FTM 判别精度——损失函数要贴任务的输出结构选。</p></div>
+<div class="row"><div class="n">4</div><p><b>硬件效率量级提升</b>：内存 −32%、推理 −56%、O(n²)→O(n)——实测于真实设备而非纸面推断。</p></div>
+<div class="row"><div class="n">5</div><p><b>消除服务器 ASR 依赖</b>：仅声学特征、完全端侧——从根本上解决隐私问题（Apple 的核心诉求）。</p></div>
+</div>
+
+<h2><span class="no">§05</span>局限与判断</h2>
+<div class="h2sub">因果信息损失 · 块大小调优 · 纯声学边界</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 因果注意力的信息损失：仅左侧上下文——需要双向信息的复杂场景</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （如强噪声下的确认）可能仍不及双向模型；uniLSTM 只部分弥补</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 块大小 B 的调优开销：过小丢上下文、过大增延迟内存——无系统性</text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  选择指南，换任务要重扫</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练复杂性：CTC + 帧级 CE + 解码器 CE 三损失联合——权重调优难</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· uniLSTM 序列依赖：限制并行化——NPU 等加速器上可能成瓶颈</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 仅声学特征：无语言层信息——「对助手还是对人说话」这类需要</text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  语义理解的 FTM 场景可能不够</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验边界 + 延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 生产系统数据保密——外部无法复现验证</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未与 Emformer / Blockformer / 流式 Conformer 对比</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 误触发类型未细分（难度差异可能很大）</text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无绝对延迟与端到端系统延迟分析</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸：轻量设备端语言模型融合（补语义）；自适应上下文窗口</text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（按音频复杂度调 B）；线性/低秩注意力再降复杂度；多语言</text>
+<text x="536.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">多触发短语；与唤醒词+命令词识别统一</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：硬件效率应是与精度同级的优化目标（论文的工程立场）；简单专注的声学模型可能比复杂多模块系统更实用——1 秒上下文 + 声学特征就够 95% 的意图判断</text>
+</svg>
+<div class="cap"><b>图4 · 边界与延伸</b>：左技术边界（因果注意力信息损失、块大小无选择指南、三损失调参、uniLSTM 并行化、纯声学无语义），右实验边界（数据保密、无流式变体横比、误触发未细分、无绝对延迟）+ 延伸方向。</div>
+</div>
+<div class="judge">
+<div class="jt">可迁移判断</div>
+<p>↳ <b>硬件效率是与精度同级的优化目标</b>：本文把内存与推理时间当一级指标实测在真机上——端侧论文只报参数量是「推断可行」，报实测数字才是「证明可行」。</p>
+<p>↳ <b>判别任务别用为对齐设计的损失</b>：CTC 的空白与合并机制为「输出比输入短」的转录设计——判别要的是每帧的明确归属。损失函数的灵活性对判别是负资产。</p>
+<p>↳ <b>有限窗口 + 长程递归可以胜过全局注意力</b>：流式 SA + uniLSTM 在 FTM 上赢过双向 SA——意图判断需要的是累积证据（递归状态）而非全局对照；选上下文机制要看任务的信息利用方式。</p>
+<p>↳ <b>简单专注 &gt; 复杂堆叠</b>：95% 抑制率证明短时意图判别不需要全套 ASR——先验证「最小充分特征集」，再决定上什么模块；很多「必须复杂」的直觉只是没试过简单方案。</p>
+</div>
+
+<div class="foot">
+<a class="pill" href="https://arxiv.org/abs/2105.06598">arXiv 2105.06598 ↗</a>
+<a class="pill ghost" href="../index.html">← 返回总目录</a>
+</div>
+<div class="foot-note">笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值（Apple 生产数据未公开）· 2021 №21 · 206+/305</div>
+</div>
+</body>
+</html>

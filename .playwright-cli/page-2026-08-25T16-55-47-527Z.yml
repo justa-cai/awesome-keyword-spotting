@@ -1,0 +1,271 @@
+- generic [ref=f301e2]:
+  - generic [ref=f301e3]: 论文精读 · 可视化版 · 2021 №21
+  - heading "误触发不用 ASR 来救： 1 秒触发后音频 + 纯声学模型抑制 95% 误唤醒" [level=1] [ref=f301e4]: 误触发不用 ASR 来救：1 秒触发后音频 + 纯声学模型抑制 95% 误唤醒
+  - generic [ref=f301e5]:
+    - generic [ref=f301e6]: Streaming Transformer VTD+FTM · Apple
+    - generic [ref=f301e7]: arXiv 2105.06598 · 生产系统
+    - generic [ref=f301e8]: 块处理流式自注意力 · 帧级 CE · uniLSTM
+    - generic [ref=f301e9]: 内存 −32% · 推理 −56% · O(n²)→O(n)
+  - generic [ref=f301e10]: 一句话：两阶段语音触发检测（VTD）仍有残余误报，传统误触发缓解（FTM）靠 ASR 词格——端侧跑不动、上云有隐私问题。本文用一个共享的流式 Transformer 编码器同时做两个任务：音素转录分支（CTC）管触发检测，短语判别分支（帧级 CE + uniLSTM）用触发后音频判意图——仅声学特征、块处理流式推理。1 秒触发后音频抑制 95% 误触发，VTD 的 FRR 相对降 18%，内存省 32%、推理快 56%，资源增长从 O(n²) 降到 O(n)。
+  - generic [ref=f301e11]:
+    - generic [ref=f301e12]: TL;DR
+    - listitem [ref=f301e13]: ◈ 两阶段 VTD 的残余误报：低算力常开模型出候选 + 大模型二次验证——即便如此，声学相似音频段仍会错误激活助手。FTM 用触发后音频判断用户真意，但传统方案依赖 ASR 词格——完整 ASR 端侧跑不动，服务器端 ASR 把意外语音送云（隐私红线）。
+    - listitem [ref=f301e14]: ◈ 联合架构三组件：共享 TF 编码器骨干（声学嵌入）+ 音素转录分支（VTD · CTC 损失）+ 短语判别分支（FTM · 帧级 CE + uniLSTM）；训练期可选挂一个 TF 解码器当正则化器（推理不加载、零开销）。
+    - listitem [ref=f301e15]: ◈ 流式自注意力 = 块处理：块移位 S = 块大小 B 的一半（B=2S）；每块的 Q 只含当前 S 帧（省计算），K/V 含前块 S 帧 + 当前 S 帧（保上下文）——有限上下文的因果注意力。训练时用注意力掩码模拟同一行为，训练/推理一致。
+    - listitem [ref=f301e16]: ◈ 帧级 CE 替代 CTC 的理由：CTC 的空白标签机制（任意位置插空白、重复合并）对转录是福音、对判别是灾难——触发后音频里的空白歧义让帧级判断变糊。帧级 CE 每帧独立二分类（强制对齐取标签），时间边界定位更准。
+    - listitem [ref=f301e17]: ◈ uniLSTM 补上下文：流式 SA 窗口只有 B 帧，uniLSTM 提供更长历史建模；单向保证因果。消融：去掉后 FTM 掉 2–3%。
+    - listitem [ref=f301e18]: ◈ 共享编码器 = 共享计算：FTM 直接复用 VTD 已处理的音频上下文编码——不重算、不另存；两个任务一次前向全出。
+    - listitem [ref=f301e19]: ◈ 结果：FTM 仅 1 秒触发后音频抑制 95% 误触发（0.5 秒也有 ~85%）——短上下文 + 纯声学就够意图判断；VTD 的 FRR 相对降 18%（帧级 CE + uniLSTM + 联合训练三重贡献）。
+    - listitem [ref=f301e20]: ◈ 硬件（真实 Apple 设备实测）：内存 −32%、推理时间 −56%（vs 等价非流式）；资源增长 O(n²)→O(n)——任意长度触发后音频都能处理。K/V 缓存复用避免重复计算。
+  - heading "§01 问题：ASR 的价格与隐私" [level=2] [ref=f301e21]:
+    - generic [ref=f301e22]: §01
+    - text: 问题：ASR 的价格与隐私
+  - generic [ref=f301e23]: 两阶段残余误报 + FTM 的两条老路都堵
+  - generic [ref=f301e24]:
+    - generic [ref=f301e25]:
+      - heading "端侧 ASR 装不下" [level=3] [ref=f301e26]
+      - paragraph [ref=f301e27]: 完整 ASR 解码（声学模型 + 语言模型 + 词格搜索）计算代价高昂——误触发缓解只需要「用户是不是真在跟助手说话」这个二分类判断，为此跑全套 ASR 是高射炮打蚊子，端侧预算根本不批。
+    - generic [ref=f301e28]:
+      - heading "云 ASR 的隐私红线" [level=3] [ref=f301e29]
+      - paragraph [ref=f301e30]: 把触发后音频送服务器做 ASR——用户的意外语音（跟家人聊天、自言自语）被上传云端。对 Apple 这是产品立场问题不是工程问题：误触发缓解必须完全在设备端完成。
+    - generic [ref=f301e31]:
+      - heading "两任务两套账装不起" [level=3] [ref=f301e32]
+      - paragraph [ref=f301e33]: VTD 与 FTM 独立建模 = 音频编码两遍、内存延迟翻倍。而两任务的底层需求相同（同一段音频的声学表示）——共享编码器在结构上天然合理，关键是流式场景下怎么共享。
+    - generic [ref=f301e34]:
+      - heading "核心假设值得注意" [level=3] [ref=f301e35]
+      - paragraph [ref=f301e36]: 本文赌的是：短时意图判别（触发后 1 秒）所需的信息就藏在声学特征里——不需要词汇语义。95% 的抑制率证明这个假设大体成立，也划出了边界（纯声学不够的场景在边界一节）。
+  - generic [ref=f301e37]:
+    - img [ref=f301e38]:
+      - generic [ref=f301e40]: 流式 Transformer 双任务：触发检测 + 误触发缓解，一个编码器全包
+      - generic [ref=f301e41]: ① 两阶段 VTD 的残余误报 + 传统 FTM 的两块绊脚石
+      - generic [ref=f301e43]: 两阶段 VTD：低算力常开模型出候选 + 大模型二次验证——即便如此，声学相似的音频段仍会错误激活助手（残余误报）
+      - generic [ref=f301e44]: 误触发缓解（FTM）用触发后音频判断用户意图——但传统方案靠 ASR 词格提取语言信息：设备端跑不动，上云有隐私问题（意外语音被发到云端）
+      - generic [ref=f301e46]: ASR 太贵
+      - generic [ref=f301e47]: 完整 ASR 解码计算代价高昂，端侧装不下；服务器端 ASR 则把用户意外
+      - generic [ref=f301e48]: 语音查询送云——隐私红线（Apple 的立场）
+      - generic [ref=f301e50]: 两任务两套账
+      - generic [ref=f301e51]: VTD 与 FTM 各自独立建模的话：音频被编码两遍、内存与延迟翻倍
+      - generic [ref=f301e52]: ——端侧预算装不起两份
+      - generic [ref=f301e54]: 本文的问题句
+      - generic [ref=f301e55]: 能否用一个流式模型同时做 VTD + FTM，仅用声学特征（不依赖 ASR），
+      - generic [ref=f301e56]: 设备端硬件高效推理，精度还不掉？
+      - generic [ref=f301e57]: ② 联合架构：共享 TF 编码器 + 音素分支 + 短语判别分支
+      - generic [ref=f301e60]: 音频流
+      - generic [ref=f301e61]: 声学特征
+      - generic [ref=f301e62]: （无 ASR）
+      - generic [ref=f301e64]: TF 编码器骨干（共享）
+      - generic [ref=f301e65]: 流式自注意力（块处理）
+      - generic [ref=f301e66]: 有限上下文 · 因果
+      - generic [ref=f301e67]: K/V 缓存复用
+      - generic [ref=f301e69]: 音素转录分支（VTD）
+      - generic [ref=f301e70]: CTC 损失
+      - generic [ref=f301e71]: 触发短语音素序列判断
+      - generic [ref=f301e73]: 短语判别分支（FTM）
+      - generic [ref=f301e74]: 帧级 CE 损失 + uniLSTM
+      - generic [ref=f301e75]: 触发后音频意图判断
+      - generic [ref=f301e79]: TF 解码器（仅训练）
+      - generic [ref=f301e80]: 正则化编码器
+      - generic [ref=f301e81]: 推理时不加载
+      - generic [ref=f301e83]: FTM 直接复用 VTD 已处理的音频上下文——共享编码器 = 共享计算，不重算
+      - generic [ref=f301e84]: ③ 三项流式改造
+      - generic [ref=f301e86]: 流式自注意力
+      - generic [ref=f301e87]: 块处理：Q 只看当前 S 帧
+      - generic [ref=f301e88]: K/V 含前块 S 帧（B=2S）
+      - generic [ref=f301e90]: 帧级 CE 替代 CTC
+      - generic [ref=f301e91]: 每帧二分类，去空白标签
+      - generic [ref=f301e92]: 强制对齐取帧级标签
+      - generic [ref=f301e94]: uniLSTM 补上下文
+      - generic [ref=f301e95]: 有限窗口外的历史
+      - generic [ref=f301e96]: 单向保因果
+      - generic [ref=f301e98]: 95%
+      - generic [ref=f301e99]: 误触发抑制 @1s 触发后音频
+      - generic [ref=f301e100]: −18%
+      - generic [ref=f301e101]: VTD 的 FRR 相对降低
+      - generic [ref=f301e102]: −32%
+      - generic [ref=f301e103]: 运行时内存 vs 非流式
+      - generic [ref=f301e104]: −56%
+      - generic [ref=f301e105]: 推理时间 vs 非流式
+      - generic [ref=f301e106]: O(n)
+      - generic [ref=f301e107]: 资源增长（原 O(n²)）
+      - generic [ref=f301e108]: Apple · arXiv 2105.06598；实测于真实 Apple 设备（处理 1 秒触发后音频）；生产系统——数据细节未公开；数字为约值
+    - generic [ref=f301e109]: 图1 · 机制全景：上半是两阶段 VTD 残余误报与传统 FTM 的两块绊脚石，中段是联合架构图（共享编码器 + 双分支 + 仅训练的解码器），底部是三项流式改造与关键数字。
+  - heading "§02 方法：块处理 + 损失选型" [level=2] [ref=f301e110]:
+    - generic [ref=f301e111]: §02
+    - text: 方法：块处理 + 损失选型
+  - generic [ref=f301e112]: Q/K/V 不对称窗口 · 帧级 CE 的判别逻辑
+  - generic [ref=f301e113]:
+    - generic [ref=f301e114]: "块处理: B = 2S（块移位 S = B 的一半） 第 i 块: Q_i = 当前 S 帧 ← 只出查询（省计算） K_i, V_i = 前块 S 帧 + 当前 S 帧 ← 带历史上下文 损失: VTD 分支 = CTC（音素转录） FTM 分支 = 帧级 CE（每帧二分类 · 强制对齐标签）+ uniLSTM 解码器 = CE（仅训练，正则化编码器）"
+    - generic [ref=f301e115]: 人话：每处理一块，查询只问「这 S 帧是什么」但可以翻「前 S 帧加当前 S 帧」的笔记——上下文不丢、计算不爆。相邻块重叠一半，帧的信息被平滑衔接。CTC 的灵活性（空白、合并）对判别是噪声，帧级 CE 的硬对齐才是 FTM 要的形状。
+  - generic [ref=f301e116]:
+    - generic [ref=f301e117]:
+      - heading "训练/推理一致性" [level=3] [ref=f301e118]
+      - paragraph [ref=f301e119]: 训练时用注意力掩码（因果 + 限窗）模拟流式行为——离线训练看到的上下文结构与在线推理完全相同。这条纪律在多篇论文反复出现（cf. 流式 SLU 的分块一致性）：分布错配会白丢精度。
+    - generic [ref=f301e120]:
+      - heading "解码器的免费午餐" [level=3] [ref=f301e121]
+      - paragraph [ref=f301e122]: 训练时挂一个自回归 TF 解码器（CE 损失）迫使编码器学出更丰富的声学表示——推理时整个不加载。训完即扔的辅助头换表示质量，与流式 SLU 的 CTC 辅助同构：辅助监督的收益留在骨干里。
+  - generic [ref=f301e123]:
+    - img [ref=f301e124]:
+      - generic [ref=f301e126]: 机制解剖：块处理的因果注意力 · CTC 换帧级 CE 的理由
+      - generic [ref=f301e127]: 流式自注意力的块处理
+      - generic [ref=f301e129]: 帧流 →
+      - generic [ref=f301e131]: "1"
+      - generic [ref=f301e133]: "2"
+      - generic [ref=f301e135]: "3"
+      - generic [ref=f301e137]: "4"
+      - generic [ref=f301e139]: "5"
+      - generic [ref=f301e141]: "6"
+      - generic [ref=f301e143]: "7"
+      - generic [ref=f301e145]: "8"
+      - generic [ref=f301e147]: Q：当前块 S 帧
+      - generic [ref=f301e149]: K/V：前块 S + 当前 S（B=2S）
+      - generic [ref=f301e150]: 块移位 S = B/2：相邻块重叠一半——每帧
+      - generic [ref=f301e151]: 都被算两次查询但 K/V 只缓存一次
+      - generic [ref=f301e152]: 训练时用注意力掩码模拟流式（因果 + 限窗）
+      - generic [ref=f301e153]: ——离线训练与在线推理行为一致
+      - generic [ref=f301e154]: 未来帧永远不进 K/V——纯因果
+      - generic [ref=f301e155]: 损失选型：CTC vs 帧级 CE
+      - generic [ref=f301e157]: 短语判别分支为什么弃 CTC
+      - generic [ref=f301e158]: CTC 的 blank 标签机制：允许任意位置插入空白、
+      - generic [ref=f301e159]: 相邻重复合并——对转录是福音，对判别是灾难：
+      - generic [ref=f301e160]: 「触发后音频」里的空白歧义让帧级判断变糊
+      - generic [ref=f301e161]: 帧级 CE：每帧独立二分类（目标短语 / 非目标），
+      - generic [ref=f301e162]: 标签由强制对齐获取——时间边界定位更精确
+      - generic [ref=f301e163]: 消融：帧级 CE 在 FTM 上显著优于 CTC；
+      - generic [ref=f301e164]: 去 uniLSTM 层 → FTM 掉 2–3%（历史上下文的价值）
+      - generic [ref=f301e165]: 训练正则：TF 解码器只训不推——白拿的表示增益
+      - generic [ref=f301e166]: 左：块处理的核心是查询与键值的不对称窗口——Q 只出当前 S 帧（省计算），K/V 带上前块 S 帧（保上下文），重叠移位让信息不丢。右：CTC 的灵活性对判别任务是负资产，帧级 CE 的硬对齐才是 FTM 要的形状
+    - generic [ref=f301e167]: 图2 · 机制解剖：左是块处理的帧时间线（Q 窗口只含当前 S 帧、K/V 窗口含前块+当前），右是 CTC 弃用的机理与 uniLSTM 的贡献消融。
+  - heading "§03 实验：声学特征够用" [level=2] [ref=f301e168]:
+    - generic [ref=f301e169]: §03
+    - text: 实验：声学特征够用
+  - generic [ref=f301e170]: FTM 抑制率 · 硬件实测 · 消融
+  - generic [ref=f301e171]:
+    - img [ref=f301e172]:
+      - generic [ref=f301e174]: 主结果：1 秒触发后音频抑制 95% 误触发
+      - generic [ref=f301e175]: FTM：触发后音频长度 vs 抑制率
+      - generic [ref=f301e176]: "75"
+      - generic [ref=f301e177]: "80"
+      - generic [ref=f301e178]: "85"
+      - generic [ref=f301e179]: "90"
+      - generic [ref=f301e180]: "95"
+      - generic [ref=f301e181]: "100"
+      - generic [ref=f301e184]: ~85%
+      - generic [ref=f301e185]: 0.5 秒
+      - generic [ref=f301e187]: ~95%
+      - generic [ref=f301e188]: 1.0 秒
+      - generic [ref=f301e189]: 触发后音频长度 →
+      - generic [ref=f301e190]: 读数：
+      - generic [ref=f301e191]: · 仅 1 秒触发后音频 → 95% 误触发抑制——短上下文
+      - generic [ref=f301e192]: 已含充分判别信息，不需要完整 ASR 解码
+      - generic [ref=f301e193]: · 仅声学特征的充分性：对短时意图判别，声学够了
+      - generic [ref=f301e194]: · VTD 侧：FRR 相对降低 18%（固定 FA 率下）
+      - generic [ref=f301e195]: 硬件效率（真实 Apple 设备）
+      - generic [ref=f301e197]: 处理 1s 触发后音频 vs 非流式
+      - generic [ref=f301e198]: 运行时内存
+      - generic [ref=f301e200]: −32%
+      - generic [ref=f301e201]: 推理时间
+      - generic [ref=f301e203]: −56%
+      - generic [ref=f301e204]: 资源增长：非流式 O(n²) → 流式 O(n)
+      - generic [ref=f301e206]: 消融与证据边界
+      - generic [ref=f301e207]: · 流式 SA 在 VTD 上损失很小；FTM 上流式 SA + uniLSTM
+      - generic [ref=f301e208]: 甚至优于 vanilla SA（双向）
+      - generic [ref=f301e209]: · 去 uniLSTM：FTM 掉 2–3%
+      - generic [ref=f301e210]: · 生产数据未公开——复现性受限
+      - generic [ref=f301e211]: · 未与 Emformer / Blockformer 等流式变体对比
+      - generic [ref=f301e212]: · 误触发类型未细分（电视/宠物/相似短语）
+      - generic [ref=f301e213]: · 无绝对延迟值与端到端延迟分析
+      - generic [ref=f301e214]: 注：FTM 指标 = 额外使用指定长度触发后音频时能正确抑制的误触发比例；VTD 指标 = 固定误报警率下的误拒绝率（FRR）相对降低；数字为约值
+    - generic [ref=f301e215]: 图3 · 主结果：左是触发后音频长度与误触发抑制率的关系（1 秒 → 95%），右是真实 Apple 设备上的硬件实测与消融、证据边界。
+  - table [ref=f301e216]:
+    - rowgroup [ref=f301e217]:
+      - row [ref=f301e218]:
+        - columnheader "评测线" [ref=f301e219]
+        - columnheader "结果（约值）" [ref=f301e220]
+        - columnheader "解读" [ref=f301e221]
+      - row [ref=f301e222]:
+        - cell "FTM 抑制率" [ref=f301e223]
+        - cell "1s 触发后音频 → 95%" [ref=f301e224]
+        - cell "短上下文 + 纯声学够用" [ref=f301e225]
+      - row [ref=f301e226]:
+        - cell "VTD FRR" [ref=f301e227]
+        - cell "相对降 18%（固定 FA 率）" [ref=f301e228]
+        - cell "联合训练反哺主任务" [ref=f301e229]
+      - row [ref=f301e230]:
+        - cell "运行时内存" [ref=f301e231]
+        - cell "−32%（vs 非流式）" [ref=f301e232]
+        - cell "K/V 缓存 + 块处理" [ref=f301e233]
+      - row [ref=f301e234]:
+        - cell "推理时间" [ref=f301e235]
+        - cell "−56%" [ref=f301e236]
+        - cell "同上" [ref=f301e237]
+      - row [ref=f301e238]:
+        - cell "资源增长" [ref=f301e239]
+        - cell "O(n²) → O(n)" [ref=f301e240]
+        - cell "任意长触发后音频可处理" [ref=f301e241]
+      - row [ref=f301e242]:
+        - cell "流式 SA + uniLSTM" [ref=f301e243]
+        - cell "FTM 上优于 vanilla SA" [ref=f301e244]
+        - cell "有限窗口 + 长历史 > 双向全局" [ref=f301e245]
+  - generic [ref=f301e246]:
+    - generic [ref=f301e247]: 读表要点
+    - listitem [ref=f301e248]: ◈ 最有产品含义的发现：1 秒触发后音频 + 纯声学特征 → 95% 误触发抑制——短时意图判别的信息密度足够高，完整 ASR 是杀鸡用牛刀。「简单专注的声学模型可能比复杂多模块系统更实用」。
+    - listitem [ref=f301e249]: ◈ 反直觉的消融：FTM 上流式 SA + uniLSTM 优于双向 vanilla SA——有限窗口 + 长程递归的组合胜过全局注意力；uniLSTM 的持续状态恰是意图判断需要的「累积证据」机制。
+    - listitem [ref=f301e250]: ◈ 证据边界：生产数据保密（复现性受限）；未与 Emformer/Blockformer 等流式变体对比；误触发类型未细分；无绝对延迟值——引用相对百分比时注意这些前提。
+  - heading "§04 贡献" [level=2] [ref=f301e251]:
+    - generic [ref=f301e252]: §04
+    - text: 贡献
+  - generic [ref=f301e253]: 五点：从流式架构到隐私方案
+  - generic [ref=f301e254]:
+    - generic [ref=f301e255]:
+      - generic [ref=f301e256]: "1"
+      - paragraph [ref=f301e257]: 流式 TF 编码器架构：首次把流式自注意力用于 VTD + FTM 联合任务——块处理 + 注意力掩码实现因果流式，性能与双向注意力模型相当。
+    - generic [ref=f301e258]:
+      - generic [ref=f301e259]: "2"
+      - paragraph [ref=f301e260]: 统一 VTD 与 FTM：单模型双任务，FTM 复用 VTD 的上下文编码不重算——文献中首个设备端流式双任务方案。
+    - generic [ref=f301e261]:
+      - generic [ref=f301e262]: "3"
+      - paragraph [ref=f301e263]: 帧级 CE 替代 CTC：消除空白标签歧义，提升 FTM 判别精度——损失函数要贴任务的输出结构选。
+    - generic [ref=f301e264]:
+      - generic [ref=f301e265]: "4"
+      - paragraph [ref=f301e266]: 硬件效率量级提升：内存 −32%、推理 −56%、O(n²)→O(n)——实测于真实设备而非纸面推断。
+    - generic [ref=f301e267]:
+      - generic [ref=f301e268]: "5"
+      - paragraph [ref=f301e269]: 消除服务器 ASR 依赖：仅声学特征、完全端侧——从根本上解决隐私问题（Apple 的核心诉求）。
+  - heading "§05 局限与判断" [level=2] [ref=f301e270]:
+    - generic [ref=f301e271]: §05
+    - text: 局限与判断
+  - generic [ref=f301e272]: 因果信息损失 · 块大小调优 · 纯声学边界
+  - generic [ref=f301e273]:
+    - img [ref=f301e274]:
+      - generic [ref=f301e276]: 边界与延伸
+      - generic [ref=f301e278]: 技术边界
+      - generic [ref=f301e279]: · 因果注意力的信息损失：仅左侧上下文——需要双向信息的复杂场景
+      - generic [ref=f301e280]: （如强噪声下的确认）可能仍不及双向模型；uniLSTM 只部分弥补
+      - generic [ref=f301e281]: · 块大小 B 的调优开销：过小丢上下文、过大增延迟内存——无系统性
+      - generic [ref=f301e282]: 选择指南，换任务要重扫
+      - generic [ref=f301e283]: · 训练复杂性：CTC + 帧级 CE + 解码器 CE 三损失联合——权重调优难
+      - generic [ref=f301e284]: · uniLSTM 序列依赖：限制并行化——NPU 等加速器上可能成瓶颈
+      - generic [ref=f301e285]: · 仅声学特征：无语言层信息——「对助手还是对人说话」这类需要
+      - generic [ref=f301e286]: 语义理解的 FTM 场景可能不够
+      - generic [ref=f301e288]: 实验边界 + 延伸
+      - generic [ref=f301e289]: · 生产系统数据保密——外部无法复现验证
+      - generic [ref=f301e290]: · 未与 Emformer / Blockformer / 流式 Conformer 对比
+      - generic [ref=f301e291]: · 误触发类型未细分（难度差异可能很大）
+      - generic [ref=f301e292]: · 无绝对延迟与端到端系统延迟分析
+      - generic [ref=f301e293]: 延伸：轻量设备端语言模型融合（补语义）；自适应上下文窗口
+      - generic [ref=f301e294]: （按音频复杂度调 B）；线性/低秩注意力再降复杂度；多语言
+      - generic [ref=f301e295]: 多触发短语；与唤醒词+命令词识别统一
+      - generic [ref=f301e296]: 可迁移判断：硬件效率应是与精度同级的优化目标（论文的工程立场）；简单专注的声学模型可能比复杂多模块系统更实用——1 秒上下文 + 声学特征就够 95% 的意图判断
+    - generic [ref=f301e297]: 图4 · 边界与延伸：左技术边界（因果注意力信息损失、块大小无选择指南、三损失调参、uniLSTM 并行化、纯声学无语义），右实验边界（数据保密、无流式变体横比、误触发未细分、无绝对延迟）+ 延伸方向。
+  - generic [ref=f301e298]:
+    - generic [ref=f301e299]: 可迁移判断
+    - paragraph [ref=f301e300]: ↳ 硬件效率是与精度同级的优化目标：本文把内存与推理时间当一级指标实测在真机上——端侧论文只报参数量是「推断可行」，报实测数字才是「证明可行」。
+    - paragraph [ref=f301e301]: ↳ 判别任务别用为对齐设计的损失：CTC 的空白与合并机制为「输出比输入短」的转录设计——判别要的是每帧的明确归属。损失函数的灵活性对判别是负资产。
+    - paragraph [ref=f301e302]: ↳ 有限窗口 + 长程递归可以胜过全局注意力：流式 SA + uniLSTM 在 FTM 上赢过双向 SA——意图判断需要的是累积证据（递归状态）而非全局对照；选上下文机制要看任务的信息利用方式。
+    - paragraph [ref=f301e303]: ↳ 简单专注 > 复杂堆叠：95% 抑制率证明短时意图判别不需要全套 ASR——先验证「最小充分特征集」，再决定上什么模块；很多「必须复杂」的直觉只是没试过简单方案。
+  - generic [ref=f301e304]:
+    - link "arXiv 2105.06598 ↗" [ref=f301e305] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2105.06598
+    - link "← 返回总目录" [ref=f301e306] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f301e307]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值（Apple 生产数据未公开）· 2021 №21 · 206+/305
