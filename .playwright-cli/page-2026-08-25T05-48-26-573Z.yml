@@ -1,0 +1,292 @@
+- generic [active] [ref=f216e1]:
+  - generic [ref=f216e2]:
+    - link "← 返回论文列表" [ref=f216e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f216e4]: 论文精读 · 可视化版 · 2022 №21
+    - heading "两成标注追平全标注： SSL 红利第一次落到 5M 级小模型" [level=1] [ref=f216e5]: 两成标注追平全标注：SSL 红利第一次落到 5M 级小模型
+    - generic [ref=f216e6]:
+      - generic [ref=f216e7]: Data2Vec-KWS · ICASSP 2023 SASB Workshop
+      - generic [ref=f216e8]: 奥尔堡大学
+      - generic [ref=f216e9]: 非对比式自监督预训练
+      - generic [ref=f216e10]: KWT 0.6–5.4M · GSC V2
+    - generic [ref=f216e11]: 通用 SSL 的算力门槛把最需要省标注的 KWS 小模型挡在门外——本文用单块 T40 + 10 小时证明：80% 无标注预训练 + 20% 标注微调 ≈ 100% 标注训练。
+    - generic [ref=f216e12]:
+      - heading "一分钟版本" [level=3] [ref=f216e13]
+      - list [ref=f216e14]:
+        - listitem [ref=f216e15]: ▸ 错位：KWS 小模型常驻端侧、标注贵（唤醒词位置/边界/有无都要人工判定，换词表就重采）；而现有 SSL 主攻通用大模型（数亿参数、数周 GPU）——红利与需求刚好错开。蒸馏路线也没解决：先训大教师本身就走不通。
+        - listitem [ref=f216e16]: ▸ 基座：KWT（GSC 上的 SOTA transformer）三档 0.6M/2.4M/5.4M；小改动——均值池化替代 CLS token（语音 1 秒里关键词可在任意位置，均值对位置不敏感、每个时间步都接受梯度）。
+        - listitem [ref=f216e17]: ▸ Data2Vec 机制：教师 = 学生的 EMA 影子（解决自举悖论）；学生看 65% 掩码输入，回归教师对完整输入顶部 K 层隐藏状态的均值（MSE）；非对比式无需负样本——小模型容量有限，把大量负例推开的约束可能过度消耗容量。
+        - listitem [ref=f216e18]: ▸ 公平性：监督基线也用 SpecAugment——SSL 增益不能归因于增强差异。
+        - listitem [ref=f216e19]: ▸ 主结果：三档模型 SC 预训练 +8.22/+9.23/+11.16 个绝对点；无预训练时最大的 KWT-3 反而最差（84.11% < 85.84%）——16,969 条标注约束不住 5.4M 参数，预训练把「模型容量」从负债变回资产。
+        - listitem [ref=f216e20]: ▸ 最有说服力的对比：SC 预训练 + 20% 标注 ≈ 100% 标注纯监督（KWT-2 95.07 vs 94.98，KWT-3 95.27 vs 90.79）——五分之四的标注工作量可被无标注数据抵消。
+        - listitem [ref=f216e21]: ▸ 跨域几乎免费：Librispeech 有声书 vs 命令词域的预训练差异仅 0.32–0.52 点——低资源语言可借任意同语言无标注音频（有声书/播客）绕开死循环。
+        - listitem [ref=f216e22]: ▸ 冻结惨败：冻结预训练权重只训分类头只有 0.43–0.50——回归目标塑造的表征是为重建服务的中间量，不保证类别线性可分；必须全参数微调。
+        - listitem [ref=f216e23]: ▸ 叠加收益：100% 标注 + LS 预训练全部破 97%，三档模型几乎拉平（差 0.03 点）——数据充足时预训练依然加分。
+        - listitem [ref=f216e24]: ▸ 成本：单块 T40，最大模型预训练约 10h、微调约 1h——比大模型 SSL 路线低一个数量级；代码开源。
+    - heading "§01 问题：SSL 的门槛与 KWS 的需求错开" [level=2] [ref=f216e25]:
+      - generic [ref=f216e26]: §01
+      - text: 问题：SSL 的门槛与 KWS 的需求错开
+    - generic [ref=f216e27]: 小模型 + 标签稀缺 + KWS 的三者交集此前无人系统实证
+    - paragraph [ref=f216e28]: KWS 在语音助手架构里是「小系统常驻唤醒 + 大 ASR 按需启动」的守门人——模型要小要省电，准确率却不能降。深度 KWS 的标注成本尤其难摊薄：通用 ASR 可以半自动粗转写再人工校对，KWS 要对每个唤醒词的出现位置、边界、有无做精确判定，负样本（非唤醒词/静音/噪声）也要覆盖充分——商业唤醒词还是定制词表，每换一个产品名就得重采，标注成本反复发生。
+    - generic [ref=f216e29]:
+      - generic [ref=f216e30]:
+        - heading "大模型 SSL 的双重不可行" [level=4] [ref=f216e31]
+        - paragraph [ref=f216e32]: 算力上：多数团队没有几周 GPU 预算花在一个唤醒词模型上；产品上：KWS 只要单一任务极致轻量，与「一个模型打多个下游」（SUPERB 范式）的方向相悖。
+      - generic [ref=f216e33]:
+        - heading "小模型做 SSL 的历史疑虑" [level=4] [ref=f216e34]
+        - paragraph [ref=f216e35]: 学界默认小模型容量不足、自监督代理任务容易过拟合——图像域已有反证（对比式 SSL 直接训 2.5–11M 小模型成功），但语音域、非对比式的答案此前空白。
+    - heading "§02 方法：Data2Vec 落到 KWT 上" [level=2] [ref=f216e36]:
+      - generic [ref=f216e37]: §02
+      - text: 方法：Data2Vec 落到 KWT 上
+    - generic [ref=f216e38]: 范式可行性的严格验证，而非新算法
+    - generic [ref=f216e39]:
+      - img [ref=f216e40]:
+        - generic [ref=f216e42]: Data2Vec-KWS：SSL 的红利，第一次落到 5M 级小模型头上
+        - generic [ref=f216e43]: ① 错位：最需要省标注的 KWS 小模型，反而没吃到 SSL 红利
+        - generic [ref=f216e45]: 三条老路的死角
+        - generic [ref=f216e46]: 通用大模型 SSL（wav2vec2.0/WavLM）：数亿参数、多块高端
+        - generic [ref=f216e47]: GPU、数周训练——预训练本身的成本就挡住大多数应用方
+        - generic [ref=f216e48]: 知识蒸馏：先训大教师再蒸小模型——算力成本只是被推迟
+        - generic [ref=f216e49]: 小模型做 SSL 的历史疑虑：容量不足会过拟合代理任务？
+        - generic [ref=f216e50]: （图像域有反证 [11]，语音域非对比式仍无答案）
+        - generic [ref=f216e52]: 本文的成本主张
+        - generic [ref=f216e53]: 模型 ≤5.4M；全部实验在 10 核 CPU + 40GB 内存 +
+        - generic [ref=f216e54]: 单块 T40（16GB）虚拟机上完成
+        - generic [ref=f216e55]: 最大模型预训练约 10 小时、微调约 1 小时
+        - generic [ref=f216e56]: ——比大模型 SSL 路线低一个数量级；高校实验室可复现
+        - generic [ref=f216e57]: "代码开源（GitHub: HolgerBovbjerg/data2vec-KWS）"
+        - generic [ref=f216e58]: ② 基座：KWT + 一个小改动（均值池化替代 CLS token）
+        - generic [ref=f216e60]: MFCC 40 维
+        - generic [ref=f216e61]: 30ms 窗/10ms 移
+        - generic [ref=f216e62]: SSL 收益不依赖花哨前端
+        - generic [ref=f216e64]: 线性投影
+        - generic [ref=f216e65]: → transformer 输入维
+        - generic [ref=f216e66]: （对应 ViT patch emb
+        - generic [ref=f216e67]: edding）
+        - generic [ref=f216e69]: 12× transformer 块
+        - generic [ref=f216e70]: "KWT-1: 0.6M"
+        - generic [ref=f216e71]: "KWT-2: 2.4M · KWT"
+        - generic [ref=f216e72]: "-3: 5.4M"
+        - generic [ref=f216e74]: 均值池化 ★
+        - generic [ref=f216e75]: 各时间步编码均值
+        - generic [ref=f216e76]: 替代 CLS token（两种条件
+        - generic [ref=f216e77]: 下都更好）
+        - generic [ref=f216e79]: MLP 分类头
+        - generic [ref=f216e80]: 输出 35 类后验
+        - generic [ref=f216e81]: 预训练时换成线性回归头
+        - generic [ref=f216e82]: 为什么均值池化在语音上更优：ViT 图像块无天然读序需要 CLS 聚合；语音 1 秒里关键词可在任意位置——均值对位置不敏感，
+        - generic [ref=f216e83]: 每个时间步都接受分类头梯度（训练信号更密）；CLS 只在一个位置受监督，小模型小数据下更难训好
+        - generic [ref=f216e84]: ③ Data2Vec：非对比式、自蒸馏——学生从残缺预测教师的完整表示
+        - generic [ref=f216e86]: 三件事
+        - generic [ref=f216e87]: ① 教师 = 同架构副本，权重是学生的 EMA——解决自举悖论
+        - generic [ref=f216e88]: （目标若由训练中的模型自生成会漂移/塌缩；EMA 移动慢于
+        - generic [ref=f216e89]: 学生，目标既有「更强版本」的质量又相对稳定）
+        - generic [ref=f216e90]: ② 回归式而非对比式：yt = (1/K) Σ 顶部 K 层归一化隐藏状态
+        - generic [ref=f216e91]: （式1，多层平均比单层目标更平滑）；损失 MSE
+        - generic [ref=f216e92]: ③ 时域掩码 65%（远高于 BERT 的 15%）——语音帧冗余度高，
+        - generic [ref=f216e93]: 低掩码率下任务太容易，学生不被迫学深层结构
+        - generic [ref=f216e94]: 无需负样本——小模型容量有限，对比学习「把大量负例推
+        - generic [ref=f216e95]: 开」的约束可能过度消耗容量
+        - generic [ref=f216e97]: 训练配方与公平性
+        - generic [ref=f216e98]: 监督基线：CE + SpecAugment + 140 epoch + AdamW(1e-3)
+        - generic [ref=f216e99]: + 10 epoch 线性预热 + 余弦退火
+        - generic [ref=f216e100]: 预训练：MSE + Adam(0.5e-3) + 1-cycle + 200 epoch +
+        - generic [ref=f216e101]: EMA 退火 1000 步；超参大多沿袭原版 Data2Vec
+        - generic [ref=f216e102]: 公平性关键：监督基线也用 SpecAugment——SSL 增益不能
+        - generic [ref=f216e103]: 被归因于数据增强差异
+        - generic [ref=f216e104]: 「换头」衔接：预训练时分类头 → 线性回归头（预测教师隐
+        - generic [ref=f216e105]: 藏态）；微调时换回分类头全参数更新——预训练学的是编码
+        - generic [ref=f216e106]: 器内部表征，与下游分类解耦
+        - generic [ref=f216e108]: +8~11
+        - generic [ref=f216e109]: 绝对准确率提升（三档全成立）
+        - generic [ref=f216e110]: 20% ≈ 100%
+        - generic [ref=f216e111]: 标注微调追平全量标注训练
+        - generic [ref=f216e112]: 0.3~0.5
+        - generic [ref=f216e113]: 跨域预训练的收益损失（点）
+        - generic [ref=f216e114]: 10h
+        - generic [ref=f216e115]: 最大模型预训练（单块 T40）
+        - generic [ref=f216e116]: "0.43"
+        - generic [ref=f216e117]: 冻结特征提取的惨败值（KWT-1）
+        - generic [ref=f216e118]: 数据：GSC V2 105,829 条 35 词——80% 切走当无标注预训练集（18.8h），只留 20%（4.7h / 16,969 条）做标注；总数据量不变，精确模拟「数据很多但标注预算只够两成」
+      - paragraph [ref=f216e119]: 图1 · 机制全景：SSL 红利与 KWS 需求的错位 + 本文成本主张（单块 T40 / 10h）；KWT 基座与均值池化改动；Data2Vec 三件事（EMA 教师 / 回归式目标 / 65% 掩码）与训练配方的公平性设计。
+  - generic [ref=f216e120]:
+    - generic [ref=f216e121]: y_t = (1/K) Σ(l=L−K+1..L) ĥ_l^t ； 学生(mini MSE)：预测掩码输入的教师隐藏态；教师 = EMA(学生)
+    - generic [ref=f216e122]: 人话：教师对完整输入算出的顶部 K 层隐藏态（归一化后取平均）是回归目标；学生对65% 掩码的输入做同样的事——「从残缺信息预测教师对完整输入的内部表示」。为什么顶部多层平均：单层目标容易让模型只模仿某一层的表征偏好，多层平均更平滑；为什么掩码 65% 远高于 BERT 的 15%：语音帧冗余度高，低掩码率下任务太容易。
+  - paragraph [ref=f216e123]: 协议设计本身是贡献：把 GSC V2 训练集随机切走 80%（18.8h）当无标注预训练集，只留 20%（4.7h / 16,969 条）做标注——总数据量不变，精确模拟「数据很多但标注预算只够两成」，使对比在信息总量上公平。另用 Librispeech 100h 干净集做跨域预训练对照。
+  - heading "§03 实验：四个子问题的完整闭环" [level=2] [ref=f216e124]:
+    - generic [ref=f216e125]: §03
+    - text: 实验：四个子问题的完整闭环
+  - generic [ref=f216e126]: 小模型能否获益 / 80+20 能否追平 100 / 跨域是否有效 / 冻结是否可行
+  - generic [ref=f216e127]:
+    - img [ref=f216e128]:
+      - generic [ref=f216e130]: 主结果（Table 2 · 只用 20% 标注）+ 反直觉的基线
+      - generic [ref=f216e131]: "82"
+      - generic [ref=f216e132]: "86"
+      - generic [ref=f216e133]: "90"
+      - generic [ref=f216e134]: "94"
+      - generic [ref=f216e135]: "98"
+      - generic [ref=f216e139]: "85.72"
+      - generic [ref=f216e140]: "93.94"
+      - generic [ref=f216e141]: "94.26"
+      - generic [ref=f216e142]: KWT-1（0.6M）
+      - generic [ref=f216e144]: SC 预训练 +8.22 点
+      - generic [ref=f216e148]: "85.84"
+      - generic [ref=f216e149]: "95.07"
+      - generic [ref=f216e150]: "94.55"
+      - generic [ref=f216e151]: KWT-2（2.4M）
+      - generic [ref=f216e153]: SC 预训练 +9.23 点
+      - generic [ref=f216e157]: "84.11"
+      - generic [ref=f216e158]: "95.27"
+      - generic [ref=f216e159]: "94.76"
+      - generic [ref=f216e160]: KWT-3（5.4M）
+      - generic [ref=f216e162]: SC 预训练 +11.16 点
+      - generic [ref=f216e164]: 无预训练基线
+      - generic [ref=f216e166]: SC 预训练（同域 18.8h）
+      - generic [ref=f216e168]: LS 预训练（跨域 100h）
+      - generic [ref=f216e169]: 两个读数：① 无预训练时最大的 KWT-3（84.11%）反而最差——16,969 条标注约束不住 5.4M 参数，过拟合；预训练把「模型容量」从负债变回资产（KWT-3 预训练后最佳）
+      - generic [ref=f216e170]: ② 跨域几乎不损失：LS（朗读有声书）与 SC（命令词）差异仅 0.32–0.52 点——低资源语言可直接借有声书/播客等任意无标注音频预训练
+    - paragraph [ref=f216e171]: 图2 · 主结果（Table 2 · 只用 20% 标注）：三档模型基线 vs SC/LS 预训练 +8~11 点；无预训练时最大模型反而最差（过拟合）；跨域预训练几乎不损失收益（0.32–0.52 点）。
+  - table [ref=f216e172]:
+    - rowgroup [ref=f216e173]:
+      - row [ref=f216e174]:
+        - columnheader "模型" [ref=f216e175]
+        - columnheader "参数量" [ref=f216e176]
+        - columnheader "基线（20% 标注）" [ref=f216e177]
+        - columnheader "SC 预训练" [ref=f216e178]
+        - columnheader "LS 预训练" [ref=f216e179]
+      - row [ref=f216e180]:
+        - cell "KWT-1" [ref=f216e181]
+        - cell "0.6M" [ref=f216e182]
+        - cell "85.72" [ref=f216e183]
+        - cell "93.94（+8.22）" [ref=f216e184]
+        - cell "94.26" [ref=f216e185]
+      - row [ref=f216e186]:
+        - cell "KWT-2" [ref=f216e187]
+        - cell "2.4M" [ref=f216e188]
+        - cell "85.84" [ref=f216e189]
+        - cell "95.07（+9.23）" [ref=f216e190]
+        - cell "94.55" [ref=f216e191]
+      - row [ref=f216e192]:
+        - cell "KWT-3" [ref=f216e193]
+        - cell "5.4M" [ref=f216e194]
+        - cell "84.11" [ref=f216e195]
+        - cell "95.27（+11.16）" [ref=f216e196]
+        - cell "94.76" [ref=f216e197]
+  - generic [ref=f216e198]:
+    - img [ref=f216e199]:
+      - generic [ref=f216e201]: 最有说服力的一组（Table 3）：20% 标注 + 预训练 ≈ 100% 标注
+      - generic [ref=f216e202]: "40"
+      - generic [ref=f216e203]: "55"
+      - generic [ref=f216e204]: "70"
+      - generic [ref=f216e205]: "85"
+      - generic [ref=f216e206]: "100"
+      - generic [ref=f216e208]: "85.72"
+      - generic [ref=f216e210]: "85.84"
+      - generic [ref=f216e212]: "84.11"
+      - generic [ref=f216e213]: 随机初始化 + 20
+      - generic [ref=f216e214]: "% 标注"
+      - generic [ref=f216e216]: "93.94"
+      - generic [ref=f216e218]: "95.07"
+      - generic [ref=f216e220]: "95.27"
+      - generic [ref=f216e221]: SC 预训练 + 2
+      - generic [ref=f216e222]: 0% 标注 ★
+      - generic [ref=f216e224]: "42.9"
+      - generic [ref=f216e226]: "49.7"
+      - generic [ref=f216e228]: "49.6"
+      - generic [ref=f216e229]: 冻结预训练权重（SC
+      - generic [ref=f216e230]: "-FE）"
+      - generic [ref=f216e232]: "96.38"
+      - generic [ref=f216e234]: "94.98"
+      - generic [ref=f216e236]: "90.79"
+      - generic [ref=f216e237]: 100% 标注纯监督
+      - generic [ref=f216e239]: "97.13"
+      - generic [ref=f216e241]: "97.16"
+      - generic [ref=f216e243]: "97.16"
+      - generic [ref=f216e244]: 100% 标注 +
+      - generic [ref=f216e245]: LS 预训练
+      - generic [ref=f216e247]: ★ 20% 追平 100%
+      - generic [ref=f216e248]: 每组三柱 = KWT-1 / KWT-2 / KWT-3 · 测试准确率（%）
+      - generic [ref=f216e249]: 读数：① 冻结特征提取惨败（0.43–0.50）——回归目标塑造的表征是为重建服务的中间量，不保证类别线性可分；小模型每维参数被任务压满，必须全参数微调
+      - generic [ref=f216e250]: ② KWT-3 全量标注也只有 90.79%——5 倍标注没治好大模型的过拟合，预训练治好了；③ 叠加全量标注再 +LS 预训练全部破 97%，三档模型几乎拉平（差 0.03 点）
+    - paragraph [ref=f216e251]: 图3 · Table 3 消融：五个条件的完整对比——冻结惨败（0.43–0.50）；SC 预训练 + 20% 标注追平甚至超过 100% 标注（KWT-3 上高 4.48 点）；叠加全量标注再破 97%。
+  - generic [ref=f216e252]:
+    - img [ref=f216e253]:
+      - generic [ref=f216e255]: 成本账 + 边界：确立可行性，也划出清晰的坑
+      - generic [ref=f216e257]: 训练成本对比（定性 + 本文实测）
+      - generic [ref=f216e259]: 大模型 SSL（wav2vec2.0/WavLM）
+      - generic [ref=f216e260]: 数亿参数 · 多块高端 GPU · 数周
+      - generic [ref=f216e262]: 先训大模型再蒸馏
+      - generic [ref=f216e263]: 成本被推迟到「第一次训练」
+      - generic [ref=f216e265]: 本文：Data2Vec-KWS ★
+      - generic [ref=f216e266]: 单块 T40 · 预训练 10h + 微调 1h
+      - generic [ref=f216e267]: 低一个数量级的资源索取——高校实验室可复现
+      - generic [ref=f216e269]: 边界
+      - generic [ref=f216e270]: · 表征不可线性探测：冻结部署形态不兼容——每个新唤醒
+      - generic [ref=f216e271]: 词都得全模型微调，预训练复用价值限于初始化层
+      - generic [ref=f216e272]: · 未触及流式：KWT 全局自注意力天然非流式，搬到常驻唤醒
+      - generic [ref=f216e273]: 还有架构级工作量（后验处理细节论文也未展开）
+      - generic [ref=f216e274]: · 无效率指标：延迟/FLOPs/内存/实时率全无——transformer
+      - generic [ref=f216e275]: 注意力算子在 MCU 上未必比卷积友好
+      - generic [ref=f216e276]: · 超参沿袭大模型配方：65% 掩码率系为大模型设定，小模型
+      - generic [ref=f216e277]: 的掩码率/EMA/目标层数 K 无专门消融（可能有免费空间）
+      - generic [ref=f216e278]: · 单次运行无方差：SC vs LS 的 0.3–0.5 点差可能在随机波动内；
+      - generic [ref=f216e279]: · 单一数据集：GSC 干净近讲，无噪声混响远场；只用准确率，
+      - generic [ref=f216e280]: 无误触发/漏唤醒工作点；无其他 SSL 方法横向对照
+      - generic [ref=f216e282]: 给后续工作的空间与结论一样清晰
+      - generic [ref=f216e283]: · 用最小实验复杂度回答了一个高价值问题
+      - generic [ref=f216e284]: · 价值在「确立可行性 + 划出边界」，非终极方案
+      - generic [ref=f216e285]: · 引申：扫「无标注数据换标注数据」的兑换曲线；
+      - generic [ref=f216e286]: adapter 部分冻结规避全参微调；与量化剪枝正交叠加
+      - generic [ref=f216e287]: ——「预训练省标注、压缩省推理」打通端侧链路
+    - paragraph [ref=f216e288]: 图4 · 成本账与边界：三条路线的训练成本对比；表征不可线性探测、非流式、无效率指标、超参沿袭大模型配方、单次运行无方差等边界。
+  - heading "§04 贡献：五条" [level=2] [ref=f216e289]:
+    - generic [ref=f216e290]: §04
+    - text: 贡献：五条
+  - generic [ref=f216e291]:
+    - generic [ref=f216e292]:
+      - generic [ref=f216e293]: "1"
+      - paragraph [ref=f216e294]: 首次系统证明非对比式 SSL 对小型 KWS 模型有效：三档 0.6–5.4M 全部 +8.22~11.18 点，推翻「SSL 只属于大模型」在 KWS 域的隐含假设。
+    - generic [ref=f216e295]:
+      - generic [ref=f216e296]: "2"
+      - paragraph [ref=f216e297]: 量化了 SSL 对标注预算的替代能力：80% 无标注 + 20% 标注追平甚至超过 100% 标注。
+    - generic [ref=f216e298]:
+      - generic [ref=f216e299]: "3"
+      - paragraph [ref=f216e300]: 证明了预训练数据的域无关性：跨域差异仅 0.32–0.52 点——低资源语言可借任意同语言无标注音频。
+    - generic [ref=f216e301]:
+      - generic [ref=f216e302]: "4"
+      - paragraph [ref=f216e303]: 划定了方法边界：冻结特征提取惨败（0.43–0.50）——小模型 SSL 表征必须全参数微调，不能当通用特征器。
+    - generic [ref=f216e304]:
+      - generic [ref=f216e305]: "5"
+      - paragraph [ref=f216e306]: 方法学副产品：可复用的标签稀缺实验协议（80/20 切分 + 跨域对照）、开源实现、均值池化替代 CLS token 的分类头改进。
+  - heading "§05 局限与边界" [level=2] [ref=f216e307]:
+    - generic [ref=f216e308]: §05
+    - text: 局限与边界
+  - generic [ref=f216e309]: 确立可行性，也划出清晰的坑
+  - generic [ref=f216e310]:
+    - generic [ref=f216e311]:
+      - heading "表征不可线性探测" [level=4] [ref=f216e312]
+      - paragraph [ref=f216e313]: 冻结部署形态不兼容——每个新唤醒词都得全模型微调，预训练的复用价值被限制在初始化层面；与 adapter/线性探针等轻量适配路线暂不兼容。
+    - generic [ref=f216e314]:
+      - heading "未触及流式与部署" [level=4] [ref=f216e315]
+      - paragraph [ref=f216e316]: KWT 全局自注意力天然非流式，搬到常驻唤醒还有架构级工作量；后验处理（平滑窗/判决门限/因果性）论文未展开；无延迟/FLOPs/内存/实时率指标——transformer 注意力在 MCU 上未必比卷积友好。
+    - generic [ref=f216e317]:
+      - heading "超参沿袭大模型配方" [level=4] [ref=f216e318]
+      - paragraph [ref=f216e319]: 65% 掩码率、EMA 衰减、目标层数 K 都沿用原版 Data2Vec（K 的取值未报告）——小模型可能有自己的甜点，留有免费性能空间未挖。
+    - generic [ref=f216e320]:
+      - heading "统计与覆盖缺口" [level=4] [ref=f216e321]
+      - paragraph [ref=f216e322]: 单次运行无方差——SC vs LS 的 0.3–0.5 点差可能在随机波动内；单一数据集（GSC 干净近讲）无噪声混响远场；只用准确率无误触发/漏唤醒工作点；无其他 SSL 方法同协议对照；预训练数据规模只试 18.8h 一档。
+  - generic [ref=f216e323]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f216e324]
+    - list [ref=f216e325]:
+      - listitem [ref=f216e326]: ↳ SSL 的收益不是大模型专属——亚百万级参数只要配上合适的代理任务同样能消化；「容量不足做不了 SSL」是未被检验的默认假设。
+      - listitem [ref=f216e327]: ↳ 预训练的正则化价值在小数据下最显形：它能把「模型容量」从负债变回资产（最大模型无预训练最差、有预训练最佳）。
+      - listitem [ref=f216e328]: ↳ 回归式 SSL（预测隐藏态）塑造的表征不保证线性可分——想要即插即用特征器选对比式路线，想要微调收益回归式更省容量。
+      - listitem [ref=f216e329]: ↳ 跨域预训练几乎免费：目标域无标注数据不是必需品——公开的任意同语言音频就能兑现大部分收益。
+      - listitem [ref=f216e330]: ↳ 评价标签稀缺方法要用「等总数据量」协议（80 无标注 + 20 标注 vs 100 标注），否则增益可能来自数据量而非方法。
+  - generic [ref=f216e331]:
+    - link "论文原文 ↗" [ref=f216e332] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2210.01703
+    - link "笔记全文 ↗" [ref=f216e333] [cursor=pointer]:
+      - /url: Improving_Label-Deficient_Keyword_Spotting_Through_Self-Supervised_Pretraining.md
+    - link "返回列表" [ref=f216e334] [cursor=pointer]:
+      - /url: ../index.html

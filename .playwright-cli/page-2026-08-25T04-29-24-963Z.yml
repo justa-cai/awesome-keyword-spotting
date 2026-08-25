@@ -1,0 +1,310 @@
+- generic [active] [ref=f190e1]:
+  - generic [ref=f190e2]:
+    - link "← 返回论文列表" [ref=f190e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f190e4]: 论文精读 · 可视化版 · 2022 №8
+    - heading "119K 参数拿下 98.2%： 把自注意力换成双维度 MLP 混合" [level=1] [ref=f190e5]: 119K 参数拿下 98.2%：把自注意力换成双维度 MLP 混合
+    - generic [ref=f190e6]:
+      - generic [ref=f190e7]: ConvMixer · arXiv 2201.05863
+      - generic [ref=f190e8]: 阿里巴巴 × 南洋理工大学
+      - generic [ref=f190e9]: MLP-Mixer 思想引入 KWS
+      - generic [ref=f190e10]: 五阶段课程学习 · 远场噪声
+    - generic [ref=f190e11]: 全局时/频特征交互不必靠 O(T²) 的注意力——两个 O(n) 的 MLP 混合层就够了；再配上「由易到难」的渐进训练，−10dB 下多扛 5.4 个点。
+    - generic [ref=f190e12]:
+      - heading "一分钟版本" [level=3] [ref=f190e13]
+      - list [ref=f190e14]:
+        - listitem [ref=f190e15]: ▸ 张力：远场噪声鲁棒需要大感受野和大容量，端侧只给 100K 级参数、数十 M MACs——小型 CNN 感受野局部（DS-CNN-S 干净 94.4%、−10dB 掉到 60% 以下），Transformer 全局但计算量是小型 CNN 的 10 倍以上。
+        - listitem [ref=f190e16]: ▸ 架构：预卷积（1D DSConv）→ 4× ConvMixer 块（频率 2D DSConv + 时间 1D DSConv + 频率混合 MLP + 时间混合 MLP）→ 平均池化 + 全连接。共 119K 参数 / 22.2M MACs。
+        - listitem [ref=f190e17]: ▸ 核心思路：借视觉 MLP-Mixer 的「无注意力、无全局卷积、只用 MLP 做全局交互」，并针对频谱图把混合拆成时间轴和频率轴两个独立操作——两个轴物理意义不同（动态 vs 包络）。
+        - listitem [ref=f190e18]: ▸ 复杂度账：自注意力 O(T²·d) 约 102K/层，MLP 混合 O(T·d) 约 5K/层——约 1/20 的计算量，同样提供全局时/频交互。
+        - listitem [ref=f190e19]: ▸ 干净集结果：98.2% 超参数量 5 倍的 KWT-1（607K，97.7）和 6.5 倍的 MHAtt-RNN（784K，97.3），与约 1.1M 的 KWT-2（98.0）相当。
+        - listitem [ref=f190e20]: ▸ 课程学习：五阶段（干净 → +0dB → +−5dB → +−10dB → +RIR），用 Score = Norm(Acc) − Norm(Loss) 见顶自动切换阶段；提升随 SNR 降低而增大：20dB +2.98 → −10dB +5.38。
+        - listitem [ref=f190e21]: ▸ 消融：去频率混合 −3.0、去时间混合 −2.5、都去退化回纯卷积基线（66.5%）——两个维度的信息增益互补；噪声阶段贡献约 70% 鲁棒性提升、RIR 阶段约 30%。
+        - listitem [ref=f190e22]: ▸ 同预算对比：119K 预算下 MLP 混合比自注意力高约 1.5 点——注意力的 Q/K/V 投影吃掉大量参数，MLP 把参数全花在全局变换上。
+        - listitem [ref=f190e23]: ▸ 边界：MLP 混合是固定权重线性变换，不能按内容「选择性聚焦」；−10dB 绝对值 71.88% 仍远低于实用线（>90%）；全连接要求固定长度输入。
+        - listitem [ref=f190e24]: ▸ 可迁移判断：全局交互有比注意力便宜一个数量级的实现；按数据模态的物理结构设计架构（时频频谱图 → 双轴分别混合）优于套通用结构。
+    - heading "§01 问题：噪声鲁棒 vs 极小模型的根本张力" [level=2] [ref=f190e25]:
+      - generic [ref=f190e26]: §01
+      - text: 问题：噪声鲁棒 vs 极小模型的根本张力
+    - generic [ref=f190e27]: 远场三重退化 × 100K 参数预算
+    - paragraph [ref=f190e28]: 智能家居、车载、工业物联网的 KWS 同时面对远场退化和资源约束：混响（RIR 多径，T60 约 0.3–0.8s）抹平瞬态特征；环境噪声在 SNR 低至 −10dB 时可能完全淹没关键词信号；传播距离带来 10–20dB 能量衰减。而部署目标可能是主频低于 100MHz、SRAM 不足 256KB 的智能灯泡/温控器——参数量 100K 级、计算量数十 M MACs 级。
+    - generic [ref=f190e29]:
+      - generic [ref=f190e30]:
+        - heading "小型 CNN：局部感受野的噪声脆弱性" [level=4] [ref=f190e31]
+        - paragraph [ref=f190e32]: DS-CNN、TC-ResNet、BC-ResNet 靠深度可分离卷积 + 残差压计算量，但 3×3 卷积只覆盖 3 帧 × 3 频道。低 SNR 下局部特征被污染，判断「有没有关键词」需要大范围时频上下文的全局一致性——超出局部卷积能力。DS-CNN-S 干净 94.4%，−10dB 骤降到 60% 以下。
+      - generic [ref=f190e33]:
+        - heading "Transformer + 固定增强：两个老坑" [level=4] [ref=f190e34]
+        - paragraph [ref=f190e35]: KWT-1（607K）/AST-Tiny（约 5M）靠全局注意力鲁棒，但 O(N²·d) 复杂度让计算量达数百 M MACs，是小型 CNN 的 10 倍以上。固定噪声增强则两难：太弱（只练 20dB）泛化不足；太强（直接 −10dB）未收敛的模型看到的是纯噪声，拿不到有效学习信号。
+    - heading "§02 方法：双维度混合 + 五阶段课程" [level=2] [ref=f190e36]:
+      - generic [ref=f190e37]: §02
+      - text: 方法：双维度混合 + 五阶段课程
+    - generic [ref=f190e38]: 按频谱图的物理结构分别设计两个轴的混合策略
+    - generic [ref=f190e39]:
+      - img [ref=f190e40]:
+        - generic [ref=f190e42]: ConvMixer：用「双维度 MLP 混合」换掉昂贵的自注意力
+        - generic [ref=f190e43]: ① 根本张力：噪声鲁棒要大感受野，端侧只给 100K 参数
+        - generic [ref=f190e45]: 远场三重退化复合
+        - generic [ref=f190e46]: 混响（RIR 多径，T60 约 0.3–0.8s）抹平瞬态特征
+        - generic [ref=f190e47]: 环境噪声（家电/交通/多人）SNR 低至 −10dB
+        - generic [ref=f190e48]: 传播能量衰减 10–20dB——局部特征被污染，判断
+        - generic [ref=f190e49]: 「有没有关键词」需要大范围时频上下文的全局一致性
+        - generic [ref=f190e51]: 两条老路都堵
+        - generic [ref=f190e52]: 小型 CNN（DS-CNN / TC-ResNet）：3×3 局部感受野，
+        - generic [ref=f190e53]: 堆多层也有限——DS-CNN-S 干净 94.4%，−10dB 骤降
+        - generic [ref=f190e54]: 到 60% 以下；Transformer（KWT-1 607K）：全局注意
+        - generic [ref=f190e55]: 力鲁棒但 O(T²·d)，计算量是小型 CNN 的 10 倍以上
+        - generic [ref=f190e56]: 固定噪声增强两难：太弱泛化不足，太强早期不收敛
+        - generic [ref=f190e57]: 目标：约 100K 参数 + 约 22M MACs 的微型模型，在远场噪声（低至 −10dB SNR）下与参数量大 5–50 倍的 Transformer 竞争
+        - generic [ref=f190e58]: ② 架构：预卷积 → 4× ConvMixer 块 → 后卷积（共 119K / 22.2M MACs）
+        - generic [ref=f190e60]: 预卷积块
+        - generic [ref=f190e61]: 1D 深度可分离卷积
+        - generic [ref=f190e62]: 沿时间初步提特征
+        - generic [ref=f190e63]: 40 维梅尔 → 128 维
+        - generic [ref=f190e64]: （辅音→元音过渡等）
+        - generic [ref=f190e66]: ConvMixer 块 × 4（核心创新）
+        - generic [ref=f190e68]: 频率 2D DSConv
+        - generic [ref=f190e69]: 局部频谱模式
+        - generic [ref=f190e71]: 时间 1D DSConv
+        - generic [ref=f190e72]: 局部时间动态
+        - generic [ref=f190e74]: 频率混合 MLP
+        - generic [ref=f190e75]: 跨频全局交互
+        - generic [ref=f190e77]: 时间混合 MLP
+        - generic [ref=f190e78]: 跨时全局交互
+        - generic [ref=f190e79]: 残差式：X_out = X + MLP(LayerNorm(X))，GELU 激活
+        - generic [ref=f190e81]: 后卷积块
+        - generic [ref=f190e82]: 平均池化
+        - generic [ref=f190e83]: + 全连接层
+        - generic [ref=f190e84]: → 分类 logits
+        - generic [ref=f190e85]: （12 类命令）
+        - generic [ref=f190e87]: 频率混合的物理意义
+        - generic [ref=f190e88]: 元音共振峰集中 200–800Hz 低频；辅音 /s/ 在
+        - generic [ref=f190e89]: 3000–7000Hz 高频；爆破音 /p/ /t/ 是宽带短时爆发
+        - generic [ref=f190e90]: ——关键词的「能量分布模式」本身就是判别信息，
+        - generic [ref=f190e91]: 全局频率混合捕获跨频通道的分布模式，局部卷积
+        - generic [ref=f190e92]: 只能看到相邻频率差异
+        - generic [ref=f190e94]: 时间混合 + 复杂度账
+        - generic [ref=f190e95]: 关键词时间结构有判别性（stop 的 /s/→/t/→/a/→/p/）
+        - generic [ref=f190e96]: ——全局时间混合关注整个窗内的关键帧
+        - generic [ref=f190e97]: 自注意力 O(T²·d)（T=40, d=64 约 102K/层）vs
+        - generic [ref=f190e98]: MLP 混合 O(T·d)（约 5K/层）——约 1/20 的计算量，
+        - generic [ref=f190e99]: 但同样提供全局时/频交互
+        - generic [ref=f190e100]: ③ 五阶段课程学习：由易到难逐步建立噪声鲁棒性
+        - generic [ref=f190e102]: S1 干净
+        - generic [ref=f190e103]: 基础声学表征
+        - generic [ref=f190e104]: ~30 ep
+        - generic [ref=f190e106]: S2 +0dB
+        - generic [ref=f190e107]: 学会忽略低能量噪声
+        - generic [ref=f190e108]: ~20 ep
+        - generic [ref=f190e110]: S3 +−5dB
+        - generic [ref=f190e111]: 频谱被部分掩蔽仍能识别
+        - generic [ref=f190e112]: ~15 ep
+        - generic [ref=f190e114]: S4 +−10dB
+        - generic [ref=f190e115]: 从近纯噪声中提取残余判别
+        - generic [ref=f190e116]: ~10 ep
+        - generic [ref=f190e118]: S5 +RIR
+        - generic [ref=f190e119]: 混响多径（独立退化因素）
+        - generic [ref=f190e121]: 自适应阶段转换：Score = Norm(Acc) − Norm(Loss)。准确率提升放缓（已学会当前难度）而损失仍在降（开始过拟合）
+        - generic [ref=f190e122]: → Score 见顶回落即切下一阶段——避免过早引入困难样本导致训练崩溃，也避免停留过久过拟合
+        - generic [ref=f190e124]: 119K
+        - generic [ref=f190e125]: 参数（22.2M MACs）
+        - generic [ref=f190e126]: 98.2%
+        - generic [ref=f190e127]: 干净集准确率（GSC-12）
+        - generic [ref=f190e128]: "+5.38"
+        - generic [ref=f190e129]: −10dB 课程学习提升（66.50→71.88）
+        - generic [ref=f190e130]: 5–50×
+        - generic [ref=f190e131]: 参数少于对比 Transformer
+        - generic [ref=f190e132]: ~1/20
+        - generic [ref=f190e133]: MLP 混合 vs 自注意力每层计算
+        - generic [ref=f190e134]: 数据：GSC V2-12（约 105K 条 1 秒样本）训练；噪声测试用 MUSAN（约 900 种噪声）+ 模拟 RIR，按 20/0/−5/−10dB 各生成约 11K 条增强样本
+      - paragraph [ref=f190e135]: 图1 · 框架全景：预卷积 → 4× ConvMixer 块（频率 2D DSConv → 时间 1D DSConv → 双维度 MLP 混合）→ 后卷积；下半部分是五阶段课程学习阶梯与自适应 Score 转换准则。
+  - generic [ref=f190e136]:
+    - generic [ref=f190e137]:
+      - text: X
+      - subscript [ref=f190e138]: freq_mix
+      - text: = X + MLP
+      - subscript [ref=f190e139]: F
+      - text: (LayerNorm(X)) ｜ X
+      - subscript [ref=f190e140]: time_mix
+      - text: = X + MLP
+      - subscript [ref=f190e141]: T
+      - text: (LayerNorm(X))
+    - generic [ref=f190e142]: 人话：频率混合把特征图在频率维展平成 (B, T, C×F) 过一个全连接再 reshape 回来——一次性建立所有频率通道之间的关联；时间混合同理作用于整个时间窗。残差连接保证恒等映射可行，LayerNorm 稳定混合层的输入分布。
+  - paragraph [ref=f190e143]: 为什么按轴拆开：视觉 MLP-Mixer 的 patch/channel 混合不区分空间维度，但频谱图的两个轴物理意义不同——时间轴编码语音动态（音素序列），频率轴编码频谱包络（能量分布）。元音共振峰在 200–800Hz、辅音 /s/ 在 3000–7000Hz、爆破音是宽带短时爆发——跨频能量分布模式本身就是判别信息；而关键词的判别性又依赖时间结构（stop 的 /s/→/t/→/a/→/p/）。两个轴各给一个全局混合，比通用 2D 结构更贴数据。
+  - paragraph [ref=f190e144]: 课程学习为什么有效：固定增强的两难本质是「难度梯度失控」——课程学习控制训练样本的难度梯度，先在干净数据上学音素级区分，再逐步加噪声难度，让模型在有能力消化极端样本之后才见到它们。阶段转换不靠人工轮数，靠 Score = Norm(Acc) − Norm(Loss)：准确率涨不动而损失还在降 = 当前难度已学会、开始过拟合，自动切下一阶段。
+  - heading "§03 实验：GSC V2-12 + MUSAN/RIR 多条件测试" [level=2] [ref=f190e145]:
+    - generic [ref=f190e146]: §03
+    - text: 实验：GSC V2-12 + MUSAN/RIR 多条件测试
+  - generic [ref=f190e147]: 干净集横评 + 四档 SNR 课程对照
+  - generic [ref=f190e148]:
+    - img [ref=f190e149]:
+      - generic [ref=f190e151]: 干净集主对比（GSC-12）：参数量最少之一，准确率最高
+      - generic [ref=f190e152]: "94"
+      - generic [ref=f190e153]: "95"
+      - generic [ref=f190e154]: "96"
+      - generic [ref=f190e155]: "97"
+      - generic [ref=f190e156]: "98"
+      - generic [ref=f190e157]: "99"
+      - generic [ref=f190e158]: 20K
+      - generic [ref=f190e159]: 100K
+      - generic [ref=f190e160]: 600K
+      - generic [ref=f190e161]: 1200K
+      - generic [ref=f190e163]: DS-CNN-S · 24K · 5.4M
+      - generic [ref=f190e165]: BC-ResNet-1 · 30K · 5.2M
+      - generic [ref=f190e167]: ConvMixer ★ · 119K · 22.2M
+      - generic [ref=f190e169]: KWT-1 · 607K · 50.0M
+      - generic [ref=f190e171]: MHAtt-RNN · 784K · 347.0M
+      - generic [ref=f190e173]: KWT-2 · 1100K · 100.0M
+      - generic [ref=f190e174]: 横轴参数量（log）· 纵轴准确率 · 气泡 = MACs
+      - generic [ref=f190e175]: 读数：ConvMixer 119K / 22.2M MACs / 98.2%——超参数量 5 倍的 KWT-1（607K，97.7）与 6.5 倍的 MHAtt-RNN（784K，97.3），与 KWT-2（约1.1M）相当；
+      - generic [ref=f190e176]: 「全局特征交互」不只可以靠注意力，也可以靠更便宜的 MLP 混合——架构设计比模型规模更重要
+    - paragraph [ref=f190e177]: 图2 · 干净集主对比（GSC-12）：横轴参数量（log）、纵轴准确率、气泡大小 = MACs。ConvMixer 119K / 22.2M MACs / 98.2% 位于左上角最优区，超越参数量大 5 倍以上的 Transformer 系模型。
+  - table [ref=f190e178]:
+    - rowgroup [ref=f190e179]:
+      - row [ref=f190e180]:
+        - columnheader "模型" [ref=f190e181]
+        - columnheader "参数量（K）" [ref=f190e182]
+        - columnheader "MACs（M）" [ref=f190e183]
+        - columnheader "干净准确率（%）" [ref=f190e184]
+      - row [ref=f190e185]:
+        - cell "ConvMixer（本文）" [ref=f190e186]
+        - cell "119" [ref=f190e187]
+        - cell "22.2" [ref=f190e188]
+        - cell "98.2" [ref=f190e189]
+      - row [ref=f190e190]:
+        - cell "KWT-2" [ref=f190e191]
+        - cell "约 1100" [ref=f190e192]
+        - cell "约 100" [ref=f190e193]
+        - cell "98.0" [ref=f190e194]
+      - row [ref=f190e195]:
+        - cell "KWT-1" [ref=f190e196]
+        - cell "607" [ref=f190e197]
+        - cell "约 50" [ref=f190e198]
+        - cell "97.7" [ref=f190e199]
+      - row [ref=f190e200]:
+        - cell "MHAtt-RNN" [ref=f190e201]
+        - cell "784" [ref=f190e202]
+        - cell "347" [ref=f190e203]
+        - cell "97.3" [ref=f190e204]
+      - row [ref=f190e205]:
+        - cell "BC-ResNet-1" [ref=f190e206]
+        - cell "30" [ref=f190e207]
+        - cell "5.2" [ref=f190e208]
+        - cell "95.4" [ref=f190e209]
+      - row [ref=f190e210]:
+        - cell "DS-CNN-S" [ref=f190e211]
+        - cell "24" [ref=f190e212]
+        - cell "5.4" [ref=f190e213]
+        - cell "94.4" [ref=f190e214]
+  - generic [ref=f190e215]:
+    - img [ref=f190e216]:
+      - generic [ref=f190e218]: 课程学习的效果：SNR 越低，提升越大
+      - generic [ref=f190e219]: "65"
+      - generic [ref=f190e220]: "70"
+      - generic [ref=f190e221]: "75"
+      - generic [ref=f190e222]: "80"
+      - generic [ref=f190e223]: "85"
+      - generic [ref=f190e224]: "90"
+      - generic [ref=f190e225]: "95"
+      - generic [ref=f190e228]: "87.85"
+      - generic [ref=f190e229]: "90.83"
+      - generic [ref=f190e231]: "+2.98"
+      - generic [ref=f190e232]: 20dB
+      - generic [ref=f190e235]: "78.10"
+      - generic [ref=f190e236]: "83.04"
+      - generic [ref=f190e238]: "+4.94"
+      - generic [ref=f190e239]: 0dB
+      - generic [ref=f190e242]: "72.78"
+      - generic [ref=f190e243]: "78.39"
+      - generic [ref=f190e245]: "+5.61"
+      - generic [ref=f190e246]: −5dB
+      - generic [ref=f190e249]: "66.50"
+      - generic [ref=f190e250]: "71.88"
+      - generic [ref=f190e252]: "+5.38"
+      - generic [ref=f190e253]: −10dB
+      - generic [ref=f190e255]: ConvMixer
+      - generic [ref=f190e257]: ConvMixer+（课程）
+      - generic [ref=f190e258]: 提升幅度随 SNR 降低
+      - generic [ref=f190e259]: 而增大（+2.98 → +5.38）
+      - generic [ref=f190e260]: 渐进式训练让模型更好
+      - generic [ref=f190e261]: 地利用极端噪声样本
+      - generic [ref=f190e262]: 里的学习信号——困难
+      - generic [ref=f190e263]: 条件下「学习空间」更大
+      - generic [ref=f190e264]: 测试 SNR 等级（MUSAN 噪声 + 模拟 RIR 增强）
+      - generic [ref=f190e265]: 注意：−10dB 下 71.88% 的绝对水平仍远低于实用要求（>90%）——课程学习改善相对表现，不改变微型模型的绝对瓶颈
+    - paragraph [ref=f190e266]: 图3 · 课程学习效果：ConvMixer+（课程）vs ConvMixer（无课程）在四档 SNR 下的准确率——提升幅度随 SNR 降低而增大（+2.98 → +5.38）。
+  - generic [ref=f190e267]:
+    - img [ref=f190e268]:
+      - generic [ref=f190e270]: 消融：双维度混合缺一不可 + 阶段贡献拆分
+      - generic [ref=f190e271]: 双维度混合消融（−10dB SNR，%）
+      - generic [ref=f190e273]: "71.9"
+      - generic [ref=f190e274]: 完整 ConvMixer ★
+      - generic [ref=f190e276]: "69.4"
+      - generic [ref=f190e277]: 去时间混合
+      - generic [ref=f190e279]: "68.9"
+      - generic [ref=f190e280]: 去频率混合
+      - generic [ref=f190e282]: "66.5"
+      - generic [ref=f190e283]: 两个都去（纯卷积）
+      - generic [ref=f190e284]: 频率混合保频谱包络判别性（−3.0）；时间混合保关键词时间结构
+      - generic [ref=f190e285]: （−2.5）；两者信息增益互补，都去退化回纯卷积基线
+      - generic [ref=f190e286]: 课程阶段贡献 + 同预算对比
+      - generic [ref=f190e289]: 噪声阶段 S1–S4 ≈ 70%
+      - generic [ref=f190e291]: RIR ≈ 30%
+      - generic [ref=f190e292]: 鲁棒性提升来源拆分
+      - generic [ref=f190e293]: 混响是独立于噪声的退化因素，需要专门训练阶段
+      - generic [ref=f190e295]: 同参数预算（119K）下：
+      - generic [ref=f190e296]: MLP 混合层准确率比自注意力层高约 1.5 点——
+      - generic [ref=f190e297]: 自注意力 Q/K/V 投影占掉大量参数，MLP 把参数
+      - generic [ref=f190e298]: 全部花在全局特征变换上（参数利用效率更高）
+      - generic [ref=f190e300]: 边界：MLP 混合是固定权重的全局线性变换
+      - generic [ref=f190e301]: · 无法像注意力那样按输入内容「选择性聚焦」——区分 yes/yet（最后 50ms 差异）这类细粒度时间对齐任务可能不足；
+      - generic [ref=f190e302]: · 全连接权重维度固定 → 要求固定长度输入，变长唤醒词（Hey Siri 约 2 秒）适应性差；−10dB 下与 AST-Tiny（80%+）仍有约 10 点差距；
+      - generic [ref=f190e303]: · 课程训练总时长约为标准训练的 3–5 倍（推理无额外开销）；GSC 单一数据集——多字词 / 声调语言 / 实机功耗延迟均未验证
+    - paragraph [ref=f190e304]: 图4 · 消融与边界：双维度混合缺一不可（去频率 −3.0 / 去时间 −2.5 / 都去退化回纯卷积）；课程阶段贡献拆分（噪声约 70% / RIR 约 30%）；同预算下 MLP 混合比自注意力高约 1.5 点。
+  - heading "§04 贡献：四条带数字的判断" [level=2] [ref=f190e305]:
+    - generic [ref=f190e306]: §04
+    - text: 贡献：四条带数字的判断
+  - generic [ref=f190e307]:
+    - generic [ref=f190e308]:
+      - generic [ref=f190e309]: "1"
+      - paragraph [ref=f190e310]: 首个把 MLP-Mixer 引入 KWS 的架构：针对时频频谱图设计双维度（时间+频率）混合层；119K 参数干净集 98.2%，与参数量大 5–6 倍的模型相当或更优——全局特征交互不只有注意力一条路。
+    - generic [ref=f190e311]:
+      - generic [ref=f190e312]: "2"
+      - paragraph [ref=f190e313]: 线性复杂度的全局交互：O(n) 的 MLP 混合替代 O(T²) 自注意力，为「小模型如何在有限容量下获得全局视野」给出新解。
+    - generic [ref=f190e314]:
+      - generic [ref=f190e315]: "3"
+      - paragraph [ref=f190e316]: 五阶段渐进课程学习：−10dB 下 +5.38 点（66.50→71.88），提升幅度随 SNR 降低而增大；课程学习与架构正交，可独立用于其他 KWS 模型。
+    - generic [ref=f190e317]:
+      - generic [ref=f190e318]: "4"
+      - paragraph [ref=f190e319]: 参数效率的极致验证：参数量比 Transformer 系少 5–50 倍仍保持竞争力——「架构设计比模型规模更重要」。
+  - heading "§05 局限与边界" [level=2] [ref=f190e320]:
+    - generic [ref=f190e321]: §05
+    - text: 局限与边界
+  - generic [ref=f190e322]: 线性混合的能力边界在哪
+  - generic [ref=f190e323]:
+    - generic [ref=f190e324]:
+      - heading "−10dB 绝对性能瓶颈" [level=4] [ref=f190e325]
+      - paragraph [ref=f190e326]: 71.88% 远低于实用要求（>90%），与 AST-Tiny（−10dB 80%+）仍差约 10 点。线性变换无法像注意力那样按输入内容动态调整权重——极端噪声下选择性聚焦能力受限。
+    - generic [ref=f190e327]:
+      - heading "细粒度时间对齐与变长输入" [level=4] [ref=f190e328]
+      - paragraph [ref=f190e329]: 区分 yes/yet（最后 50ms 差异）需要精确时间对齐，MLP 混合缺乏建模元素间交互关系的能力；全连接权重维度固定 → 只能定长输入，多字唤醒词（Hey Siri 约 2 秒）适应性差。
+    - generic [ref=f190e330]:
+      - heading "数据集单一" [level=4] [ref=f190e331]
+      - paragraph [ref=f190e332]: 只在 GSC 上评估：样本约 1 秒、北美英语——声调语言（中文四声）、词缀丰富语言的泛化未知，多字唤醒词未验证。
+    - generic [ref=f190e333]:
+      - heading "训练成本与部署数据缺失" [level=4] [ref=f190e334]
+      - paragraph [ref=f190e335]: 五阶段课程总训练时间约为标准的 3–5 倍（推理无额外开销）；只报 MACs，无实机延迟/功耗测量。
+  - generic [ref=f190e336]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f190e337]
+    - list [ref=f190e338]:
+      - listitem [ref=f190e339]: ↳ 「全局交互」有比注意力便宜一个数量级的实现——先用 O(n) 的混合层试，不够再上注意力，不要默认全局=注意力。
+      - listitem [ref=f190e340]: ↳ 按数据模态的物理结构设计架构：频谱图两轴意义不同就分开混合——通用结构（视觉 patch 混合）直接搬是次优的。
+      - listitem [ref=f190e341]: ↳ 困难样本要从易到难喂：极端增强直接上会毁掉训练信号，课程式渐进 + 自动切换准则（准确率停涨而损失仍降）比固定轮数稳。
+      - listitem [ref=f190e342]: ↳ 混响与噪声是两个独立退化因素，鲁棒性训练要分别覆盖（70/30 的贡献拆分说明只练噪声不够）。
+      - listitem [ref=f190e343]: ↳ 架构改进与训练策略正交，可以独立优化并叠加——评测新架构时两轴都动才公平。
+  - generic [ref=f190e344]:
+    - link "论文原文 ↗" [ref=f190e345] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2201.05863
+    - link "笔记全文 ↗" [ref=f190e346] [cursor=pointer]:
+      - /url: ConvMixer_Feature_Interactive_Convolution_with_Curriculum_Learning_for_Small_Footprint_and_Noisy_Far_Field_Keyword_Spotting.md
+    - link "返回列表" [ref=f190e347] [cursor=pointer]:
+      - /url: ../index.html

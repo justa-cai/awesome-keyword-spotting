@@ -1,0 +1,313 @@
+- generic [active] [ref=f203e1]:
+  - generic [ref=f203e2]:
+    - link "← 返回论文列表" [ref=f203e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f203e4]: 论文精读 · 可视化版 · 2022 №15
+    - heading "把关键词折成一个 token， ASR 的质量红利就能搬进唤醒词检测" [level=1] [ref=f203e5]: 把关键词折成一个 token，ASR 的质量红利就能搬进唤醒词检测
+    - generic [ref=f203e6]:
+      - generic [ref=f203e7]: TT-KWS · arXiv 2211.06478
+      - generic [ref=f203e8]: Google × 马德里自治大学
+      - generic [ref=f203e9]: Transformer-Transducer + MBR
+      - generic [ref=f203e10]: Hey/Okay Google · 8300h 数据
+    - generic [ref=f203e11]: 「Okay Google」识别成「Okay GOOGL」字符串匹配就失败——把关键词折叠成 <kw> 特殊 token，字符级不确定性被吸收进 token 的声学建模；再用 MBR 损失直接优化检测错误率。
+    - generic [ref=f203e12]:
+      - heading "一分钟版本" [level=3] [ref=f203e13]
+      - list [ref=f203e14]:
+        - listitem [ref=f203e15]: ▸ 问题：T-T/Conformer-Transducer 在 ASR 上已到 SOTA——这份质量红利能不能搬进唤醒词检测？直接 ASR + 字符串匹配不行：字符错误 AND 累积（Okay GOOGL 即失败）、关键词训练数据稀疏、硬判决无连续分数。
+        - listitem [ref=f203e16]: ▸ 选型：Transformer-Transducer 天然支持逐帧流式解码（常驻监听硬需求）；隐式学习声学-文本对齐——彻底免去常规 KWS 的强制对齐（顺带打通联邦学习路径）。
+        - listitem [ref=f203e17]: ▸ 核心一刀：训练时把转写里的关键词替换成特殊 token <kw>（75 个字素词表的一员）——检测问题变成「这个 token 有没有出现」，模型整体预测关键词的声学轮廓；所有含关键词的语句为同一个 token 贡献信号，缓解稀疏。
+        - listitem [ref=f203e18]: ▸ MBR 损失：训练目标从「最大化转写似然」改写为「最小化期望检测错误」——以 N-best 假设概率为权重，对该假设的关键词级假阳/假阴率加权求和；必须先用 RNN-T 训好再热启动（未收敛模型的 N-best 是垃圾假设空间）。
+        - listitem [ref=f203e19]: ▸ 打分：取 softmax 里 <kw> 的值、整句取 max——连续置信度支持调阈值切操作点，且训练优化什么推理就度量什么（目标与度量对齐）。
+        - listitem [ref=f203e20]: ▸ 主结果：token 化让小模型 EER 相对降 31%（8.24→5.68）；MBR 在低 FP 区放大收益（FN@0.5%FP 相对降 30.4%）；大模型 TT-KWS+MBR 3.27% 全面最优；融合 3.09%。
+        - listitem [ref=f203e21]: ▸ 规模是第一性：小配置（350K）下 T-T 全线不敌为检测定制的 SVDF（3.78%）——容量不够时损失技巧救不回来；13M 大配置才反超。
+        - listitem [ref=f203e22]: ▸ 两路线错误互补：常规 KWS 与 T-T 模型犯的不是同一批错误，分数求和融合在所有操作点一致占优——低 FP 区 FN 相对降 13.6%。
+        - listitem [ref=f203e23]: ▸ 部署分流：电池受限设备用常规小模型，插电设备（音箱/车机）用 T-T 大模型，高精度场景做融合——中间档位（高端手机常驻）是空白。
+        - listitem [ref=f203e24]: ▸ 边界：13M 参数是 SVDF 大配置的 3 倍多；MBR 训练要跑 beam 8 取 4-best（贵）；max 打分假设一句至多一次关键词；只验证两个固定两词英文关键词；内部数据不可复现、无效率指标。
+    - heading "§01 问题：ASR 好不等于 KWS 好" [level=2] [ref=f203e25]:
+      - generic [ref=f203e26]: §01
+      - text: 问题：ASR 好不等于 KWS 好
+    - generic [ref=f203e27]: 字符串匹配方案的三个结构性缺陷
+    - paragraph [ref=f203e28]: KWS 与 ASR 的核心差别在目标范围：KWS 只关心一小集合短语的检测准确率。直接把通用 ASR 用于 KWS 的三宗罪：检测精度被轻微 ASR 错误带偏（短语越长字符级出错概率越高，字素建模对拼写错误零容忍）；关键短语在训练数据中出现频率远低于普通词（梯度分配天然失衡）；字符串匹配是硬判决，无法输出连续置信度，不能按场景调节误报/漏报权衡。常规非 ASR 路线则要强制对齐产帧级标签——对齐误差传导进模型，且网络拓扑限制长上下文。
+    - generic [ref=f203e29]:
+      - generic [ref=f203e30]:
+        - heading "字符错误是 AND 累积" [level=4] [ref=f203e31]
+        - paragraph [ref=f203e32]: 字符串匹配里关键词内部任何一个字符错了整词匹配就失败——「Okay Google」→「Okay GOOGL」检测即失效；token 化后变成「token 有没有出现」，关键词内部的字符级不确定性被吸收进 token 的声学建模。
+      - generic [ref=f203e33]:
+        - heading "先前 seq2seq KWS 的代价" [level=4] [ref=f203e34]
+        - paragraph [ref=f203e35]: LSTM-CTC 音素格方法需要格搜索；基于 N-best 索引搜索的 attention 模型推理昂贵——本文的 softmax 打分不需要 N-best 或格，推理计算量远低，且训练目标能对齐推理度量。
+    - heading "§02 方法：token 化 + MBR + 对齐的打分" [level=2] [ref=f203e36]:
+      - generic [ref=f203e37]: §02
+      - text: 方法：token 化 + MBR + 对齐的打分
+    - generic [ref=f203e38]: 三个组件环环相扣的设计
+    - generic [ref=f203e39]:
+      - img [ref=f203e40]:
+        - generic [ref=f203e42]: TT-KWS：把关键词折叠成一个 token，直接优化检测错误率
+        - generic [ref=f203e43]: ① 出发点：ASR 的质量红利怎么搬进唤醒词检测
+        - generic [ref=f203e45]: 两条老路都不通
+        - generic [ref=f203e46]: 常规 KWS：需强制对齐产帧级标签（对齐误差传导进
+        - generic [ref=f203e47]: 模型）；网络拓扑限制长上下文建模
+        - generic [ref=f203e48]: 直接 ASR + 字符串匹配：① 字符错误 AND 累积——
+        - generic [ref=f203e49]: "\"Okay Google\"→\"Okay GOOGL\" 匹配即失败；"
+        - generic [ref=f203e50]: ② 关键词在训练数据稀疏；③ 硬判决无连续分数
+        - generic [ref=f203e52]: 为什么选 Transformer-Transducer
+        - generic [ref=f203e53]: transducer 天然支持逐帧流式解码——常驻监听硬需求
+        - generic [ref=f203e54]: 编码器自注意力替换单向 LSTM：长程建模更强
+        - generic [ref=f203e55]: 已在 ASR 上验证 SOTA（T-T / Conformer-T）
+        - generic [ref=f203e56]: 隐式学习声学-文本对齐 → 彻底免去强制对齐（顺带
+        - generic [ref=f203e57]: 打通联邦学习路径——用户数据上跑对齐贵且涉隐私
+        - generic [ref=f203e58]: ② 核心一刀：
+        - generic [ref=f203e61]: 音频编码器
+        - generic [ref=f203e62]: Transformer 块 ×15（大）
+        - generic [ref=f203e63]: FFN 1024/256，8 头 × 64 维
+        - generic [ref=f203e64]: ×7（小）FFN 128/32——容量伸缩
+        - generic [ref=f203e65]: 集中在前馈层，注意力拓扑不变
+        - generic [ref=f203e67]: 标签编码器
+        - generic [ref=f203e68]: LSTM（128 维大 / 32 小）
+        - generic [ref=f203e69]: 把已输出文本 token 转语言
+        - generic [ref=f203e70]: 嵌入（保守选择——保留
+        - generic [ref=f203e71]: LSTM 的理由未说明）
+        - generic [ref=f203e73]: 联合网络 + 输出
+        - generic [ref=f203e74]: 两侧投影同维求和 → FC
+        - generic [ref=f203e75]: 输出 75 个字素 token 的分布
+        - generic [ref=f203e76]: ——词表含
+        - generic [ref=f203e77]: 大 13M / 小 350K 参数
+        - generic [ref=f203e79]: token 化的收益
+        - generic [ref=f203e80]: 检测问题变成「
+        - generic [ref=f203e81]: 出现」——字符级不确定性被
+        - generic [ref=f203e82]: 吸收进 token 声学建模
+        - generic [ref=f203e83]: 所有含关键词语句为同一个
+        - generic [ref=f203e84]: 换关键词只改转写文本
+        - generic [ref=f203e85]: ③ MBR 损失：训练目标从「转写似然」改成「期望检测错误」
+        - generic [ref=f203e87]: 公式 1–3
+        - generic [ref=f203e88]: FPij = max(0, KHij − KRi)，FNij = max(0, KRi − KHij)
+        - generic [ref=f203e89]: Lij = Pij·(α·FPij + β·FNij) / (KRi + ε)
+        - generic [ref=f203e90]: L = Σi Σj Lij − λ·log P(Y|X)
+        - generic [ref=f203e91]: 以 N-best 假设概率 Pij 为权重，对该假设的关键词级
+        - generic [ref=f203e92]: 假阳/假阴率加权求和；÷(KRi+ε) 让多关键词句与单关键
+        - generic [ref=f203e93]: 词句损失量级可比；λ 项保留似然防止 MBR 单独优化崩坏
+        - generic [ref=f203e94]: （单句内 FP/FN 至多一个非零；全局上 α/β 才起作用）
+        - generic [ref=f203e96]: 两阶段训练 + 推理打分
+        - generic [ref=f203e97]: 阶段1：RNN-T 损失训练 TT-KWS（转写似然）
+        - generic [ref=f203e98]: 阶段2：热启动，RNN-T + MBR 组合微调（lr=10⁻⁵）
+        - generic [ref=f203e99]: 为什么必须两阶段：MBR 依赖 N-best 质量，未收敛
+        - generic [ref=f203e100]: 模型产生的假设没有意义——冷启动 MBR = 优化垃圾
+        - generic [ref=f203e101]: 配置：beam 8 产生 4-best 假设上算 MBR；
+        - generic [ref=f203e102]: "{α, β, λ} = {1.0, 1.0, 0.01}（经验值）"
+        - generic [ref=f203e103]: 推理：取 softmax 里
+        - generic [ref=f203e104]: 关键词至多一次，max = 模型最有把握的检测瞬间
+        - generic [ref=f203e106]: 3.27%
+        - generic [ref=f203e107]: 大模型 EER（+MBR，全场最优）
+        - generic [ref=f203e108]: −31%
+        - generic [ref=f203e109]: token 化相对 EER（小模型）
+        - generic [ref=f203e110]: −30.4%
+        - generic [ref=f203e111]: MBR 低 FP 区 FN（@0.5%FP）
+        - generic [ref=f203e112]: 3.09%
+        - generic [ref=f203e113]: 融合 EER（两条路线互补）
+        - generic [ref=f203e114]: 13M
+        - generic [ref=f203e115]: 大模型参数（SVDF 大的 3 倍+）
+        - generic [ref=f203e116]: 数据：内部供应商英文语音（多口音/车内/电话/噪声/远近场均衡）——训练 4300h 正 + 4000h 负（含 1.5 万条易混淆句），房间模拟器每句 25 个增强版本；测试 3800h 正 + 7000h 负
+      - paragraph [ref=f203e117]: 图1 · 机制全景：两条老路的缺陷与 T-T 选型理由； token 化（关键词当作连贯声学事件，75 字素词表的一员）；MBR 损失（式 1–3）与两阶段训练；softmax 打分整句取 max。
+  - generic [ref=f203e118]:
+    - generic [ref=f203e119]: FP = max(0, K_H − K_R)，FN = max(0, K_R − K_H)；L_ij = P_ij·(α·FP + β·FN)/(K_R+ε)；L = ΣΣ L_ij − λ·log P(Y|X)
+    - generic [ref=f203e120]: 人话（式 1–3，MBR 损失）：K 是假设/参考里 <kw> 的个数。以每个 N-best 假设的概率 P_ij 为权重，对它的关键词级假阳/假阴率加权求和——训练直接优化「期望检测错误」而不是转写似然。除以 (K_R+ε) 让含多个关键词的语句与只含一个的损失量级可比；λ 项保留似然防止 MBR 单独优化崩坏主任务。单句内 FP/FN 至多一个非零，α/β 在全局层面起作用。
+  - paragraph [ref=f203e121]: 为什么打分方式与训练目标是耦合设计：因为分数定义在模型输出端（softmax 的 <kw> 值），训练时才能直接对关键词 token 做序列判别优化（MBR）——基于格/N-best 索引的先前方法做不到「训练优化什么、推理就度量什么」。公平起见论文还给 ASR 基线设计了 bigram 编辑距离打分（e^−GEDmin），把只能硬匹配的 ASR 扩展成有分数、能画 DET 曲线的系统。
+  - heading "§03 实验：大小两配置 + 融合" [level=2] [ref=f203e122]:
+    - generic [ref=f203e123]: §03
+    - text: 实验：大小两配置 + 融合
+  - generic [ref=f203e124]: DET 曲线 / EER / 低 FP 兴趣点（宁漏检不误报的不对称代价）
+  - generic [ref=f203e125]:
+    - img [ref=f203e126]:
+      - generic [ref=f203e128]: 主对比（Table 2）：EER 与低 FP 操作点
+      - generic [ref=f203e129]: 小配置（350K vs 330K 参数）· EER %
+      - generic [ref=f203e131]: "8.24"
+      - generic [ref=f203e132]: ASR 基线（字符串匹配+GED 打分）
+      - generic [ref=f203e134]: "5.68"
+      - generic [ref=f203e135]: TT-KWS（
+      - generic [ref=f203e137]: "5.24"
+      - generic [ref=f203e138]: TT-KWS + MBR
+      - generic [ref=f203e140]: "3.78"
+      - generic [ref=f203e141]: 常规 E2E SVDF KWS
+      - generic [ref=f203e143]: 小预算下为检测定制的紧凑架构仍占优
+      - generic [ref=f203e144]: 大配置（13M vs 3.9M 参数）· EER %
+      - generic [ref=f203e146]: "3.55"
+      - generic [ref=f203e147]: ASR 基线
+      - generic [ref=f203e149]: "3.38"
+      - generic [ref=f203e150]: 常规 E2E SVDF KWS
+      - generic [ref=f203e152]: "3.37"
+      - generic [ref=f203e153]: TT-KWS
+      - generic [ref=f203e155]: "3.27"
+      - generic [ref=f203e156]: TT-KWS + MBR ★
+      - generic [ref=f203e158]: "3.09"
+      - generic [ref=f203e159]: 融合（SVDF + TT+MBR）
+      - generic [ref=f203e160]: 融合相对 SVDF 大 +8.6%；低 FP 区收益更大：
+      - generic [ref=f203e161]: FN@1%FP 4.34→3.75（相对 −13.6%）
+      - generic [ref=f203e162]: 关键读数：小模型下 T-T 全线不敌 SVDF（5.24 vs 3.78）；大模型下 TT-KWS+MBR 全面最优——容量是这条路线的第一性；两路线错误互补，融合在所有操作点一致占优
+    - paragraph [ref=f203e163]: 图2 · 主对比（Table 2 · EER）：小配置下为检测定制的 SVDF 仍最优（3.78），token 化让 T-T 从 8.24 到 5.68；大配置下 TT-KWS+MBR 3.27 全面最优，融合 3.09。
+  - table [ref=f203e164]:
+    - rowgroup [ref=f203e165]:
+      - row [ref=f203e166]:
+        - columnheader "系统" [ref=f203e167]
+        - columnheader "规模" [ref=f203e168]
+        - columnheader "EER" [ref=f203e169]
+        - columnheader "FN@1%FP" [ref=f203e170]
+        - columnheader "FN@0.5%FP" [ref=f203e171]
+      - row [ref=f203e172]:
+        - cell "常规 SVDF KWS（小）" [ref=f203e173]
+        - cell "330K" [ref=f203e174]
+        - cell "3.78" [ref=f203e175]
+        - cell "5.07" [ref=f203e176]
+        - cell "5.78" [ref=f203e177]
+      - row [ref=f203e178]:
+        - cell "ASR 基线（小）" [ref=f203e179]
+        - cell "350K" [ref=f203e180]
+        - cell "8.24" [ref=f203e181]
+        - cell "无可达操作点" [ref=f203e182]
+      - row [ref=f203e183]:
+        - cell "TT-KWS（小）" [ref=f203e184]
+        - cell "350K" [ref=f203e185]
+        - cell "5.68" [ref=f203e186]
+        - cell "11.68" [ref=f203e187]
+        - cell "17.49" [ref=f203e188]
+      - row [ref=f203e189]:
+        - cell "TT-KWS+MBR（小）" [ref=f203e190]
+        - cell "350K" [ref=f203e191]
+        - cell "5.24" [ref=f203e192]
+        - cell "8.70" [ref=f203e193]
+        - cell "12.18" [ref=f203e194]
+      - row [ref=f203e195]:
+        - cell "常规 SVDF KWS（大）" [ref=f203e196]
+        - cell "3.9M" [ref=f203e197]
+        - cell "3.38" [ref=f203e198]
+        - cell "4.34" [ref=f203e199]
+        - cell "4.91" [ref=f203e200]
+      - row [ref=f203e201]:
+        - cell "ASR 基线（大）" [ref=f203e202]
+        - cell "13M" [ref=f203e203]
+        - cell "3.55" [ref=f203e204]
+        - cell "—" [ref=f203e205]
+      - row [ref=f203e206]:
+        - cell "TT-KWS+MBR（大）" [ref=f203e207]
+        - cell "13M" [ref=f203e208]
+        - cell "3.27" [ref=f203e209]
+        - cell "4.17" [ref=f203e210]
+        - cell "4.78" [ref=f203e211]
+      - row [ref=f203e212]:
+        - cell "融合（SVDF 大 + TT+MBR 大）" [ref=f203e213]
+        - cell "—" [ref=f203e214]
+        - cell "3.09" [ref=f203e215]
+        - cell "3.75" [ref=f203e216]
+        - cell "4.25" [ref=f203e217]
+  - generic [ref=f203e218]:
+    - img [ref=f203e219]:
+      - generic [ref=f203e221]: 逐项叠加消融：每个组件的增量都能单独读到
+      - generic [ref=f203e222]: ①
+      - generic [ref=f203e224]: 8.24（ASR 基线）
+      - generic [ref=f203e226]: 5.68（TT-KWS）
+      - generic [ref=f203e227]: 小模型
+      - generic [ref=f203e228]: 相对 −31.1%
+      - generic [ref=f203e230]: 3.55（ASR 基线）
+      - generic [ref=f203e232]: 3.37（TT-KWS）
+      - generic [ref=f203e233]: 大模型
+      - generic [ref=f203e234]: 相对 −5.1%
+      - generic [ref=f203e235]: 仅改变输出表示（字符串匹配 →
+      - generic [ref=f203e236]: ——失败主要不是模型能力，是输出表示问题
+      - generic [ref=f203e237]: ② MBR 的收益在低 FP 区放大（小模型）
+      - generic [ref=f203e240]: "5.68"
+      - generic [ref=f203e241]: "5.24"
+      - generic [ref=f203e242]: EER
+      - generic [ref=f203e243]: −7.7%
+      - generic [ref=f203e246]: "11.68"
+      - generic [ref=f203e247]: "8.70"
+      - generic [ref=f203e248]: FN@1%FP
+      - generic [ref=f203e249]: −25.5%
+      - generic [ref=f203e252]: "17.49"
+      - generic [ref=f203e253]: "12.18"
+      - generic [ref=f203e254]: FN@0.5%FP
+      - generic [ref=f203e255]: −30.4%
+      - generic [ref=f203e256]: MBR 把建模容量聚焦到 KWS 主任务——
+      - generic [ref=f203e257]: 资源越少聚焦作用越大（大模型 EER 仅 −3.0%）
+      - generic [ref=f203e258]: ③ 规模贡献：TT-KWS+MBR 350K→13M：5.24→3.27（幅度远超两个损失技巧之和）；SVDF 330K→3.9M 只 3.78→3.38（边际递减快得多）——两种架构的规模敏感度差异是选路线的依据
+    - paragraph [ref=f203e259]: 图3 · 逐项叠加消融：token 化（同架构同损失，小模型相对 −31%）；MBR 收益在低 FP 区放大（FN@0.5%FP 相对 −30.4%，容量越少聚焦作用越大）；规模贡献远超两个损失技巧之和。
+  - generic [ref=f203e260]:
+    - img [ref=f203e261]:
+      - generic [ref=f203e263]: 部署分流判断 + 边界
+      - generic [ref=f203e266]: 电池受限设备
+      - generic [ref=f203e267]: 手机 / 可穿戴常驻检测
+      - generic [ref=f203e268]: 常规小模型（SVDF 330K）
+      - generic [ref=f203e269]: EER 3.78——小预算下仍最优
+      - generic [ref=f203e272]: 插电设备
+      - generic [ref=f203e273]: 智能音箱 / 智能屏 / 车机
+      - generic [ref=f203e274]: TT-KWS+MBR 大模型（13M）
+      - generic [ref=f203e275]: EER 3.27——算力换精度
+      - generic [ref=f203e278]: 高精度场景
+      - generic [ref=f203e279]: 对误报零容忍的产品
+      - generic [ref=f203e280]: 两路线融合（分数求和）
+      - generic [ref=f203e281]: EER 3.09 / 低 FP 区 −13.6%——错误互补
+      - generic [ref=f203e283]: 边界
+      - generic [ref=f203e284]: · 模型与解码重：13M 是 SVDF 大（3.9M）的 3 倍多；小
+      - generic [ref=f203e285]: 模型又不敌 SVDF——中间档位（高端手机常驻）空白
+      - generic [ref=f203e286]: · MBR 训练贵：训练中跑 beam 8 取 4-best 假设，且必须
+      - generic [ref=f203e287]: 先 RNN-T 训好再热启动（流程加长）；超参只给一组
+      - generic [ref=f203e288]: 经验值无敏感性分析
+      - generic [ref=f203e289]: · max 打分的隐含假设：一句至多一次关键词——连续两次
+      - generic [ref=f203e290]: 唤醒丢次数信息；无时长平滑，瞬时尖峰鲁棒性未讨论
+      - generic [ref=f203e291]: · 只验证两个固定关键词（Hey/Okay Google，两词多元音）；
+      - generic [ref=f203e292]: 单音节短词、token 化收益随关键词长度的变化未测
+      - generic [ref=f203e293]: · 内部数据不可复现：全部供应商采集，无公开集，无效率
+      - generic [ref=f203e294]: 指标（延迟/RTF/内存/能耗），MBR 训练开销无量化；
+      - generic [ref=f203e295]: 大模型 3.27 vs 3.38 无显著性分析
+      - generic [ref=f203e296]: 方法学外溢：换关键词只改转写文本 + 免强制对齐——旧关键词模型可直接当新关键词的预训练；
+      - generic [ref=f203e297]: 也为联邦学习训练 KWS 扫清障碍（用户数据上跑对齐贵且涉隐私）——论文作为潜力提及未做实验
+      - generic [ref=f203e298]: 一句话总结：这条路线的价值不只是 3.27 vs 3.38 的数字，而是给出了「ASR 质量红利导入 KWS」的可行配方——token 化解除字符依赖、MBR 对齐检测目标、融合吃到互补红利
+    - paragraph [ref=f203e299]: 图4 · 部署分流与边界：电池设备小模型 / 插电设备 T-T 大模型 / 高精度场景融合；13M 参数与 MBR 训练开销的代价；max 打分的隐含假设与实验设计缺口。
+  - heading "§04 贡献：五条" [level=2] [ref=f203e300]:
+    - generic [ref=f203e301]: §04
+    - text: 贡献：五条
+  - generic [ref=f203e302]:
+    - generic [ref=f203e303]:
+      - generic [ref=f203e304]: "1"
+      - paragraph [ref=f203e305]: TT-KWS 完整方案：用 <kw> token 把 T-T ASR 适配到 KWS——仅这一项小模型 EER 相对降 31%，从根本上解除对 ASR 字符级正确性的依赖。
+    - generic [ref=f203e306]:
+      - generic [ref=f203e307]: "2"
+      - paragraph [ref=f203e308]: 面向 KWS 的 MBR 训练损失：把序列判别训练改造为直接最小化 N-best 假设上的期望假阳/假阴率——低 FP 操作区最高 30.4% 相对 FN 改进。
+    - generic [ref=f203e309]:
+      - generic [ref=f203e310]: "3"
+      - paragraph [ref=f203e311]: softmax 置信度打分：支持阈值可调的多操作点，且训练目标与推理度量对齐。
+    - generic [ref=f203e312]:
+      - generic [ref=f203e313]: "4"
+      - paragraph [ref=f203e314]: 两条路线的系统对比与融合证据：TT-KWS 与常规 E2E KWS 错误互补，融合在所有操作点一致占优；给出按供电条件分流的部署判断。
+    - generic [ref=f203e315]:
+      - generic [ref=f203e316]: "5"
+      - paragraph [ref=f203e317]: 方法学外溢：换关键词只改转写文本、免强制对齐——打通旧关键词模型当新关键词预训练、联邦学习训练 KWS 的路径（未做实验）。
+  - heading "§05 局限与边界" [level=2] [ref=f203e318]:
+    - generic [ref=f203e319]: §05
+    - text: 局限与边界
+  - generic [ref=f203e320]: 容量是第一性，但容量也最贵
+  - generic [ref=f203e321]:
+    - generic [ref=f203e322]:
+      - heading "模型与解码重" [level=4] [ref=f203e323]
+      - paragraph [ref=f203e324]: 大配置 13M 是 SVDF 大配置（3.9M）的 3 倍多；小配置性能又不敌 SVDF——这条路线目前只能落在「插电设备」档，中间档位（高端手机常驻检测）是空白。
+    - generic [ref=f203e325]:
+      - heading "MBR 训练成本与超参" [level=4] [ref=f203e326]
+      - paragraph [ref=f203e327]: "训练中跑 beam 8 取 4-best 假设（开销显著高于纯 RNN-T）；必须先 RNN-T 训好再热启动（流程加长）；{α, β, λ}={1.0, 1.0, 0.01} 只给一组经验值，无敏感性分析。"
+    - generic [ref=f203e328]:
+      - heading "打分假设与关键词覆盖" [level=4] [ref=f203e329]
+      - paragraph [ref=f203e330]: 整句 max 假设一句至多一次关键词——连续两次唤醒丢次数信息；无时长平滑，瞬时尖峰鲁棒性未讨论；只验证两个两词多元音英文短语，单音节短词未测，token 化收益是否随关键词长度变化未知。
+    - generic [ref=f203e331]:
+      - heading "实验设计缺口" [level=4] [ref=f203e332]
+      - paragraph [ref=f203e333]: 全部内部供应商数据（无公开集，不可复现、不可横向对比）；无延迟/RTF/内存/能耗数字而结论恰围绕资源展开；大模型 3.27 vs 3.38 无显著性分析；易混淆负样本仅 1.5 万条（占 360 万负句极小）且未单独报告其错误率；融合只试了分数求和一种方式。
+  - generic [ref=f203e334]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f203e335]
+    - list [ref=f203e336]:
+      - listitem [ref=f203e337]: ↳ 把事件级检测问题塞进 token 序列生成框架：检测从「逐字正确」变成「token 出现与否」——错误从 AND 累积变成单点判断，上游字符级噪声被吸收。
+      - listitem [ref=f203e338]: ↳ 序列判别训练（MBR 类）要先用似然目标热启动：判别目标依赖假设空间质量，未收敛模型的 N-best 是垃圾——冷启动直接优化判别目标等于优化噪声。
+      - listitem [ref=f203e339]: ↳ 训练目标要与推理度量对齐（优化什么就度量什么）——这要求分数定义在模型输出端，而不是事后解析。
+      - listitem [ref=f203e340]: ↳ 容量不够时损失技巧救不回来：小预算下为任务定制的紧凑架构仍占优——先定容量档位再谈训练技巧。
+      - listitem [ref=f203e341]: ↳ 两条技术路线的系统错误往往是互补的：融合（哪怕最简单的分数求和）能在所有操作点一致占优——部署前值得先测错误相关性再决定是否融合。
+  - generic [ref=f203e342]:
+    - link "论文原文 ↗" [ref=f203e343] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2211.06478
+    - link "笔记全文 ↗" [ref=f203e344] [cursor=pointer]:
+      - /url: Exploring_Sequence-to-Sequence_Transformer-Transducer_Models_For_Keyword_Spotting.md
+    - link "返回列表" [ref=f203e345] [cursor=pointer]:
+      - /url: ../index.html

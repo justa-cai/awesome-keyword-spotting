@@ -1,0 +1,369 @@
+- generic [active] [ref=f187e1]:
+  - generic [ref=f187e2]:
+    - link "← 返回论文列表" [ref=f187e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f187e4]: 论文精读 · 可视化版 · 2022 №7
+    - heading "29 条命令的误报一小时 1.47 次， 这个级联框架把它压到 0.13 次" [level=1] [ref=f187e5]: 29 条命令的误报一小时 1.47 次，这个级联框架把它压到 0.13 次
+    - generic [ref=f187e6]:
+      - generic [ref=f187e7]: CaTT-KWS · arXiv 2207.01267
+      - generic [ref=f187e8]: 西工大 ASLP × 腾讯
+      - generic [ref=f187e9]: tiny transducer + 强制对齐 + transformer 终审
+      - generic [ref=f187e10]: 3.8M 参数 · 23000h 训练
+    - generic [ref=f187e11]: 关键词定制完全放在 WFST 搜索图——加命令零数据采集、零模型重训；误报压掉九成一的代价是准确率掉不到 2 个点。
+    - generic [ref=f187e12]:
+      - heading "一分钟版本" [level=3] [ref=f187e13]
+      - list [ref=f187e14]:
+        - listitem [ref=f187e15]: ▸ 场景不是单唤醒词：车载命令控制要同时在线检测几十上百条命令，命令越多解码路径越多，无关语音「碰巧」走进某条命令路径的先验同步放大——误报复控。
+        - listitem [ref=f187e16]: ▸ 基线画像：tiny transducer 检测级干净集准确率 96%，但每小时误报 1.47 次；高唤醒率伴随高误报是 transducer 路线的老毛病。
+        - listitem [ref=f187e17]: ▸ 前作 MLD 的天花板：后级置信度（滑窗和、编辑距离概率、近似似然）全部从同一份 transducer 输出推导——统计变换不产生新信息，transducer 估偏了它们一起错。
+        - listitem [ref=f187e18]: ▸ CaTT 的解法：三级级联共享编码器——transducer 高召回检测 → 音素预测器 Viterbi 强制对齐（修边界 + 第一道闸 S1）→ transformer 终审（第二道闸 S2），三路证据参数独立、犯错模式不相关。
+        - listitem [ref=f187e19]: ▸ 定制秘密：关键词知识全部外置在 LG = min(det(L∘G)) 搜索图里，加新命令只改语法图 G 重复合一次，模型权重不动。
+        - listitem [ref=f187e20]: ▸ 核心数字：误报 1.47 → 0.13 次/h（相对降 91.15%），准确率干净 96 → 94.20、嘈杂 87.65 → 85.69，两端都不超 2 个点。
+        - listitem [ref=f187e21]: ▸ 边界修正是隐藏功臣：流式模型发射延迟让起点偏晚 0.29–0.44s，对齐修到 0.11–0.23s；边界不准时 transformer 单独上（误报 0.23）不如先对齐再终审（0.13）。
+        - listitem [ref=f187e22]: ▸ 两个反直觉消融：transformer 容量并非越大越好（1 块 0.9M 是甜点，4 块在低误报区反而更差）；音素 vs 汉字单元存在交叉——低误报区音素稳、高误报区汉字反超。
+        - listitem [ref=f187e23]: ▸ 边界：29 条命令就做到 0.13，「上百条」是外推；84h 负样本全在车载域，跨域误报未测；τ=1.5 / υ=5 / td=15 全是经验值，换域可能失配。
+        - listitem [ref=f187e24]: ▸ 可迁移判断：级联校验压误报的每一分收益都从召回借来；校验级的价值取决于它与检测级犯错的独立性，而不是置信度公式多精巧。
+    - heading "§01 问题：命令词场景的误报复控" [level=2] [ref=f187e25]:
+      - generic [ref=f187e26]: §01
+      - text: 问题：命令词场景的误报复控
+    - generic [ref=f187e27]: 关键词从 1 条扩到 29 条，误中机会放大近 30 倍
+    - paragraph [ref=f187e28]: 命令控制与隐私敏感应用需要端侧常驻的本地 KWS，同时在线检测几十上百条命令。机制上不难理解误报为什么会失控：解码搜索空间里的合法路径随命令数增长，任意一段广播、闲聊、驾驶噪声「碰巧」走进某条命令路径的先验同步升高。单唤醒词只有一条目标路径可以误中，二十九条命令把这个机会放大近三十倍。每次误触发的代价是系统在用户没说话时「自作多情」地执行命令——体验破坏是直接的。
+    - paragraph [ref=f187e29]: 另一个老痛点是定制成本：固定词表的神经 KWS 把词表烧进输出层，加一条新命令就是一轮数据采集 + 模型重训，产品迭代节奏下不可接受。理想状态是改个配置就能上线。
+    - generic [ref=f187e30]:
+      - generic [ref=f187e31]:
+        - heading "注意力偏置 transducer 路线的两个缺口" [level=4] [ref=f187e32]
+        - paragraph [ref=f187e33]: He [12]、Liu [13]、Tian [14] 用注意力偏置或 CTC 联合训练把搜索拉向关键词转写——但基本只考虑单唤醒词场景，多命令同时检测没人探索；且 transducer 方法唤醒率高、误报问题同样突出，命令场景下会被放大。
+      - generic [ref=f187e34]:
+        - heading "MLD 的单源证据天花板" [level=4] [ref=f187e35]
+        - paragraph [ref=f187e36]: 与本文最相关的 MLD [13]：检测级滑窗检出候选，校验级算编辑距离概率和近似似然。批评切中要害——所有置信度从同一份 transducer 输出推导。transducer 对噪声帧音素后验估高了，后续统计量跟着一起错：它们不是独立的第二意见，而是同一输出的不同变换。
+    - paragraph [ref=f187e37]: 本文要同时满足四个相互牵制的条件：准确率不能明显恶化；误报压到极低；新增关键词零采集零重训；整体约 3.8M 塞进端侧。压 FA 最直接的办法是加严阈值（伤准确率），加校验模块最直接的办法是堆模型（伤体积延迟）——解法是「级联 + 共享编码器 + 事件驱动计算」：校验模块只在触发时短暂运行，常驻开销只有第一级。
+    - heading "§02 方法：三级级联，共享编码器，多任务一次训练" [level=2] [ref=f187e38]:
+      - generic [ref=f187e39]: §02
+      - text: 方法：三级级联，共享编码器，多任务一次训练
+    - generic [ref=f187e40]: 检测故意高召回，精度问题留给异源校验
+    - generic [ref=f187e41]:
+      - img [ref=f187e42]:
+        - generic [ref=f187e44]: CaTT-KWS：三级级联 + 共享编码器，用「异源证据」压误报
+        - generic [ref=f187e45]: ① 靶心：命令词扩到几十条，误报复控
+        - generic [ref=f187e47]: 为什么命令越多误报越多
+        - generic [ref=f187e48]: 解码搜索空间里合法路径随命令数线性增长，
+        - generic [ref=f187e49]: 一段广播/闲聊「碰巧」走进某条命令路径的先验
+        - generic [ref=f187e50]: 同步放大——单唤醒词 1 条路 vs 29 条命令近 30 倍
+        - generic [ref=f187e51]: 误中机会（实验用 29 条普通话车载命令验证）
+        - generic [ref=f187e53]: 现有路线的两个缺口
+        - generic [ref=f187e54]: 注意力偏置 transducer（[12][13][14]）：只做过单唤醒词
+        - generic [ref=f187e55]: 场景，且唤醒率高伴随误报高；换词表要动模型
+        - generic [ref=f187e56]: MLD 多级检测（[13]）：后级置信度全部从同一份
+        - generic [ref=f187e57]: transducer 输出推导——不是第二意见，是同一信息
+        - generic [ref=f187e58]: MLD 单源证据的天花板：transducer 对某段音频估偏了（比如噪声帧音素后验虚高），后续滑窗和 / 编辑距离概率 / 近似似然跟着一起错——统计变换不产生新信息
+        - generic [ref=f187e59]: ② 三级流水线：检测高召回 → 对齐修边界 → 终审压误报
+        - generic [ref=f187e61]: 共享编码器：降采样卷积 ×1 + 128 维 LSTM ×1 + 512 维 FSMN ×6（左上下文 8，右上下文 [2,2,1,2,2,1]）
+        - generic [ref=f187e62]: ▲ 三级共用同一份声学表征，多任务一次训练成型
+        - generic [ref=f187e64]: 第一级 · 检测
+        - generic [ref=f187e65]: tiny transducer（210 CI 音素 + blank）
+        - generic [ref=f187e66]: 无状态预测网络（因果卷积核宽 2）
+        - generic [ref=f187e67]: WFST 上 greedy + skip blank 搜索
+        - generic [ref=f187e68]: 设计取向：故意高召回——「在关键词上
+        - generic [ref=f187e69]: 召回更多案例，但不可避免产生大量误报」
+        - generic [ref=f187e70]: 产出：候选关键词 + 粗略时间边界
+        - generic [ref=f187e72]: 第二级 · 强制对齐
+        - generic [ref=f187e73]: 音素预测器（线性头 + softmax）
+        - generic [ref=f187e74]: 起点回推 td=15 帧（约 0.6s）保词头
+        - generic [ref=f187e75]: 候选音素序列 → 线性 WFST，序列前插
+        - generic [ref=f187e76]: 垃圾符号 g 吸收回推进来的多余帧
+        - generic [ref=f187e77]: Viterbi 对齐 → 精确起点 tr + 似然 S1
+        - generic [ref=f187e78]: S1 < τ=1.5 过闸（长度归一化平均 NLL）
+        - generic [ref=f187e80]: 第三级 · 终审
+        - generic [ref=f187e81]: transformer 解码器（1 块自注意力）
+        - generic [ref=f187e82]: 按对齐边界截取编码器输出
+        - generic [ref=f187e83]: 自回归 beam search，强制第 M 步截停
+        - generic [ref=f187e84]: （M=候选音素长度——长度先验做上界）
+        - generic [ref=f187e85]: beam 无匹配直接拒；S2 < υ=5 才触发
+        - generic [ref=f187e86]: S2 裸求和（假设等长，天然可比）
+        - generic [ref=f187e88]: 触发 ✓
+        - generic [ref=f187e89]: 事件驱动：对齐与终审只在第一级触发的短暂片段运行——常驻计算只有第一级，transformer 才塞得进 3.8M 预算
+        - generic [ref=f187e90]: ③ 定制全在搜索图：换词不重训
+        - generic [ref=f187e92]: LG = min(det(L ∘ G))
+        - generic [ref=f187e93]: 词法 L：音素串 → 词；语法 G：预定义命令集文法网络
+        - generic [ref=f187e94]: 加新命令 = 往 G 加一条音素序列 → 重复合 LG → 完事
+        - generic [ref=f187e95]: 零数据采集、零模型重训；声学模型完全不感知词表
+        - generic [ref=f187e96]: （与经典 DNN-HMM+WFST 混合框架同构——创新在把它
+        - generic [ref=f187e97]: 嫁接到流式端到端 transducer + 两级神经校验）
+        - generic [ref=f187e99]: 多任务联合训练（式 1）
+        - generic [ref=f187e100]: L = α·L_Transducer + β·L_CE + γ·L_Transformer
+        - generic [ref=f187e101]: （α=1.0，β=0.8，γ=0.5，经验值）
+        - generic [ref=f187e102]: β 给 0.8 的逻辑：帧级音素 CE 是稠密监督——每帧都有
+        - generic [ref=f187e103]: 标签；transducer 损失只在发射边界带梯度（稀疏）——
+        - generic [ref=f187e104]: 稠密帧级标签加速收敛并正则化编码器训练
+        - generic [ref=f187e105]: 训练需要两套标签：转写文本 + 帧级音素对齐
+        - generic [ref=f187e107]: 0.13 次/h
+        - generic [ref=f187e108]: 误报（基线 1.47，降 91.15%）
+        - generic [ref=f187e109]: 94.20%
+        - generic [ref=f187e110]: 干净集准确率（基线 96）
+        - generic [ref=f187e111]: 3.8M
+        - generic [ref=f187e112]: 整体参数（端侧可部署）
+        - generic [ref=f187e113]: 23,000h
+        - generic [ref=f187e114]: 训练语料（腾讯车载产品）
+        - generic [ref=f187e115]: 0.11s
+        - generic [ref=f187e116]: 对齐后起点误差（原 0.29）
+        - generic [ref=f187e117]: 输入 40 维 PNCC（25ms 窗 / 10ms 移）；联合网络 100 单元 tanh 前馈；测试 6,000 句 × 29 条命令（干净 / 嘈杂各 3,000），误报评估 84 小时广播 + 闲聊 + 驾驶噪声
+      - paragraph [ref=f187e118]: 图1 · 框架全景：三级流水线 + 共享编码器 + 事件驱动计算。检测级故意高召回，强制对齐修边界并做第一道闸（S1），transformer 按长度先验强制截断 beam search 做终审（S2）；定制全部发生在 LG = min(det(L∘G)) 搜索图层。
+  - paragraph [ref=f187e119]: 几个架构决策的「为什么」值得逐条拆。第一级为什么用 transducer 而不是封闭集分类器：建模单元是 210 个 CI 音素，关键词约束完全放在解码侧 WFST 搜索图里，模型权重不感知词表——第一级因此可以「故意」做成高召回（论文明说这一阶段试图在关键词上召回更多案例但不可避免产生大量误报），级联系统的召回天花板由第一级决定，宁可放宽。
+  - paragraph [ref=f187e120]: 校验证据为什么必须独立于 transducer 输出：强制对齐用的是音素预测器（挂在共享编码器上的独立线性头）的帧级后验，终审用的是另一套自注意力参数——与 transducer 联合网络不共享参数、归纳偏置不同、犯错模式不相关。三路证据都指向「是关键词」才触发，FA 被指数级压缩。
+  - generic [ref=f187e121]:
+    - generic [ref=f187e122]:
+      - text: L = α·L
+      - subscript [ref=f187e123]: Transducer
+      - text: + β·L
+      - subscript [ref=f187e124]: CE
+      - text: + γ·L
+      - subscript [ref=f187e125]: Transformer
+      - text: （α=1.0, β=0.8, γ=0.5）
+    - generic [ref=f187e126]: 人话：一个编码器带三个头一起练。transducer 损失是主任务；帧级音素 CE 给 0.8 是因为它稠密——每一帧都有标签，而 transducer 损失只在发射 token 的边界带梯度，稠密帧级监督能加速收敛并正则化编码器；transformer 是校验辅助任务给 0.5。
+  - generic [ref=f187e127]:
+    - generic [ref=f187e128]: LG = min(det(L ∘ G))
+    - generic [ref=f187e129]: 人话：词法 L 把音素串映射到词，语法 G 是命令集文法网络，复合后确定化最小化成搜索图。加新命令 = 往 G 加一条音素序列重复合一次。定制的全部秘密在这个式子里——与经典 DNN-HMM+WFST 混合框架同构，创新在把它嫁接到流式端到端 transducer 上并配两级神经校验。推理用 greedy + skip blank（只对非 blank 的有效 token 搜索，跳过占大头的 blank 发射）。
+  - generic [ref=f187e130]:
+    - generic [ref=f187e131]:
+      - text: S₁ = −Σ log(p
+      - subscript [ref=f187e132]: l
+      - superscript [ref=f187e133]: t
+      - text: ) / T < τ = 1.5 ｜ S₂ = −Σ
+      - subscript [ref=f187e134]: l∈B
+      - text: log(p
+      - subscript [ref=f187e135]: l
+      - text: ) < υ = 5
+    - generic [ref=f187e136]: 人话：S1 是对齐区间上的平均帧级负对数似然——除以 T 做长度归一化，否则长命令似然求和天然偏大被系统性歧视。S2 是 beam 命中序列的裸求和——不是疏忽：beam 被强制在第 M 步截停（M = 候选音素长度），所有假设等长、天然可比。终审实际是两道闸：beam 里没有任何序列与候选匹配直接拒，有匹配才进阈值比较。
+  - paragraph [ref=f187e137]: 强制截断的 transformer 终审是第三个精巧设计：这一级做的是「验证」不是「生成」——答案长度是已知先验，判别信息在 M 步内必然全部展开。收益三层：计算有上界（M 通常六到十几步）；beam 假设等长，S2 无需归一化因子；顺带规避自回归解码器在短序列上拖尾输出无意义 token 的风险。
+  - heading "§03 实验：23,000 小时训练，车载双条件测试" [level=2] [ref=f187e138]:
+    - generic [ref=f187e139]: §03
+    - text: 实验：23,000 小时训练，车载双条件测试
+  - generic [ref=f187e140]: 6,000 句 × 29 条命令（干净/嘈杂各半）+ 84 小时负样本
+  - paragraph [ref=f187e141]: 训练数据 23,000 小时普通话 ASR 语料（腾讯车载产品真实数据）——这是免采集定制的物质基础：音素级建模单元配两万三千小时通用语音，声学模型见过足够多的音素上下文变体，新命令只是旧音素的新排列。测试 6,000 句覆盖 29 条命令（每条含六个以上音素，如「打开导航」= d a3 k ai1 d ao3 h ang2），按采集条件分干净（高速）/嘈杂（市区）两组。误报在 84 小时广播+闲聊+驾驶噪声上统计。
+  - generic [ref=f187e142]:
+    - img [ref=f187e143]:
+      - generic [ref=f187e145]: 主结果（Table 1）：不到 2 点准确率，换九成误报削减
+      - generic [ref=f187e146]: 命令准确率（%）
+      - generic [ref=f187e147]: "86"
+      - generic [ref=f187e148]: "90"
+      - generic [ref=f187e149]: "94"
+      - generic [ref=f187e150]: "98"
+      - generic [ref=f187e153]: "96.0"
+      - generic [ref=f187e154]: "87.7"
+      - generic [ref=f187e157]: "94.3"
+      - generic [ref=f187e158]: "85.9"
+      - generic [ref=f187e161]: "95.5"
+      - generic [ref=f187e162]: "87.3"
+      - generic [ref=f187e165]: "94.2"
+      - generic [ref=f187e166]: "85.7"
+      - generic [ref=f187e169]: "94.4"
+      - generic [ref=f187e170]: "86.2"
+      - generic [ref=f187e172]: 干净集
+      - generic [ref=f187e174]: 嘈杂集
+      - generic [ref=f187e175]: S0 检测基线
+      - generic [ref=f187e176]: transducer+WFST
+      - generic [ref=f187e177]: S1 +Transformer
+      - generic [ref=f187e178]: （两阶段）
+      - generic [ref=f187e179]: S2 +对齐
+      - generic [ref=f187e180]: （两阶段）
+      - generic [ref=f187e181]: S3 对齐+Transformer
+      - generic [ref=f187e182]: （完整 CaTT）★
+      - generic [ref=f187e183]: S4 MLD 复现
+      - generic [ref=f187e184]: （文献[13]配置）
+      - generic [ref=f187e185]: 每小时误报数（84h 负样本）
+      - generic [ref=f187e187]: "1.47"
+      - generic [ref=f187e188]: S0 检测基线
+      - generic [ref=f187e190]: "0.50"
+      - generic [ref=f187e191]: S2 +对齐（两阶段）
+      - generic [ref=f187e192]: −66.0%
+      - generic [ref=f187e194]: "0.27"
+      - generic [ref=f187e195]: S4 MLD 复现
+      - generic [ref=f187e196]: 同为两阶段级联
+      - generic [ref=f187e198]: "0.23"
+      - generic [ref=f187e199]: S1 +Transformer（两阶段）
+      - generic [ref=f187e200]: −84.4%
+      - generic [ref=f187e202]: "0.13"
+      - generic [ref=f187e203]: S3 完整 CaTT ★
+      - generic [ref=f187e204]: −91.2%
+      - generic [ref=f187e205]: 基线「高唤醒伴随高误报」画像：干净集 96% 准确率
+      - generic [ref=f187e206]: 但 1.47 次/h——产品不可用区间
+      - generic [ref=f187e207]: 读数：S3 相对 S0 误报 1.47→0.13（−91.15%），准确率代价干净 −1.8 / 嘈杂 −1.96 点；对 MLD：准确率相仿（94.20 vs 94.41）但误报是其一半（0.13 vs 0.27）
+    - paragraph [ref=f187e208]: 图2 · 主结果（Table 1）：左为命令准确率（干净/嘈杂），右为每小时误报。完整 CaTT（S3）误报 0.13 次/h 相对基线降 91.15%；对 MLD 复现（S4）准确率相仿但误报是其一半。
+  - table [ref=f187e209]:
+    - rowgroup [ref=f187e210]:
+      - row [ref=f187e211]:
+        - columnheader "实验" [ref=f187e212]
+        - columnheader "配置" [ref=f187e213]
+        - columnheader "准确率（干净）" [ref=f187e214]
+        - columnheader "准确率（嘈杂）" [ref=f187e215]
+        - columnheader "误报/小时" [ref=f187e216]
+        - columnheader "相对降幅" [ref=f187e217]
+      - row [ref=f187e218]:
+        - cell "S0" [ref=f187e219]
+        - cell "transducer + WFST 基线" [ref=f187e220]
+        - cell "96.00" [ref=f187e221]
+        - cell "87.65" [ref=f187e222]
+        - cell "1.47" [ref=f187e223]
+        - cell "—" [ref=f187e224]
+      - row [ref=f187e225]:
+        - cell "S1" [ref=f187e226]
+        - cell "+ Transformer（两阶段）" [ref=f187e227]
+        - cell "94.31" [ref=f187e228]
+        - cell "85.89" [ref=f187e229]
+        - cell "0.23" [ref=f187e230]
+        - cell "84.35%" [ref=f187e231]
+      - row [ref=f187e232]:
+        - cell "S2" [ref=f187e233]
+        - cell "+ 强制对齐（两阶段）" [ref=f187e234]
+        - cell "95.48" [ref=f187e235]
+        - cell "87.34" [ref=f187e236]
+        - cell "0.50" [ref=f187e237]
+        - cell "65.98%" [ref=f187e238]
+      - row [ref=f187e239]:
+        - cell "S3" [ref=f187e240]
+        - cell "对齐 + Transformer（完整 CaTT）" [ref=f187e241]
+        - cell "94.20" [ref=f187e242]
+        - cell "85.69" [ref=f187e243]
+        - cell "0.13" [ref=f187e244]
+        - cell "91.15%" [ref=f187e245]
+      - row [ref=f187e246]:
+        - cell "S4" [ref=f187e247]
+        - cell "transducer + MLD（[13] 复现）" [ref=f187e248]
+        - cell "94.41" [ref=f187e249]
+        - cell "86.24" [ref=f187e250]
+        - cell "0.27" [ref=f187e251]
+        - cell "—" [ref=f187e252]
+  - paragraph [ref=f187e253]: 对 MLD 的关键差异不在平均数字而在 ROC 形状：每小时误报低于 0.15 的产品级区间里，MLD 的 FR 率急剧恶化而 CaTT 保持平缓——MLD 不是所有工作点都不行，是在「误报压到极致」这个最有价值的工作点上撑不住，恰好印证单源证据天花板的分析。
+  - generic [ref=f187e254]:
+    - img [ref=f187e255]:
+      - generic [ref=f187e257]: 两块机制证据：边界修正真的生效（表2）+ 证据异源的价值
+      - generic [ref=f187e258]: 命令起点误差（秒，表2）
+      - generic [ref=f187e259]: "0.0"
+      - generic [ref=f187e260]: "0.1"
+      - generic [ref=f187e261]: "0.2"
+      - generic [ref=f187e262]: "0.3"
+      - generic [ref=f187e263]: "0.4"
+      - generic [ref=f187e264]: "0.5"
+      - generic [ref=f187e265]: 干净集
+      - generic [ref=f187e268]: 检测级 0.29
+      - generic [ref=f187e269]: 对齐后 0.11
+      - generic [ref=f187e270]: 嘈杂集
+      - generic [ref=f187e273]: 检测级 0.44
+      - generic [ref=f187e274]: 对齐后 0.23
+      - generic [ref=f187e276]: 两种条件都缩到一半以下（38% / 52%）
+      - generic [ref=f187e277]: 为什么必须修：流式模型右上下文受限 → 发射延迟 → 起点系统性偏晚，
+      - generic [ref=f187e278]: 按偏晚的边界截编码器输出会把词头砍掉，喂给终审的候选段残缺
+      - generic [ref=f187e279]: → S1（误报 0.23）差于 S3（0.13）的根源就在边界质量
+      - generic [ref=f187e281]: 校验证据：单源 vs 异源
+      - generic [ref=f187e283]: MLD（[13]）：单源统计变换
+      - generic [ref=f187e285]: transducer
+      - generic [ref=f187e286]: 输出
+      - generic [ref=f187e290]: 滑窗后验和
+      - generic [ref=f187e292]: 编辑距离概率
+      - generic [ref=f187e294]: 近似似然
+      - generic [ref=f187e295]: → 0.27 次/h
+      - generic [ref=f187e296]: 错误相关：一起错
+      - generic [ref=f187e298]: CaTT：参数独立的三路证据
+      - generic [ref=f187e300]: ① transducer 联合网络
+      - generic [ref=f187e302]: ② 音素预测器（帧级 NLL S1）
+      - generic [ref=f187e304]: ③ transformer 终审（序列 NLL S2）
+      - generic [ref=f187e305]: → 0.13 次/h 异源证据错误不相关，FA 被指数级压缩
+      - generic [ref=f187e306]: 可迁移判断：「校验级的价值取决于它与检测级犯错的独立性，而不是它算出的置信度公式多精巧」——同一份输出的统计变换不是第二意见
+    - paragraph [ref=f187e307]: 图3 · 机制证据：左为表2 起点误差哑铃图——强制对齐把检测级起点误差（干净 0.29s / 嘈杂 0.44s）修到 0.11s / 0.23s，缩到一半以下；右为 MLD 单源统计变换 vs CaTT 参数独立三路证据的对比。
+  - generic [ref=f187e308]:
+    - img [ref=f187e309]:
+      - generic [ref=f187e311]: 消融：两级校验的分工 + 容量甜点 + 建模单元交叉（图3/图4）
+      - generic [ref=f187e312]: 两级校验的角色分工（表1）
+      - generic [ref=f187e314]: S2 单加对齐
+      - generic [ref=f187e316]: 误报 0.50 次/h
+      - generic [ref=f187e318]: 准确率 −0.52 点
+      - generic [ref=f187e319]: 便宜的精度保持者：先干掉 2/3 误报
+      - generic [ref=f187e321]: S1 单加 Transformer
+      - generic [ref=f187e323]: 误报 0.23 次/h
+      - generic [ref=f187e325]: 准确率 −1.69 点
+      - generic [ref=f187e326]: 终极误报杀手：单独用连累准确率
+      - generic [ref=f187e328]: S3 对齐在前 + 终审在后
+      - generic [ref=f187e330]: 误报 0.13 次/h
+      - generic [ref=f187e332]: 准确率 −1.80 点
+      - generic [ref=f187e333]: 顺序是依赖链：对齐产出精确边界
+      - generic [ref=f187e334]: 终审的输入质量前提 = 对齐的产出
+      - generic [ref=f187e335]: 终审器容量：并非越大越好（图3）
+      - generic [ref=f187e337]: 1 块自注意力
+      - generic [ref=f187e338]: 0.9M
+      - generic [ref=f187e340]: 甜点 ✓
+      - generic [ref=f187e342]: 2 块
+      - generic [ref=f187e343]: 1.7M
+      - generic [ref=f187e345]: 无收益
+      - generic [ref=f187e347]: 4 块
+      - generic [ref=f187e348]: 3.2M
+      - generic [ref=f187e350]: 低误报区更差
+      - generic [ref=f187e351]: 相近误报水平下加大解码器没有准确率收益，低误报区间
+      - generic [ref=f187e352]: 性能反而更差——更多参数加剧过拟合；0.9M 就是这个设置
+      - generic [ref=f187e353]: 的甜点，严格工作点上盲目堆料反噬
+      - generic [ref=f187e354]: 建模单元交叉（图4 · 示意形态）
+      - generic [ref=f187e366]: 汉字 6000 类 · 解码器 3.8M
+      - generic [ref=f187e367]: 音素 210 类 · 0.9M
+      - generic [ref=f187e368]: 横轴 FA↑（示意）· 纵轴 FR
+      - generic [ref=f187e369]: 低误报区音素 FR 更低（混淆空间小更稳）；高误报区汉字反超
+      - generic [ref=f187e370]: （序列约束强）——按工作点选粒度；大单元可裁掉不用的
+      - generic [ref=f187e371]: 输入输出节点控体积
+      - generic [ref=f187e372]: 锚点有据：交叉现象与参数量来自图3/图4 及第3.4/3.5节；曲线形态为示意。全局阈值 υ=5 未按命令长度归一是已声明的局限（长命令天然偏松）
+    - paragraph [ref=f187e373]: 图4 · 消融（图3/图4）：两级校验角色分工（对齐是便宜的精度保持者、终审是终极误报杀手，顺序是依赖链）；transformer 容量甜点 1 块 0.9M；音素/汉字单元按工作点交叉。
+  - heading "§04 贡献：五条能转述的判断" [level=2] [ref=f187e374]:
+    - generic [ref=f187e375]: §04
+    - text: 贡献：五条能转述的判断
+  - generic [ref=f187e376]: 级联异源校验在多命令定制 KWS 的完整落地
+  - generic [ref=f187e377]:
+    - generic [ref=f187e378]:
+      - generic [ref=f187e379]: "1"
+      - paragraph [ref=f187e380]: 多阶段定制 KWS 框架：流式 tiny transducer 检测、音素预测器强制对齐校验、transformer 解码终审的级联结构，共享编码器多任务一次训练成型——「用级联异源校验压制误报」在多命令场景的完整落地。
+    - generic [ref=f187e381]:
+      - generic [ref=f187e382]: "2"
+      - paragraph [ref=f187e383]: 误报压制有数据背书：车载数据集做到 0.13 次/h，相对基线降 91.15%（表1 S3），准确率代价不超过 2 个点——用不到 2 个点换九成误报削减。
+    - generic [ref=f187e384]:
+      - generic [ref=f187e385]: "3"
+      - paragraph [ref=f187e386]: 零成本定制机制：定制完全在 WFST 搜索图层面（式2 的 LG 复合），新增关键词零采集零重训；音素/汉字两种粒度可按工作点选（第3.5节）。
+    - generic [ref=f187e387]:
+      - generic [ref=f187e388]: "4"
+      - paragraph [ref=f187e389]: 强制对齐一器两用：训练时是正则编码器的辅助任务，推理时是边界修正器 + 一级校验器——把发射延迟痛点（起点误差 0.29/0.44s）修到 0.11/0.23s，并证明准确边界是后级校验性能的前置条件（S1 对 S3）。
+    - generic [ref=f187e390]:
+      - generic [ref=f187e391]: "5"
+      - paragraph [ref=f187e392]: 端侧可行性标定：整体 3.8M + 事件驱动校验；消融标出 transformer 容量甜点（1 块 0.9M），避免无谓堆料。
+  - heading "§05 局限与边界" [level=2] [ref=f187e393]:
+    - generic [ref=f187e394]: §05
+    - text: 局限与边界
+  - generic [ref=f187e395]: 每一分误报收益都是从召回借来的
+  - generic [ref=f187e396]:
+    - generic [ref=f187e397]:
+      - heading "准确率代价不可忽略" [level=4] [ref=f187e398]
+      - paragraph [ref=f187e399]: 干净集 96 → 94.20，约 1.8 个点的真命令被后级误杀。对命令控制，误拒同样伤体验——喊「打开导航」没反应再喊一遍的挫败感，论文没讨论商业代价。
+    - generic [ref=f187e400]:
+      - heading "超参数全靠经验" [level=4] [ref=f187e401]
+      - paragraph [ref=f187e402]: α/β/γ=1.0/0.8/0.5、τ=1.5、υ=5、td=15 全是经验值，无敏感性分析。τ 和 υ 直接决定工作点，从车载换到家居很可能失配。
+    - generic [ref=f187e403]:
+      - heading "固定回推 vs 波动延迟" [level=4] [ref=f187e404]
+      - paragraph [ref=f187e405]: td=15 帧是常数回推，但发射延迟随声学条件变化（嘈杂 0.44s vs 干净 0.29s）；嘈杂集对齐后仍剩 0.23s，没完全解决。
+    - generic [ref=f187e406]:
+      - heading "S2 缺跨关键词归一" [level=4] [ref=f187e407]
+      - paragraph [ref=f187e408]: 同一关键词内 beam 等长可比，但不同命令音素长度不齐，全局 υ=5 对长命令天然偏松——未按命令分别设阈值。
+    - generic [ref=f187e409]:
+      - heading "命令规模与宣称有差距" [level=4] [ref=f187e410]
+      - paragraph [ref=f187e411]: 摘要说「几十上百条」，实测 29 条。29 → 100 条时 FA 从 0.13 涨到多少没报告，「上百条」是外推。
+    - generic [ref=f187e412]:
+      - heading "负样本域单一 + 无系统级开销" [level=4] [ref=f187e413]
+      - paragraph [ref=f187e414]: 84h 负样本全在车载域，家居/电视/多说话人跨域误报未测；推理延迟、RTF、各级触发率与开销分解、内存功耗全没报——端侧论证只落在 3.8M 一个维度。MLD 基线是自行复现（S4），复现细节未给。
+  - generic [ref=f187e415]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f187e416]
+    - list [ref=f187e417]:
+      - listitem [ref=f187e418]: ↳ 级联校验压误报的每一分收益，都是从召回侧借来的——设计级联时先算清楚愿意付多少召回。
+      - listitem [ref=f187e419]: ↳ 校验级的价值取决于它与检测级犯错的独立性，而不是它算出的置信度公式多精巧——同一份输出的统计变换不是第二意见。
+      - listitem [ref=f187e420]: ↳ 验证类任务（答案长度已知）用长度先验强制截断解码：开销有上界、假设天然可比、规避拖尾——比自由生成便宜得多。
+      - listitem [ref=f187e421]: ↳ 密集帧级辅助监督（每一帧都有标签）能给稀疏梯度的主任务（只在发射边界有梯度）加速收敛并正则化——一器两用的前提是头足够轻（一个线性层）。
+      - listitem [ref=f187e422]: ↳ 校验器容量有甜点：严格工作点上盲目堆参数反噬（4 块 3.2M 在低误报区不如 1 块 0.9M）。
+  - generic [ref=f187e423]:
+    - link "论文原文 ↗" [ref=f187e424] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2207.01267
+    - link "笔记全文 ↗" [ref=f187e425] [cursor=pointer]:
+      - /url: CaTT-KWS_A_Multi-stage_Customized_Keyword_Spotting_Framework_Based_On_Cascaded_Transducer-Transformer.md
+    - link "返回列表" [ref=f187e426] [cursor=pointer]:
+      - /url: ../index.html

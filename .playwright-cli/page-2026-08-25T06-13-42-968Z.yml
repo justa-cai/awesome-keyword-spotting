@@ -1,0 +1,323 @@
+- generic [active] [ref=f222e1]:
+  - generic [ref=f222e2]:
+    - link "← 返回论文列表" [ref=f222e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f222e4]: 论文精读 · 可视化版 · 2022 №24
+    - heading "自定义唤醒词， 用打字注册代替说三遍" [level=1] [ref=f222e5]: 自定义唤醒词，用打字注册代替说三遍
+    - generic [ref=f222e6]:
+      - generic [ref=f222e7]: Naver × 延世大学 · arXiv 2206.15400
+      - generic [ref=f222e8]: 音文本跨模态匹配 · 交叉注意力
+      - generic [ref=f222e9]: 单调匹配损失 + 去噪损失
+      - generic [ref=f222e10]: LibriPhrase 80 万短语（开源）
+    - generic [ref=f222e11]: 按例查询把「说话人音色 + 录音信道」烧进注册模板——文本注册天然免疫这两个人们不想要的变量；判别不靠标量相似度，靠亲和矩阵的「形态」。
+    - generic [ref=f222e12]:
+      - heading "一分钟版本" [level=3] [ref=f222e13]
+      - list [ref=f222e14]:
+        - listitem [ref=f222e15]: ▸ 先天缺陷：绝大多数用户自定义 KWS 走按例查询（注册语音样例、比较两段音频）——性能高度依赖录制会话一致性；词级训练准则在单词/生造词上急剧退化，而这恰是自定义场景最常见的输入形态。
+        - listitem [ref=f222e16]: ▸ 本文路线：文本注册（打字）+ 音频-文本跨模态匹配——文本模态只含语言学表示，从原理上消除说话人与环境失配，交互成本也更低。
+        - listitem [ref=f222e17]: ▸ 架构：音频编码器（2×1D conv + 2×GRU，步长 2 减帧率）+ 文本编码器（预训练 G2P：CMU 词典 + 神经网络表外词预测——开词表天花板由表外词发音预测决定）→ 交叉注意力（文本=Query、音频=K/V，输出沿音素轴）→ GRU 判别器读形态出概率。
+        - listitem [ref=f222e18]: ▸ 核心洞察：正确配对的亲和矩阵呈沿对角线的单调能量集中（语音与转写按相同时间顺序展开），内容不同则弥散——对齐形态本身携带「是否同一关键词」的判别信息；判别器学的是读形态，不是读标量。
+        - listitem [ref=f222e19]: ▸ 三项损失：去噪损失（0.5，孪生编码器干净/含噪嵌入一致性——约束打在嵌入层而非信号层）+ 单调匹配损失（0.3，拉向人工构造的目标模式）+ 检测损失（早期 BCE → 后期焦点损失的课程切换）。
+        - listitem [ref=f222e20]: ▸ 后缀匹配判负：「we mean to」对「i mean to」只差开头一音素——若后缀匹配给部分分，这类短语就是高危误触发源；「完整短语在场」的任务语义直接编码进监督信号。
+        - listitem [ref=f222e21]: ▸ 主结果：词表外全面领先——易集 EER 8.42（相对 −42.6%）、高通集 12.15（−33.4%）、难集 32.90（−6.6%）；AUC 同构（难集 73.58 vs 69.58）。
+        - listitem [ref=f222e22]: ▸ 唯一失利在谷歌集：27.25 vs 注意力方案的 14.75——on/off/one/two 等高频词在训练词表内，词表内方案占了闭集先验的便宜；同一方案在高通集崩到 49.13。开词表能力与闭集极致精度在同一架构里有张力，本文明确选择前者。
+        - listitem [ref=f222e23]: ▸ 消融：纯检测损失下注意力矩阵形态自由涌现、收敛慢；单调匹配损失给中间表示显式形态监督（图 4：全开后匹配区更连贯、非匹配区更散乱）；去噪损失在噪声集兑现、干净集微升（容量税）。
+        - listitem [ref=f222e24]: ▸ LibriPhrase：LibriSpeech + 强制对齐切成 1–4 词短语、每词长 20 万条共 80 万配平；训练叠 babble 5–15dB；评测负样本按编辑距离分易/难两档（friend↔frind 这类一音之差是难负）。
+    - heading "§01 问题：注册会话失配" [level=2] [ref=f222e25]:
+      - generic [ref=f222e26]: §01
+      - text: 问题：注册会话失配
+    - generic [ref=f222e27]: 不想要的变量被烧进模板
+    - paragraph [ref=f222e28]: 自定义关键词检测比固定词难得多：注册短语是任意短语、很可能完全没在训练数据里出现过——模型学的不应是「某个词长什么样」，而是「两段输入是否表达了同一个语言学内容」。按例查询方案把说话人音色和录音信道直接烧进注册模板，模板与查询之间天然存在失配；CTC 两段式方案则音素估计误差向后传播、映射靠人工规则，整体优化目标与检测指标不一致。
+    - generic [ref=f222e29]:
+      - generic [ref=f222e30]:
+        - heading "词级嵌入方法的粒度问题" [level=4] [ref=f222e31]
+        - paragraph [ref=f222e32]: 已有跨模态工作显式操作词级嵌入——词级表示需要先验对齐或池化，短语内部的时间结构在这一步被压缩掉；而短语级时间结构恰恰是区分「完整说出关键词」与「只说了一部分」的关键证据。
+      - generic [ref=f222e33]:
+        - heading "训练数据形态失配" [level=4] [ref=f222e34]
+        - paragraph [ref=f222e35]: 通用语料以长句为主而关键词是短词序列——直接训练大部分内容与任务无关、效率低下；且缺音素级易混淆的困难负样本，模型学不到真正的判别边界。
+    - heading "§02 方法：亲和矩阵形态判别" [level=2] [ref=f222e36]:
+      - generic [ref=f222e37]: §02
+      - text: 方法：亲和矩阵形态判别
+    - generic [ref=f222e38]: 匹配发生在帧级×音素级矩阵层面，序列级时间结构完整保留
+    - generic [ref=f222e39]:
+      - img [ref=f222e40]:
+        - generic [ref=f222e42]: 用打字代替说三遍：文本注册的开放词表关键词检测
+        - generic [ref=f222e43]: ① 注册环节的可靠性：按例查询的先天缺陷
+        - generic [ref=f222e45]: 按例查询（QbE）路线
+        - generic [ref=f222e46]: 注册参考语音与查询语音比较——天然携带说话人差异
+        - generic [ref=f222e47]: 与环境差异（噪声、混响轻易扭曲输入）
+        - generic [ref=f222e48]: 「说话人音色」和「录音信道」这两个不想要的变量
+        - generic [ref=f222e49]: 被直接烧进注册模板；词级准则在单词/生造词上退化
+        - generic [ref=f222e50]: CTC 两段式：音素估计误差向后传播 + 映射靠人工规则
+        - generic [ref=f222e52]: 本文：文本注册（跨模态匹配）
+        - generic [ref=f222e53]: 文本模态只含语言学表示——天然免疫音色与信道
+        - generic [ref=f222e54]: 从原理上消除注册会话失配
+        - generic [ref=f222e55]: 用户打字注册 < 说三遍的交互成本
+        - generic [ref=f222e56]: 三个挑战：① 音频映射到与文本可比对的空间（很难学）；
+        - generic [ref=f222e57]: ② 刻画时间单调对应 + 区分部分匹配、免对齐端到端；
+        - generic [ref=f222e58]: ③ 长句语料 → 短语形态 + 系统性难负样本
+        - generic [ref=f222e59]: ② 跨模态对应检测器：编码器 → 交叉注意力 → 形态判别
+        - generic [ref=f222e61]: 音频编码器
+        - generic [ref=f222e62]: 2×1D conv(k5) + 2×GRU
+        - generic [ref=f222e63]: 40 维 MFB，第一层步长 2
+        - generic [ref=f222e64]: 帧率减半省算力（端侧常规）
+        - generic [ref=f222e66]: 文本编码器
+        - generic [ref=f222e67]: 预训练 G2P + FC
+        - generic [ref=f222e68]: CMU 词典查表
+        - generic [ref=f222e69]: 表外词 → NN 预测音素 ★
+        - generic [ref=f222e71]: 模式提取（交叉注意力）
+        - generic [ref=f222e72]: 文本 = Query，音频 = K/V
+        - generic [ref=f222e73]: 输出沿音素轴展开
+        - generic [ref=f222e74]: 「每个音素在音频里找到什么」
+        - generic [ref=f222e76]: 模式判别器
+        - generic [ref=f222e77]: GRU 读注意力矩阵
+        - generic [ref=f222e78]: 取末帧 → FC + sigmoid
+        - generic [ref=f222e79]: 学沿音素轴整合证据的顺序依赖
+        - generic [ref=f222e80]: 嵌入维 128；两路输出都是完整序列（帧×d 与 音素×d）——匹配不发生在池化后的向量层面，而发生在帧级×音素级的亲和矩阵层面
+        - generic [ref=f222e81]: ③ 核心洞察：亲和矩阵的「形态」本身携带判别信息
+        - generic [ref=f222e106]: 同一关键词
+        - generic [ref=f222e127]: 不同内容
+        - generic [ref=f222e128]: 音素轴 ↓ × 帧轴 →
+        - generic [ref=f222e129]: 语音与音素转写按相同时间顺序展开（协同发音只造成
+        - generic [ref=f222e130]: 局部模糊不造成大尺度乱序）→ 正确配对 = 沿对角线的能量集中
+        - generic [ref=f222e131]: 内容不同 → 无结构弥散图案
+        - generic [ref=f222e132]: 判别器学的是「读形态」而不是读某个标量相似度；
+        - generic [ref=f222e133]: softmax 按行归一化 → 每行和一、处处非负——决定了后面
+        - generic [ref=f222e134]: 构造匹配目标也必须归一化（全零目标不可达）
+        - generic [ref=f222e136]: 三项损失（式 2：0.5·L_DN + 0.3·L_MM + L_D）
+        - generic [ref=f222e137]: L_DN 去噪：孪生编码器，最小化同段语音干净/含噪嵌入的
+        - generic [ref=f222e138]: MSE——约束打在嵌入层（文本分支没有噪声对应物，音频嵌入
+        - generic [ref=f222e139]: 必须自己变成噪声不变的形式才能持续与文本比对）
+        - generic [ref=f222e140]: L_MM 单调匹配：‖A − M‖² 拉向人工构造的目标模式——完整=高斯
+        - generic [ref=f222e141]: 对角带（带宽 0.2，借 TTS 引导注意力）；不匹配=归一化噪声；
+        - generic [ref=f222e142]: 前缀匹配=前段对角+后段噪声；后缀匹配判负（唤醒语义要求完整）
+        - generic [ref=f222e143]: L_D 检测：早期 BCE → 后期焦点损失（正负失衡；边界成形后切，
+        - generic [ref=f222e144]: 损失层面的课程学习，切换点未报告）
+        - generic [ref=f222e146]: 8.42%
+        - generic [ref=f222e147]: 易集 EER（最优，−42.6% 相对）
+        - generic [ref=f222e148]: 12.15%
+        - generic [ref=f222e149]: 高通集 EER（−33.4% 相对）
+        - generic [ref=f222e150]: 80 万
+        - generic [ref=f222e151]: LibriPhrase 短语（4 词长配平）
+        - generic [ref=f222e152]: 27.25%
+        - generic [ref=f222e153]: 谷歌集 EER——唯一失利项
+        - generic [ref=f222e154]: 0 条
+        - generic [ref=f222e155]: 注册音频（只需文本）
+        - generic [ref=f222e156]: 后缀匹配判负的理由：「we mean to」对「i mean to」只差开头一个音素——若后缀匹配给部分分，这类短语就是高危误触发源；「完整短语在场」直接编码进监督信号
+      - paragraph [ref=f222e157]: 图1 · 机制全景：注册会话失配与文本注册的原理优势；跨模态对应检测器三模块（编码器 / 交叉注意力 / 形态判别）；亲和矩阵的对角-弥散几何与三项损失（去噪 / 单调匹配 / 检测课程切换）。
+  - generic [ref=f222e158]:
+    - generic [ref=f222e159]: "L_total = 0.5·L_DN + 0.3·L_MM + L_D ； L_MM = ‖A − M_i‖²，i ∈ {完整 f, 不匹配 n, 前缀 pf}"
+    - generic [ref=f222e160]: 人话：亲和矩阵 A 按行 softmax（每行和一、处处非负）——决定了不匹配目标只能是归一化噪声而非全零（全零不可达）；完整匹配目标是沿归一化时间对角线的高斯带（带宽 0.2，借 TTS 引导注意力思想——单调对齐先验强到可以写成软目标注入训练）；前缀匹配=前段对角+后段噪声。
+  - paragraph [ref=f222e161]: 为什么约束打在嵌入层：文本分支里没有噪声的对应物——音频嵌入必须自己把语言学信息抽取成噪声不变的形式才能持续与文本比对得上；只在信号层做去噪重建，网络可能学出一个与文本比对无关的降噪器。为什么检测损失要课程切换：初期决策边界未成形时几乎所有样本都是「难样本」，焦点项的调制因子起不到筛选作用；边界成形后再切才能真正攻坚难样本。
+  - heading "§03 实验：三套评测的得失结构" [level=2] [ref=f222e162]:
+    - generic [ref=f222e163]: §03
+    - text: 实验：三套评测的得失结构
+  - generic [ref=f222e164]: LibriPhrase（易/难）+ 谷歌命令集 + 高通关键词集
+  - generic [ref=f222e165]:
+    - img [ref=f222e166]:
+      - generic [ref=f222e168]: 主对比（Table 2 · EER %，越低越好）：词表外的全面强势
+      - generic [ref=f222e169]: "10"
+      - generic [ref=f222e170]: "20"
+      - generic [ref=f222e171]: "30"
+      - generic [ref=f222e172]: "40"
+      - generic [ref=f222e173]: "50"
+      - generic [ref=f222e175]: "31.6"
+      - generic [ref=f222e177]: "18.2"
+      - generic [ref=f222e179]: "14.7"
+      - generic [ref=f222e181]: "35.2"
+      - generic [ref=f222e182]: CTC 方案
+      - generic [ref=f222e183]: （单模态）
+      - generic [ref=f222e185]: "14.8"
+      - generic [ref=f222e187]: "49.1"
+      - generic [ref=f222e189]: "28.7"
+      - generic [ref=f222e191]: "42.0"
+      - generic [ref=f222e192]: 注意力方案
+      - generic [ref=f222e193]: （单模态）
+      - generic [ref=f222e195]: "35.6"
+      - generic [ref=f222e197]: "38.7"
+      - generic [ref=f222e199]: "32.8"
+      - generic [ref=f222e201]: "44.4"
+      - generic [ref=f222e202]: 词级三元组
+      - generic [ref=f222e203]: （跨模态）
+      - generic [ref=f222e205]: "27.2"
+      - generic [ref=f222e207]: "12.2"
+      - generic [ref=f222e209]: "8.4"
+      - generic [ref=f222e211]: "32.9"
+      - generic [ref=f222e212]: 本文 ★
+      - generic [ref=f222e213]: （跨模态·文本注册）
+      - generic [ref=f222e214]: G
+      - generic [ref=f222e215]: Q
+      - generic [ref=f222e216]: 易
+      - generic [ref=f222e217]: 难
+      - generic [ref=f222e219]: 唯一失利：谷歌集（on/off/one/two 等
+      - generic [ref=f222e220]: 高频词在训练词表内——闭集先验的便宜
+      - generic [ref=f222e221]: 易集 −42.6% / 高通 −33.4% 相对 ↓
+      - generic [ref=f222e222]: 得失结构（全文最值得转述的判断）：开词表能力与闭集极致精度在同一架构里是有张力的——注意力方案在谷歌集 14.75 / 高通集 49.13 两个极端间崩摆；
+      - generic [ref=f222e223]: 本文不针对任何具体词建先验，为词表内场景付出代价，换来词表外（高通、LibriPhrase）的一致强势；AUC 结论同构（难集 73.58 vs 69.58，高通 94.51 vs 89.69）
+    - paragraph [ref=f222e224]: 图2 · 主对比（Table 2 · EER）：词表外（高通/易/难）全面领先，唯一失利在谷歌集（闭集先验）——注意力方案在两个极端间崩摆的得失结构。
+  - table [ref=f222e225]:
+    - rowgroup [ref=f222e226]:
+      - row [ref=f222e227]:
+        - columnheader "方法" [ref=f222e228]
+        - columnheader "模态/注册" [ref=f222e229]
+        - columnheader "G EER" [ref=f222e230]
+        - columnheader "Q EER" [ref=f222e231]
+        - columnheader "易 EER" [ref=f222e232]
+        - columnheader "难 EER" [ref=f222e233]
+        - columnheader "难 AUC" [ref=f222e234]
+      - row [ref=f222e235]:
+        - cell "CTC 方案" [ref=f222e236]
+        - cell "单模态 / 3 条音频" [ref=f222e237]
+        - cell "31.65" [ref=f222e238]
+        - cell "18.23" [ref=f222e239]
+        - cell "14.67" [ref=f222e240]
+        - cell "35.22" [ref=f222e241]
+        - cell "69.58" [ref=f222e242]
+      - row [ref=f222e243]:
+        - cell "注意力方案" [ref=f222e244]
+        - cell "单模态 / 3 条音频" [ref=f222e245]
+        - cell "14.75" [ref=f222e246]
+        - cell "49.13" [ref=f222e247]
+        - cell "28.74" [ref=f222e248]
+        - cell "41.95" [ref=f222e249]
+        - cell "62.65" [ref=f222e250]
+      - row [ref=f222e251]:
+        - cell "词级三元组" [ref=f222e252]
+        - cell "跨模态" [ref=f222e253]
+        - cell "35.60" [ref=f222e254]
+        - cell "38.72" [ref=f222e255]
+        - cell "32.75" [ref=f222e256]
+        - cell "44.36" [ref=f222e257]
+        - cell "54.88" [ref=f222e258]
+      - row [ref=f222e259]:
+        - cell "本文 ★" [ref=f222e260]
+        - cell "跨模态 / 仅文本" [ref=f222e261]
+        - cell "27.25" [ref=f222e262]
+        - cell "12.15" [ref=f222e263]
+        - cell "8.42" [ref=f222e264]
+        - cell "32.90" [ref=f222e265]
+        - cell "73.58" [ref=f222e266]
+  - generic [ref=f222e267]:
+    - img [ref=f222e268]:
+      - generic [ref=f222e270]: 消融（Table 3）+ 定性证据（图 4/5）
+      - generic [ref=f222e271]: 逐项加损失（EER %）
+      - generic [ref=f222e273]: 只有 L_D
+      - generic [ref=f222e275]: "27.75"
+      - generic [ref=f222e276]: G
+      - generic [ref=f222e278]: "13.54"
+      - generic [ref=f222e279]: Q
+      - generic [ref=f222e281]: "8.20"
+      - generic [ref=f222e282]: 易
+      - generic [ref=f222e284]: "33.80"
+      - generic [ref=f222e285]: 难
+      - generic [ref=f222e287]: + L_DN
+      - generic [ref=f222e289]: "27.65"
+      - generic [ref=f222e290]: G
+      - generic [ref=f222e292]: "13.02"
+      - generic [ref=f222e293]: Q
+      - generic [ref=f222e295]: "8.37"
+      - generic [ref=f222e296]: 易
+      - generic [ref=f222e298]: "32.63"
+      - generic [ref=f222e299]: 难
+      - generic [ref=f222e301]: + L_MM（全开）★
+      - generic [ref=f222e303]: "27.25"
+      - generic [ref=f222e304]: G
+      - generic [ref=f222e306]: "12.15"
+      - generic [ref=f222e307]: Q
+      - generic [ref=f222e309]: "8.42"
+      - generic [ref=f222e310]: 易
+      - generic [ref=f222e312]: "32.90"
+      - generic [ref=f222e313]: 难
+      - generic [ref=f222e314]: L_DN：噪声集上兑现增益，干净易集上微升——容量税；
+      - generic [ref=f222e315]: L_MM：多数集改善，难/易微升——大体干净的收益
+      - generic [ref=f222e317]: 图 4：亲和矩阵可视化
+      - generic [ref=f222e318]: 查询「i mean to」× 四种文本：完整匹配 / 不匹配
+      - generic [ref=f222e319]: （be a banner）/ 前缀错（i mean you）/ 后缀错（we mean to）
+      - generic [ref=f222e320]: 三项损失全开后：匹配区域模式更连贯清晰、非匹配区域
+      - generic [ref=f222e321]: 更散乱——形态监督确实塑造了判别器可读的亲和矩阵，
+      - generic [ref=f222e322]: 而不是「训练能收敛就行」的自由形态
+      - generic [ref=f222e324]: 图 5：按词长分解
+      - generic [ref=f222e325]: 本文方法对关键词长度稳健，多数词长子集最佳
+      - generic [ref=f222e326]: 其他方法在更短关键词上明显脆弱——尤其注意力方案在
+      - generic [ref=f222e327]: 单词关键词上显著退化（词级训练准则的缺陷实锤）
+      - generic [ref=f222e328]: 注意：4 词档只有 56 回合 × 6 对 ≈ 300+ 样本——
+      - generic [ref=f222e329]: 该点数字方差极大，结论统计上不可靠
+      - generic [ref=f222e330]: 读数：纯检测损失下注意力矩阵形态自由涌现、收敛慢且不稳——单调匹配损失给中间表示提供显式形态监督，等于给优化铺路
+    - paragraph [ref=f222e331]: 图3 · 消融（Table 3）与定性证据（图 4/5）：三项损失逐项叠加——去噪损失的容量税与单调匹配的干净收益；亲和矩阵可视化与按词长分解的稳健性。
+  - generic [ref=f222e332]:
+    - img [ref=f222e333]:
+      - generic [ref=f222e335]: LibriPhrase 数据集 + 边界
+      - generic [ref=f222e337]: 构建管线
+      - generic [ref=f222e339]: LibriSpeech（无对齐标注）
+      - generic [ref=f222e340]: 蒙特利尔强制对齐器 → 词级时间戳
+      - generic [ref=f222e342]: 切成长句 → 1–4 词短语
+      - generic [ref=f222e343]: train-clean-100/360，每词长 20 万条共 80 万
+      - generic [ref=f222e345]: 按词长配平
+      - generic [ref=f222e346]: 防偏科长句；关键词形态集中在 1–4 词
+      - generic [ref=f222e348]: 叠加 MS-SNSD 嘈杂人声
+      - generic [ref=f222e349]: SNR 5–15dB 随机——人声含语音内容最难对付
+      - generic [ref=f222e351]: 评测负样本：编辑距离自动分档
+      - generic [ref=f222e352]: 难负（最小编辑变体，1–2 音素之差）：friend↔frind、
+      - generic [ref=f222e353]: the river↔the liver、i mean to↔i mean you
+      - generic [ref=f222e354]: 易负（发音相去甚远）：comfort、town with、be a banner
+      - generic [ref=f222e356]: 边界
+      - generic [ref=f222e357]: · 难集 EER 32.9：十个难负查询约三个误判——一音之差
+      - generic [ref=f222e358]: 的对角形态与正样本几乎同构，形态层面无法区分
+      - generic [ref=f222e359]: · 闭集代价：谷歌集落后词表内方案 12.5 个点——没有机制
+      - generic [ref=f222e360]: 在「这个词我见过」时切换词专属判别器
+      - generic [ref=f222e361]: · 高斯对角先验是简化：语速起伏/词间停顿偏离对角带——
+      - generic [ref=f222e362]: 偏差以监督噪声形式干扰训练；带宽/边界无敏感性分析
+      - generic [ref=f222e363]: · 噪声只覆盖 babble 5–15dB 一类一档；G2P 天花板由表外
+      - generic [ref=f222e364]: 词预测决定（专有名词/个人化读音无法建模）
+      - generic [ref=f222e365]: · 全文无参数量/延迟/内存数字——「适合嵌入式」无实测；
+      - generic [ref=f222e366]: 评测停留在孤立短语分类，无流式检测；全英语单语料
+      - generic [ref=f222e367]: 可迁移判断：注册信息的模态选择决定失配上限——确定性模板（文本）优于会话产物（录音）；「相似度图形态」可以成为跨模态判别的载体
+    - paragraph [ref=f222e368]: 图4 · LibriPhrase 构建与边界：强制对齐切短语、词长配平、babble 增强、编辑距离分档难负；形态判别的天花板（一音之差）、闭集代价、无端侧/流式证据等边界。
+  - heading "§04 贡献：四条" [level=2] [ref=f222e369]:
+    - generic [ref=f222e370]: §04
+    - text: 贡献：四条
+  - generic [ref=f222e371]:
+    - generic [ref=f222e372]:
+      - generic [ref=f222e373]: "1"
+      - paragraph [ref=f222e374]: 文本注册替代语音注册：从原理上消除按例查询的注册会话失配，交互成本也从说三遍降到打字。
+    - generic [ref=f222e375]:
+      - generic [ref=f222e376]: "2"
+      - paragraph [ref=f222e377]: 以亲和矩阵形态为判别载体的跨模态匹配范式：序列级时间结构完整保留到判决阶段，不提前池化——短关键词上更稳（图 5）。
+    - generic [ref=f222e378]:
+      - generic [ref=f222e379]: "3"
+      - paragraph [ref=f222e380]: 两个针对性训练准则：单调匹配损失（显式形态监督 + 后缀判负编码任务语义）+ 嵌入层去噪损失 + 焦点损失课程切换。
+    - generic [ref=f222e381]:
+      - generic [ref=f222e382]: "4"
+      - paragraph [ref=f222e383]: LibriPhrase 数据集：80 万短语、按词长配平、编辑距离分档难负——开放词表 KWS 的匹配基准。
+  - heading "§05 局限与边界" [level=2] [ref=f222e384]:
+    - generic [ref=f222e385]: §05
+    - text: 局限与边界
+  - generic [ref=f222e386]: 形态判别的天花板
+  - generic [ref=f222e387]:
+    - generic [ref=f222e388]:
+      - heading "一音之差仍是洼地" [level=4] [ref=f222e389]
+      - paragraph [ref=f222e390]: 难集 EER 32.9——十个难负查询约三个误判。friend↔frind、the river↔the liver 的亲和矩阵对角形态与正样本几乎同构，形态层面无法区分，只能依赖矩阵数值的细微差别——最脆弱的信号。
+    - generic [ref=f222e391]:
+      - heading "闭集代价" [level=4] [ref=f222e392]
+      - paragraph [ref=f222e393]: 谷歌集落后词表内方案 12.5 个点——模型没有机制在「这个词我见过」时切换词专属判别器；开词表通用性与词表内先验可利用性在此架构中互斥。
+    - generic [ref=f222e394]:
+      - heading "对角先验与噪声覆盖" [level=4] [ref=f222e395]
+      - paragraph [ref=f222e396]: 高斯对角目标（带宽 0.2）隐含语速均匀、无长停顿——真实语音偏离对角带会以监督噪声干扰训练；噪声只覆盖 babble 5–15dB 一类一档；G2P 天花板由表外词预测决定（专有名词/个人化读音无法建模）。
+    - generic [ref=f222e397]:
+      - heading "端侧与流式证据缺失" [level=4] [ref=f222e398]
+      - paragraph [ref=f222e399]: 以模型规模批评视听方案却不报自身参数量/延迟/内存——「适合嵌入式」无实测；评测全是孤立短语二分类，无流式连续音频、无每小时误触发指标；全英语单语料；4 词档只有 56 回合统计不可靠；损失权重与切换点无消融。
+  - generic [ref=f222e400]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f222e401]
+    - list [ref=f222e402]:
+      - listitem [ref=f222e403]: ↳ 注册信息的模态选择决定失配上限——确定性模板（文本）优于会话产物（录音）：不想要的变量从原理上不进入模板，好过事后补偿。
+      - listitem [ref=f222e404]: ↳ 「相似度图形态」可以成为跨模态判别的载体：对齐结构本身携带判别信息——读形态而不是读标量，保留序列时间结构是前提。
+      - listitem [ref=f222e405]: ↳ 给中间表示显式的形态监督（人工构造目标）能为优化铺路——纯端到端让形态自由涌现往往收敛慢且不稳定。
+      - listitem [ref=f222e406]: ↳ 按任务语义给部分匹配定规则：后缀匹配判负（「完整短语在场」）——监督信号的边界条件直接决定模型的行为边界。
+      - listitem [ref=f222e407]: ↳ 开集能力与闭集极致精度有张力：不建词表先验就要付词表内的代价——明确选择并如实报告得失，比两头都想要更诚实。
+  - generic [ref=f222e408]:
+    - link "论文原文 ↗" [ref=f222e409] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2206.15400
+    - link "笔记全文 ↗" [ref=f222e410] [cursor=pointer]:
+      - /url: Learning_Audio-Text_Agreement_For_Open-vocabulary_Keyword_Spotting.md
+    - link "返回列表" [ref=f222e411] [cursor=pointer]:
+      - /url: ../index.html

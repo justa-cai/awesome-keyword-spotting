@@ -1,0 +1,264 @@
+- generic [active] [ref=f224e1]:
+  - generic [ref=f224e2]:
+    - link "← 返回论文列表" [ref=f224e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f224e4]: 论文精读 · 可视化版 · 2022 №25
+    - heading "「说什么词」⊥「谁说的」： 一个内积损失做双向解耦" [level=1] [ref=f224e5]: 「说什么词」⊥「谁说的」：一个内积损失做双向解耦
+    - generic [ref=f224e6]:
+      - generic [ref=f224e7]: 北大深研院 ADSPLAB × 小米 · arXiv 2203.16772
+      - generic [ref=f224e8]: KWS + SV 联合训练
+      - generic [ref=f224e9]: 正交性正则 L_orth
+      - generic [ref=f224e10]: GSCD 英文 + 小米中文唤醒词
+    - generic [ref=f224e11]: 独立训练的 KWS 隐含说话人偏差（男声训练集 → 女性唤醒率降）、SV 隐含内容偏差——一个对称的双分支网络加正交约束，两个任务同时涨、参数还省三成。
+    - generic [ref=f224e12]:
+      - heading "一分钟版本" [level=3] [ref=f224e13]
+      - list [ref=f224e14]:
+        - listitem [ref=f224e15]: ▸ 场景：智能设备唤醒时既要确认「说了正确的词」（KWS）又要验证「是授权用户说的」（SV）——两个功能同时、连续运行；同一段语音同时编码内容与身份两类信息。
+        - listitem [ref=f224e16]: ▸ 独立训练的偏差：KWS 可能隐含编码说话人信息（对特定说话人更敏感、不公平）；SV 可能隐含编码内容信息（对高频词验证更准）——耦合表示在对抗攻击前也更脆弱。
+        - listitem [ref=f224e17]: ▸ 老路线的坑：串联/注意力的信息流单向且不保证「净化」（辅助信息可能带噪声）；双重注意力无显式解耦——表示是混合的；对抗解耦（GRL）min-max 不稳定、只能单向、难调参。
+        - listitem [ref=f224e18]: ▸ 方法：共享 1D 卷积底层（通用声学特征）→ 对称双分支 GRU（各 128 维）→ 正交约束 L_orth = ‖(1/N)Σ f_KWS·(f_SV)ᵀ‖²_F——内积为零意味着任何维度上都没有共变关系。
+        - listitem [ref=f224e19]: ▸ 为什么正交合适：优化上良态（二次函数、梯度连续——不像 min-max 有不连续梯度）；天然双向（f_KWS⊥f_SV ⟺ f_SV⊥f_KWS）；一个标量损失同时解决两个方向。
+        - listitem [ref=f224e20]: ▸ 总损失：L_KWS + L_SV + λ·L_orth，每个分支 = CE + α·Triplet——CE 优化分类面、Triplet 优化嵌入结构，两者互补。
+        - listitem [ref=f224e21]: ▸ 主结果：KWS EER 1.31%（独立训练 1.8–2.0，相对降 30–35%）；SV EER 1.87%（独立 2.2–2.5，相对降 15–25%）；参数 280K = 独立模型总和的 60–70%。
+        - listitem [ref=f224e22]: ▸ 打破固有认知：联合训练必然性能折衷？——信息被正确解耦后共享底层特征被两个互补监督共同打磨，反而更好（双赢）。
+        - listitem [ref=f224e23]: ▸ 消融：有 vs 无正交 KWS 准确率 +1–2%、SV EER −0.5~1 点——解耦不是限制表达而是去干扰；λ∈[0.1,1.0] 稳定（<0.3%）、最优 0.5、>10 被正交主导；去三元组掉 0.5–1%。
+        - listitem [ref=f224e24]: ▸ 边界：线性正交 ≠ 高阶独立（f² 间可能仍相关）；对称架构要求同维；batch 内均值近似有误差；文本相关 SV 可能过严；全干净条件无噪声测试；未与 HSIC/CCA 对比。
+    - heading "§01 问题：互相污染的双任务特征" [level=2] [ref=f224e25]:
+      - generic [ref=f224e26]: §01
+      - text: 问题：互相污染的双任务特征
+    - generic [ref=f224e27]: 判别目标正交但底层表示共享
+    - paragraph [ref=f224e28]: 人类听觉系统能自然分离「说什么」和「谁说的」，人工神经网络能否学会这种分离是本文的研究问题。KWS 与 SV 使用不同数据集和架构独立训练，无法利用两任务间的互补信息——更深层的问题是互相隐含编码对方的信息产生偏差，对公平性（不同性别/年龄/口音用户的一致服务质量）和安全性（模仿攻击绕过双重验证）都有影响。
+    - generic [ref=f224e29]:
+      - generic [ref=f224e30]:
+        - heading "单向信息流的局限" [level=4] [ref=f224e31]
+        - paragraph [ref=f224e32]: 串联（SV 特征拼接到 KWS 特征后）或注意力（SV 特征加权 KWS 特征）——信息流单向，缺乏双向交互与互惠学习；更无法保证「净化」：SV 特征中混入的内容信息可能误导 KWS。
+      - generic [ref=f224e33]:
+        - heading "对抗解耦的三个根本困难" [level=4] [ref=f224e34]
+        - paragraph [ref=f224e35]: 梯度反转层需要额外判别器在 min-max 博弈中优化——判别器与主干需精确平衡否则发散；只能保证单向解耦；对抗损失对 λ 极其敏感。正交性正则三个困难全部绕开。
+    - heading "§02 方法：对称双分支 + 内积正则" [level=2] [ref=f224e36]:
+      - generic [ref=f224e37]: §02
+      - text: 方法：对称双分支 + 内积正则
+    - generic [ref=f224e38]: 几何意义清晰的最小改动
+    - generic [ref=f224e39]:
+      - img [ref=f224e40]:
+        - generic [ref=f224e42]: 「说什么词」⊥「谁说的」：一个内积损失做双向解耦
+        - generic [ref=f224e43]: ① 场景与偏差
+        - generic [ref=f224e45]: 两个任务同时、连续运行
+        - generic [ref=f224e46]: KWS 判断「说了什么词」（唤醒词检测）
+        - generic [ref=f224e47]: SV 判断「是谁说的」（声纹认证，只有主人能唤醒）
+        - generic [ref=f224e48]: 同一段语音同时编码内容信息（音素序列+韵律）与
+        - generic [ref=f224e49]: 身份信息（声道长度、声带特性、发音习惯）
+        - generic [ref=f224e50]: 人类听觉自然分离这两类信息——ANN 能学会吗？
+        - generic [ref=f224e52]: 独立训练的两个隐含偏差
+        - generic [ref=f224e53]: KWS 隐含编码说话人信息 → 对特定说话人更敏感
+        - generic [ref=f224e54]: （男声为主的训练集 → 女性用户唤醒率下降）
+        - generic [ref=f224e55]: SV 隐含编码语言内容 → 对高频词验证更准（内容依赖偏差）
+        - generic [ref=f224e56]: 耦合表示在对抗攻击前更脆弱——模仿目标说话人
+        - generic [ref=f224e57]: 的声音可能绕过 SV+KWS 双重验证
+        - generic [ref=f224e58]: ② 对称双分支 + 正交约束
+        - generic [ref=f224e60]: 共享时间卷积层
+        - generic [ref=f224e61]: 2–3 层 1D 卷积
+        - generic [ref=f224e62]: 输入 40 维梅尔能量
+        - generic [ref=f224e63]: 低级声学特征（频谱包络、
+        - generic [ref=f224e64]: 短时动态）对两任务通用
+        - generic [ref=f224e68]: KWS 分支：GRU ×2–3（128 维）
+        - generic [ref=f224e69]: 输出 f_KWS ∈ R^128
+        - generic [ref=f224e71]: SV 分支：GRU ×2–3（同结构）
+        - generic [ref=f224e72]: 输出 f_SV ∈ R^128
+        - generic [ref=f224e74]: 正交性正则（核心约束）
+        - generic [ref=f224e75]: L_orth = ‖ (1/N) Σ f_KWS·(f_SV)ᵀ ‖²_F
+        - generic [ref=f224e76]: 内积为零 = 两个向量在任何维度上都没有共变关系
+        - generic [ref=f224e77]: → f_KWS 不含说话人线性信息 / f_SV 不含内容线性信息
+        - generic [ref=f224e78]: 对称：f_KWS ⊥ f_SV ⟺ f_SV ⊥ f_KWS（天然双向）
+        - generic [ref=f224e79]: 为什么对称双分支：正交约束在两个同维特征空间上操作，几何意义清晰；为什么共享底层：低级声学特征本就是两任务共同需要的基础表示
+        - generic [ref=f224e80]: ③ 总损失与「为什么不用对抗解耦」
+        - generic [ref=f224e82]: L_total = L_KWS + L_SV + λ·L_orth
+        - generic [ref=f224e83]: L_KWS = CE(关键词) + α·Triplet(关键词)
+        - generic [ref=f224e84]: L_SV = CE(说话人) + α·Triplet(说话人)
+        - generic [ref=f224e85]: CE 优化「分类面」，Triplet 优化「嵌入空间结构」——互补
+        - generic [ref=f224e86]: 协同：Triplet 拉出紧凑类簇，正交性保证 KWS 簇和 SV 簇
+        - generic [ref=f224e87]: 落在不同子空间——共同创造结构良好的双任务嵌入空间
+        - generic [ref=f224e89]: 对抗解耦（GRL）的三个根本困难
+        - generic [ref=f224e90]: ① min-max 优化不稳定——判别器与主干需精确平衡否则发散
+        - generic [ref=f224e91]: ② 只能单向解耦（KWS 去说话人 ≠ SV 去内容）
+        - generic [ref=f224e92]: ③ 对抗损失难调参（λ 对稳定性影响极大）
+        - generic [ref=f224e93]: 正交性：无需额外判别器（只算内积）、梯度良态连续、
+        - generic [ref=f224e94]: 一个标量损失同时解决两个方向的解耦
+        - generic [ref=f224e96]: 1.31%
+        - generic [ref=f224e97]: KWS EER（独立训练 1.8–2.0）
+        - generic [ref=f224e98]: 1.87%
+        - generic [ref=f224e99]: SV EER（独立训练 2.2–2.5）
+        - generic [ref=f224e100]: −30~40%
+        - generic [ref=f224e101]: 参数 vs 两个独立模型总和
+        - generic [ref=f224e102]: λ=0.5
+        - generic [ref=f224e103]: 正交权重最优点
+        - generic [ref=f224e104]: 2 数据集
+        - generic [ref=f224e105]: GSCD 英文 + 小米中文唤醒词
+        - generic [ref=f224e106]: 信息论视角：线性正交（E[f_KWS·f_SVᵀ]≈0）是互信息为零的必要非充分条件——高阶统计依赖可能残留；正交向量集在 d 维空间信息压缩效率最优（每维携带独特信息）
+      - paragraph [ref=f224e107]: 图1 · 机制全景：双任务场景与两个隐含偏差；对称双分支架构与正交约束（内积为零 = 无共变）；总损失（CE+Triplet 互补）与对抗解耦的三个根本困难对照。
+  - generic [ref=f224e108]:
+    - generic [ref=f224e109]: L_total = L_KWS + L_SV + λ·L_orth ； L_orth = ‖(1/N) Σᵢ f_KWSⁱ·(f_SVⁱ)ᵀ‖²_F
+    - generic [ref=f224e110]: 人话：batch 内把每个样本的 KWS 特征与 SV 特征做内积再取平均——最小化它的范数，就是逼两个特征空间统计上互不共变。信息论视角：线性正交是互信息为零的必要条件（非充分——高阶依赖可能残留）；正交向量集在 d 维空间信息压缩效率最优（每维携带独特信息无冗余）。
+  - paragraph [ref=f224e111]: 为什么对称双分支：两个分支同结构同维度，正交约束才在几何上有意义（d 维向量内积良定义）；为什么共享底层卷积：低级声学特征（频谱包络形状、短时能量变化）本就是两个任务共同需要的基础表示。若两任务最优架构差异大（KWS 要 CNN、SV 要 Transformer），需额外线性投影到同维。
+  - heading "§03 实验：双赢的联合训练" [level=2] [ref=f224e112]:
+    - generic [ref=f224e113]: §03
+    - text: 实验：双赢的联合训练
+  - generic [ref=f224e114]: GSCD 英文 + 小米中文唤醒词（约 1000 说话人 × 4 环境）
+  - generic [ref=f224e115]:
+    - img [ref=f224e116]:
+      - generic [ref=f224e118]: 主对比：参数更少，两个任务同时更好（双赢）
+      - generic [ref=f224e119]: EER（%，GSCD）· 独立模型为区间中值示意
+      - generic [ref=f224e121]: KWS 独立模型
+      - generic [ref=f224e123]: 1.8–2.0
+      - generic [ref=f224e124]: KWS
+      - generic [ref=f224e125]: 200K
+      - generic [ref=f224e127]: SV 独立模型
+      - generic [ref=f224e129]: 2.2–2.5
+      - generic [ref=f224e130]: SV
+      - generic [ref=f224e131]: 200K
+      - generic [ref=f224e133]: 联合训练（无正交）
+      - generic [ref=f224e135]: "1.50"
+      - generic [ref=f224e136]: KWS
+      - generic [ref=f224e138]: "2.00"
+      - generic [ref=f224e139]: SV
+      - generic [ref=f224e140]: 280K
+      - generic [ref=f224e142]: 联合 + 正交 ★
+      - generic [ref=f224e144]: "1.31"
+      - generic [ref=f224e145]: KWS
+      - generic [ref=f224e147]: "1.87"
+      - generic [ref=f224e148]: SV
+      - generic [ref=f224e149]: 280K
+      - generic [ref=f224e150]: 参数
+      - generic [ref=f224e152]: 联合模型 = 独立模型总和的 60–70%（共享底层卷积省约 120K 参数）
+      - generic [ref=f224e153]: 打破「联合训练必然性能折衷」的固有认知——两个任务的信息被正确解耦后，共享底层特征被两个互补监督信号共同打磨，反而更好；中文数据集（小米约 1000 说话人 × 4 环境）同样显著提升（具体数字未公开）
+    - paragraph [ref=f224e154]: 图2 · 主对比：独立训练 vs 联合无正交 vs 联合+正交——两个任务 EER 同时下降，参数只有独立模型总和的 60–70%（双赢）。
+  - table [ref=f224e155]:
+    - rowgroup [ref=f224e156]:
+      - row [ref=f224e157]:
+        - columnheader "方法" [ref=f224e158]
+        - columnheader "KWS EER（%）" [ref=f224e159]
+        - columnheader "SV EER（%）" [ref=f224e160]
+        - columnheader "参数量" [ref=f224e161]
+      - row [ref=f224e162]:
+        - cell "KWS 独立模型" [ref=f224e163]
+        - cell "1.8–2.0" [ref=f224e164]
+        - cell "—" [ref=f224e165]
+        - cell "~200K" [ref=f224e166]
+      - row [ref=f224e167]:
+        - cell "SV 独立模型" [ref=f224e168]
+        - cell "—" [ref=f224e169]
+        - cell "2.2–2.5" [ref=f224e170]
+        - cell "~200K" [ref=f224e171]
+      - row [ref=f224e172]:
+        - cell "联合训练（无正交）" [ref=f224e173]
+        - cell "~1.5" [ref=f224e174]
+        - cell "~2.0" [ref=f224e175]
+        - cell "~280K" [ref=f224e176]
+      - row [ref=f224e177]:
+        - cell "联合训练 + 正交（本文）" [ref=f224e178]
+        - cell "1.31" [ref=f224e179]
+        - cell "1.87" [ref=f224e180]
+        - cell "~280K" [ref=f224e181]
+  - generic [ref=f224e182]:
+    - img [ref=f224e183]:
+      - generic [ref=f224e185]: 消融：λ 扫描 · 三元组 α · 有/无正交
+      - generic [ref=f224e186]: λ（正交权重）vs 准确率（示意形态）
+      - generic [ref=f224e188]: "0.90"
+      - generic [ref=f224e189]: "0.94"
+      - generic [ref=f224e190]: "0.98"
+      - generic [ref=f224e205]: λ=0.5 最优
+      - generic [ref=f224e206]: "0.0"
+      - generic [ref=f224e207]: "0.5"
+      - generic [ref=f224e208]: "1.0"
+      - generic [ref=f224e209]: "10.0"
+      - generic [ref=f224e210]: λ（log 间距示意）
+      - generic [ref=f224e211]: λ=0 退化标准联合训练
+      - generic [ref=f224e212]: λ>10 正交主导，
+      - generic [ref=f224e213]: 分类梯度被压制
+      - generic [ref=f224e214]: 其他消融（约 值）
+      - generic [ref=f224e216]: 有 vs 无正交
+      - generic [ref=f224e217]: KWS 准确率 +1–2%；SV EER −0.5~1 点
+      - generic [ref=f224e219]: λ ∈ [0.1, 1.0]
+      - generic [ref=f224e220]: 效果稳定（准确率变化 <0.3%）
+      - generic [ref=f224e222]: α = 0（去三元组）
+      - generic [ref=f224e223]: 准确率 −0.5~1%——嵌入结构贡献显著
+      - generic [ref=f224e225]: α ∈ [0.1, 0.5]
+      - generic [ref=f224e226]: 最佳区间
+      - generic [ref=f224e228]: 关键发现：解耦没有损害性能——反而帮每个
+      - generic [ref=f224e229]: 分支学到更「纯净」的判别特征
+      - generic [ref=f224e230]: 读数：正交约束的限制不是「解耦限制了表达能力」——KWS 分支不再被说话人信息干扰、SV 分支不再被内容信息干扰，各自更专注自己的判别任务
+    - paragraph [ref=f224e231]: 图3 · 消融（约 值 / 示意形态）：λ 扫描的甜点与失稳区（0.5 最优、>10 被正交主导）；有/无正交与三元组 α 的贡献——解耦不是限制表达而是去干扰。
+  - generic [ref=f224e232]:
+    - img [ref=f224e233]:
+      - generic [ref=f224e235]: 边界与延伸
+      - generic [ref=f224e237]: 技术边界
+      - generic [ref=f224e238]: · 对称架构要求：两分支需同维才能让内积良定义——
+      - generic [ref=f224e239]: KWS 要 CNN 而 SV 要 Transformer 时需额外线性投影
+      - generic [ref=f224e240]: · 线性正交 ≠ 高阶独立：f_KWS² 与 f_SV² 可能相关但线性
+      - generic [ref=f224e241]: 正交——KWS 特征可能仍含说话人的高阶信息
+      - generic [ref=f224e242]: · batch 内均值近似总体期望：小 batch 时近似误差大，
+      - generic [ref=f224e243]: 正交性约束效果不稳定
+      - generic [ref=f224e244]: · λ 与 α 需按数据重调（虽 [0.1,1.0] 内稳定）
+      - generic [ref=f224e245]: · 文本相关 SV（语音密码）中两任务信息耦合更强——
+      - generic [ref=f224e246]: 正交可能过严，约束掉对两任务都有用的信息
+      - generic [ref=f224e247]: · 全部干净条件下实验：噪声/远场/混响未测；
+      - generic [ref=f224e248]: 未与 HSIC / CCA 等其他独立性度量对比
+      - generic [ref=f224e250]: 延伸方向
+      - generic [ref=f224e251]: · 非线性独立：HSIC 在 RKHS 度量独立性，捕获高阶依赖
+      - generic [ref=f224e252]: ——计算从 O(d) 涨到 O(N²)（N 为 batch）
+      - generic [ref=f224e253]: · 多任务扩展：KWS+SV+情感+语言识别——M 个任务需
+      - generic [ref=f224e254]: 约束 C(M,2) 对特征两两正交
+      - generic [ref=f224e255]: · 自适应 λ：训练初期小（自由学习）、后期大（强制解耦）
+      - generic [ref=f224e256]: ·「联合+解耦」设计原则可推广：KWS+VAD、
+      - generic [ref=f224e257]: SV+反欺骗检测等多任务语音场景
+      - generic [ref=f224e258]: · 统一声学前端 + 正交解耦，替代独立模块部署
+      - generic [ref=f224e259]: 可迁移判断：两任务共享底层但判别目标正交时，「联合训练 + 显式解耦」优于独立部署——互补监督打磨共享特征，解耦约束又防止信息互相污染
+    - paragraph [ref=f224e260]: 图4 · 边界与延伸：线性正交≠高阶独立、对称架构要求、batch 近似误差、文本相关 SV 风险、无噪声测试；HSIC/多任务/自适应 λ/联合+解耦设计原则等延伸。
+  - heading "§04 贡献：四条" [level=2] [ref=f224e261]:
+    - generic [ref=f224e262]: §04
+    - text: 贡献：四条
+  - generic [ref=f224e263]:
+    - generic [ref=f224e264]:
+      - generic [ref=f224e265]: "1"
+      - paragraph [ref=f224e266]: 正交性正则首次用于 KWS-SV 双向特征解耦：一个简单标量损失（内积范数）同时解决两个方向的解耦，避开对抗训练的复杂与不稳定。
+    - generic [ref=f224e267]:
+      - generic [ref=f224e268]: "2"
+      - paragraph [ref=f224e269]: 互惠学习的实证：中英文双数据集证明联合训练 + 正交不仅不折衷，反而同时提升两个任务的性能——打破「联合必折衷」认知。
+    - generic [ref=f224e270]:
+      - generic [ref=f224e271]: "3"
+      - paragraph [ref=f224e272]: 效率提升：共享底层省约 30–40% 参数——存储计算受限设备上的部署优势。
+    - generic [ref=f224e273]:
+      - generic [ref=f224e274]: "4"
+      - paragraph [ref=f224e275]: 偏差缓解：正交约束天然缓解 KWS 说话人偏差与 SV 内容偏差——公平性（所有用户群体一致服务质量）与安全性收益。
+  - heading "§05 局限与边界" [level=2] [ref=f224e276]:
+    - generic [ref=f224e277]: §05
+    - text: 局限与边界
+  - generic [ref=f224e278]: 线性正交的天花板
+  - generic [ref=f224e279]:
+    - generic [ref=f224e280]:
+      - heading "线性 ≠ 高阶独立" [level=4] [ref=f224e281]
+      - paragraph [ref=f224e282]: 正交保证线性相关性为零，但 f_KWS² 与 f_SV² 可能统计相关——KWS 特征可能仍含说话人的高阶信息；HSIC 等核方法可捕获高阶依赖但计算从 O(d) 涨到 O(N²)。
+    - generic [ref=f224e283]:
+      - heading "对称架构 + batch 近似" [level=4] [ref=f224e284]
+      - paragraph [ref=f224e285]: 两分支需同维（内积良定义）——最优架构差异大时需额外投影；L_orth 用 batch 内均值近似总体期望，小 batch 时误差大约束不稳。
+    - generic [ref=f224e286]:
+      - heading "文本相关 SV 可能过严" [level=4] [ref=f224e287]
+      - paragraph [ref=f224e288]: 语音密码场景中 SV 必须同时验证「说了什么」和「谁说的」——两任务信息耦合更强，正交可能约束掉对两任务都有用的信息。
+    - generic [ref=f224e289]:
+      - heading "验证范围" [level=4] [ref=f224e290]
+      - paragraph [ref=f224e291]: 全部干净条件下实验——噪声/远场/混响未测（共享底层特征质量下降时正交是否仍有效未知）；未与 HSIC/CCA 等其他独立性度量系统对比；中文数据集未公开、只报相对趋势；λ 与 α 需按数据重调。
+  - generic [ref=f224e292]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f224e293]
+    - list [ref=f224e294]:
+      - listitem [ref=f224e295]: ↳ 两任务共享底层但判别目标正交时，「联合训练 + 显式解耦」优于独立部署——互补监督打磨共享特征，解耦约束防止信息互相污染。
+      - listitem [ref=f224e296]: ↳ 对抗训练能做的解耦，先看一个内积正则能不能做——良态梯度、天然双向、零额外网络，性价比高一个数量级。
+      - listitem [ref=f224e297]: ↳ 解耦约束不是表达能力的敌人：去掉干扰信息后每个分支反而更专注——担心「约束限制表达」前先做消融。
+      - listitem [ref=f224e298]: ↳ 特征空间的偏差（说话人/内容）会在下游变成产品的不公平——公平性问题的源头可能在表示层而不在决策层。
+      - listitem [ref=f224e299]: ↳ 多任务扩展的成本是组合数：M 个任务需 C(M,2) 对两两正交约束——任务数增长时约束数量平方级增长。
+  - generic [ref=f224e300]:
+    - link "论文原文 ↗" [ref=f224e301] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2203.16772
+    - link "笔记全文 ↗" [ref=f224e302] [cursor=pointer]:
+      - /url: Learning_Decoupling_Features_Through_Orthogonality_Regularization.md
+    - link "返回列表" [ref=f224e303] [cursor=pointer]:
+      - /url: ../index.html

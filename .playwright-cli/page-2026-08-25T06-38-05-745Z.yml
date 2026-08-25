@@ -1,0 +1,280 @@
+- generic [active] [ref=f227e1]:
+  - generic [ref=f227e2]:
+    - link "← 返回论文列表" [ref=f227e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f227e4]: 论文精读 · 可视化版 · 2022 №26
+    - heading "同样的乘加，在芯片上兑换的周期 差三倍：训练用卷积，推理全线性" [level=1] [ref=f227e5]: 同样的乘加，在芯片上兑换的周期差三倍：训练用卷积，推理全线性
+    - generic [ref=f227e6]:
+      - generic [ref=f227e7]: LiCo-Net · Meta AI · arXiv 2211.04635
+      - generic [ref=f227e8]: 流式卷积 → 线性层等价转换
+      - generic [ref=f227e9]: Cadence HiFi4 · int8 周期实测
+      - generic [ref=f227e10]: 「hey operator」· 95K 语句
+    - generic [ref=f227e11]: 学术界以 MACs 论英雄，但 ML 算子在低功耗处理器上呈异构效率剖面——LiCo-Net 的赌注不是计算量，是计算量在芯片上的兑换率：命题 1 保证转换零精度损失。
+    - generic [ref=f227e12]:
+      - heading "一分钟版本" [level=3] [ref=f227e13]
+      - list [ref=f227e14]:
+        - listitem [ref=f227e15]: ▸ 立论：理论 MACs「往往不能解读为真实硬件效率」——同样 1 次乘加，卷积算子和全连接在真实芯片上的周期完全不同；反直觉现象：MACs 更高的 MLP 可能比 MACs 更低的 CNN 更快。
+        - listitem [ref=f227e16]: ▸ 三条经验事实：int8 比 float 省算力；线性层比其他层类型更高效（被处理器厂商几十年手工优化、吃满 SIMD）；卷积建模能力强——双阶段设计让每阶段各用各的最优形态。
+        - listitem [ref=f227e17]: ▸ 命题 1：流式 CNN 可等价转 MLP ⟺ 第一层步长 = chunk 大小（输入长锁定为核宽 K，卷积退化为一次矩阵向量乘）+ 其余层步长 1（逐点卷积天然线性）。
+        - listitem [ref=f227e18]: ▸ 零精度损失：转换只是权重 reshape + 输入展平——部署后的线性网与训练时的卷积网在数学上是同一个函数，根本区别于蒸馏/剪枝/低秩这类有损压缩。
+        - listitem [ref=f227e19]: ▸ LiCo-Block：大核扩张卷积（时序上下文只混合一次）+ 两层逐点卷积（纯通道混合）+ ReLU；s=1 时加残差（s>1 时间维下采样形状不对齐）。统一视角：MLP 是 LiCo-Net 在 L=1、K=21 的退化特例。
+        - listitem [ref=f227e20]: ▸ 硬件实测：HiFi4 周期精确模拟器——相近 MACs 与步长下比 SVDF 快 1.5–1.8×（周期降约 40%）；兑换率 SVDF 1.68 cyc/MAC vs LiCo 0.98 vs MLP 0.51——同 MACs 不同算子差 3 倍以上。
+        - listitem [ref=f227e21]: ▸ 步长语义：s = 推理频率（10ms 特征下 s=3 每 30ms 推一次）——MIPS = 单次周期 × 频率，大 LiCo 9.36→3.12；单次推理周期几乎不随步长变（收益全在持续负载/功耗维度）。
+        - listitem [ref=f227e22]: ▸ 精度侧：大步长对所有模型几乎无损（1.1s 外部解码平滑窗——30ms 决策粒度相对关键词时长足够稠密）；小模型 s=3 时小 LiCo 反超小 SVDF（0.025 FA/Hr 处 FRR 2%→1.2%）。
+        - listitem [ref=f227e23]: ▸ 性价比最优点：小 LiCo-Net + stride=3——61,154 周期 / 2.01 MIPS，精度还优于同设定 SVDF。
+        - listitem [ref=f227e24]: ▸ 边界：HiFi4 单核绑定（「另一颗芯片上差距可能不同」）；命题 1 锁死架构自由度（多尺度/池化/空洞不可用）；vs MLP 仍有 2× 周期差；单唤醒词内部数据不可复现；基线只 SVDF/MLP；全模拟器无真机功耗。
+    - heading "§01 问题：算子类型决定每 MAC 的真实周期数" [level=2] [ref=f227e25]:
+      - generic [ref=f227e26]: §01
+      - text: 问题：算子类型决定每 MAC 的真实周期数
+    - generic [ref=f227e27]: 四类 KWS 方案的「建模能力 vs 硬件亲和」两难
+    - paragraph [ref=f227e28]: KWS 是设备里唯一 24×7 不间断烧电烧算力的神经网络。MLP 硬件友好但容量上限低；RNN 对常驻流式数据预测不稳定、非线性算子低效且对静态 int8 量化脆弱；CNN 量化友好性能高但开销太大；流式 CNN（SVDF/S1DCNN）把 MACs 压小了——但优化的仍是卷积类算子，而卷积恰是 DSP 上效率低于预期的算子，算子异质性的开销只是被 MACs 数字掩盖。
+    - generic [ref=f227e29]:
+      - generic [ref=f227e30]:
+        - heading "RNN 的两条死刑" [level=4] [ref=f227e31]
+        - paragraph [ref=f227e32]: 对前一时刻状态的依赖是「非确定的」——常驻流式数据上预测不稳定；内部非线性算子在低功耗硬件上效率低，且对静态 int8 量化很脆弱——对常开系统，量化后性能崩塌几乎是死刑。
+      - generic [ref=f227e33]:
+        - heading "SVDF 的隐藏开销" [level=4] [ref=f227e34]
+        - paragraph [ref=f227e35]: SVDF 块内仍是「矩阵分解 + 记忆维深度卷积 + 瓶颈层」的混合体——算子异质性带来的每 MAC 周期差没有被消除；Table 1 里 SVDF 在 stride=3 时 MACs 反而升高（90.7→111.2K），机理未解释。
+    - heading "§02 方法：命题 1 + LiCo-Block + 双阶段" [level=2] [ref=f227e36]:
+      - generic [ref=f227e37]: §02
+      - text: 方法：命题 1 + LiCo-Block + 双阶段
+    - generic [ref=f227e38]: 一座可证明等价的桥
+    - generic [ref=f227e39]:
+      - img [ref=f227e40]:
+        - generic [ref=f227e42]: LiCo-Net：训练用卷积，推理全线性——数学上严格等价
+        - generic [ref=f227e43]: ① 立论：MACs ≠ 硬件效率
+        - generic [ref=f227e45]: 算子的异构效率剖面
+        - generic [ref=f227e46]: 理论计算量「往往不能解读为真实硬件效率」——同样 1 次
+        - generic [ref=f227e47]: 乘加，卷积算子与全连接在真实芯片上的周期完全不同
+        - generic [ref=f227e48]: 卷积硬件效率常低于预期；线性算子被厂商几十年手工优化
+        - generic [ref=f227e49]: 能吃满 SIMD 全吞吐
+        - generic [ref=f227e50]: 反直觉：MACs 更高的 MLP 可能比 MACs 更低的 CNN 更快
+        - generic [ref=f227e51]: ——「以 MACs 论英雄」的端侧设计范式需要重写
+        - generic [ref=f227e53]: 三条经验事实 = 全部设计出发点
+        - generic [ref=f227e54]: 硬件侧：① 相同计算量下 int8 比 float 省算力
+        - generic [ref=f227e55]: ② 线性层通常比其他层类型更高效
+        - generic [ref=f227e56]: 建模侧：③ 卷积建模能力强（权重沿时间共享、
+        - generic [ref=f227e57]: 平移等变、训练基础设施成熟）
+        - generic [ref=f227e58]: → 双阶段：训练用卷积（吃 ③），推理全线性（吃 ①②），
+        - generic [ref=f227e59]: 中间靠数学等价保证函数完全一致
+        - generic [ref=f227e60]: ② 命题 1：流式卷积 → 线性层的等价转换条件
+        - generic [ref=f227e62]: 当输入长度 = 核宽时，卷积 = 线性层（式 4）
+        - generic [ref=f227e63]: 流式场景天然配合：chunk 大小 t = 步长 s 时，每块输入 =
+        - generic [ref=f227e64]: (K−s) 帧历史 + s 帧新数据，长度恰为 K = 核宽——
+        - generic [ref=f227e65]: 卷积退化为一次纯矩阵向量乘（W 重排，X 展平）
+        - generic [ref=f227e66]: 命题 1：流式 CNN 可等价转 MLP ⟺
+        - generic [ref=f227e67]: (1) 第一层步长 s₁ = chunk 大小 t（锁定输入长 = 核宽）
+        - generic [ref=f227e68]: (2) 其余所有层步长 = 1（帧率不变，逐点卷积天然线性）
+        - generic [ref=f227e69]: 性质：纯 reshape + 展平——零近似零精度损失，
+        - generic [ref=f227e70]: 根本区别于蒸馏/剪枝/低秩这类有损压缩
+        - generic [ref=f227e72]: 流式 = 内部状态 + 小块新输入（图 1）
+        - generic [ref=f227e73]: 非流式滑窗：相邻窗 window−shift 的重叠反复参与计算
+        - generic [ref=f227e74]: 流式：历史 K−s 帧维护为内部状态 + 每次只算 s 帧新数据
+        - generic [ref=f227e75]: ——重叠部分的重复计算被彻底消灭
+        - generic [ref=f227e76]: 步长 s 的工程语义 = 推理频率：10ms 特征下 s=1 每帧推
+        - generic [ref=f227e77]: 一次，s=3 每 30ms 一次——更低频率更省算力可能更高延迟
+        - generic [ref=f227e78]: 训练态（流式卷积）与推理态（int8 线性链）分离：
+        - generic [ref=f227e79]: 建模友好与硬件友好从互斥选项解耦成正交自由度
+        - generic [ref=f227e80]: ③ LiCo-Block：为「可线性化」量身定做的瓶颈三明治
+        - generic [ref=f227e82]: 核卷积 K×e↑
+        - generic [ref=f227e83]: 核宽 K>1，通道按 e&
+        - generic [ref=f227e84]: gt;1 扩张
+        - generic [ref=f227e85]: 时序上下文只混合一次
+        - generic [ref=f227e87]: 逐点卷积 ×2
+        - generic [ref=f227e88]: 核宽 1，纯通道混合
+        - generic [ref=f227e89]: 任何输入长度天然线性
+        - generic [ref=f227e91]: ReLU
+        - generic [ref=f227e92]: 层间非线性
+        - generic [ref=f227e94]: 残差（仅 s=1）
+        - generic [ref=f227e95]: s>1 时间维下采样
+        - generic [ref=f227e96]: 形状不对齐无法建捷径
+        - generic [ref=f227e98]: × L 块 + 线性分类器
+        - generic [ref=f227e99]: 大：5 块 e=6 K=5 w=
+        - generic [ref=f227e100]: "32"
+        - generic [ref=f227e101]: 小：5 块 e=4 K=4 w=
+        - generic [ref=f227e102]: "16"
+        - generic [ref=f227e103]: 统一视角：基线 MLP（21 帧输入 + 两隐层）恰好等价于一个核宽 21 的单 LiCo-Block——MLP 是 LiCo-Net 在 L=1、K=21 的退化特例
+        - generic [ref=f227e104]: 为什么扩张因子：逐点卷积参数效率高但单层表达有限——先撑宽（32→192）再做非线性，用极少参数买表达能力（倒瓶颈思路的 KWS 流式移植）
+        - generic [ref=f227e106]: 1.5~1.8×
+        - generic [ref=f227e107]: vs SVDF 实测提速（HiFi4）
+        - generic [ref=f227e108]: −40%
+        - generic [ref=f227e109]: 周期数（摘要口径，对 SVDF）
+        - generic [ref=f227e110]: "0"
+        - generic [ref=f227e111]: 转换精度损失（纯 reshape）
+        - generic [ref=f227e112]: 3×+
+        - generic [ref=f227e113]: 同 MACs 不同算子的周期差
+        - generic [ref=f227e114]: "3.12"
+        - generic [ref=f227e115]: 大模型 s=3 的 MIPS（s=1 是 9.36）
+        - generic [ref=f227e116]: 数据：Meta 内部「hey operator」——正样本 95K 条（训练 84,354/10,047 说话人，测试 10,765/1,202，说话人无关划分）+ 多语言负样本 306h/194h；40 维 LMEL；11 类目标（9 子词+SIL+FILLER）；Cadence HiFi4（NXP i.MX RT600）周期精确模拟器
+      - paragraph [ref=f227e117]: 图1 · 机制全景：MACs ≠ 硬件效率的立论与三条经验事实；命题 1 的等价转换条件与流式内部状态；LiCo-Block 瓶颈三明治及「MLP 是 L=1、K=21 退化特例」的统一视角。
+  - generic [ref=f227e118]:
+    - generic [ref=f227e119]: 当 t = s：X^(j) = [历史 K−s 帧 ‖ s 帧新数据]，长度 = K = 核宽 → Y^(j) = linear(X̃^(j), W̃)
+    - generic [ref=f227e120]: 人话（式 4 + 命题 1）：流式场景提供了天然配合——chunk 大小等于步长时每块输入恰好一个核宽长，卷积每块只产生一个输出位置，于是「卷积」退化为一次纯矩阵向量乘。流式本身还消灭了滑窗推理的重复计算：相邻窗 window−shift 的重叠反复参与计算，而「内部状态 + 小块新输入」等价产出输出。
+  - paragraph [ref=f227e121]: 为什么第一层才用大核：时序上下文的混合只需要发生一次，放在入口把 K 帧声学上下文编码进单帧表示，后续层就能全部用核宽 1 的逐点卷积——命题 1 的条件 2 自然满足。为什么扩张因子：先撑宽（32→192）再做非线性，等效于在瓶颈预算内加大隐藏层宽度——移动端倒瓶颈思路的 KWS 流式移植。
+  - heading "§03 实验：HiFi4 周期精确模拟器" [level=2] [ref=f227e122]:
+    - generic [ref=f227e123]: §03
+    - text: 实验：HiFi4 周期精确模拟器
+  - generic [ref=f227e124]: 所有模型统一 int8 量化、优化内核（深度卷积 SIMD）保证公平
+  - generic [ref=f227e125]:
+    - img [ref=f227e126]:
+      - generic [ref=f227e128]: Table 1 核心：周期数 / MACs 兑换率（大模型 · HiFi4 实测）
+      - generic [ref=f227e129]: 每 MAC 兑换的周期数（按 Table 1 反推）
+      - generic [ref=f227e131]: 1.68 cyc/MAC
+      - generic [ref=f227e132]: SVDF（混合算子）
+      - generic [ref=f227e134]: 0.98 cyc/MAC
+      - generic [ref=f227e135]: LiCo-Net（全线性）
+      - generic [ref=f227e137]: 0.51 cyc/MAC
+      - generic [ref=f227e138]: MLP（纯线性）
+      - generic [ref=f227e140]: 同样的乘加，落在不同算子里差 3 倍以上
+      - generic [ref=f227e141]: 单次推理周期数（表 1 原文）
+      - generic [ref=f227e143]: 48,891
+      - generic [ref=f227e144]: MLP · s=1
+      - generic [ref=f227e145]: 96K
+      - generic [ref=f227e147]: 49,258
+      - generic [ref=f227e148]: MLP · s=3
+      - generic [ref=f227e149]: 96K
+      - generic [ref=f227e151]: 93,622
+      - generic [ref=f227e152]: LiCo · s=1
+      - generic [ref=f227e153]: 95K
+      - generic [ref=f227e155]: 94,556
+      - generic [ref=f227e156]: LiCo · s=3
+      - generic [ref=f227e157]: 95K
+      - generic [ref=f227e159]: 152,458
+      - generic [ref=f227e160]: SVDF · s=1
+      - generic [ref=f227e161]: 91K
+      - generic [ref=f227e163]: 169,922
+      - generic [ref=f227e164]: SVDF · s=3
+      - generic [ref=f227e165]: 111K
+      - generic [ref=f227e166]: MACs
+      - generic [ref=f227e167]: 读数：LiCo 与 MLP 的周期数几乎不随步长变（单次推理 = 状态+新块，步长只降频率）；SVDF 的 MACs 在 s=3 反而升高（90.7→111.2K，机理论文未解释）；MIPS = 单次周期 × 推理频率——大 LiCo 9.36（s=1）→ 3.12（s=3）
+    - paragraph [ref=f227e168]: 图2 · Table 1 核心：每 MAC 兑换周期数（SVDF 1.68 vs LiCo 0.98 vs MLP 0.51——同 MACs 差 3 倍以上）；六组单次推理周期数——LiCo 与 MLP 几乎不随步长变，SVDF 的 MACs 在 s=3 反而升高。
+  - table [ref=f227e169]:
+    - rowgroup [ref=f227e170]:
+      - row [ref=f227e171]:
+        - columnheader "大模型 · stride=1" [ref=f227e172]
+        - columnheader "参数量" [ref=f227e173]
+        - columnheader "MACs" [ref=f227e174]
+        - columnheader "周期数" [ref=f227e175]
+        - columnheader "MIPS" [ref=f227e176]
+        - columnheader "兑换率" [ref=f227e177]
+      - row [ref=f227e178]:
+        - cell "MLP" [ref=f227e179]
+        - cell "96.7K" [ref=f227e180]
+        - cell "96.3K" [ref=f227e181]
+        - cell "48,891" [ref=f227e182]
+        - cell "4.88" [ref=f227e183]
+        - cell "0.51 cyc/MAC" [ref=f227e184]
+      - row [ref=f227e185]:
+        - cell "LiCo-Net" [ref=f227e186]
+        - cell "96.6K" [ref=f227e187]
+        - cell "95.3K" [ref=f227e188]
+        - cell "93,622" [ref=f227e189]
+        - cell "9.36" [ref=f227e190]
+        - cell "0.98" [ref=f227e191]
+      - row [ref=f227e192]:
+        - cell "SVDF" [ref=f227e193]
+        - cell "92K" [ref=f227e194]
+        - cell "90.7K" [ref=f227e195]
+        - cell "152,458" [ref=f227e196]
+        - cell "15.2" [ref=f227e197]
+        - cell "1.68 cyc/MAC" [ref=f227e198]
+  - generic [ref=f227e199]:
+    - img [ref=f227e200]:
+      - generic [ref=f227e202]: 步长消融：MIPS 降 3 倍几乎无损（图 3 + 表 1）
+      - generic [ref=f227e203]: 推理频率换持续负载（大模型）
+      - generic [ref=f227e205]: s=1：9.36 MIPS
+      - generic [ref=f227e207]: s=3：3.12 MIPS
+      - generic [ref=f227e208]: LiCo-Net
+      - generic [ref=f227e210]: s=1：15.20 MIPS
+      - generic [ref=f227e212]: s=3：5.60 MIPS
+      - generic [ref=f227e213]: SVDF
+      - generic [ref=f227e215]: s=1：4.88 MIPS
+      - generic [ref=f227e217]: s=3：1.62 MIPS
+      - generic [ref=f227e218]: MLP
+      - generic [ref=f227e219]: MIPS ≈ 按 3 倍反比下降（推理频率 100→33.3 次/秒）
+      - generic [ref=f227e221]: 精度侧发现（图 3 DET）
+      - generic [ref=f227e222]: · 大步长对所有模型性能几乎没有影响——「用更大
+      - generic [ref=f227e223]: 步长换计算效率而无需牺牲性能」（原文）
+      - generic [ref=f227e224]: · 机理：1.1s 外部解码平滑窗——30ms 决策粒度相对
+      - generic [ref=f227e225]: 关键词数百毫秒时长足够稠密
+      - generic [ref=f227e226]: · 小模型 s=3：小 LiCo 反超小 SVDF——0.025 FA/Hr
+      - generic [ref=f227e227]: 工作点 FRR 2% → 1.2%（小参数量下建模功力更足）
+      - generic [ref=f227e228]: · SVDF 与 LiCo 多数设定相当；两者都显著超越 MLP
+      - generic [ref=f227e229]: （纯 MLP 容量不足坐实）
+      - generic [ref=f227e231]: 性价比最优点
+      - generic [ref=f227e232]: 小 LiCo-Net + stride=3：
+      - generic [ref=f227e233]: 61,154 周期 / 2.01 MIPS，精度优于同设定 SVDF
+      - generic [ref=f227e234]: 注意：大模型组参数刻意对齐（96.7K / 92K / 96.6K）；小 MLP 50.3K 是另两家近两倍（论文承认，用作「MLP 算子少所以快」的论据）——小模型组三方对比不够干净
+    - paragraph [ref=f227e235]: 图3 · 步长消融与精度侧：MIPS ≈ 按 3 倍反比下降（推理频率 100→33.3 次/秒）；大步长几乎无损的机理（1.1s 外部解码平滑窗）；小 LiCo+stride=3 是性价比最优点。
+  - generic [ref=f227e236]:
+    - img [ref=f227e237]:
+      - generic [ref=f227e239]: 边界与延伸
+      - generic [ref=f227e241]: 技术边界
+      - generic [ref=f227e242]: · 硬件绑定强：全部周期来自 HiFi4 单核模拟器——论文自认
+      - generic [ref=f227e243]: 「算子效率高度依赖硬件设计，另一颗芯片上差距可能不同」
+      - generic [ref=f227e244]: · 命题 1 锁死架构自由度：除第一层外步长必须 1——多尺度
+      - generic [ref=f227e245]: 下采样 / 池化 / 空洞卷积要么不可用要么需改造
+      - generic [ref=f227e246]: · 双态工件一致性：部署线性网是训练卷积网的重排产物，须严格
+      - generic [ref=f227e247]: 同步版本；量化在重排前后做是否引入数值差异未验证
+      - generic [ref=f227e248]: （训练后量化还是 QAT 也未报告）
+      - generic [ref=f227e249]: · vs MLP 仍有 2 倍周期差：极端功耗 + 可接受精度损失时
+      - generic [ref=f227e250]: 纯 MLP 更省——LiCo 定位是「精度敏感时的最优折中」
+      - generic [ref=f227e252]: 实验设计边界
+      - generic [ref=f227e253]: · 单唤醒词「hey operator」+ Meta 内部 95K 语句——无公开
+      - generic [ref=f227e254]: 基准（GSC），不可复现不可与文献对表
+      - generic [ref=f227e255]: · 基线只 SVDF 与 MLP：TC-ResNet / MatchboxNet / BC-ResNet
+      - generic [ref=f227e256]: 等同期流式 CNN 均未进场——「优于流式 CNN 家族」存疑
+      - generic [ref=f227e257]: · 精度证据薄：DET 曲线 + 一个工作点读数，无 AUC 无方差
+      - generic [ref=f227e258]: · 全部依赖指令集模拟器：无真机功耗/延迟/内存峰值占用
+      - generic [ref=f227e259]: （对 MCU，SRAM 往往是比周期更硬的约束）
+      - generic [ref=f227e260]: · 架构超参消融（块数 L / e / K / 残差 / chunk 扫描）未报告
+      - generic [ref=f227e261]: 可迁移判断：端侧模型的效率 = MACs × 算子兑换率——先在目标芯片上 profiling 兑换率，再决定压哪个量；「重写算子类」的架构级路线零精度损失且与量化正交
+    - paragraph [ref=f227e262]: 图4 · 边界与延伸：HiFi4 单核绑定、命题 1 锁死架构自由度、双态工件一致性、vs MLP 仍 2× 周期差；单唤醒词内部数据、基线覆盖窄、全模拟器无真机指标等实验边界。
+  - heading "§04 贡献：四条" [level=2] [ref=f227e263]:
+    - generic [ref=f227e264]: §04
+    - text: 贡献：四条
+  - generic [ref=f227e265]:
+    - generic [ref=f227e266]:
+      - generic [ref=f227e267]: "1"
+      - paragraph [ref=f227e268]: 流式 CNN → MLP 的等价转换通路及数学条件：第一层步长 = chunk、其余步长 1——既是本文的定理，也是任何流式模型可复用的改造准则。
+    - generic [ref=f227e269]:
+      - generic [ref=f227e270]: "2"
+      - paragraph [ref=f227e271]: LiCo-Block 与 LiCo-Net：可线性化的高容量瓶颈三明治——HiFi4 上比 SVDF 快 1.5–1.8× 且检测性能持平。
+    - generic [ref=f227e272]:
+      - generic [ref=f227e273]: "3"
+      - paragraph [ref=f227e274]: 坐实「MACs ≠ 硬件效率」：同 MACs 下不同算子类 3 倍以上周期兑换率差异——端侧模型设计的算子级方法论纠偏。
+    - generic [ref=f227e275]:
+      - generic [ref=f227e276]: "4"
+      - paragraph [ref=f227e277]: 双阶段部署范式：卷积态训练 / 线性态推理，建模友好与硬件友好解耦为正交自由度，零精度损失——可推广到其他常驻语音任务。
+  - heading "§05 局限与边界" [level=2] [ref=f227e278]:
+    - generic [ref=f227e279]: §05
+    - text: 局限与边界
+  - generic [ref=f227e280]: 经验结论而非普适定律
+  - generic [ref=f227e281]:
+    - generic [ref=f227e282]:
+      - heading "硬件绑定 + 架构锁死" [level=4] [ref=f227e283]
+      - paragraph [ref=f227e284]: 全部周期来自 HiFi4 单核模拟器——「线性算子更快」应视为该芯片上的经验结论；命题 1 要求除第一层外步长全 1——多尺度下采样、池化、空洞卷积要么不可用要么需改造，代价未讨论。
+    - generic [ref=f227e285]:
+      - heading "双态工件一致性" [level=4] [ref=f227e286]
+      - paragraph [ref=f227e287]: 部署线性网是训练卷积网的重排产物，须严格同步版本；量化在重排前后是否引入数值差异未验证（训练后量化还是 QAT 也未报告——直接影响可复现的精度与周期数）。
+    - generic [ref=f227e288]:
+      - heading "定位不是绝对最低功耗" [level=4] [ref=f227e289]
+      - paragraph [ref=f227e290]: vs MLP 仍有约 2 倍周期差——极端功耗场景且能接受精度损失时纯 MLP 更省；LiCo-Net 是「精度敏感时的最优折中」。
+    - generic [ref=f227e291]:
+      - heading "验证范围窄" [level=4] [ref=f227e292]
+      - paragraph [ref=f227e293]: 单唤醒词 + Meta 内部数据（无 GSC 公开基准、不可复现）；基线只 SVDF 与 MLP（TC-ResNet/MatchboxNet/BC-ResNet 未进场）；精度证据只有 DET 曲线 + 一个工作点读数（无 AUC 无方差）；全模拟器无真机功耗/延迟/内存峰值（对 MCU，SRAM 往往是比周期更硬的约束）；架构超参消融未报告。
+  - generic [ref=f227e294]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f227e295]
+    - list [ref=f227e296]:
+      - listitem [ref=f227e297]: ↳ 端侧模型的真实效率 = MACs × 算子兑换率——先在目标芯片上 profiling 兑换率再决定压哪个量；「每 MAC 真实周期数」应是一等公民的设计约束。
+      - listitem [ref=f227e298]: ↳ 「重写算子类」是有别于压缩数值的另一条路线：零精度损失、与量化正交可叠加——架构级的等价变换比有损压缩更干净。
+      - listitem [ref=f227e299]: ↳ 训练形态与部署形态可以解耦：各用各的最优（建模友好 vs 硬件友好），中间靠数学等价衔接——前提是转换条件被严格刻画（命题 1 式的「当且仅当」）。
+      - listitem [ref=f227e300]: ↳ 推理频率是独立于模型大小的效率旋钮：步长换 MIPS 几乎不伤精度——决策粒度只要相对目标事件的时长足够稠密。
+      - listitem [ref=f227e301]: ↳ 基线对比要同 MACs 更要同算子类：混合算子的开销会被 MACs 数字掩盖——报告每 MAC 周期数才能暴露真实差距。
+  - generic [ref=f227e302]:
+    - link "论文原文 ↗" [ref=f227e303] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2211.04635
+    - link "笔记全文 ↗" [ref=f227e304] [cursor=pointer]:
+      - /url: LiCo-Net_Linearized_Convolution_Network_For_Hardware-efficient_Keyword_Spotting.md
+    - link "返回列表" [ref=f227e305] [cursor=pointer]:
+      - /url: ../index.html

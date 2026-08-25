@@ -1,0 +1,270 @@
+- generic [active] [ref=f236e1]:
+  - generic [ref=f236e2]:
+    - link "← 返回论文列表" [ref=f236e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f236e4]: 论文精读 · 可视化版 · 2022 №31
+    - heading "加新词不改旧模型： 冻结旧知识、压缩新知识" [level=1] [ref=f236e5]: 加新词不改旧模型：冻结旧知识、压缩新知识
+    - generic [ref=f236e6]:
+      - generic [ref=f236e7]: PCL-KWS · A*STAR 新加坡 · arXiv 2201.12546
+      - generic [ref=f236e8]: 渐进式网络实例化
+      - generic [ref=f236e9]: TC-ResNet-8 约 80K · GSC V2 30 词
+      - generic [ref=f236e10]: 无回放 · 无任务 ID 依赖（训练）
+    - generic [ref=f236e11]: 智能家居从「开灯/关灯」到「打开空调」再到「晚安模式」——类别增量学习的老问题在 KWS 有新痛点：关键词低级层共享（相同音素）高级层独有，新词学习改变共享低级特征间接伤旧词。
+    - generic [ref=f236e12]:
+      - heading "一分钟版本" [level=3] [ref=f236e13]
+      - list [ref=f236e14]:
+        - listitem [ref=f236e15]: ▸ 设计哲学：保护旧知识（冻结旧子网络——比正则化更彻底，从结构层面而非参数约束层面解决遗忘）+ 压缩新知识（关键词感知网络缩放）。
+        - listitem [ref=f236e16]: ▸ 网络实例化：Task 0 训练完整基线（C₀ + 共享内存块 M + H₀，15 个基础词）→ 每个新任务：冻结所有旧子网、实例化新分类头 H_t、从基线复制卷积作初始化（C_t⁽⁰⁾=C₀，加速收敛）、新子网 f_t = (C_t, M, H_t)。
+        - listitem [ref=f236e17]: ▸ 共享内存块 M 双重作用：正向迁移（新子网读 M 获取全部先前任务的通用声学特征——免费预训练）+ 持续更新（M 随新任务训练更新不断积累）——旧子网用训练时的 M 快照，不受 M 后续更新干扰。
+        - listitem [ref=f236e18]: ▸ 关键词感知缩放：w_t = min(1.0, K_t/K₀)——新任务 3 词 vs 基础 15 词 → w=0.2，新子网只用 20% 通道宽度；「识别的词越少所需容量越小」的规模适配原则。
+        - listitem [ref=f236e19]: ▸ 参数账：基线 80K + 5 新子网（16K each）+ 新头 15K + M 10K ≈ 185K = 基线 2.3 倍——不缩放会是 6.25 倍（500K）。
+        - listitem [ref=f236e20]: ▸ 主结果：30 词 6 任务后平均准确率 92.8%——超 Fine-tuning 下界约 15 点、超最强基线 GEM 约 3 点，且零历史样本存储（GEM 要回放缓冲区）。
+        - listitem [ref=f236e21]: ▸ 缩放消融：w=1.0（500K，93.3%）→ w=0.2（185K，92.8%）——参数减 63% 只掉 0.5 点，边缘部署的划算交易。
+        - listitem [ref=f236e22]: ▸ 初始化消融：从基线复制 92.8% ≈ 从最近子网复制 92.5% > 随机初始化 89–90%——基线提供「原始的、未被后续任务偏移」的公平起点。
+        - listitem [ref=f236e23]: ▸ 内存块消融：去掉 M 准确率 −3~5 点——没有 M 新子网在孤立参数空间优化，缺乏跨任务迁移。
+        - listitem [ref=f236e24]: ▸ 边界：推理需要任务 ID（或路由器）——用户说什么词系统无法预知；模型持续单调增长；旧子网知识固化（M 更新后与旧快照可能不匹配）；M 容量瓶颈；骨干单一（TC-ResNet）。
+    - heading "§01 问题：边缘设备上的类别增量" [level=2] [ref=f236e25]:
+      - generic [ref=f236e26]: §01
+      - text: 问题：边缘设备上的类别增量
+    - generic [ref=f236e27]: 正则化不够、回放存不下、任务 ID 不可用、大模型装不进
+    - paragraph [ref=f236e28]: EWC/SI 的 Fisher 对角近似忽略参数相关性，且任务越多冻结越多——自由度递减后新任务难学（实测仅比微调好 5–10%）；GEM 回放在 100KB 边缘预算下只能存 25 个频谱样本，10 个任务每任务 2–3 个——效果急剧下降；Expert Gate 等需要任务 ID——设备不知道用户接下来说什么；wav2vec2 约 300M 的预训练路线不适合边缘；Progressive Nets 参数线性增长——多任务后超出存储。
+    - generic [ref=f236e29]:
+      - generic [ref=f236e30]:
+        - heading "KWS 特有的遗忘机制" [level=4] [ref=f236e31]
+        - paragraph [ref=f236e32]: 不同关键词的声学特征在低级层共享（相同音素）但高级层有独特组合——新关键词的学习会改变共享的低级特征表示，间接影响旧关键词的特征质量：遗忘的传导路径比一般分类任务更隐蔽。
+      - generic [ref=f236e33]:
+        - heading "目标约束" [level=4] [ref=f236e34]
+        - paragraph [ref=f236e35]: 不需要任务 ID（训练时）、不需要回放缓冲区、模型大小严格亚线性增长、跑在约 80K 的轻量骨干上——四个条件同时满足才是边缘可用的 CIL。
+    - heading "§02 方法：实例化 + 共享 + 缩放" [level=2] [ref=f236e36]:
+      - generic [ref=f236e37]: §02
+      - text: 方法：实例化 + 共享 + 缩放
+    - generic [ref=f236e38]: 「实例化 + 共享 + 缩放」在压缩和增量学习之间找平衡
+    - generic [ref=f236e39]:
+      - img [ref=f236e40]:
+        - generic [ref=f236e42]: PCL-KWS：冻结旧知识、共享通用知识、压缩新知识
+        - generic [ref=f236e43]: ① 现有 CIL 路线在 KWS 上的不足
+        - generic [ref=f236e45]: 正则化（EWC/SI）
+        - generic [ref=f236e46]: Fisher 对角近似忽略参数相关性；任务越多冻结越多，
+        - generic [ref=f236e47]: 自由度递减 → 新任务难学；实测仅比微调好 5–10%
+        - generic [ref=f236e49]: 回放（GEM）
+        - generic [ref=f236e50]: 边缘存储 100KB 只装 25 个频谱样本；10 任务每任务
+        - generic [ref=f236e51]: 2–3 个样本——回放效果急剧下降
+        - generic [ref=f236e53]: 需要任务 ID
+        - generic [ref=f236e54]: Expert Gate / Progressive Nets 推理时要知道当前
+        - generic [ref=f236e55]: 输入属于哪个任务——设备不知道用户接下来说什么
+        - generic [ref=f236e57]: 大模型依赖 / 动态架构
+        - generic [ref=f236e58]: wav2vec2 约 300M 不适合边缘；Progressive Nets
+        - generic [ref=f236e59]: 参数线性增长——多任务后超出设备存储
+        - generic [ref=f236e60]: ② 渐进式网络实例化（骨干 TC-ResNet-8 约 80K）
+        - generic [ref=f236e62]: Task 0（基线 f₀）
+        - generic [ref=f236e63]: C₀ 卷积层 + M + H₀
+        - generic [ref=f236e64]: 15 个基础关键词
+        - generic [ref=f236e65]: 训练完整基线 → 冻结
+        - generic [ref=f236e67]: Task t（t ≥ 1 新任务到来）
+        - generic [ref=f236e68]: "① 冻结所有旧子网 f₀…f_{t−1}（防遗忘）"
+        - generic [ref=f236e69]: ② 实例化新分类头 H_t（输出 = K_t 类）
+        - generic [ref=f236e70]: ③ 从基线复制卷积作初始：C_t⁽⁰⁾ = C₀
+        - generic [ref=f236e71]: ④ 新子网 f_t = (C_t, M, H_t)，宽度按 w_t 缩放
+        - generic [ref=f236e73]: 共享内存块 M 的双重作用
+        - generic [ref=f236e74]: 正向迁移：新子网读 M 获取全部先前任务
+        - generic [ref=f236e75]: 的通用声学特征（相当于免费预训练）
+        - generic [ref=f236e76]: 持续更新：M 随新任务训练更新，不断积累知识
+        - generic [ref=f236e77]: 旧子网用训练时的 M 快照——不受 M 后续
+        - generic [ref=f236e78]: 更新干扰
+        - generic [ref=f236e79]: ③ 关键词感知网络缩放：容量与任务复杂度挂钩
+        - generic [ref=f236e81]: w_t = min(1.0, K_t / K₀)
+        - generic [ref=f236e82]: 新子网每层通道数 = 基线通道数 × w_t
+        - generic [ref=f236e83]: 例：K₀=15 基础词，新任务 K_t=3 → w_t = 0.2
+        - generic [ref=f236e84]: ——新子网只用基线 20% 的通道宽度
+        - generic [ref=f236e85]: 规模适配原则：识别的词越少，所需特征提取容量越小
+        - generic [ref=f236e86]: → 模型总大小增长亚线性（与任务复杂度成正比）
+        - generic [ref=f236e88]: 参数账（K₀=15, K_t=3, T=5）
+        - generic [ref=f236e89]: 基线 80K + 5 新子网（16K each）80K + 新头 15K
+        - generic [ref=f236e90]: + 共享 M 10K ≈ 185K = 基线的 2.3 倍
+        - generic [ref=f236e91]: 对比不缩放（w_t=1.0）：5 × 80K = 400K，总模型
+        - generic [ref=f236e92]: 约 500K = 基线 6.25 倍——缩放把 6.25× 压到 2.3×
+        - generic [ref=f236e93]: 边界部署价值：可预估「加 N 个新词要多大存储」
+        - generic [ref=f236e95]: 92.8%
+        - generic [ref=f236e96]: 平均准确率（30 词 6 任务后）
+        - generic [ref=f236e97]: "+15"
+        - generic [ref=f236e98]: vs Fine-tuning 下界（点）
+        - generic [ref=f236e99]: "+3"
+        - generic [ref=f236e100]: vs 最强基线 GEM（点）
+        - generic [ref=f236e101]: 2.3×
+        - generic [ref=f236e102]: 参数增长（不缩放是 6.25×）
+        - generic [ref=f236e103]: 0 条
+        - generic [ref=f236e104]: 历史样本存储（无回放缓冲区）
+        - generic [ref=f236e105]: 任务设定：GSC V2 30 词 = 15 基础（Task 0）+ 5 增量任务 × 3 词；遗忘在 KWS 尤其严重——关键词低级层共享（相同音素）高级层独有，新词学习改变共享低级特征间接伤旧词
+      - paragraph [ref=f236e106]: 图1 · 机制全景：现有 CIL 路线的四类不足；渐进式网络实例化（Task 0 基线 → 新任务四步）与共享内存块 M 的双重作用；关键词感知缩放与参数账。
+  - generic [ref=f236e107]:
+    - generic [ref=f236e108]: w_t = min(1.0, K_t / K₀) ； 新子网每层通道数 = 基线通道数 × w_t
+    - generic [ref=f236e109]: 人话：新任务的词少就给小网络——容量与任务复杂度显式挂钩。这带来一个部署级的好处：设备可以预估「添加 N 个新关键词需要多少额外存储」——参数增长从不可控的工程负担变成可计算的预算项。
+  - heading "§03 实验：30 词 6 任务" [level=2] [ref=f236e110]:
+    - generic [ref=f236e111]: §03
+    - text: 实验：30 词 6 任务
+  - generic [ref=f236e112]: 15 基础词 + 5 增量任务 × 3 词，GSC V2
+  - generic [ref=f236e113]:
+    - img [ref=f236e114]:
+      - generic [ref=f236e116]: 主对比：5 个增量任务后的平均准确率（30 词）
+      - generic [ref=f236e117]: "78"
+      - generic [ref=f236e118]: "82"
+      - generic [ref=f236e119]: "86"
+      - generic [ref=f236e120]: "90"
+      - generic [ref=f236e121]: "94"
+      - generic [ref=f236e123]: ~78
+      - generic [ref=f236e124]: Fine-tuning
+      - generic [ref=f236e125]: 下界））
+      - generic [ref=f236e126]: 1.0x
+      - generic [ref=f236e128]: ~86
+      - generic [ref=f236e129]: EWC
+      - generic [ref=f236e130]: 1.0x
+      - generic [ref=f236e132]: ~86
+      - generic [ref=f236e133]: SI
+      - generic [ref=f236e134]: 1.0x
+      - generic [ref=f236e136]: ~88
+      - generic [ref=f236e137]: NR
+      - generic [ref=f236e138]: 随机子网））
+      - generic [ref=f236e139]: 1.5x
+      - generic [ref=f236e141]: "89.0"
+      - generic [ref=f236e142]: GEM
+      - generic [ref=f236e143]: b=100））
+      - generic [ref=f236e144]: 1.0x
+      - generic [ref=f236e146]: "92.8"
+      - generic [ref=f236e147]: PCL-KWS ★
+      - generic [ref=f236e148]: 2.3x
+      - generic [ref=f236e149]: 平均准确率（%）· 约 值 · 柱下为参数增长比
+      - generic [ref=f236e151]: PCL-KWS 超最强基线 GEM 约 3 点
+      - generic [ref=f236e152]: 且零历史样本存储
+      - generic [ref=f236e153]: 注：基线数字为笔记记录的约值区间中值（论文原表精确到小数）；EWC/SI 仅比微调好 5–10 点——正则化路线在 KWS 的 CIL 上远远不够；GEM 需要回放缓冲区，PCL 完全靠参数快照
+    - paragraph [ref=f236e154]: 图2 · 主对比（约 值）：六方法的平均准确率与参数增长——PCL-KWS 92.8% 超最强基线 GEM 约 3 点且零回放缓冲；EWC/SI 仅比微调好 5–10 点。
+  - table [ref=f236e155]:
+    - rowgroup [ref=f236e156]:
+      - row [ref=f236e157]:
+        - columnheader "方法" [ref=f236e158]
+        - columnheader "平均准确率" [ref=f236e159]
+        - columnheader "vs Fine-tuning" [ref=f236e160]
+        - columnheader "参数增长" [ref=f236e161]
+        - columnheader "需回放缓冲" [ref=f236e162]
+      - row [ref=f236e163]:
+        - cell "Fine-tuning（下界）" [ref=f236e164]
+        - cell "~75–80%" [ref=f236e165]
+        - cell "—" [ref=f236e166]
+        - cell "1.0×" [ref=f236e167]
+        - cell "否" [ref=f236e168]
+      - row [ref=f236e169]:
+        - cell "EWC" [ref=f236e170]
+        - cell "~85–87%" [ref=f236e171]
+        - cell "+7" [ref=f236e172]
+        - cell "1.0×" [ref=f236e173]
+        - cell "否" [ref=f236e174]
+      - row [ref=f236e175]:
+        - cell "GEM（b=100）" [ref=f236e176]
+        - cell "~88–90%" [ref=f236e177]
+        - cell "+12" [ref=f236e178]
+        - cell "1.0×" [ref=f236e179]
+        - cell "是" [ref=f236e180]
+      - row [ref=f236e181]:
+        - cell "PCL-KWS" [ref=f236e182]
+        - cell "92.8%" [ref=f236e183]
+        - cell "+15" [ref=f236e184]
+        - cell "2.3×" [ref=f236e185]
+        - cell "否" [ref=f236e186]
+  - generic [ref=f236e187]:
+    - img [ref=f236e188]:
+      - generic [ref=f236e190]: 消融：缩放的甜点 + 初始化策略 + 内存块价值
+      - generic [ref=f236e191]: w_t 扫描：参数 −63% 只掉 0.5 点
+      - generic [ref=f236e193]: w=1.0（不缩放）
+      - generic [ref=f236e194]: 500K 参数（6.2x 基线）
+      - generic [ref=f236e196]: 93.3%
+      - generic [ref=f236e198]: w=0.5
+      - generic [ref=f236e199]: 280K 参数（3.5x 基线）
+      - generic [ref=f236e201]: 93.0%
+      - generic [ref=f236e203]: w=0.2（论文）★
+      - generic [ref=f236e204]: 185K 参数（2.3x 基线）
+      - generic [ref=f236e206]: 92.8%
+      - generic [ref=f236e208]: 用 0.5 个点换 63% 参数——边缘部署的划算交易
+      - generic [ref=f236e209]: 初始化策略 + 共享内存块
+      - generic [ref=f236e211]: 从基线 C₀ 复制（论文）
+      - generic [ref=f236e212]: 92.8%
+      - generic [ref=f236e214]: "从最近子网 C_{t−1} 复制"
+      - generic [ref=f236e215]: 92.5%
+      - generic [ref=f236e217]: 随机初始化
+      - generic [ref=f236e218]: 89–90%
+      - generic [ref=f236e219]: 基线初始化的公平性：提供「原始的、未被后续任务
+      - generic [ref=f236e220]: 偏移的」特征表示——对所有新任务都是公平起点
+      - generic [ref=f236e222]: 去共享内存块：准确率 −3~5 点
+      - generic [ref=f236e223]: 没有 M，新子网在「孤立」参数空间优化，
+      - generic [ref=f236e224]: 缺乏跨任务知识迁移
+      - generic [ref=f236e225]: 读数：结构层面（冻结）解决遗忘比参数约束层面（正则化）更彻底；共享 M 是免费的正向迁移通道——新旧知识通过它互通而不互相覆盖
+    - paragraph [ref=f236e226]: 图3 · 消融：w_t 扫描（参数 −63% 只掉 0.5 点）；初始化策略（基线复制 ≈ 最近子网 > 随机）；共享内存块去掉 −3~5 点（孤立参数空间缺迁移）。
+  - generic [ref=f236e227]:
+    - img [ref=f236e228]:
+      - generic [ref=f236e230]: 边界与延伸
+      - generic [ref=f236e232]: 技术边界
+      - generic [ref=f236e233]: · 推理需要任务 ID（或路由器）——不同任务分类头不同，
+      - generic [ref=f236e234]: 系统无法预知用户说哪个词。候选解：全头并行取最高
+      - generic [ref=f236e235]: 置信 / 额外任务路由器 / 统一输出空间——论文未充分讨论
+      - generic [ref=f236e236]: · 模型持续增长：缩放约束了速度但仍是单调递增——数百个
+      - generic [ref=f236e237]: 增量任务（用户不断加自定义词）最终突破存储
+      - generic [ref=f236e238]: · 知识固化：旧子网用旧 M 快照——后续任务声学特性差异大
+      - generic [ref=f236e239]: 时旧子网性能可能退化（M 更新后与新快照不匹配）
+      - generic [ref=f236e240]: · M 的容量瓶颈：大小固定，任务多了可能「内存干扰」
+      - generic [ref=f236e242]: 实验边界 + 延伸
+      - generic [ref=f236e243]: · 骨干单一：TC-ResNet 顺序架构天然适合子网实例化——
+      - generic [ref=f236e244]: DS-CNN / LSTM / Transformer 适用性未验证
+      - generic [ref=f236e245]: · 任务顺序敏感性未测；任务间关键词重叠（stop vs top）
+      - generic [ref=f236e246]: 的区分能力未测
+      - generic [ref=f236e247]: · 未与 Der++ / AANet 等动态架构 CIL 对比
+      - generic [ref=f236e248]: 延伸：统一分类头（动态扩展输出层）；定期向旧子网回灌
+      - generic [ref=f236e249]: 知识（蒸馏自全局模型）；NAS 自动定 w_t
+      - generic [ref=f236e250]: · 范式可推广：语音命令识别 / 声学事件检测 / 手势识别
+      - generic [ref=f236e251]: 可迁移判断（冻结旧知识、共享通用知识、压缩新知识）：结构层面的遗忘防护优于参数约束；容量与任务复杂度显式挂钩让边缘设备可预估增量成本
+    - paragraph [ref=f236e252]: 图4 · 边界与延伸：推理侧任务 ID 问题、模型持续增长、知识固化与 M 容量瓶颈；骨干单一、任务顺序/关键词重叠未测；统一分类头/回灌/NAS 等方向。
+  - heading "§04 贡献：四条" [level=2] [ref=f236e253]:
+    - generic [ref=f236e254]: §04
+    - text: 贡献：四条
+  - generic [ref=f236e255]:
+    - generic [ref=f236e256]:
+      - generic [ref=f236e257]: "1"
+      - paragraph [ref=f236e258]: 渐进式网络实例化框架：首个专为小型 KWS 模型设计的动态架构持续学习——旧知识不变（冻结）、新知识增量增长（实例化）、知识共享（M）。
+    - generic [ref=f236e259]:
+      - generic [ref=f236e260]: "2"
+      - paragraph [ref=f236e261]: 关键词感知网络缩放：容量与任务复杂度显式关联——可预估的参数增长让设备能算清增量成本。
+    - generic [ref=f236e262]:
+      - generic [ref=f236e263]: "3"
+      - paragraph [ref=f236e264]: 无需缓冲区：知识保留完全靠参数快照——消除缓冲区大小决策、样本选择、更新策略等一整套管理复杂性。
+    - generic [ref=f236e265]:
+      - generic [ref=f236e266]: "4"
+      - paragraph [ref=f236e267]: 共享内存块正向迁移：新子网经 M 获取旧任务知识而无须旧数据——解决回放方法的数据可用性问题。
+  - heading "§05 局限与边界" [level=2] [ref=f236e268]:
+    - generic [ref=f236e269]: §05
+    - text: 局限与边界
+  - generic [ref=f236e270]: 推理侧的任务 ID 问题未解决
+  - generic [ref=f236e271]:
+    - generic [ref=f236e272]:
+      - heading "推理需要任务 ID 或路由器" [level=4] [ref=f236e273]
+      - paragraph [ref=f236e274]: 不同任务分类头不同——推理时要知道输入属于哪个任务才能选头，但用户可能说任何已学过的词。候选解（全头并行取最高置信 / 任务路由器 / 统一输出空间）论文未充分讨论——这是从方法到产品的最大缺口。
+    - generic [ref=f236e275]:
+      - heading "模型持续增长 + 知识固化" [level=4] [ref=f236e276]
+      - paragraph [ref=f236e277]: 缩放约束了速度但仍是单调递增——数百个增量任务（用户不断加自定义词）最终突破存储；旧子网用旧 M 快照——后续任务声学差异大时旧子网可能退化；M 大小固定，任务多了可能内存干扰。
+    - generic [ref=f236e278]:
+      - heading "骨干单一" [level=4] [ref=f236e279]
+      - paragraph [ref=f236e280]: 全部实验在 TC-ResNet-8——其顺序架构天然适合子网实例化；DS-CNN / LSTM / Transformer 适用性未验证。
+    - generic [ref=f236e281]:
+      - heading "实验设计缺口" [level=4] [ref=f236e282]
+      - paragraph [ref=f236e283]: 任务顺序敏感性未测（CIL 通常对此敏感）；任务间关键词重叠（stop vs top 声学相似）的区分能力未测；未与 Der++/AANet 等动态架构 CIL 对比；基线数字为约值区间。
+  - generic [ref=f236e284]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f236e285]
+    - list [ref=f236e286]:
+      - listitem [ref=f236e287]: ↳ 结构层面的遗忘防护（冻结旧子网）优于参数约束层面（正则化）——正则化是在「尽量不影响」的方向上努力，结构隔离是「根本不影响」。
+      - listitem [ref=f236e288]: ↳ 容量与任务复杂度显式挂钩：小任务给小网络——参数预算从固定成本变成任务函数，边缘设备可预估增量成本。
+      - listitem [ref=f236e289]: ↳ 共享模块是免费的正向迁移通道：新任务经共享内存获取旧知识而无须旧数据——知识互通与参数隔离可以同时成立。
+      - listitem [ref=f236e290]: ↳ 0.5 个点换 63% 参数是边缘部署的划算交易——准确率-存储的帕累托上，小模型的边际存储比边际精度贵。
+      - listitem [ref=f236e291]: ↳ 「冻结旧知识、共享通用知识、压缩新知识」范式可推广到语音命令识别、声学事件检测、手势识别等一切需持续适应的边缘 AI。
+  - generic [ref=f236e292]:
+    - link "论文原文 ↗" [ref=f236e293] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2201.12546
+    - link "笔记全文 ↗" [ref=f236e294] [cursor=pointer]:
+      - /url: Progressive_Continual_Learning_for_Spoken_Keyword_Spotting.md
+    - link "返回列表" [ref=f236e295] [cursor=pointer]:
+      - /url: ../index.html

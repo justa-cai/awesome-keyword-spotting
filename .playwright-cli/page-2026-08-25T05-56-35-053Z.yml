@@ -1,0 +1,239 @@
+- generic [active] [ref=f218e1]:
+  - generic [ref=f218e2]:
+    - link "← 返回论文列表" [ref=f218e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f218e4]: 论文精读 · 可视化版 · 2022 №22
+    - heading "纸面稀疏度在标量 CPU 上 一分钱都不兑现：实机实测说了算" [level=1] [ref=f218e5]: 纸面稀疏度在标量 CPU 上一分钱都不兑现：实机实测说了算
+    - generic [ref=f218e6]:
+      - generic [ref=f218e7]: DCASE 2022 Workshop · 西交利物浦大学
+      - generic [ref=f218e8]: STM32F767 · Cortex-M7 @216MHz
+      - generic [ref=f218e9]: 剪枝粒度 × 跳零 × 循环序 × 量化 × SIMD
+      - generic [ref=f218e10]: FreeRTOS + DMA 全链路开源
+    - generic [ref=f218e11]: 「剪掉九成权重不掉点」是准确率层面的结论——在微控制器上，被剪掉的计算并不会自动消失。本文把五种加速手段放到同一个真实系统上逐一实测。
+    - generic [ref=f218e12]:
+      - heading "一分钟版本" [level=3] [ref=f218e13]
+      - list [ref=f218e14]:
+        - listitem [ref=f218e15]: ▸ 断层：已有剪枝/量化研究的结论停在准确率或 GPU 加速层面；标量 CPU 上零权重的乘加照样花完整时钟周期；裸机微基准忽略 RTOS 调度、DMA 搬运、FPU、编译器优化、指令流水线——一条跳零 if 可能因打断流水线变成负优化。
+        - listitem [ref=f218e16]: ▸ 测量平台：WM8978 16kHz 采集 → I2S/DMA 双缓冲（~31ms 中断）→ 片上特征提取（汉宁窗 + 1024 点 FFT + 40 带梅尔 + log，~6ms）→ FreeRTOS 双任务（特征高优先级可抢占推理）→ CNN 推理 ~31ms——每 ~37ms 出一次分类，全链路实时、代码开源。
+        - listitem [ref=f218e17]: ▸ 模型刻意求简：cnn-one-fstride4——单卷积层（核宽 30 = 时间轴全宽，一次看满 1 秒；频率轴步长 4 代替池化）+ 4 层 DNN；119,936 参数 / 468.5KB float32（几乎吃满 512KB SRAM，激活只能外置）/ 476,576 MAC。
+        - listitem [ref=f218e18]: ▸ 量化 + SIMD 稳赚：float32 30.8ms → int16 21.4ms（×1.44，内存近半）→ +SMLAD SIMD 15.6ms（总 ×1.98）——注意 SMLAD 相对纯 int16 只有 ×1.37 而非理论 2×：softmax/归一化/搬运/循环开销不吃 SIMD 红利。
+        - listitem [ref=f218e19]: ▸ 纸面稀疏度不兑现：不加 if 时稀疏度对耗时功耗几乎无影响；细粒度 + 跳零 if 可能负效果（分支打断流水线）；结构化（向量/滤波器级）在剪除比例很小时就开始收益——真正减少循环迭代次数或通道数。
+        - listitem [ref=f218e20]: ▸ 权重优先循环序：把核值维提到外层，跳零判断从「每个（权重,输出点）对一次」降为「每个权重一次」——配合跳零后剪枝率 >80% 才反超默认序，90% 稀疏时 2 倍速；int16 下结论稳健。
+        - listitem [ref=f218e21]: ▸ 兼容性风险：权重优先序 + 跳零可能与其他加速方法不兼容——SIMD 要求规整连续访存，按权重跳零恰恰打乱这种规整性。
+        - listitem [ref=f218e22]: ▸ MAC 公式暴露剪枝维度：去单个权重削最内层乘加（细粒度）、去核内整行削核高维、去整核/核组削输出通道维——循环结构上真正能「少跑循环」的只有最后一档。
+        - listitem [ref=f218e23]: ▸ 工程分界线：要享受非结构化剪枝的加速，稀疏度必须 80% 以上且承受优化冲突风险——结构化剪枝和量化+SIMD 才是 MCU 的友好路线。
+        - listitem [ref=f218e24]: ▸ 边界：模型小（单卷积 + 6 分类 ~90%）；压缩后准确率未报告；数据只 2000/350 条未用官方协议；功耗只给曲线不报数值；平台单一（M7）；量化只做 int16、未与 CMSIS-NN/TFLM 对比。
+    - heading "§01 问题：理论压缩率 ≠ 实机毫秒" [level=2] [ref=f218e25]:
+      - generic [ref=f218e26]: §01
+      - text: 问题：理论压缩率 ≠ 实机毫秒
+    - generic [ref=f218e27]: KWS 是整机唯一常年满负荷的负载
+    - paragraph [ref=f218e28]: 边缘设备上 KWS 常驻运行（always-on）：监听到唤醒词再触发更高成本的识别——收益是省电、省带宽、隐私、可靠、低时延；代价是每一次推理耗时、每一个字节内存占用都被全天候放大。STM32 的三重枷锁：SRAM 20–512KB、FLASH 64KB–1MB、Cortex-M 72–216MHz——从参数量和操作数两个维度压制模型。
+    - generic [ref=f218e29]:
+      - generic [ref=f218e30]:
+        - heading "「剪掉九成不掉点」的另一面" [level=4] [ref=f218e31]
+        - paragraph [ref=f218e32]: Han 等的经典剪枝结论停留在准确率层面；标量 CPU 上如果循环结构照旧遍历每个权重，零权重参与的乘加照样消耗完整时钟周期——纸面稀疏度根本不兑现。
+      - generic [ref=f218e33]:
+        - heading "微基准 ≠ 真实系统" [level=4] [ref=f218e34]
+        - paragraph [ref=f218e35]: RTOS 调度、DMA 搬运、FPU 使用、编译器优化行为、指令流水线这些实现层因素可能让理论加速完全失效——「剪枝/量化在真实系统里净赚多少」只有在完整系统上才测得准。
+    - heading "§02 方法：测量平台 + 五维实测矩阵" [level=2] [ref=f218e36]:
+      - generic [ref=f218e37]: §02
+      - text: 方法：测量平台 + 五维实测矩阵
+    - generic [ref=f218e38]: 不是发明新算子，是把已知手段的作用机制说清楚
+    - generic [ref=f218e39]:
+      - img [ref=f218e40]:
+        - generic [ref=f218e42]: 把「理论压缩率」翻译成「实机毫秒与功耗」的实测矩阵
+        - generic [ref=f218e43]: ① MCU 三重枷锁 × 研究断层
+        - generic [ref=f218e45]: STM32 的硬约束
+        - generic [ref=f218e46]: SRAM 20–512KB（外挂 DRAM 更大但更耗电更慢）
+        - generic [ref=f218e47]: FLASH 64KB–1MB（断电存权重）
+        - generic [ref=f218e48]: Cortex-M 72–216MHz——参数量和操作数被三重压制
+        - generic [ref=f218e49]: KWS 是整机唯一常年满负荷的负载：每字节占用、每毫秒
+        - generic [ref=f218e50]: 推理都被全天候放大
+        - generic [ref=f218e52]: 已有研究与真实收益的断层
+        - generic [ref=f218e53]: 剪枝结论停在准确率/GPU 加速——标量 CPU 上零权重乘加
+        - generic [ref=f218e54]: 照样花完整周期，「纸面稀疏度」不兑现
+        - generic [ref=f218e55]: 结构化粒度研究缺 MCU 实机时延/功耗数据
+        - generic [ref=f218e56]: 量化研究聚焦准确率，缺「实机省多少毫秒」
+        - generic [ref=f218e57]: 裸机微基准忽略 RTOS 调度/DMA/FPU/编译器/流水线——
+        - generic [ref=f218e58]: 一条跳零 if 可能因打断流水线变成负优化
+        - generic [ref=f218e59]: ② 完整实时系统（STM32F767 · Cortex-M7 @216MHz · 512KB SRAM）
+        - generic [ref=f218e61]: WM8978 采集
+        - generic [ref=f218e62]: 16kHz 立体声
+        - generic [ref=f218e63]: I2S → DMA 双缓冲
+        - generic [ref=f218e64]: 无需 CPU 干预
+        - generic [ref=f218e66]: DMA 中断
+        - generic [ref=f218e67]: 每 ~31ms 一次
+        - generic [ref=f218e68]: 单声道归一化 float
+        - generic [ref=f218e69]: 滑入时域窗（50% 重叠）
+        - generic [ref=f218e71]: 片上特征提取
+        - generic [ref=f218e72]: 汉宁窗 + 1024 点 FFT
+        - generic [ref=f218e73]: × 40 带梅尔表 + log
+        - generic [ref=f218e74]: 约 6ms/列
+        - generic [ref=f218e76]: FreeRTOS 调度
+        - generic [ref=f218e77]: 特征任务高优先级
+        - generic [ref=f218e78]: 可抢占正在跑的推理
+        - generic [ref=f218e79]: 推理任务持锁取最新谱
+        - generic [ref=f218e81]: CNN 推理
+        - generic [ref=f218e82]: 约 31ms/次
+        - generic [ref=f218e83]: 系统每 ~37ms
+        - generic [ref=f218e84]: 出一次分类
+        - generic [ref=f218e85]: 时间自洽验证：1024 点 FFT@16kHz = 64ms 窗，50% 重叠 → 每 512 样本（32ms）一根新频谱列 ≈ DMA 中断周期；梅尔队列存 30 列 ≈ 0.96s 上下文
+        - generic [ref=f218e86]: ③ 模型：cnn-one-fstride4（刻意求简——把算子种类和操作数压到最少）
+        - generic [ref=f218e88]: 单卷积层：核宽 30 = 输入谱时间轴全宽——时间轴无步进无池化，一次卷积看满 1 秒上下文；
+        - generic [ref=f218e89]: 频率轴核高 8、竖直步长 4（50% 重叠）——用步长代替池化，省掉一次下采样遍历
+        - generic [ref=f218e90]: 参数 119,936（卷积 44,826 + 四层 FC 75,110）= float32 468.5KB（几乎吃满 512KB SRAM → 激活只能外置 DRAM）
+        - generic [ref=f218e91]: MAC 476,576（卷积 401,760 + FC 74,816）——可反推：186 通道 × 9 频率位 × 1 时间位 × (1×8×30)
+        - generic [ref=f218e92]: 数据/代码：float32 + FPU；C 语言 + ARM Compiler V6 最快档；硬件定时器 TIM 实测耗时
+        - generic [ref=f218e93]: ④ 五维实测矩阵
+        - generic [ref=f218e95]: 剪枝粒度
+        - generic [ref=f218e96]: 细粒度 / 向量级 / 核级 / 滤波器级
+        - generic [ref=f218e98]: 跳零 if
+        - generic [ref=f218e99]: 每个权重一次比较+分支
+        - generic [ref=f218e101]: 循环序
+        - generic [ref=f218e102]: 默认（输出位置优先）/ 权重优先
+        - generic [ref=f218e104]: 数值类型
+        - generic [ref=f218e105]: float32 / int16
+        - generic [ref=f218e107]: SIMD
+        - generic [ref=f218e108]: SMLAD 指令（两对 int16 乘加→int32）
+        - generic [ref=f218e110]: 30.8ms
+        - generic [ref=f218e111]: float32 基线单次推理
+        - generic [ref=f218e112]: 15.6ms
+        - generic [ref=f218e113]: int16 + SMLAD 后（1.98×）
+        - generic [ref=f218e114]: 80%
+        - generic [ref=f218e115]: 非结构化剪枝开始反超的稀疏度
+        - generic [ref=f218e116]: 2×
+        - generic [ref=f218e117]: 90% 稀疏 + 权重优先序的速度
+        - generic [ref=f218e118]: ~37ms
+        - generic [ref=f218e119]: 系统输出周期（全链路）
+        - generic [ref=f218e120]: 数据：Speech Commands v0.01 取 4 词（yes/no/left/right）+ background + unknown 共 6 类；训练 2000 条 / 测试 350 条（只占全集极小部分，未用官方协议）——定位是系统可行性与加速实测，非准确率 SOTA
+      - paragraph [ref=f218e121]: 图1 · 系统与实测矩阵全景：MCU 三重枷锁与研究断层；全链路实时系统（DMA 双缓冲 → 片上特征 ~6ms → FreeRTOS 调度 → 推理 ~31ms，每 ~37ms 出一次结果）；cnn-one-fstride4 模型规格与五维实测矩阵。
+  - paragraph [ref=f218e122]: 时间自洽性验证（系统设计可信度的细节）：1024 点 FFT 在 16kHz 下对应 64ms 窗长，50% 重叠意味着每 512 样本（32ms）产生一根新频谱列——与 DMA 中断周期约 31ms 吻合；梅尔循环队列存最新 30 列，30 × 32ms ≈ 0.96s，正是「约 1 秒」上下文。调度设计：特征提取任务优先级高，即使模型正在推理也能被抢占——保证音频流实时不丢数据。
+  - heading "§03 实验：三块消融" [level=2] [ref=f218e123]:
+    - generic [ref=f218e124]: §03
+    - text: 实验：三块消融
+  - generic [ref=f218e125]: 量化/SIMD · 剪枝粒度 · 循环序——全部硬件定时器实测
+  - generic [ref=f218e126]:
+    - img [ref=f218e127]:
+      - generic [ref=f218e129]: 量化 + SIMD 瀑布（Figure 7 · 实测单次推理耗时）
+      - generic [ref=f218e130]: "10"
+      - generic [ref=f218e131]: "20"
+      - generic [ref=f218e132]: "30"
+      - generic [ref=f218e134]: 30.8 ms
+      - generic [ref=f218e135]: float32 基线
+      - generic [ref=f218e137]: 21.4 ms
+      - generic [ref=f218e138]: int16 量化
+      - generic [ref=f218e140]: ×1.44
+      - generic [ref=f218e142]: 15.6 ms
+      - generic [ref=f218e143]: int16 + SMLAD ★
+      - generic [ref=f218e145]: ×1.37
+      - generic [ref=f218e146]: 内存占用：float32 参数 468.5KB → int16 近乎减半；功耗改善同样实测验证（具体 mW 未报）
+      - generic [ref=f218e147]: 注意第二级的折扣：SMLAD 理论吞吐翻倍，但相对纯 int16 只有 21.4/15.6 ≈ 1.37×——推理时间里 softmax/归一化/数据搬移/循环开销不吃 SIMD 红利（笔注推断）
+    - paragraph [ref=f218e148]: 图2 · 量化 + SIMD 瀑布（Figure 7）：float32 30.8ms → int16 21.4ms → +SMLAD 15.6ms（总 1.98×）；SMLAD 相对纯 int16 只有 1.37×——非乘加部分不吃 SIMD 红利。
+  - generic [ref=f218e149]:
+    - img [ref=f218e150]:
+      - generic [ref=f218e152]: 剪枝粒度消融（Figure 3）：纸面稀疏度在标量 CPU 上不兑现
+      - generic [ref=f218e153]: 不同粒度 × 跳零 if 的行为（示意形态，锚点来自正文结论）
+      - generic [ref=f218e155]: 基线耗时（稠密）
+      - generic [ref=f218e156]: 不加 if：稀疏度对耗时/功耗几乎无影响
+      - generic [ref=f218e163]: 细粒度 + 跳零 if：先变慢（流水线被打断），
+      - generic [ref=f218e164]: 剪枝率 80%+ 才反超（需配权重优先序）
+      - generic [ref=f218e169]: 结构化（向量/滤波器级）：剪除比例很小时就开始收益
+      - generic [ref=f218e170]: 20%
+      - generic [ref=f218e171]: 60%
+      - generic [ref=f218e172]: 100%
+      - generic [ref=f218e173]: 剪枝率（纵轴为相对耗时示意）
+      - generic [ref=f218e175]: 为什么纸面稀疏度不兑现
+      - generic [ref=f218e176]: 稠密循环照常遍历每个权重——零权重的乘加
+      - generic [ref=f218e177]: 照样花完整时钟周期
+      - generic [ref=f218e178]: 细粒度跳零的 if：每权重一次比较+分支；分支打断
+      - generic [ref=f218e179]: 流水线 + 编译器未必按预期理解含分支的稠密循环
+      - generic [ref=f218e180]: 结构化真正减少循环迭代次数/通道数 → 少跑循环
+      - generic [ref=f218e182]: MAC 公式暴露剪枝能作用的维度
+      - generic [ref=f218e183]: MAC = 出通道 × 频率位 × 时间位 × (入通道 × 核高 × 核宽)
+      - generic [ref=f218e184]: · 去单个权重 → 削最内层乘加（细粒度）
+      - generic [ref=f218e185]: · 去核内整行 → 核高维（向量级）
+      - generic [ref=f218e186]: · 去整个核/核组 → 输出通道维（核/滤波器级）
+      - generic [ref=f218e187]: 循环结构上真正能「少跑循环」的只有最后一档
+      - generic [ref=f218e188]: （本模型单输入通道 → 核级与滤波器级退化同一件事）
+      - generic [ref=f218e189]: 结论：非结构化稀疏在标量 CPU 上难以兑现加速，结构化剪枝对 MCU 更友好——规律性本身就值钱
+    - paragraph [ref=f218e190]: 图3 · 剪枝粒度消融（Figure 3 · 示意形态，锚点来自正文结论）：不加 if 时稀疏度几乎无影响；细粒度 + 跳零先变慢后反超；结构化小剪除率就收益——MAC 公式暴露剪枝能作用的维度。
+  - generic [ref=f218e191]:
+    - img [ref=f218e192]:
+      - generic [ref=f218e194]: 循环序消融（Figure 5）+ 兼容性风险 + 边界
+      - generic [ref=f218e196]: 权重优先循环序
+      - generic [ref=f218e197]: 默认序（输出位置优先）：同一核值在不同输出点的迭代中
+      - generic [ref=f218e198]: 被反复加载——跳零判断摊销 = 每个（权重,输出点）对一次
+      - generic [ref=f218e199]: 权重优先序：核值维提到外层，一次遍历完成该权重参与的
+      - generic [ref=f218e200]: 全部输出点——零权重一条 if 跳过整块计算，
+      - generic [ref=f218e201]: 摊销降为「每个权重一次」；不跳零时权重优先序本身就略快
+      - generic [ref=f218e203]: 实测读数（Figure 5）
+      - generic [ref=f218e204]: · 不跳零：权重优先序略快于默认序
+      - generic [ref=f218e205]: · 配合跳零：剪枝率 > 80% 才开始反超默认序
+      - generic [ref=f218e206]: · 剪掉 90% 权重时速度达 2 倍
+      - generic [ref=f218e207]: · int16 下重跑：结论跨数值类型稳健（默认序下跳零
+      - generic [ref=f218e208]: 纯负收益；权重优先序下 >80% 仍有收益）
+      - generic [ref=f218e210]: 兼容性风险
+      - generic [ref=f218e211]: 权重优先序 + 跳零的组合可能与其他 MCU 加速方法
+      - generic [ref=f218e212]: 不兼容——SIMD 要求相邻数据成对打包、规整连续访存是
+      - generic [ref=f218e213]: 前提，按权重跳零恰恰打乱这种规整性
+      - generic [ref=f218e214]: → 工程分界线：要享受非结构化剪枝的加速，稀疏度必须
+      - generic [ref=f218e215]: 做到 80% 以上，且承受与其他优化手段冲突的风险
+      - generic [ref=f218e217]: 边界
+      - generic [ref=f218e218]: · 模型/任务太小：单卷积层 + 4 层 DNN、6 分类、~90% 准确率
+      - generic [ref=f218e219]: ——深网络的耗时占比/缓存行为会变，外推需验证
+      - generic [ref=f218e220]: · 压缩后准确率未报告——只见时延功耗不见质量代价
+      - generic [ref=f218e221]: · 数据 2000/350 条未用官方协议，准确率不可比
+      - generic [ref=f218e222]: · 功耗只给曲线不报数值/测法（定性采信）
+      - generic [ref=f218e223]: · 平台单一（M7 有 FPU/双发射/缓存；M0/M3/M4 行为差异大）
+      - generic [ref=f218e224]: · 量化只做 int16（提了 int8 未实验）；未与 CMSIS-NN/
+      - generic [ref=f218e225]: TFLite Micro 的优化内核对比——工业栈可能改变结论
+      - generic [ref=f218e226]: 可迁移判断：标量 CPU 上「规律性本身就值钱」——优先结构化剪枝和无脑稳赚的量化+SIMD；压缩方法评测必须在带 RTOS/DMA/真实编译器的完整系统上做，理论乘加数≠实际耗时
+    - paragraph [ref=f218e227]: 图4 · 循环序消融（Figure 5）与边界：权重优先序把跳零摊销从「每对一次」降到「每权重一次」；>80% 反超、90% 两倍速；与 SIMD 的兼容性风险；模型小、准确率未报等边界。
+  - heading "§04 贡献：四条" [level=2] [ref=f218e228]:
+    - generic [ref=f218e229]: §04
+    - text: 贡献：四条
+  - generic [ref=f218e230]:
+    - generic [ref=f218e231]:
+      - generic [ref=f218e232]: "1"
+      - paragraph [ref=f218e233]: 完整开源的实时 KWS 系统：音频采集 → 特征提取 → 推理全链路跑在 Cortex-M7 @216MHz，每 ~37ms 出一次分类——为所有加速评测提供可信真实平台。
+    - generic [ref=f218e234]:
+      - generic [ref=f218e235]: "2"
+      - paragraph [ref=f218e236]: MCU 上压缩手段的第一手实测矩阵：四种稀疏粒度、跳零 if、两种循环序、int16、SMLAD 五个维度的独立与组合效应——填补「理论压缩率」与「实机毫秒/功耗」之间的数据空白。
+    - generic [ref=f218e237]:
+      - generic [ref=f218e238]: "3"
+      - paragraph [ref=f218e239]: 权重优先循环序：给出明确适用阈值（>80% 反超、90% 时 2×）并指出兼容性风险。
+    - generic [ref=f218e240]:
+      - generic [ref=f218e241]: "4"
+      - paragraph [ref=f218e242]: 可直接指导路线选择的判断：非结构化稀疏难兑现、结构化剪枝对 MCU 更友好、量化+SIMD 无脑稳赚。
+  - heading "§05 局限与边界" [level=2] [ref=f218e243]:
+    - generic [ref=f218e244]: §05
+    - text: 局限与边界
+  - generic [ref=f218e245]: 准确率维度整体缺席
+  - generic [ref=f218e246]:
+    - generic [ref=f218e247]:
+      - heading "模型与任务规模太小" [level=4] [ref=f218e248]
+      - paragraph [ref=f218e249]: 单卷积层 + 4 层 DNN、6 分类、~90% 验证准确率——深网络（多卷积残差）的耗时占比与缓存行为会变，结论外推需验证；全连接层各层维度未报告。
+    - generic [ref=f218e250]:
+      - heading "质量代价不可见" [level=4] [ref=f218e251]
+      - paragraph [ref=f218e252]: 压缩后模型的准确率论文未报告——读者只能看到时延与功耗的一面；数据 2000/350 条未用官方划分，~90% 与文献不可比。
+    - generic [ref=f218e253]:
+      - heading "功耗测量不透明" [level=4] [ref=f218e254]
+      - paragraph [ref=f218e255]: 只以 Figure 3/5/7 的曲线呈现趋势，具体数值与测量电路/采样方法未报告——功耗结论只能定性采信。
+    - generic [ref=f218e256]:
+      - heading "平台与量化档位单一" [level=4] [ref=f218e257]
+      - paragraph [ref=f218e258]: 只在 Cortex-M7（FPU/双发射/缓存）实测——M0/M3/M4 等无缓存无 FPU 核上行为差异大；量化只做 int16（提了 int8 未实验）；未与 CMSIS-NN/TFLite Micro 的优化内核对比；float32 下循环重排的舍入差异未讨论。
+  - generic [ref=f218e259]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f218e260]
+    - list [ref=f218e261]:
+      - listitem [ref=f218e262]: ↳ 标量 CPU 上「规律性本身就值钱」：优先结构化剪枝（真正减少循环/通道）和量化+SIMD（稳赚近两倍），非结构化稀疏只在 80%+ 且换循环序后有价值。
+      - listitem [ref=f218e263]: ↳ 理论乘加数 ≠ 实际耗时：softmax/归一化/数据搬移/循环开销不吃加速红利——理论 2× 的 SIMD 实测只有 1.37×。
+      - listitem [ref=f218e264]: ↳ 压缩方法评测必须在带 RTOS/DMA/真实编译器的完整系统上做——裸机微基准会漏掉让理论加速失效的实现层因素。
+      - listitem [ref=f218e265]: ↳ 跳零分支的摊销次数决定收益：从「每对一次」降到「每权重一次」是把细粒度稀疏变现的关键——访存结构比稀疏度本身更重要。
+      - listitem [ref=f218e266]: ↳ 优化手段之间会互相冲突：按权重跳零打乱 SIMD 需要的规整访存——组合加速手段前先检查它们的前提是否相容。
+  - generic [ref=f218e267]:
+    - link "论文原文 ↗" [ref=f218e268] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2208.02765
+    - link "笔记全文 ↗" [ref=f218e269] [cursor=pointer]:
+      - /url: Keyword_Spotting_System_And_Evaluation_Of_Pruning_And_Quantization_Methods_On_Low-power_Edge_Microcontrollers.md
+    - link "返回列表" [ref=f218e270] [cursor=pointer]:
+      - /url: ../index.html

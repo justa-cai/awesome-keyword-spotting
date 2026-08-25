@@ -1,0 +1,324 @@
+- generic [active] [ref=f197e1]:
+  - generic [ref=f197e2]:
+    - link "← 返回论文列表" [ref=f197e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f197e4]: 论文精读 · 可视化版 · 2022 №12
+    - heading "CE 只管「分开」不管「稳」： 推理零成本的噪声鲁棒这样补" [level=1] [ref=f197e5]: CE 只管「分开」不管「稳」：推理零成本的噪声鲁棒这样补
+    - generic [ref=f197e6]:
+      - generic [ref=f197e7]: LOVO 损失 · arXiv 2210.11519
+      - generic [ref=f197e8]: 高丽大学 × 德雷塞尔大学
+      - generic [ref=f197e9]: 两路度量学习 + 谱范数正交正则
+      - generic [ref=f197e10]: TENet12 · Speech Commands v1
+    - generic [ref=f197e11]: 把「鲁棒特征」具体化为三个几何量（类内紧、类间开、类间正交），全部在训练期用损失函数解决——嵌入头训练完丢弃，推理图与前作逐位相同（102K / 6.64M）。
+    - generic [ref=f197e12]:
+      - heading "一分钟版本" [level=3] [ref=f197e13]
+      - list [ref=f197e14]:
+        - listitem [ref=f197e15]: ▸ 双约束：KWS 常驻监听，参数量和 FLOPS 是关键评价指标；部署噪声与训练噪声分布不重合——干净 97% 的模型在 WHAM 0dB 掉到 75.92。
+        - listitem [ref=f197e16]: ▸ 靶心：前作 LDy-TENet 的动态滤波器用 CE 联合训练，但 CE 的几何行为是找一个把各类分开的决策面——只要可分它就满足；鲁棒性要求特征在噪声扰动下几何结构稳定。「可分」与「稳」不等价。
+        - listitem [ref=f197e17]: ▸ 翻译：鲁棒 = 三个几何量——类间方差（要大）、类内方差（要小）、类间正交性（要不相关）——全部落在度量学习覆盖范围内。
+        - listitem [ref=f197e18]: ▸ 两路解耦：滤波器输出直接接 2 层 T-Conv 嵌入头算逐对损失 L_M（梯度一步直达前端，别穿十几层稀释）；分类器末端 GAP 嵌入上算类心级 L_I / L_O。
+        - listitem [ref=f197e19]: ▸ L_O 的四个设计决策：矩阵滤波器清零对角（正交只看非对角）、e^(−MDM) 把「最大化距离」翻转为「最小化衰减项」并限幅、谱范数只罚最大奇异值（不像逐元素范数把整个矩阵往零拉）、幂迭代 10 次。
+        - listitem [ref=f197e20]: ▸ 零成本验证：Table I 里 LDyLM/LDyLMIO 与前作参数量 FLOPS 逐位相同（102K / 6.64M）——「训练期损失、推理零成本」从数字上坐实。
+        - listitem [ref=f197e21]: ▸ 主结果：WHAM 0dB +3.03（78.95 vs 75.92，摘要的「3%」即此）、Urban +2.37、DCASE +1.30；全条件平均 92.63 全场最高——噪声越凶收益越大，正是鲁棒方法的签名。
+        - listitem [ref=f197e22]: ▸ 度量学习横评：成对方法（FaceNet/circle/multi-sim）干净端微弱领先、低 SNR 系统性落后——mini-batch 枚举样本对让大类按 O(Mk²) 占据梯度；类心级监督每类贡献一份，天然类均衡。
+        - listitem [ref=f197e23]: ▸ 消融：单项强度 L_I > L_M > L_O；L_IO 联合才同时锁「类间开 + 正交」；完整 L_MIO 低 SNR 全面最优，代价是干净端 −0.10。
+        - listitem [ref=f197e24]: ▸ 边界：超参纯手工（λ₂=λ₃=0.01 说明几何项与 CE 平衡脆弱）；8 次重复不报方差；batch 100/12 类平均每类 8 样本估类心；式 2 名实不符（称 triplet 实为 contrastive 形态）。
+    - heading "§01 问题：CE 的监督信号不含「稳」" [level=2] [ref=f197e25]:
+      - generic [ref=f197e26]: §01
+      - text: 问题：CE 的监督信号不含「稳」
+    - generic [ref=f197e27]: 三条老路各自的坑
+    - paragraph [ref=f197e28]: 生成式语音增强（DAE/GAN/Griffin-Lim）以重构干净信号为目标——前端计算量大，为常驻监听配重型增强网络在能耗上不可行；分类损失驱动的前端特征增强省掉了增强目标，但监督信号只有 CE；通用度量学习（center/FaceNet/DeCov/multi-sim/circle）能改善嵌入判别性，但成对距离方法会偏向样本量大的主导类别。
+    - generic [ref=f197e29]:
+      - generic [ref=f197e30]:
+        - heading "成对度量的主导类别偏置" [level=4] [ref=f197e31]
+        - paragraph [ref=f197e32]: mini-batch 内枚举所有样本对时，大类的样本对数量按 O(Mk²) 占据梯度主导——高 SNR 下无伤大雅（成对监督更细腻所以略优），低 SNR 下类别贡献被噪声拉平，偏置伤害显形，成对方法系统性退化。
+      - generic [ref=f197e33]:
+        - heading "直接搬正则工具也不对" [level=4] [ref=f197e34]
+        - paragraph [ref=f197e35]: DeCov 去相关作用在逐样本激活；谱归一化原本是 GAN 判别器的 Lipschitz 约束，作用在权重矩阵——而这里需要正则的对象是类心矩阵的协方差，且要同时编码距离项，通用工具没有现成形态。
+    - heading "§02 方法：两路度量学习 + 谱范数融合" [level=2] [ref=f197e36]:
+      - generic [ref=f197e37]: §02
+      - text: 方法：两路度量学习 + 谱范数融合
+    - generic [ref=f197e38]: 监督施加在离被优化对象最近的位置
+    - generic [ref=f197e39]:
+      - img [ref=f197e40]:
+        - generic [ref=f197e42]: LOVO：把「鲁棒」翻译成三个几何量，训练期全解决，推理零成本
+        - generic [ref=f197e43]: ① 靶心：CE 只要求「可分」，不要求「稳」
+        - generic [ref=f197e45]: KWS 的双约束
+        - generic [ref=f197e46]: 常驻监听：参数量和 FLOPS 是关键评价指标，
+        - generic [ref=f197e47]: 任何改进不能突破推理预算
+        - generic [ref=f197e48]: 真实环境几乎不干净：训练与部署的噪声分布不重合
+        - generic [ref=f197e49]: （unseen noise）——干净 97% 的模型 WHAM 0dB
+        - generic [ref=f197e50]: 直接掉到 75.92（Table II 基线 LDy-TENet12）
+        - generic [ref=f197e52]: 前作的监督信号缺陷
+        - generic [ref=f197e53]: 前作 LDy-TENet：动态滤波器 + CE 联合训练
+        - generic [ref=f197e54]: CE 的几何行为：找一个把各类分开的决策面——
+        - generic [ref=f197e55]: 只要边界可分它就满足
+        - generic [ref=f197e56]: 而鲁棒性要求特征在噪声扰动下几何结构稳定——
+        - generic [ref=f197e57]: 论文原话「要找到鲁棒域」，两者不等价
+        - generic [ref=f197e58]: 解法：把「鲁棒特征」具体化为三个几何量——类间方差（要大）、类内方差（要小）、类间正交性（要不相关）——全部落在度量学习覆盖范围内
+        - generic [ref=f197e59]: ② 两路解耦的度量学习：监督施加在离被优化对象最近的位置
+        - generic [ref=f197e61]: 输入 MFCC
+        - generic [ref=f197e62]: 40 维 / 30ms
+        - generic [ref=f197e63]: SC v1 12 类
+        - generic [ref=f197e65]: 轻量动态卷积
+        - generic [ref=f197e66]: （继承前作，
+        - generic [ref=f197e67]: 噪声中提取
+        - generic [ref=f197e68]: 鲁棒特征图）
+        - generic [ref=f197e70]: KWS 模型（TENet12 骨干）
+        - generic [ref=f197e71]: CE 损失（分类）
+        - generic [ref=f197e72]: 末端 GAP 嵌入（32 维）→ 类心损失 L_I / L_O
+        - generic [ref=f197e75]: 动态嵌入模型（仅训练期）
+        - generic [ref=f197e76]: 2 层 T-Conv + ReLU + TAP → 128 维嵌入
+        - generic [ref=f197e77]: 逐对三元组损失 L_M（直接雕刻滤波器特征）
+        - generic [ref=f197e80]: L_Total = L_CE + 0.25·L_M + 0.01·L_I + 0.01·L_O
+        - generic [ref=f197e81]: （LOVO = L_M + L_I + L_O）
+        - generic [ref=f197e82]: λ₂/λ₃ 压到 0.01：几何项影响强，
+        - generic [ref=f197e83]: 过强会挤占 CE 的学习空间
+        - generic [ref=f197e84]: 测试期：嵌入头整体丢弃 → 推理图
+        - generic [ref=f197e85]: 与前作逐位一致（102K / 6.64M）
+        - generic [ref=f197e87]: 为什么滤波器要单独配嵌入头：只在分类器末端施约束，梯度要穿过 TENet12 十几层才到滤波器——稀释且方向模糊；输出端直接接 2 层卷积嵌入头，
+        - generic [ref=f197e88]: 几何监督一步直达滤波器权重。「滤波器侧」与「分类器侧」按职责解耦，训练完丢弃辅助头，鲁棒性收益全沉淀在滤波器权重里
+        - generic [ref=f197e89]: ③ L_O：两个会竞争的几何目标 → 一个谱范数损失
+        - generic [ref=f197e91]: 两个 C×C 矩阵（式 4–6）
+        - generic [ref=f197e92]: 类心矩阵 E′ = [Ē¹, Ē², …, Ēᶜ]（D×C）
+        - generic [ref=f197e93]: MDM：类心两两欧氏距离平方——期望范数最大化
+        - generic [ref=f197e94]: （类心彼此推远）
+        - generic [ref=f197e95]: MIM：类心协方差——期望 = I：非对角为零（去相关/
+        - generic [ref=f197e96]: 正交），对角为 1（方差归一）
+        - generic [ref=f197e97]: 一个要最大化、一个要最小化，且训练中会相互
+        - generic [ref=f197e98]: 竞争（多目标优化视角 [28]）——必须融合成单一目标
+        - generic [ref=f197e100]: L_O = SN( p(MIM) + e^(−MDM) − I )（式 7）
+        - generic [ref=f197e101]: p(·)：矩阵滤波器把对角元清零——正交只由非对角
+        - generic [ref=f197e102]: 决定，对角混进来是冗余约束
+        - generic [ref=f197e103]: e^(−MDM)：最大化距离 → 最小化指数衰减项——统一
+        - generic [ref=f197e104]: 方向 + 限幅（正交主导、距离跟随，防无界增长）
+        - generic [ref=f197e105]: SN 谱范数：只罚最大奇异值（最坏方向发散），不像
+        - generic [ref=f197e106]: 逐元素范数把整个矩阵往零拉（类心距离也拉没）
+        - generic [ref=f197e107]: 幂迭代算谱范数，最优 10 次（训练开销未量化）
+        - generic [ref=f197e109]: "+3.03"
+        - generic [ref=f197e110]: WHAM 0dB vs 前作（78.95/75.92）
+        - generic [ref=f197e111]: "+0.97"
+        - generic [ref=f197e112]: 全条件平均 vs 前作
+        - generic [ref=f197e113]: "0"
+        - generic [ref=f197e114]: 推理参数/FLOPS 增量
+        - generic [ref=f197e115]: 92.63%
+        - generic [ref=f197e116]: 全条件平均（全场最高）
+        - generic [ref=f197e117]: "+1.23"
+        - generic [ref=f197e118]: WHAM 0dB vs 最优度量学习基线
+        - generic [ref=f197e119]: 配置：SC v1 12 类（80/10/10）· 训练注入 mike noise + 随机时移 · 未见噪声 DCASE/Urbansound8K/WHAM 只在测试期混入（20/15/10/5/0dB 五档）· batch 100 · 30K 步 · 每设置重复 8 次
+      - paragraph [ref=f197e120]: 图1 · 框架全景：CE 监督的缺陷 → 两路解耦度量学习（滤波器侧 L_M + 分类器侧类心级 L_I/L_O）→ 推理图与前作逐位一致；L_O = SN(p(MIM)+e^(−MDM)−I) 的四个设计决策。
+  - generic [ref=f197e121]:
+    - generic [ref=f197e122]: L_Total = L_CE + 0.25·L_M + 0.01·L_I + 0.01·L_O
+    - generic [ref=f197e123]: 人话：分类损失是基本盘，逐对的三元组项给 0.25；两个类心级几何项压到 0.01——论文的经验观察是 L_I、L_O 影响力强于其他损失，不抑制会挤占 CE 的学习空间（几何正则过强牺牲分类精度）。L_M + L_I + L_O 合称 LOVO 损失（「低变异正交」；论文摘要与正文缩写展开不一致，忠实记录）。
+  - paragraph [ref=f197e124]: 为什么 TAP 必须有：时序卷积输出是变长时间步序列，度量学习要在 mini-batch 内两两算距离——必须先把时间维平均掉压成 128 维定长向量。为什么类心损失挂在 GAP 输出上：32 维定长、语义浓缩，天然适合类心统计载体，且零新增层。
+  - heading "§03 实验：三个未见噪声库 × 五档 SNR" [level=2] [ref=f197e125]:
+    - generic [ref=f197e126]: §03
+    - text: 实验：三个未见噪声库 × 五档 SNR
+  - generic [ref=f197e127]: 训练只见 mike noise，测试混入 DCASE/Urbansound8K/WHAM
+  - generic [ref=f197e128]:
+    - img [ref=f197e129]:
+      - generic [ref=f197e131]: 主战场（Table II）：未见噪声下的崩溃斜率被压平
+      - generic [ref=f197e132]: "75"
+      - generic [ref=f197e133]: "80"
+      - generic [ref=f197e134]: "85"
+      - generic [ref=f197e135]: "90"
+      - generic [ref=f197e136]: "95"
+      - generic [ref=f197e137]: "100"
+      - generic [ref=f197e139]: "97.0"
+      - generic [ref=f197e141]: "97.0"
+      - generic [ref=f197e143]: "96.6"
+      - generic [ref=f197e145]: "96.6"
+      - generic [ref=f197e146]: 干净
+      - generic [ref=f197e148]: "89.7"
+      - generic [ref=f197e150]: "88.4"
+      - generic [ref=f197e152]: "88.1"
+      - generic [ref=f197e154]: "86.0"
+      - generic [ref=f197e155]: DCASE
+      - generic [ref=f197e156]: 0dB
+      - generic [ref=f197e158]: "80.9"
+      - generic [ref=f197e160]: "78.5"
+      - generic [ref=f197e162]: "75.3"
+      - generic [ref=f197e164]: "74.2"
+      - generic [ref=f197e165]: Urban
+      - generic [ref=f197e166]: 0dB
+      - generic [ref=f197e168]: "79.0"
+      - generic [ref=f197e170]: "75.9"
+      - generic [ref=f197e172]: "75.2"
+      - generic [ref=f197e174]: "73.2"
+      - generic [ref=f197e175]: WHAM
+      - generic [ref=f197e176]: 0dB
+      - generic [ref=f197e178]: "92.6"
+      - generic [ref=f197e180]: "91.7"
+      - generic [ref=f197e182]: "91.2"
+      - generic [ref=f197e184]: "90.0"
+      - generic [ref=f197e185]: 全条件
+      - generic [ref=f197e186]: 平均
+      - generic [ref=f197e187]: "+2.37"
+      - generic [ref=f197e188]: "+3.03"
+      - generic [ref=f197e189]: "+1.30"
+      - generic [ref=f197e191]: 本文 L_MIO
+      - generic [ref=f197e193]: 前作 LDy-TENet12
+      - generic [ref=f197e195]: TENet12
+      - generic [ref=f197e197]: TCNet14
+      - generic [ref=f197e198]: 准确率（%）· 未见噪声只在测试期混入
+      - generic [ref=f197e199]: 崩溃斜率（WHAM 20dB→0dB）：本文掉 17.32 点 vs 前作 20.17 vs TENet12 20.56——斜率压平约 3 点；且噪声越凶收益越大（DCASE +1.30 → Urban +2.37 → WHAM +3.03），
+      - generic [ref=f197e200]: 「条件越差收益越大」正是鲁棒性方法应有的签名
+    - paragraph [ref=f197e201]: 图2 · 主战场（Table II）：干净 + 三个未见噪声库 0dB + 全条件平均——WHAM 0dB +3.03 / Urban +2.37 / DCASE +1.30，全条件平均 92.63 全场最高，噪声越凶收益越大。
+  - generic [ref=f197e202]:
+    - img [ref=f197e203]:
+      - generic [ref=f197e205]: 度量学习方法横评（Table III）：成对方法干净端赢、噪声端输
+      - generic [ref=f197e206]: 同模型（只开 L_IO）同骨干对比
+      - generic [ref=f197e208]: "97.07"
+      - generic [ref=f197e210]: "78.29"
+      - generic [ref=f197e211]: 本文 L_IO ★
+      - generic [ref=f197e213]: "97.09"
+      - generic [ref=f197e215]: "76.56"
+      - generic [ref=f197e216]: circle loss
+      - generic [ref=f197e218]: "97.10"
+      - generic [ref=f197e220]: "76.34"
+      - generic [ref=f197e221]: FaceNet
+      - generic [ref=f197e223]: "96.92"
+      - generic [ref=f197e225]: "77.06"
+      - generic [ref=f197e226]: center loss
+      - generic [ref=f197e228]: "96.96"
+      - generic [ref=f197e230]: "77.72"
+      - generic [ref=f197e231]: DeCov
+      - generic [ref=f197e233]: "96.97"
+      - generic [ref=f197e235]: "76.78"
+      - generic [ref=f197e236]: multi-sim
+      - generic [ref=f197e237]: 干净（成对微弱领先）
+      - generic [ref=f197e238]: WHAM 0dB（非成对领先）
+      - generic [ref=f197e239]: 全表总平均：
+      - generic [ref=f197e240]: 本文 92.32
+      - generic [ref=f197e241]: DeCov 92.22
+      - generic [ref=f197e242]: circle 92.08
+      - generic [ref=f197e243]: FaceNet 92.05
+      - generic [ref=f197e244]: center 92.00
+      - generic [ref=f197e245]: multi-sim 91.93
+      - generic [ref=f197e246]: 完整方法 L_MIO 对最优
+      - generic [ref=f197e247]: 竞品 DeCov：78.95 对 77.72
+      - generic [ref=f197e248]: = +1.23（跨表对读）
+      - generic [ref=f197e250]: 为什么成对方法低 SNR 退化
+      - generic [ref=f197e251]: mini-batch 内枚举所有样本对：
+      - generic [ref=f197e252]: 大类的样本对数量按 O(Mk²)
+      - generic [ref=f197e253]: 占据梯度主导 [25]
+      - generic [ref=f197e254]: → 高 SNR：主导类偏置无伤大雅，
+      - generic [ref=f197e255]: 逐对监督更细腻，成对略优
+      - generic [ref=f197e256]: → 低 SNR：类别贡献被噪声拉平，
+      - generic [ref=f197e257]: 偏置的伤害显形，成对系统性落后
+      - generic [ref=f197e258]: 类心级监督：每个类压缩成一个点，
+      - generic [ref=f197e259]: 无论类内样本多少，每类贡献一份
+      - generic [ref=f197e260]: ——梯度天然类均衡
+      - generic [ref=f197e261]: 本文额外映射到正交类心，比其他
+      - generic [ref=f197e262]: 非成对方法更稳
+      - generic [ref=f197e263]: 公平性说明：此表本文只开 L_IO（关闭 L_M）——其他方法 [20]–[24] 均只作用于 KWS 嵌入向量；滤波器侧三元组损失是本文独有的一路
+    - paragraph [ref=f197e264]: 图3 · 度量学习横评（Table III）：成对方法（FaceNet/circle/multi-sim）干净端微弱领先、WHAM 0dB 系统性落后——主导类别偏置机理与类心级监督的类均衡优势。
+  - generic [ref=f197e265]:
+    - img [ref=f197e266]:
+      - generic [ref=f197e268]: 损失组合消融（Table II）+ 局限
+      - generic [ref=f197e269]: 全条件平均（%）
+      - generic [ref=f197e271]: "91.66"
+      - generic [ref=f197e272]: LDy 基线（只有 CE）
+      - generic [ref=f197e274]: "91.88"
+      - generic [ref=f197e275]: L_O 单项（纯正交）
+      - generic [ref=f197e277]: "92.09"
+      - generic [ref=f197e278]: L_M 单项（滤波器侧）
+      - generic [ref=f197e280]: "92.19"
+      - generic [ref=f197e281]: L_I 单项（类内紧致）
+      - generic [ref=f197e283]: "92.44"
+      - generic [ref=f197e284]: L_IO 双项
+      - generic [ref=f197e286]: "92.63"
+      - generic [ref=f197e287]: L_MIO 完整 ★
+      - generic [ref=f197e288]: 单项强度 L_I > L_M > L_O（类内紧致最重要）
+      - generic [ref=f197e289]: 干净端 trade-off：L_MIO 97.00 vs L_M 97.10（−0.10）
+      - generic [ref=f197e291]: L_IO 为什么要联合
+      - generic [ref=f197e292]: 正交只保证方向不相关，不保证质心间距
+      - generic [ref=f197e293]: 类内紧致也不管类间分开——单用谁都有
+      - generic [ref=f197e294]: 不确定性；联合才同时锁定「类间开 +
+      - generic [ref=f197e295]: 类间正交」两个几何量
+      - generic [ref=f197e296]: （原文：jointly utilizing the two-loss
+      - generic [ref=f197e297]: function would mitigate this uncertainty）
+      - generic [ref=f197e299]: 局限（论文自认 + 笔记补充）
+      - generic [ref=f197e300]: · 超参纯手工（α=1，λ₁=0.25，λ₂=λ₃=0.01）无敏感性分析
+      - generic [ref=f197e301]: · 谱范数 10 次幂迭代 + 嵌入头的训练开销未量化
+      - generic [ref=f197e302]: · 式2 名实不符：称 triplet 实为 contrastive 形态，y* 未定义
+      - generic [ref=f197e303]: · batch 100 / 12 类 → 平均每类约 8 样本估类心，方差未讨论
+      - generic [ref=f197e304]: · 8 次重复却不报方差——0.02–0.10 点量级结论存疑
+      - generic [ref=f197e305]: · 缺 FA/FRR 操作点指标、无嵌入空间可视化（几何假设只有
+      - generic [ref=f197e306]: 端到端精度这一间接证据）；三个噪声库全是城市域
+      - generic [ref=f197e307]: 可迁移判断：监督要施加在离被优化对象最近的位置（滤波器侧配嵌入头，别让梯度穿十几层稀释）；类级统计量（类心）天然类均衡，适合替代成对度量做鲁棒目标
+    - paragraph [ref=f197e308]: 图4 · 消融与局限：损失组合矩阵——单项强度 L_I > L_M > L_O，L_IO 联合才同时锁定「类间开 + 正交」，完整 L_MIO 全条件平均最高（代价：干净端 −0.10）。
+  - table [ref=f197e309]:
+    - rowgroup [ref=f197e310]:
+      - row [ref=f197e311]:
+        - columnheader "关键对比（WHAM 0dB）" [ref=f197e312]
+        - columnheader "准确率" [ref=f197e313]
+        - columnheader "差距" [ref=f197e314]
+      - row [ref=f197e315]:
+        - cell "本文 L_MIO" [ref=f197e316]
+        - cell "78.95" [ref=f197e317]
+        - cell "—" [ref=f197e318]
+      - row [ref=f197e319]:
+        - cell "前作 LDy-TENet12" [ref=f197e320]
+        - cell "75.92" [ref=f197e321]
+        - cell "+3.03" [ref=f197e322]
+      - row [ref=f197e323]:
+        - cell "DeCov（Table III 最优度量学习基线）" [ref=f197e324]
+        - cell "77.72" [ref=f197e325]
+        - cell "+1.23" [ref=f197e326]
+      - row [ref=f197e327]:
+        - cell "TENet12 / TCNet14" [ref=f197e328]
+        - cell "75.19 / 73.15" [ref=f197e329]
+        - cell "+3.76 / +5.80" [ref=f197e330]
+  - paragraph [ref=f197e331]: 干净集上另一个读数：NAS2 的 97.2% 需要 886K 参数（本文的 8.7 倍），本文最佳 97.3% 在同参数量级领先——几何监督顺带把干净端也抬了一点（LDyLM 平均 97.10 vs 前作 96.95）。
+  - heading "§04 贡献：五条" [level=2] [ref=f197e332]:
+    - generic [ref=f197e333]: §04
+    - text: 贡献：五条
+  - generic [ref=f197e334]:
+    - generic [ref=f197e335]:
+      - generic [ref=f197e336]: "1"
+      - paragraph [ref=f197e337]: LOVO 组合损失：把模糊的「噪声鲁棒特征」具体化为三个几何量并以三项训练期损失全部落地，推理端参数/FLOPS 零增量。
+    - generic [ref=f197e338]:
+      - generic [ref=f197e339]: "2"
+      - paragraph [ref=f197e340]: 两路解耦的度量学习框架：滤波器侧逐对损失 + 分类器侧类心级损失，梯度按职责就近施加，训练完丢弃辅助头。
+    - generic [ref=f197e341]:
+      - generic [ref=f197e342]: "3"
+      - paragraph [ref=f197e343]: 类心级监督规避主导类别偏置：低 SNR 未见噪声下相对 center/FaceNet/multi-sim/circle/DeCov 全部更稳（总平均 92.32 对最优 92.22）。
+    - generic [ref=f197e344]:
+      - generic [ref=f197e345]: "4"
+      - paragraph [ref=f197e346]: 谱范数驱动的正交-距离联合正则：清零对角 + 指数限幅 + 只罚最大奇异值 + 10 次幂迭代，把两个会竞争的几何目标融合成单一稳定优化对象。
+    - generic [ref=f197e347]:
+      - generic [ref=f197e348]: "5"
+      - paragraph [ref=f197e349]: 实证收益：未见噪声 0dB 下 WHAM +3.03 / Urban +2.37 / DCASE +1.30，全条件平均 +0.97。
+  - heading "§05 局限与边界" [level=2] [ref=f197e350]:
+    - generic [ref=f197e351]: §05
+    - text: 局限与边界
+  - generic [ref=f197e352]: 鲁棒与干净精度存在小幅 trade-off
+  - generic [ref=f197e353]:
+    - generic [ref=f197e354]:
+      - heading "超参手工 + 开销未量化" [level=4] [ref=f197e355]
+      - paragraph [ref=f197e356]: α=1、λ₁=0.25、λ₂=λ₃=0.01 全是经验值，无敏感性分析；谱范数每步 10 次幂迭代 + 嵌入头前向的训练开销没有任何数字。
+    - generic [ref=f197e357]:
+      - heading "写作瑕疵影响复现" [level=4] [ref=f197e358]
+      - paragraph [ref=f197e359]: 式 2 称 triplet loss 但形式是全样本对带符号距离加 margin（更接近 contrastive），y* 星号未定义；LOVO 缩写两处展开不一致。
+    - generic [ref=f197e360]:
+      - heading "小 batch 类心估计方差" [level=4] [ref=f197e361]
+      - paragraph [ref=f197e362]: batch 100 / 12 类 ≈ 每类 8 个样本估类心；center loss 原文用跨 batch 记忆库，本文未讨论 batch 大小对类心质量的影响。
+    - generic [ref=f197e363]:
+      - heading "统计与评测维度缺失" [level=4] [ref=f197e364]
+      - paragraph [ref=f197e365]: 8 次重复不报方差（多个关键差距在 0.02–0.10 点量级）；无 FA/FRR 操作点指标；无 t-SNE 嵌入可视化（几何假设只有端到端精度这一间接证据）；三个噪声库全是城市域、仍是 SC v1、无设备级延迟功耗。
+  - generic [ref=f197e366]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f197e367]
+    - list [ref=f197e368]:
+      - listitem [ref=f197e369]: ↳ 「鲁棒」要先翻译成可优化的几何量（类内紧、类间开、正交），才能变成损失函数——模糊目标无法被梯度下降。
+      - listitem [ref=f197e370]: ↳ 监督要施加在离被优化对象最近的位置：给前端配专属嵌入头，好过让梯度穿过十几层间接稀释。
+      - listitem [ref=f197e371]: ↳ 类级统计量（类心）天然类均衡，替代成对度量做鲁棒目标可避开主导类别偏置——低 SNR 下尤其明显。
+      - listitem [ref=f197e372]: ↳ 两个方向相反的几何目标必须融合成单一最小化对象（谱范数 + 指数限幅），直接加权求和会在训练中振荡。
+      - listitem [ref=f197e373]: ↳ 训练期手段（损失/辅助头）是端侧最便宜的鲁棒性来源：推理图零变化，收益全沉淀在权重里——先穷尽这类手段再动架构。
+  - generic [ref=f197e374]:
+    - link "论文原文 ↗" [ref=f197e375] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2210.11519
+    - link "笔记全文 ↗" [ref=f197e376] [cursor=pointer]:
+      - /url: Discriminatory_And_Orthogonal_Feature_Learning_For_Noise_Robust_Keyword_Spotting.md
+    - link "返回列表" [ref=f197e377] [cursor=pointer]:
+      - /url: ../index.html

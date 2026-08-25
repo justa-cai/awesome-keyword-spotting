@@ -1,0 +1,260 @@
+- generic [active] [ref=f212e1]:
+  - generic [ref=f212e2]:
+    - link "← 返回论文列表" [ref=f212e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f212e4]: 论文精读 · 可视化版 · 2022 №19
+    - heading "不改架构、不加推理开销： 把噪声从嵌入里挤出去" [level=1] [ref=f212e5]: 不改架构、不加推理开销：把噪声从嵌入里挤出去
+    - generic [ref=f212e6]:
+      - generic [ref=f212e7]: I2CR · arXiv 2209.06360
+      - generic [ref=f212e8]: 阿里巴巴新加坡 × 南洋理工 × 西安交大
+      - generic [ref=f212e9]: 监督对比正则（SupCon 变体）
+      - generic [ref=f212e10]: GSC V2 + FSD50K · 三骨干验证
+    - generic [ref=f212e11]: CE 只要求「可分类」不要求「表示里不含噪声」——网络可以靠背噪声条件降损失。I2CR 用批内标签免费构造「同类不同说话人」正对，把对比约束从实例判别升级成类别判别。
+    - generic [ref=f212e12]:
+      - heading "一分钟版本" [level=3] [ref=f212e13]
+      - list [ref=f212e14]:
+        - listitem [ref=f212e15]: ▸ 靶心：KWS 常驻监听，用户不挑环境说话；端侧小模型没有容量「记住」各种噪声条件——多条件训练学到的是「见过这几种噪声后如何补救」，对训练范围外的噪声/SNR 必然劣化。
+        - listitem [ref=f212e16]: ▸ 缺口：两阶段对比预训练（SPIRAL/Wav2vec-switch）需要大规模无标注语料——本文没有；CLAR 的正对只有同一样本的两个增广视图且只验证干净设定。
+        - listitem [ref=f212e17]: ▸ 方法：L = L_CE + α·L_I2CR——标准监督分类器加一个对比正则项，推理时正则完全消失，模型结构与基线一字不差。
+        - listitem [ref=f212e18]: ▸ 双来源正对：intra-view（同一样本加不同噪声→噪声不变性）+ inter-view（同类不同说话人的不同样本→两个录音唯一的公共因子就是词本身）。只用 intra 的问题：两个视图共享说话人等无关因子，模型可以靠实例内不变量走捷径。
+        - listitem [ref=f212e19]: ▸ α 课程热身：首 epoch α=0（纯 CE 热身）→ 线性增长 → 截断 0.5——从零训练早期表示近乎随机，「最大化两个随机向量相似度」非平凡；CE 先把表示整理到大致可分的流形上，对比约束再做几何精修。
+        - listitem [ref=f212e20]: ▸ 四种增广每个视图全做：FSD50K 噪声（traffic/metro/car，SNR −10~30dB）+ SpecAugment 掩码 + 时间循环平移 ±100ms + 速度扰动 90–110%——跨视图仍相似只能靠语义内容满足。
+        - listitem [ref=f212e21]: ▸ 域内结果：三骨干 × 三噪声 × 四档 SNR × 两子集全一致为正，增益随 SNR 降低放大——−10dB 典型 +1.8~+3.9 点；20dB 处收窄到 0~0.3（噪声弱时没有可清理的对象）。
+        - listitem [ref=f212e22]: ▸ 超范围 SNR：−30dB 全员崩塌（最好 0.411）但 I2CR 显著更好（−30dB 平均 +4%/+2.4%）；最有意思的是 clean 列——从未见过干净音频，I2CR 版全面更好（KWT +2.3）：学到的是更纯的类表示，不是对噪声过拟合。
+        - listitem [ref=f212e23]: ▸ 域外噪声：GSC 背景噪声上 −10dB 平均 +5.7%/+3.6%，单点最大 +9.5（KWT 10 类 0.482→0.577）——占地最小的模型从正则获利最多。
+        - listitem [ref=f212e24]: ▸ 边界：表示去噪不是信号增强（语音被淹没时无米下锅）；正对依赖批内标签分布（batch 128 / 35 类 ≈ 每类 3–4 样本）；训练开销随批平方增长未量化；无虚警/漏检工作点指标、无多种子方差。
+    - heading "§01 问题：CE 不约束表示的几何" [level=2] [ref=f212e25]:
+      - generic [ref=f212e26]: §01
+      - text: 问题：CE 不约束表示的几何
+    - generic [ref=f212e27]: 常规监督学习对潜在表示没有任何额外约束
+    - paragraph [ref=f212e28]: 噪声 KWS 的性能退化，根源是干扰特征（nuisance features）没有被抑制——背景噪声可以在嵌入空间里占据主导地位，把类别信息挤到边角。监督 CE 只要求「可分类」，网络完全可以通过背噪声条件来降训练损失。图像领域的对比正则研究（域泛化、半监督伪标签）已证明「把跨域同类样本在嵌入空间拉近」能带来更好的域泛化——本文把这套思路搬到 KWS 噪声鲁棒性上（据作者所知是第一篇）。
+    - generic [ref=f212e29]:
+      - generic [ref=f212e30]:
+        - heading "多条件训练的隐含失败模式" [level=4] [ref=f212e31]
+        - paragraph [ref=f212e32]: 高度依赖网络自身去「适应并泛化」到训练时选定的那批信噪比噪声环境——模型占地越小问题越严重：没有容量去记住各种噪声条件，也没有显式机制阻止表示吸收噪声。
+      - generic [ref=f212e33]:
+        - heading "两阶段预训练的门槛" [level=4] [ref=f212e34]
+        - paragraph [ref=f212e35]: 语音识别社区用对比预训练学噪声鲁棒表示（不同加噪视图对比 + 有标注微调），但需要大规模外部无标注语料——论文明确声明没有外部大数据集可用；自监督对比还有维度坍缩与训练资源问题。
+    - heading "§02 方法：单阶段监督对比正则" [level=2] [ref=f212e36]:
+      - generic [ref=f212e37]: §02
+      - text: 方法：单阶段监督对比正则
+    - generic [ref=f212e38]: 正则器与架构解耦——收益来自训练信号而非架构改动
+    - generic [ref=f212e39]:
+      - img [ref=f212e40]:
+        - generic [ref=f212e42]: I2CR：把噪声从嵌入里挤出去——训练期正则，推理零开销
+        - generic [ref=f212e43]: ① 三条老路各自的缺口
+        - generic [ref=f212e45]: 多条件训练治标不治本
+        - generic [ref=f212e46]: 在各种 SNR 加噪数据上反复训练——但 CE 只要求「可分类」，
+        - generic [ref=f212e47]: 不要求「表示里不含噪声」：网络可以靠背噪声条件降损失
+        - generic [ref=f212e48]: 学到的是「见过这几种噪声后如何补救」，不是「在表示层
+        - generic [ref=f212e49]: 面忽略噪声本身」——对训练范围外的噪声/SNR 必然劣化
+        - generic [ref=f212e50]: 端侧小模型没有多余容量记噪声条件，问题更严重
+        - generic [ref=f212e52]: 另两条路的门槛
+        - generic [ref=f212e53]: 两阶段对比预训练（SPIRAL / Wav2vec-switch）：需要大规模
+        - generic [ref=f212e54]: 外部无标注语料——本文明确声明没有，不做考虑；自监督
+        - generic [ref=f212e55]: 对比还有维度坍缩和资源开销问题
+        - generic [ref=f212e56]: CLAR：自监督对比 + CE 用于 KWS，但正对只有同一样本的
+        - generic [ref=f212e57]: 两个增广视图，且只在干净设定下验证
+        - generic [ref=f212e58]: ② 框架与双来源正样本：L = L_CE + α·L_I2CR
+        - generic [ref=f212e60]: 为什么只用 intra-view 不够
+        - generic [ref=f212e61]: intra-view：同一样本加不同噪声的两个视图
+        - generic [ref=f212e62]: → 负责噪声不变性
+        - generic [ref=f212e63]: 问题：两个视图共享若干不利因子（典型如说话人风格），
+        - generic [ref=f212e64]: 对比学习无法区分「什么该不变」——说话人风格这类与
+        - generic [ref=f212e65]: 类别无关的属性被一并编码进嵌入，引入无关偏置；模型
+        - generic [ref=f212e66]: 可以靠「实例内不变量」走捷径，类间分离不彻底
+        - generic [ref=f212e67]: inter-view：同类不同说话人的不同样本——两个不同录音
+        - generic [ref=f212e68]: 之间唯一的公共因子就是词本身，逼着模型把类信息作为
+        - generic [ref=f212e69]: 聚拢依据（标签免费可得，minibatch 内按标签组对）
+        - generic [ref=f212e71]: α 课程热身 + 增广管线
+        - generic [ref=f212e72]: 首 epoch α=0（纯 CE 热身）→ 线性增长（epoch/总）
+        - generic [ref=f212e73]: → 截断 0.5。为什么：从零训练早期表示近乎随机向量，
+        - generic [ref=f212e74]: 「最大化两个随机向量相似度」此时非平凡；CE 先把表示
+        - generic [ref=f212e75]: 整理到大致可分的流形上，对比约束再做几何精修
+        - generic [ref=f212e76]: 四种增广每个视图全做：
+        - generic [ref=f212e77]: · 噪声增广：FSD50K（traffic/metro/car），SNR −10~30dB
+        - generic [ref=f212e78]: · SpecAugment 掩码（时 2×25 帧 / 频 2×7 通道）
+        - generic [ref=f212e79]: · 时间循环平移 ±100ms · 速度扰动 90–110%
+        - generic [ref=f212e80]: → 跨视图仍相似只能靠语义内容满足
+        - generic [ref=f212e81]: 骨干无关性验证：EfficientNet-B0 / ResNet-18（最大，基线最强）/ KWT-1（占地最小，低 SNR 最弱）——覆盖卷积与 transformer 两族、三档容量；输入 98×64 log-Mel；推理时正则消失，模型与基线一字不差
+        - generic [ref=f212e83]: "+9.5"
+        - generic [ref=f212e84]: 域外噪声最大单点（KWT 10 类 −10dB）
+        - generic [ref=f212e85]: "+5.7"
+        - generic [ref=f212e86]: 域外噪声平均增益（10 类 −10dB）
+        - generic [ref=f212e87]: "+2.3"
+        - generic [ref=f212e88]: clean 提升（KWT，从未见过干净音频）
+        - generic [ref=f212e89]: "0.977"
+        - generic [ref=f212e90]: R18 clean——比肩干净域 SOTA
+        - generic [ref=f212e91]: 3 骨干
+        - generic [ref=f212e92]: ×3 噪声 ×4 SNR ×2 子集全一致为正
+        - generic [ref=f212e93]: 数据：GSC V2（105,000 条 35 词；35 类全集 + 10 类子集）；噪声 FSD50K 训练池 905 实例（train 集）/ 测试 487（eval 集）——「域内」评测的噪声实例也没在训练出现过，只有噪声类型见过；域外用 GSC 自带背景噪声
+      - paragraph [ref=f212e94]: 图1 · 机制全景：三条老路的缺口；双来源正样本构造（intra 管噪声不变性 / inter 管去冗余——只用 intra 会走实例内捷径）；α 课程热身与四种增广管线；三骨干容量谱系。
+  - generic [ref=f212e95]:
+    - generic [ref=f212e96]: L_I2CR = Σ_i (1/|P(i)|) Σ_p −log [ exp(sim(z_i,z_p)/τ) / Σ_n exp(sim(z_i,z_n)/τ) ]
+    - generic [ref=f212e97]: 人话（SupCon 形式）：对批内每个锚点，分子是它与某个正样本的余弦相似度，分母是与视界内所有参与对比样本的相似度和——批内把同类拉到最近、其余推远。P(i) 同时包含同类其他样本（inter）和自身增广视图（intra）；1/|P(i)| 防止批内样本多的类主导梯度。为什么抗噪：加噪增广制造「同内容 + 不同噪声实现」的多个视图，要求它们聚拢——模型唯一稳定的解法是把公共因子（关键词）编码进表示、把随噪声变化的因子挤出去。
+  - paragraph [ref=f212e98]: 骨干无关性：EfficientNet-B0 / ResNet-18（最大，基线最强）/ KWT-1（占地最小，低 SNR 最弱）——覆盖卷积与 transformer 两族、大中小三档容量，让「正则收益是否依赖模型容量」可被直接观察。为保证公平，基线与正则版用完全相同的增广与训练配置，全部超参固定不变。
+  - heading "§03 实验：域内 + 超范围 + 域外三重考验" [level=2] [ref=f212e99]:
+    - generic [ref=f212e100]: §03
+    - text: 实验：域内 + 超范围 + 域外三重考验
+  - generic [ref=f212e101]: 噪声实例级也不泄漏：测试噪声取自 FSD50K eval 集
+  - generic [ref=f212e102]:
+    - img [ref=f212e103]:
+      - generic [ref=f212e105]: 域内噪声（Table I/II）：增益随 SNR 降低而放大
+      - generic [ref=f212e106]: −10 dB 准确率（%）· 基线 → I2CR
+      - generic [ref=f212e107]: "75"
+      - generic [ref=f212e108]: "80"
+      - generic [ref=f212e109]: "85"
+      - generic [ref=f212e110]: "90"
+      - generic [ref=f212e111]: "95"
+      - generic [ref=f212e114]: "84.0"
+      - generic [ref=f212e115]: "86.7"
+      - generic [ref=f212e117]: "+2.7"
+      - generic [ref=f212e118]: EffB0 交通
+      - generic [ref=f212e119]: 35类
+      - generic [ref=f212e122]: "84.1"
+      - generic [ref=f212e123]: "86.2"
+      - generic [ref=f212e125]: "+2.1"
+      - generic [ref=f212e126]: R18 车内
+      - generic [ref=f212e127]: 35类
+      - generic [ref=f212e130]: "80.7"
+      - generic [ref=f212e131]: "82.5"
+      - generic [ref=f212e133]: "+1.8"
+      - generic [ref=f212e134]: KWT 地铁
+      - generic [ref=f212e135]: 35类
+      - generic [ref=f212e138]: "74.3"
+      - generic [ref=f212e139]: "78.2"
+      - generic [ref=f212e141]: "+3.9"
+      - generic [ref=f212e142]: KWT 车内
+      - generic [ref=f212e143]: 10类
+      - generic [ref=f212e146]: "87.2"
+      - generic [ref=f212e147]: "90.4"
+      - generic [ref=f212e149]: "+3.2"
+      - generic [ref=f212e150]: R18 车内
+      - generic [ref=f212e151]: 10类
+      - generic [ref=f212e152]: 对照高 SNR：20 dB 处提升多在 0~0.3 点（R18 交通 97.1→97.4）——噪声能量弱时干扰因子本来就少，几何约束没有可清理的对象；方法定位是低信噪比专用增强，KWT 车内 10 类的 +3.9（74.3→78.2）是论文「高达 4% 绝对提升」的出处
+    - paragraph [ref=f212e153]: 图2 · 域内噪声（Table I/II · −10dB）：三骨干 × 三噪声的基线 → I2CR——增益随 SNR 降低放大，20dB 处收窄到 0~0.3 点（噪声弱时没有可清理对象）。
+  - generic [ref=f212e154]:
+    - img [ref=f212e155]:
+      - generic [ref=f212e157]: 泛化三连：超范围 SNR · 域外噪声 · 干净域对照
+      - generic [ref=f212e159]: ① 超出训练 SNR 范围
+      - generic [ref=f212e160]: (Table III · 训练只见过 −10~30dB)
+      - generic [ref=f212e162]: "-30 dB 平均增益"
+      - generic [ref=f212e163]: 10 类 +4% / 35 类 +2.4%
+      - generic [ref=f212e165]: −15 dB EffB0 10类
+      - generic [ref=f212e166]: 0.754 → 0.806（+5.2）
+      - generic [ref=f212e168]: clean KWT 10 类 ★
+      - generic [ref=f212e169]: 0.945 → 0.968（+2.3）
+      - generic [ref=f212e171]: −30 dB 最好也只有
+      - generic [ref=f212e172]: 0.411（EffB0）——全员崩塌
+      - generic [ref=f212e173]: clean 列最有意思：从未见过干净音频，I2CR 版全面
+      - generic [ref=f212e174]: 更好——学到的是更纯的类表示，不是对噪声过拟合
+      - generic [ref=f212e176]: ② 域外噪声类型
+      - generic [ref=f212e177]: (Table IV · GSC 背景噪声，从未条件化)
+      - generic [ref=f212e179]: −10 dB 平均增益
+      - generic [ref=f212e180]: 10 类 +5.7% / 35 类 +3.6%
+      - generic [ref=f212e182]: KWT 10 类 −10 dB
+      - generic [ref=f212e183]: 0.482 → 0.577（+9.5）★
+      - generic [ref=f212e185]: 20 dB 仍有
+      - generic [ref=f212e186]: +0.5 ~ +1.3 点
+      - generic [ref=f212e188]: 占地最小的模型
+      - generic [ref=f212e189]: 从域外正则获利最多
+      - generic [ref=f212e190]: 所有模型在未见噪声上都掉点（预料之中），
+      - generic [ref=f212e191]: 但 I2CR 一致占优——不针对特定噪声类型优化
+      - generic [ref=f212e193]: ③ clean 域对照
+      - generic [ref=f212e194]: (Table V · 35 类 clean)
+      - generic [ref=f212e196]: "0.981"
+      - generic [ref=f212e197]: AST
+      - generic [ref=f212e199]: "0.977"
+      - generic [ref=f212e200]: 本文 R18 ★
+      - generic [ref=f212e202]: "0.975"
+      - generic [ref=f212e203]: Conformer
+      - generic [ref=f212e205]: "0.974"
+      - generic [ref=f212e206]: 本文 EffB0 ★
+      - generic [ref=f212e208]: "0.974"
+      - generic [ref=f212e209]: TDNN
+      - generic [ref=f212e211]: "0.973"
+      - generic [ref=f212e212]: Branchformer
+      - generic [ref=f212e213]: 对照方法都在干净域训练测试；
+      - generic [ref=f212e214]: 本文从未见过干净域——言下之意：
+      - generic [ref=f212e215]: 表示质量高到「没见过干净数据」都不吃亏
+      - generic [ref=f212e216]: （Table V 是不对称比较，作者在表注如实声明——只能作为「不掉点」佐证而非超越证据）
+    - paragraph [ref=f212e217]: 图3 · 泛化三连（Table III/IV/V）：超范围 SNR（−30dB 平均 +4%/+2.4%，clean 反而全面更好）；域外噪声（−10dB 平均 +5.7%/+3.6%，单点最大 +9.5）；干净域对照（从未见过干净域仍比肩 SOTA）。
+  - generic [ref=f212e218]:
+    - img [ref=f212e219]:
+      - generic [ref=f212e221]: 消融链（Table I/II 内嵌）+ 表示证据 + 边界
+      - generic [ref=f212e222]: 三步消融（−10 dB 准确率）
+      - generic [ref=f212e224]: Base（纯监督）
+      - generic [ref=f212e226]: EffB0·交通 84.0
+      - generic [ref=f212e228]: KWT·交通 76.5
+      - generic [ref=f212e230]: + Intra 正则（同一样本增广视图）
+      - generic [ref=f212e232]: EffB0·交通 85.8
+      - generic [ref=f212e234]: KWT·交通 79.3
+      - generic [ref=f212e236]: + Inter 正则 = I2CR ★
+      - generic [ref=f212e238]: EffB0·交通 86.7
+      - generic [ref=f212e240]: KWT·交通 80.5
+      - generic [ref=f212e241]: Intra 本身已有效（视图一致性约束的价值）；加 inter 再进一步
+      - generic [ref=f212e242]: （多在 1 点上下，无方差报告时需谨慎解读）
+      - generic [ref=f212e244]: 表示证据（Fig. 4 t-SNE）
+      - generic [ref=f212e245]: KWT 在 0dB 噪声 10 类测试集、分类头之前的
+      - generic [ref=f212e246]: 瓶颈层表示：I2CR 类簇更突出、边界更清楚、
+      - generic [ref=f212e247]: 重叠更少、簇内更集中——「几何约束改变表示
+      - generic [ref=f212e248]: 结构」的直接可视化验证
+      - generic [ref=f212e249]: → 嵌入里的噪声因子被挤出，噪声无法再以连续
+      - generic [ref=f212e250]: 漂移的方式撕裂类簇
+      - generic [ref=f212e252]: 边界
+      - generic [ref=f212e253]: · 极端 SNR 仍崩塌：−30dB 最好 0.411——正则压
+      - generic [ref=f212e254]: 制的是嵌入中的噪声因子，语音在信号层被淹没时
+      - generic [ref=f212e255]: 无米下锅（「表示去噪」不是「信号增强」）
+      - generic [ref=f212e256]: · 高 SNR 收益趋零（20dB +0~0.3）
+      - generic [ref=f212e257]: · 正对依赖批内标签分布：batch 128 / 35 类 ≈ 每类
+      - generic [ref=f212e258]: 3–4 样本，更大词表更严重（批大小敏感性未做）
+      - generic [ref=f212e259]: · 训练开销未量化：批内两两相似度矩阵随批平方增长
+      - generic [ref=f212e260]: · 不解决容量差距：KWT 绝对精度仍垫底；无虚警/漏检
+      - generic [ref=f212e261]: AUC 工作点指标；无混响远场；无多种子方差
+      - generic [ref=f212e262]: 可迁移判断：监督信号免费提供「同类不同样本」的正对资源——把对比约束从实例判别升级成类别判别，是单阶段获得噪声不变表示的最便宜路径；从零训练时先 CE 热身再上几何约束
+    - paragraph [ref=f212e263]: 图4 · 消融与边界：Base → Intra → I2CR 三步阶梯（intra 本身已有效，inter 再进一步）；t-SNE 表示证据；「表示去噪 ≠ 信号增强」等五个边界。
+  - heading "§04 贡献：三条" [level=2] [ref=f212e264]:
+    - generic [ref=f212e265]: §04
+    - text: 贡献：三条
+  - generic [ref=f212e266]:
+    - generic [ref=f212e267]:
+      - generic [ref=f212e268]: "1"
+      - paragraph [ref=f212e269]: I2CR 方法：首个用对比学习处理 KWS 噪声鲁棒性的工作——P(i) 构造为「批内同类样本 + 自身增广视图」的并集，配合 α 课程调度使跨样本对比约束在从零训练下稳定可行。
+    - generic [ref=f212e270]:
+      - generic [ref=f212e271]: "2"
+      - paragraph [ref=f212e272]: 骨干无关的一致收益：三架构 × 三噪声 × 四档 SNR × 两子集全部一致改善——通用训练策略而非特定架构技巧；推理零额外开销、零架构改动。
+    - generic [ref=f212e273]:
+      - generic [ref=f212e274]: "3"
+      - paragraph [ref=f212e275]: 对未见条件的泛化验证：域外噪声 −10dB 平均 +5.7%/+3.6%；超范围 SNR −30dB 平均 +4%/+2.4%；从未见过干净音频的模型在 clean 上比肩干净域训练的 SOTA（R18 0.977 vs AST 0.981、Conformer 0.975）。
+  - heading "§05 局限与边界" [level=2] [ref=f212e276]:
+    - generic [ref=f212e277]: §05
+    - text: 局限与边界
+  - generic [ref=f212e278]: 「表示去噪」不是「信号增强」
+  - generic [ref=f212e279]:
+    - generic [ref=f212e280]:
+      - heading "极端 SNR 仍崩塌" [level=4] [ref=f212e281]
+      - paragraph [ref=f212e282]: −30dB 下最好的 I2CR 模型也只有 0.411，35 类全员低于 0.33——对比正则作用在表示层，语音在信号层被淹没时表示学习无米下锅。
+    - generic [ref=f212e283]:
+      - heading "高 SNR 收益趋零" [level=4] [ref=f212e284]
+      - paragraph [ref=f212e285]: 20dB 处提升普遍 0~0.3 个点——方法定位本质是低信噪比专用增强，不要指望改善安静环境。
+    - generic [ref=f212e286]:
+      - heading "正对受批组成制约" [level=4] [ref=f212e287]
+      - paragraph [ref=f212e288]: inter-view 正对全部来自 minibatch 内同标签样本——batch 128 / 35 类 ≈ 每类 3–4 个样本；更大词表更严重，批大小敏感性未做。
+    - generic [ref=f212e289]:
+      - heading "开销与统计缺口" [level=4] [ref=f212e290]
+      - paragraph [ref=f212e291]: 批内两两相似度矩阵随批大小平方增长（训练开销未报告）；无多随机种子方差（20dB 的 0.1–0.3 点增益难与噪声区分）；只有分类准确率，无虚警/漏检/AUC 工作点；只有加性噪声无混响远场；参数量 FLOPs 未报告。
+  - generic [ref=f212e292]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f212e293]
+    - list [ref=f212e294]:
+      - listitem [ref=f212e295]: ↳ 监督信号免费提供「同类不同样本」的正对资源——把对比约束从实例判别升级成类别判别，是单阶段获得噪声不变表示的最便宜路径（无需预训练语料）。
+      - listitem [ref=f212e296]: ↳ 只用同一样本的增广视图做正对会让模型走「实例内不变量」捷径——两个视图共享的无关因子（说话人等）会被一并编码。
+      - listitem [ref=f212e297]: ↳ 从零训练时几何约束要先热身：CE 把表示整理到大致可分的流形上，对比精修才有立足点——首 epoch α=0 + 线性升是最简单的稳定化。
+      - listitem [ref=f212e298]: ↳ 检验鲁棒性方法的真正考场是训练分布之外：超范围 SNR、域外噪声类型、甚至反向的 clean 条件——「从未见过干净数据仍不掉点」是表示纯度的最强佐证。
+      - listitem [ref=f212e299]: ↳ 训练期正则的收益必须以「推理零改动」为前提来主张——正则器与架构解耦，通用性声明才成立。
+  - generic [ref=f212e300]:
+    - link "论文原文 ↗" [ref=f212e301] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2209.06360
+    - link "笔记全文 ↗" [ref=f212e302] [cursor=pointer]:
+      - /url: I2CR_Improving_Noise_Robustness_On_Keyword_Spotting_Using_Inter-Intra_Contrastive_Regularization.md
+    - link "返回列表" [ref=f212e303] [cursor=pointer]:
+      - /url: ../index.html

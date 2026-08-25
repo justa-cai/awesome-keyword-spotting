@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rainbow Keywords：增量 KWS 的少而精回放 | 论文精读 · 可视化版</title>
+<style>
+  :root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px}
+  .wrap{max-width:980px;margin:0 auto;padding:56px 28px 72px}
+  .kicker{font-size:12.5px;letter-spacing:.22em;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:18px}
+  h1.hero{font-size:40px;line-height:1.32;font-weight:800;letter-spacing:.01em;margin-bottom:22px}
+  .g{color:var(--acc)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+  .chip{font-size:12.5px;padding:5px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+  .chip.acc{background:var(--lt);border-color:#cfe9de;color:var(--dk);font-weight:600}
+  .meta{border-left:4px solid var(--acc);background:#fff;padding:16px 20px;border-radius:0 10px 10px 0;font-size:14px;color:var(--ink2);margin-bottom:44px}
+  .meta b{color:var(--ink)}
+  h2{display:flex;align-items:center;gap:12px;font-size:24px;font-weight:800;margin:54px 0 8px}
+  h2 .pn{flex:none;width:34px;height:34px;border-radius:10px;background:var(--ink);color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;font-weight:700}
+  .h2sub{font-size:14px;color:var(--ink3);margin:0 0 20px 46px}
+  .tldr{background:linear-gradient(135deg,#eef8f3,#f7fdfa);border:1px solid #d5ebe1;border-radius:16px;padding:26px 30px;margin-bottom:20px}
+  .tldr h3{font-size:17px;color:var(--dk);margin-bottom:14px}
+  .tldr li{list-style:none;font-size:14.5px;color:var(--ink2);padding:4px 0 4px 20px;position:relative}
+  .tldr li::before{content:"";position:absolute;left:2px;top:13px;width:7px;height:7px;border-radius:50%;background:var(--acc)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:20px 0}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 22px}
+  .card .tag{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.06em;color:var(--dk);background:var(--lt);border-radius:6px;padding:2px 9px;margin-bottom:10px}
+  .card b{display:block;font-size:15.5px;margin-bottom:6px}
+  .card p{font-size:13.5px;color:var(--ink2)}
+  .card.acc{border-color:#cfe9de;background:linear-gradient(160deg,#fff,#f4fbf8)}
+  .card.bad{border-color:#f0d9d4;background:linear-gradient(160deg,#fff,#fdf6f4)}
+  .card.bad .tag{color:var(--warn);background:#fdf0ee}
+  .fig{margin:26px 0}
+  .fig svg{width:100%;height:auto;display:block}
+  .cap{font-size:13px;color:var(--ink3);padding:10px 6px 0;border-top:1px dashed var(--line);margin-top:10px}
+  .cap b{color:var(--ink2)}
+  .formula{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:16px 0}
+  .formula .f{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:16px;color:var(--ink);background:#f4f6f9;border-radius:8px;padding:12px 16px;margin:8px 0;overflow-x:auto;white-space:nowrap}
+  .formula .why{font-size:13.5px;color:var(--ink2)}
+  .formula .why b{color:var(--dk)}
+  table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:18px 0}
+  table.tb th{background:var(--ink);color:#fff;padding:10px 12px;text-align:left;font-weight:600;font-size:13px}
+  table.tb td{padding:9px 12px;border-bottom:1px solid var(--line);color:var(--ink2)}
+  table.tb tr:last-child td{border-bottom:none}
+  table.tb td.hl{color:var(--dk);font-weight:700;background:#f2faf7}
+  .contrib{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin:18px 0}
+  .contrib .row{display:flex;gap:14px;padding:10px 0;border-bottom:1px dashed var(--line);align-items:flex-start}
+  .contrib .row:last-child{border-bottom:none}
+  .contrib .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lt);color:var(--dk);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:3px}
+  .contrib p{font-size:14px;color:var(--ink2)}
+  .lim{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}
+  .lim .card p{font-size:13px}
+  .judge{background:linear-gradient(150deg,#fff9f2,#fdf3e4);border:1px solid #eadfc8;border-radius:14px;padding:22px 26px;margin:18px 0}
+  .judge h3{font-size:16px;color:#8a5a1a;margin-bottom:12px}
+  .judge p{font-size:14px;color:var(--ink2);padding:4px 0}
+  .judge p::before{content:"↳ ";color:var(--orange);font-weight:700}
+  .footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .pill{display:inline-block;font-size:13.5px;font-weight:600;color:var(--dk);background:#fff;border:1px solid #cfe9de;border-radius:999px;padding:8px 20px;text-decoration:none;transition:all .18s}
+  .pill:hover{background:var(--lt)}
+  .foot-note{width:100%;font-size:12.5px;color:var(--ink3);margin-top:10px}
+  @media(max-width:720px){h1.hero{font-size:30px}.wrap{padding:40px 18px 56px}.lim{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">论文精读 · 可视化版 · 2022 №33</div>
+  <h1 class="hero">记住 5 个难的，胜过 20 个随机的：<br>把旧知识<span class="g">挑着存</span>，增量学新唤醒词</h1>
+  <div class="chips">
+    <span class="chip acc">Rainbow Keywords</span>
+    <span class="chip">NTU Singapore · Interspeech 2022</span>
+    <span class="chip">arXiv 2203.16361</span>
+    <span class="chip">DAS 熵采样 + MLDA 增强 + KD 蒸馏</span>
+    <span class="chip">无任务 ID · 零样本扩展输出层</span>
+    <span class="chip">GSC V2-35 · +4.2% vs 最佳基线（同预算）</span>
+  </div>
+  <div class="meta">
+    <b>一句话</b>：在线设备上持续学新唤醒词，存储只够存十几个旧样本——与其随机存一堆「典型」样本，不如用预测熵专挑决策边界上的「难样本」，再用 5–10 倍增强和蒸馏把它放大成一张三层保护网。<b>场景</b>：智能手表 / 耳机等存储预算以 KB 计的设备，用户随时注册新唤醒词。
+  </div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <li><b>任务</b>：在线类增量学习（CIL）用于 KWS——设备端持续注册新词，不重训全局、不忘旧词。</li>
+    <li><b>约束</b>：存储预算几十 KB（一条频谱 2–4KB）；每个新词只有 3–5 条注册语音；学习须实时在设备上完成。</li>
+    <li><b>DAS</b>：对旧样本算预测熵，按类分组、组内熵降序保留——专存「模型最不确定」的决策边界样本，那是遗忘最先发生的地方。</li>
+    <li><b>MLDA</b>：每个存储样本 × K=5–10 种增强（时间拉伸 / 频率时间掩蔽 / 增益 / 噪声）——100 条存储等效 1000 条训练集，存储效率虚拟翻 5–10 倍。</li>
+    <li><b>KD</b>：学新词前复制教师模型，KL 软标签约束覆盖回放没保护到的类别中心区域——第三层兜底。</li>
+    <li><b>协同</b>：DAS 挑关键点 → MLDA 扩成邻域 → KD 填邻域间隙——三层网互补，组合效果 &gt; 任意两件组合。</li>
+    <li><b>无任务 ID</b>：统一动态扩展的 softmax 输出层，新词只加输出节点；推理 argmax 全类别，可同时监控全部已学词。</li>
+    <li><b>主结果</b>：GSC V2-35（20 基础类 + 15 增量类、5 步），RK ≈ 88.5% 平均准确率，比最佳基线 iCaRL 高约 4.2 点，存储预算相同。</li>
+    <li><b>消融</b>：去 DAS 掉约 4 点（最大）；去 MLDA / KD 各掉 1.5–2 点；采样策略排序 DAS &gt; 遗忘感知 &gt; 随机 &gt; 类中心（Herding 最差）。</li>
+    <li><b>诚实边界</b>：熵采样要对全部旧样本过一遍前向；熵质量依赖模型状态；增强手工设计；仅 GSC 一个数据集验证。</li>
+  </div>
+
+  <h2><span class="pn">§01</span>问题：边缘设备上的类增量 KWS</h2>
+  <p class="h2sub">为什么「持续学新唤醒词」在手表 / 耳机上是个存储问题，而不只是算法问题</p>
+  <div class="cards">
+    <div class="card bad"><span class="tag">约束一</span><b>存储预算以 KB 计</b><p>智能手表可用存储常常只有几十 KB；一条 1 秒频谱样本约 2–4KB——50KB 缓冲区只装得下十几个样本，每多存一条都在挤占别的进程。</p></div>
+    <div class="card bad"><span class="tag">约束二</span><b>新词注册样本极少</b><p>用户不会为一个新唤醒词录一百遍——3–5 条是产品上限。少样本学新类本身已难，还要不伤旧类。</p></div>
+    <div class="card bad"><span class="tag">约束三</span><b>增量过程必须在设备上实时完成</b><p>不能上传云端重训再推模型——注册到生效的延迟以秒计，用户就在旁边等。</p></div>
+    <div class="card"><span class="tag">任务 ID 不可知</span><b>系统须同时监控全部词</b><p>部分 CIL 方法假设推理时知道输入属于哪个增量步——实际用户可能说任何已学词，KWS 推理没有任务 ID 可用。</p></div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 900">
+<rect x="0.0" y="0.0" width="920.0" height="900.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Rainbow Keywords：少而精的回放——挑最脆弱的知识存下来</text>
+<line x1="36.0" y1="60.0" x2="640.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 在线 KWS 增量学习的严苛约束 + 现有回放方法的四种不足</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">产品级约束：存储预算极低（智能手表几十 KB）· 每个新词注册样本仅 3–5 条 · 增量过程须在设备端实时完成</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（每个频谱样本约 2–4KB——50KB 缓冲区只装得下十几个样本；10 个任务 × 每任务 50 样本 ≈ 1–2MB，直接爆预算）</text>
+<rect x="36.0" y="152.0" width="848.0" height="44.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="179.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">需要任务 ID</text>
+<text x="160.0" y="171.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">部分 CIL 方法假设推理时知道输入属于哪个增量步骤——实际用户</text>
+<text x="160.0" y="187.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可能说任何已学词，系统须同时监控全部词，任务 ID 不可知</text>
+<rect x="36.0" y="204.0" width="848.0" height="44.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="231.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">存储线性增长</text>
+<text x="160.0" y="223.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">iCaRL / GEM 为每个任务存固定数量旧样本，任务数增加总存储</text>
+<text x="160.0" y="239.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">线性增长——边缘设备的低存储预算很快被突破</text>
+<rect x="36.0" y="256.0" width="848.0" height="44.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="283.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">随机采样低效</text>
+<text x="160.0" y="275.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">随机保留的多是类别中心的典型样本（模型已能正确分类，保护</text>
+<text x="160.0" y="291.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">无益），决策边界附近的困难样本反而可能被丢弃</text>
+<rect x="36.0" y="308.0" width="848.0" height="44.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="335.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">回放数据不足</text>
+<text x="160.0" y="327.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每类只留 5–10 个样本不足以代表原始分布——模型在少量回放</text>
+<text x="160.0" y="343.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">样本上过拟合，记住特定样本而非类别本身</text>
+<text x="36.0" y="356.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 三件套：DAS 挑点 · MLDA 扩邻域 · KD 填间隙</text>
+<rect x="36.0" y="372.0" width="272.0" height="190.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="172.0" y="394.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DAS 多样性感知采样器</text>
+<text x="52.0" y="416.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">对每个旧样本算预测熵：</text>
+<text x="52.0" y="429.8" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">H(xᵢ) = −Σⱼ p(yⱼ|xᵢ)·log p(yⱼ|xᵢ)</text>
+<text x="52.0" y="443.6" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">高熵 = 模型最不确定 = 决策边界附近</text>
+<text x="52.0" y="457.4" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  = 最容易遗忘的「边界知识」</text>
+<text x="52.0" y="471.2" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="485.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">按类别分组 → 组内按熵降序优先保留</text>
+<text x="52.0" y="498.8" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">高熵样本；预算 m 均分给 C 个旧类</text>
+<text x="52.0" y="512.6" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="526.4" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">与主动学习同源（不确定性采样），</text>
+<text x="52.0" y="540.2" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">但目标是「保护知识」而非「获取信息」</text>
+<rect x="324.0" y="372.0" width="272.0" height="190.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="460.0" y="394.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MLDA 混合标签数据增强</text>
+<text x="340.0" y="416.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每个存储样本 × K=5–10 种增强：</text>
+<text x="340.0" y="429.8" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 时间拉伸/压缩 α∈[0.8,1.2]（语速）</text>
+<text x="340.0" y="443.6" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 频率掩蔽 Δf∈[1,5] / 时间掩蔽 Δt∈[1,10]</text>
+<text x="340.0" y="457.4" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （SpecAugment，频谱信息丢失/中断）</text>
+<text x="340.0" y="471.2" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 音量增益 g∈[0.5,2.0]（距离/音量）</text>
+<text x="340.0" y="485.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声叠加 SNR∈[5,20]dB（环境）</text>
+<text x="340.0" y="498.8" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="340.0" y="512.6" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">变体共享原标签（增强不改语义）</text>
+<text x="340.0" y="526.4" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">m=100 样本 → 等效 m×K=1000 训练集</text>
+<text x="340.0" y="540.2" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">存储效率虚拟提升 K 倍（5–10×）</text>
+<rect x="612.0" y="372.0" width="272.0" height="190.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="748.0" y="394.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KD 知识蒸馏损失</text>
+<text x="628.0" y="416.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">学新任务前复制当前模型作教师 f_old</text>
+<text x="628.0" y="429.8" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="628.0" y="443.6" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">L_KD = KL(p_old(y|x) ‖ p_new(y|x))</text>
+<text x="628.0" y="457.4" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="628.0" y="471.2" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">总损失：</text>
+<text x="628.0" y="485.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">L = CE_new + CE_replay + α·L_KD_all</text>
+<text x="628.0" y="498.8" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="628.0" y="512.6" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">回放只保护了保留样本的区域；教师软标签</text>
+<text x="628.0" y="526.4" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">对未回放区域（类别中心）提供「隐式保护」</text>
+<text x="628.0" y="540.2" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——输出空间上的模糊约束覆盖全类</text>
+<text x="36.0" y="586.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 协同保护网 + 无任务 ID 推理</text>
+<rect x="36.0" y="602.0" width="500.0" height="100.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="626.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">DAS 选出关键点（决策边界）→ MLDA 把每个关键点扩展成一片邻域</text>
+<text x="52.0" y="641.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（增强变体）→ KD 用软标签填充邻域之间的间隙——三层互补保护网</text>
+<text x="52.0" y="656.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="671.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">证据：边界样本经 MLDA 增强产生更多边界附近变体，进一步放大 KD 的保护效果</text>
+<rect x="552.0" y="602.0" width="332.0" height="100.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="718.0" y="624.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">不需要任务 ID</text>
+<text x="568.0" y="646.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">所有已学类别共享统一输出层（softmax 动态扩展：</text>
+<text x="568.0" y="659.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">新类别只加输出节点，旧节点不动）</text>
+<text x="568.0" y="673.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="568.0" y="686.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">推理直接 argmax 全类别——系统同时监控</text>
+<text x="568.0" y="700.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">全部已学词，无需知道输入属于哪个增量步</text>
+<rect x="36.0" y="736.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="762.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+4.2%</text>
+<text x="130.0" y="782.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">vs 最佳基线（绝对提升）</text>
+<text x="298.0" y="762.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~88–89%</text>
+<text x="298.0" y="782.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5 步增量后平均准确率</text>
+<text x="466.0" y="762.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">×5–10</text>
+<text x="466.0" y="782.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">存储效率（等效训练集）</text>
+<text x="634.0" y="762.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<text x="634.0" y="782.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">任务 ID 依赖</text>
+<text x="802.0" y="762.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3</text>
+<text x="802.0" y="782.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">互补组件（DAS+MLDA+KD）</text>
+<text x="36.0" y="820.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">设定：Google Speech Command V2-35（约 105,000 条 1 秒语音）——20 类做基础模型，15 类做增量（每步加 3–5 类）；指标 = 全部增量步结束后的平均准确率 + 存储开销</text>
+</svg>
+    <p class="cap"><b>图1 · 机制全景</b>：在线 KWS 增量学习的约束与旧方案四不足（上），DAS / MLDA / KD 三件套与协同保护网、无任务 ID 推理（中），关键数字速览（下）。</p>
+  </div>
+  <p class="cap" style="border-top:none;margin-top:-14px"><b>旧方案为什么不行</b>：微调把旧类全忘光（65%）；LwF 零存储但软标签保护太弱（79%）；iCaRL / GEM 的回放有效但每任务固定样本数使存储线性增长（10 任务 × 50 样本 ≈ 1–2MB，爆预算）；随机采样还专留「模型已经会的」典型样本——保护价值最低。</p>
+
+  <h2><span class="pn">§02</span>方法：三层互补保护网</h2>
+  <p class="h2sub">DAS 挑点 · MLDA 扩邻域 · KD 填间隙——同一个存储预算，保护密度翻几倍</p>
+  <div class="formula">
+    <div class="f">H(xᵢ) = −Σⱼ p(yⱼ|xᵢ) · log p(yⱼ|xᵢ)</div>
+    <div class="why"><b>预测熵，衡量模型对样本的不确定度</b>。分布接近 one-hot（模型笃定）→ 熵低；分布平坦（模型纠结）→ 熵高。DAS 按类别分组、组内熵降序，优先保留高熵样本——它们落在决策边界附近，是遗忘最先发生的位置。预算 m 在 C 个旧类间均分。</div>
+  </div>
+  <div class="formula">
+    <div class="f">L = CE_new + CE_replay + α · KL( p_old(y|x) ‖ p_new(y|x) )</div>
+    <div class="why"><b>三部分各管一块</b>：CE_new 学新词；CE_replay 在回放样本上复习旧类；KL 蒸馏项让新模型在<b>全部</b>旧样本分布上贴近教师（学新词前的模型快照）——回放只保护了保留样本的区域，软标签对未回放区域（类别中心）提供隐式兜底。</div>
+  </div>
+  <div class="cards">
+    <div class="card acc"><span class="tag">DAS · 挑点</span><b>多样性感知采样</b><p>与主动学习的不确定性采样同源，但目标反着——主动学习挑「信息最大」的样本去标注，DAS 挑「保护价值最大」的样本去回放。都是熵，用途不同。</p></div>
+    <div class="card"><span class="tag">MLDA · 扩邻域</span><b>存储效率虚拟 ×K</b><p>时间拉伸 α∈[0.8,1.2]、频掩 Δf∈[1,5]、时掩 Δt∈[1,10]（SpecAugment）、增益 g∈[0.5,2.0]、噪声 SNR∈[5,20]dB——五种增强覆盖语速、频谱缺失、音量、环境四个变异轴。</p></div>
+    <div class="card"><span class="tag">KD · 填间隙</span><b>输出空间的模糊约束</b><p>教师不需要存任何样本，只存参数快照（几十 KB 的模型本身）；KL 项在全类输出上生效，把 DAS+MLDA 邻域之间的空隙罩住。</p></div>
+    <div class="card acc"><span class="tag">架构</span><b>动态扩展的统一输出层</b><p>新类只加输出节点、旧节点不动；推理 argmax 全类别。对比需要任务 ID 或每任务独立分类头的设计，这才符合「用户可能说任何词」的真实部署。</p></div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 450">
+<rect x="0.0" y="0.0" width="880.0" height="450.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主对比（约 值）：同存储预算下 +4.2 点</text>
+<line x1="36.0" y1="56.0" x2="430.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<line x1="66.0" y1="354.0" x2="550.00" y2="354.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="358.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">60</text>
+<line x1="66.0" y1="294.0" x2="550.00" y2="294.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="298.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">68</text>
+<line x1="66.0" y1="234.0" x2="550.00" y2="234.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="238.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">76</text>
+<line x1="66.0" y1="174.0" x2="550.00" y2="174.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="178.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">84</text>
+<line x1="66.0" y1="114.0" x2="550.00" y2="114.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="118.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">92</text>
+<rect x="94.0" y="316.5" width="56.0" height="37.5" rx="4" fill="#e8b8b0"/>
+<text x="122.0" y="310.5" font-size="9" fill="#e8b8b0" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~65</text>
+<text x="122.0" y="370.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Fine-tuni</text>
+<text x="122.0" y="394.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0 存储</text>
+<rect x="186.0" y="211.5" width="56.0" height="142.5" rx="4" fill="#e8d5c4"/>
+<text x="214.0" y="205.5" font-size="9" fill="#e8d5c4" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~79</text>
+<text x="214.0" y="370.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">LwF</text>
+<text x="214.0" y="381.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">无回放））</text>
+<text x="214.0" y="394.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0 存储</text>
+<rect x="278.0" y="196.5" width="56.0" height="157.5" rx="4" fill="#c9d8e8"/>
+<text x="306.0" y="190.5" font-size="9" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~81</text>
+<text x="306.0" y="370.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">随机回放</text>
+<text x="306.0" y="394.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">回放</text>
+<rect x="370.0" y="174.0" width="56.0" height="180.0" rx="4" fill="#9fc8b8"/>
+<text x="398.0" y="168.0" font-size="9" fill="#9fc8b8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~84</text>
+<text x="398.0" y="370.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">iCaRL</text>
+<text x="398.0" y="394.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">回放</text>
+<rect x="462.0" y="140.2" width="56.0" height="213.8" rx="4" fill="#0b6e52"/>
+<text x="490.0" y="134.2" font-size="9" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~88.5</text>
+<text x="490.0" y="370.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">RK</text>
+<text x="490.0" y="381.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文）★）</text>
+<text x="490.0" y="394.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">回放</text>
+<text x="310.0" y="104.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5 步增量后平均准确率（%）· GSC V2-35 · 20 基础类 + 15 增量类</text>
+<rect x="400.0" y="264.0" width="150.0" height="36.0" rx="6" fill="#eef6f1"/>
+<text x="475.0" y="280.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">vs iCaRL（最佳基线）</text>
+<text x="475.0" y="293.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+4.2 点 · 相同存储预算</text>
+<text x="720.0" y="100.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">优势随增量步数扩大</text>
+<rect x="600.0" y="112.0" width="244.0" height="230.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="624.0" y1="246.7" x2="820.00" y2="246.67" stroke="#eef0ec" stroke-width="1"/>
+<text x="620.0" y="249.7" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">70</text>
+<line x1="624.0" y1="193.3" x2="820.00" y2="193.33" stroke="#eef0ec" stroke-width="1"/>
+<text x="620.0" y="196.3" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">80</text>
+<line x1="624.0" y1="140.0" x2="820.00" y2="140.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="620.0" y="143.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<text x="630.0" y="314.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1</text>
+<text x="677.5" y="314.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2</text>
+<text x="725.0" y="314.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3</text>
+<text x="772.5" y="314.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4</text>
+<text x="820.0" y="314.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5</text>
+<text x="725.0" y="328.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">增量步骤</text>
+<circle cx="630.0" cy="129.3" r="3" fill="#e8b8b0"/>
+<circle cx="677.5" cy="172.0" r="3" fill="#e8b8b0"/>
+<circle cx="725.0" cy="204.0" r="3" fill="#e8b8b0"/>
+<circle cx="772.5" cy="241.3" r="3" fill="#e8b8b0"/>
+<circle cx="820.0" cy="273.3" r="3" fill="#e8b8b0"/>
+<line x1="630.0" y1="129.3" x2="677.50" y2="172.00" stroke="#e8b8b0" stroke-width="1.6"/>
+<line x1="677.5" y1="172.0" x2="725.00" y2="204.00" stroke="#e8b8b0" stroke-width="1.6"/>
+<line x1="725.0" y1="204.0" x2="772.50" y2="241.33" stroke="#e8b8b0" stroke-width="1.6"/>
+<line x1="772.5" y1="241.3" x2="820.00" y2="273.33" stroke="#e8b8b0" stroke-width="1.6"/>
+<circle cx="630.0" cy="129.3" r="3" fill="#c9d8e8"/>
+<circle cx="677.5" cy="145.3" r="3" fill="#c9d8e8"/>
+<circle cx="725.0" cy="161.3" r="3" fill="#c9d8e8"/>
+<circle cx="772.5" cy="172.0" r="3" fill="#c9d8e8"/>
+<circle cx="820.0" cy="188.0" r="3" fill="#c9d8e8"/>
+<line x1="630.0" y1="129.3" x2="677.50" y2="145.33" stroke="#c9d8e8" stroke-width="1.6"/>
+<line x1="677.5" y1="145.3" x2="725.00" y2="161.33" stroke="#c9d8e8" stroke-width="1.6"/>
+<line x1="725.0" y1="161.3" x2="772.50" y2="172.00" stroke="#c9d8e8" stroke-width="1.6"/>
+<line x1="772.5" y1="172.0" x2="820.00" y2="188.00" stroke="#c9d8e8" stroke-width="1.6"/>
+<circle cx="630.0" cy="129.3" r="3" fill="#9fc8b8"/>
+<circle cx="677.5" cy="140.0" r="3" fill="#9fc8b8"/>
+<circle cx="725.0" cy="150.7" r="3" fill="#9fc8b8"/>
+<circle cx="772.5" cy="161.3" r="3" fill="#9fc8b8"/>
+<circle cx="820.0" cy="172.0" r="3" fill="#9fc8b8"/>
+<line x1="630.0" y1="129.3" x2="677.50" y2="140.00" stroke="#9fc8b8" stroke-width="1.6"/>
+<line x1="677.5" y1="140.0" x2="725.00" y2="150.67" stroke="#9fc8b8" stroke-width="1.6"/>
+<line x1="725.0" y1="150.7" x2="772.50" y2="161.33" stroke="#9fc8b8" stroke-width="1.6"/>
+<line x1="772.5" y1="161.3" x2="820.00" y2="172.00" stroke="#9fc8b8" stroke-width="1.6"/>
+<circle cx="630.0" cy="129.3" r="3" fill="#0b6e52"/>
+<circle cx="677.5" cy="133.1" r="3" fill="#0b6e52"/>
+<circle cx="725.0" cy="138.9" r="3" fill="#0b6e52"/>
+<circle cx="772.5" cy="143.7" r="3" fill="#0b6e52"/>
+<circle cx="820.0" cy="148.0" r="3" fill="#0b6e52"/>
+<line x1="630.0" y1="129.3" x2="677.50" y2="133.07" stroke="#0b6e52" stroke-width="1.6"/>
+<line x1="677.5" y1="133.1" x2="725.00" y2="138.93" stroke="#0b6e52" stroke-width="1.6"/>
+<line x1="725.0" y1="138.9" x2="772.50" y2="143.73" stroke="#0b6e52" stroke-width="1.6"/>
+<line x1="772.5" y1="143.7" x2="820.00" y2="148.00" stroke="#0b6e52" stroke-width="1.6"/>
+<rect x="612.0" y="118.0" width="8.0" height="8.0" rx="2" fill="#e8b8b0"/>
+<text x="624.0" y="126.0" font-size="8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FT</text>
+<rect x="670.0" y="118.0" width="8.0" height="8.0" rx="2" fill="#c9d8e8"/>
+<text x="682.0" y="126.0" font-size="8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">随机</text>
+<rect x="728.0" y="118.0" width="8.0" height="8.0" rx="2" fill="#9fc8b8"/>
+<text x="740.0" y="126.0" font-size="8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">iCaRL</text>
+<rect x="786.0" y="118.0" width="8.0" height="8.0" rx="2" fill="#0b6e52"/>
+<text x="798.0" y="126.0" font-size="8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">RK</text>
+<text x="36.0" y="428.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：数字为笔记记录的约值（论文原表见 arXiv 2203.16361）；RK 曲线下降最平缓——每一步 DAS 都重选最具保护价值的样本、MLDA 扩大覆盖，步数越多差距越大</text>
+</svg>
+    <p class="cap"><b>图2 · 主对比与步数曲线</b>：同存储预算下 RK ≈ 88.5% vs iCaRL 84%、随机回放 81%、LwF 79%、微调 65%（左）；五步增量曲线——差距随步数单调扩大（右）。</p>
+  </div>
+
+  <h2><span class="pn">§03</span>实验：同预算下每一层都在交收益</h2>
+  <p class="h2sub">GSC V2-35：20 类基础 + 15 类增量（每步 3–5 类）· 指标 = 全部增量步后的平均准确率 + 存储开销</p>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 450">
+<rect x="0.0" y="0.0" width="880.0" height="450.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融（约 值）：DAS 贡献最大；「选典型」最差</text>
+<line x1="36.0" y1="56.0" x2="480.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="250.0" y="84.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">组件拆解（完整 RK ≈ 88.5）</text>
+<rect x="60.0" y="100.0" width="380.0" height="38.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="74.0" y="124.0" font-size="10" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">完整 RK</text>
+<rect x="220.0" y="109.0" width="183.8" height="20.0" rx="10" fill="#0b6e52"/>
+<text x="413.8" y="124.0" font-size="9.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~88.5</text>
+<rect x="60.0" y="146.0" width="380.0" height="38.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="74.0" y="170.0" font-size="10" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">去 KD</text>
+<rect x="220.0" y="155.0" width="161.0" height="20.0" rx="10" fill="#9fc8b8"/>
+<text x="391.0" y="170.0" font-size="9.5" fill="#9fc8b8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">~87.2</text>
+<rect x="60.0" y="192.0" width="380.0" height="38.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="74.0" y="216.0" font-size="10" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">去 MLDA</text>
+<rect x="220.0" y="201.0" width="154.0" height="20.0" rx="10" fill="#9fc8b8"/>
+<text x="384.0" y="216.0" font-size="9.5" fill="#9fc8b8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">~86.8</text>
+<rect x="60.0" y="238.0" width="380.0" height="38.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="74.0" y="262.0" font-size="10" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">仅 DAS</text>
+<rect x="220.0" y="247.0" width="113.7" height="20.0" rx="10" fill="#c9d8e8"/>
+<text x="343.8" y="262.0" font-size="9.5" fill="#c9d8e8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">~84.5</text>
+<rect x="60.0" y="284.0" width="380.0" height="38.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="74.0" y="308.0" font-size="10" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">去 DAS（随机采样）</text>
+<rect x="220.0" y="293.0" width="113.7" height="20.0" rx="10" fill="#e8b8b0"/>
+<text x="343.8" y="308.0" font-size="9.5" fill="#e8b8b0" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">~84.5</text>
+<rect x="60.0" y="330.0" width="380.0" height="38.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="74.0" y="354.0" font-size="10" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">仅 MLDA</text>
+<rect x="220.0" y="339.0" width="78.8" height="20.0" rx="10" fill="#e8d5c4"/>
+<text x="308.8" y="354.0" font-size="9.5" fill="#e8d5c4" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">~82.5</text>
+<text x="60.0" y="382.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">→ DAS 一项值 4 点（最大）；MLDA / KD 各值 1.5–2 点</text>
+<text x="660.0" y="84.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">采样策略排序（同预算）</text>
+<rect x="500.0" y="100.0" width="320.0" height="52.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<rect x="500.0" y="100.0" width="6.0" height="52.0" rx="3" fill="#0b6e52"/>
+<text x="516.0" y="120.0" font-size="10" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DAS（预测熵采样）</text>
+<text x="516.0" y="140.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">保护决策边界知识　→ 最好</text>
+<rect x="500.0" y="162.0" width="320.0" height="52.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<rect x="500.0" y="162.0" width="6.0" height="52.0" rx="3" fill="#9fc8b8"/>
+<text x="516.0" y="182.0" font-size="10" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">遗忘感知采样</text>
+<text x="516.0" y="202.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">选历史最易忘样本　→ 次之</text>
+<rect x="500.0" y="224.0" width="320.0" height="52.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<rect x="500.0" y="224.0" width="6.0" height="52.0" rx="3" fill="#c9d8e8"/>
+<text x="516.0" y="244.0" font-size="10" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">随机采样</text>
+<text x="516.0" y="264.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">大量冗余典型样本　→ 一般</text>
+<rect x="500.0" y="286.0" width="320.0" height="52.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<rect x="500.0" y="286.0" width="6.0" height="52.0" rx="3" fill="#e8b8b0"/>
+<text x="516.0" y="306.0" font-size="10" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Herding（类中心）</text>
+<text x="516.0" y="326.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">选最典型样本——最易分类</text>
+<text x="516.0" y="334.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">　→ 最差 −2~3 点</text>
+<text x="500.0" y="356.0" font-size="9.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">「最容易分类的样本」保护边际收益最低</text>
+<text x="36.0" y="428.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">协同效应：三件组合（88.5）> 任意两件组合（85–87）；边界样本经 MLDA 增强产生更多边界附近变体 → 进一步放大 KD 保护效果——组件之间是乘法不是加法</text>
+</svg>
+    <p class="cap"><b>图3 · 消融与采样策略排序</b>：去 DAS 掉约 4 点（最大单组件贡献）；采样策略 DAS &gt; 遗忘感知 &gt; 随机 &gt; Herding 类中心——「选典型」保护收益最低。</p>
+  </div>
+  <table class="tb">
+    <tr><th>方法</th><th>平均准确率（约）</th><th>历史样本存储</th><th>关键短板</th></tr>
+    <tr><td>Fine-tuning</td><td>~65%</td><td>0</td><td>灾难性遗忘，旧类几乎全丢</td></tr>
+    <tr><td>LwF</td><td>~79%</td><td>0</td><td>软标签单独撑不住，步数越多退化越重</td></tr>
+    <tr><td>随机回放</td><td>~81%</td><td>同预算</td><td>冗余典型样本占坑，难样本被挤掉</td></tr>
+    <tr><td>iCaRL</td><td>~84%</td><td>同预算</td><td>每任务固定样本数 → 存储线性增长</td></tr>
+    <tr><td class="hl">RK（本文）</td><td class="hl">~88.5%</td><td class="hl">同预算</td><td class="hl">熵采样需一次全量前向（仅采样阶段）</td></tr>
+  </table>
+  <p class="cap"><b>读数</b>：五步曲线里 RK 从 92% 只降到 88.5%，iCaRL 降到 84%——差距随增量步数单调扩大，说明「每一步都重选最有保护价值的样本」在长增量序列里复利累积。</p>
+
+  <h2><span class="pn">§04</span>贡献：把「存什么」变成可计算的决策</h2>
+  <p class="h2sub">从随机 / 类中心采样，到显式优化「保护价值」的采样准则</p>
+  <div class="contrib">
+    <div class="row"><span class="n">1</span><p><b>提出 RK 框架</b>：DAS + MLDA + KD 三件套，专为 KWS 的低存储在线增量设计——同预算 +4.2 点，是「数据选择质量」而非「数据量」带来的提升。</p></div>
+    <div class="row"><span class="n">2</span><p><b>把回放采样从启发式变成准则</b>：用预测熵度量「遗忘脆弱度」，并实验证明熵采样 &gt; 遗忘感知采样 &gt; 随机 &gt; 类中心（Herding）——「典型样本」的保护边际收益最低，反直觉但数据一致。</p></div>
+    <div class="row"><span class="n">3</span><p><b>MLDA 让存储预算虚拟翻倍</b>：5–10 倍增强把每条存储样本展开成一个小邻域，等效训练集 ×K——在不增加一字节存储的前提下扩大回放覆盖。</p></div>
+    <div class="row"><span class="n">4</span><p><b>协同效应有实证</b>：三件组合（88.5）&gt; 任意两件组合（85–87）；边界样本经增强产生更多边界附近变体，进一步放大 KD——组件之间是乘法不是加法。</p></div>
+    <div class="row"><span class="n">5</span><p><b>无任务 ID 的部署形态</b>：统一动态扩展输出层 + 全类别 argmax，直接对应「设备不知道用户接下来说哪个词」的真实约束。</p></div>
+  </div>
+
+  <h2><span class="pn">§05</span>边界与判断</h2>
+  <p class="h2sub">什么时候这套方案不适用，以及能带走什么</p>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 熵计算开销：DAS 采样时要对全部候选旧样本做一次前向推理</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （数万样本时不可忽视）——好在只在采样阶段执行一次，</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  不影响推理性能</text>
+<text x="72.0" y="170.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 熵质量依赖模型状态：训练早期熵不准；模型过度自信时熵</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  普遍偏低、区分困难样本失效</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 增强策略手工预定义：五类增强未必覆盖新词的独特声学</text>
+<text x="72.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  变异（如声调语言的基频模式变化）</text>
+<text x="72.0" y="251.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="265.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 存储旧样本的隐私问题：量虽小，但医疗/金融等严格场景</text>
+<text x="72.0" y="278.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  可能完全不允许原始样本落盘</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验边界 + 延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 单一数据集：仅 GSC——英文短命令词；多字唤醒词（Hey</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  Google）、声调语言、真实远场噪声均未验证</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 对比不全：未与 PCL-KWS（动态架构）、MT-BT+CIL 等</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  2022 同期方法直接对比</text>
+<text x="536.0" y="197.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无存储预算扫描：固定 m 评估，缺 m=50/100/200/500</text>
+<text x="536.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  性能曲线——DAS 在不同资源约束下优势无法量化</text>
+<text x="536.0" y="238.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸：按「遗忘风险」动态分配内存（而非均分）；RL/元学习</text>
+<text x="536.0" y="265.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">采样策略；与 PCL-KWS 动态架构结合；AutoAugment 搜索增强</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：聪明的数据选择远比大量的数据存储重要——同预算下精心选 5 个困难样本胜过随机存 20 个；模型知识最脆弱的地方在决策边界，保护资源应向那里倾斜</text>
+</svg>
+    <p class="cap"><b>图4 · 边界与延伸</b>：熵采样开销与稳定性、增强手工设计、隐私、单一数据集验证（左）；缺同期对比与预算扫描、四个延伸方向（右）。</p>
+  </div>
+  <div class="lim">
+    <div class="card bad"><span class="tag">开销</span><b>熵采样要全量前向</b><p>DAS 采样时须对全部候选旧样本跑一遍前向推理（数万样本时不可忽视）——好在只在采样阶段执行一次，不进推理路径。</p></div>
+    <div class="card bad"><span class="tag">稳定性</span><b>熵质量依赖模型状态</b><p>训练早期熵不准；模型过度自信时熵普遍偏低、区分难样本失效——熵准则本身没有鲁棒性保证。</p></div>
+    <div class="card bad"><span class="tag">覆盖</span><b>增强是手工设计的</b><p>五类增强未必覆盖新词的独特声学变异（如声调语言的基频模式变化）；存原始样本在医疗 / 金融等严格场景可能被隐私合规直接禁止。</p></div>
+    <div class="card bad"><span class="tag">验证</span><b>单一数据集</b><p>仅 GSC（英文短命令词）；多字唤醒词、声调语言、真实远场均未验证；未与 PCL-KWS、MT-BT+CIL 等 2022 同期方法对比；缺存储预算扫描（m=50/100/200/500 曲线）。</p></div>
+  </div>
+  <div class="judge">
+    <h3>可迁移的判断</h3>
+    <p>聪明的数据选择远比大量的数据存储重要——同预算下精心选 5 个困难样本，胜过随机存 20 个。</p>
+    <p>模型知识最脆弱的位置在决策边界，保护资源应向那里倾斜；「选最典型的样本」直觉上对，实测保护收益最低。</p>
+    <p>回放（显式样本）+ 蒸馏（隐式软标签）是互补而非替代：前者精确保护关键点，后者模糊覆盖全空间——两层一起用才便宜又完整。</p>
+    <p>增强是免费的存储：一条样本加五种变体等于存储效率 ×6，这对一切「样本宝贵」的小样本场景（不只是 CIL）都成立。</p>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2203.16361" target="_blank">论文原文 · arXiv 2203.16361</a>
+    <a class="pill" href="../index.html">← 返回总目录</a>
+    <span class="foot-note">论文精读 · 可视化版 · Rainbow Keywords（Interspeech 2022）· 数字为笔记记录约值，精确值以论文原表为准</span>
+  </div>
+</div>
+</body>
+</html>

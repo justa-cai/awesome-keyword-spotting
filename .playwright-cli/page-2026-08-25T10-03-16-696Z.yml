@@ -1,0 +1,327 @@
+- generic [ref=f240e2]:
+  - generic [ref=f240e3]: 论文精读 · 可视化版 · 2022 №33
+  - heading "记住 5 个难的，胜过 20 个随机的： 把旧知识挑着存，增量学新唤醒词" [level=1] [ref=f240e4]: 记住 5 个难的，胜过 20 个随机的：把旧知识挑着存，增量学新唤醒词
+  - generic [ref=f240e5]:
+    - generic [ref=f240e6]: Rainbow Keywords
+    - generic [ref=f240e7]: NTU Singapore · Interspeech 2022
+    - generic [ref=f240e8]: arXiv 2203.16361
+    - generic [ref=f240e9]: DAS 熵采样 + MLDA 增强 + KD 蒸馏
+    - generic [ref=f240e10]: 无任务 ID · 零样本扩展输出层
+    - generic [ref=f240e11]: GSC V2-35 · +4.2% vs 最佳基线（同预算）
+  - generic [ref=f240e12]: 一句话：在线设备上持续学新唤醒词，存储只够存十几个旧样本——与其随机存一堆「典型」样本，不如用预测熵专挑决策边界上的「难样本」，再用 5–10 倍增强和蒸馏把它放大成一张三层保护网。场景：智能手表 / 耳机等存储预算以 KB 计的设备，用户随时注册新唤醒词。
+  - generic [ref=f240e13]:
+    - heading "一分钟版本" [level=3] [ref=f240e14]
+    - listitem [ref=f240e15]: 任务：在线类增量学习（CIL）用于 KWS——设备端持续注册新词，不重训全局、不忘旧词。
+    - listitem [ref=f240e16]: 约束：存储预算几十 KB（一条频谱 2–4KB）；每个新词只有 3–5 条注册语音；学习须实时在设备上完成。
+    - listitem [ref=f240e17]: DAS：对旧样本算预测熵，按类分组、组内熵降序保留——专存「模型最不确定」的决策边界样本，那是遗忘最先发生的地方。
+    - listitem [ref=f240e18]: MLDA：每个存储样本 × K=5–10 种增强（时间拉伸 / 频率时间掩蔽 / 增益 / 噪声）——100 条存储等效 1000 条训练集，存储效率虚拟翻 5–10 倍。
+    - listitem [ref=f240e19]: KD：学新词前复制教师模型，KL 软标签约束覆盖回放没保护到的类别中心区域——第三层兜底。
+    - listitem [ref=f240e20]: 协同：DAS 挑关键点 → MLDA 扩成邻域 → KD 填邻域间隙——三层网互补，组合效果 > 任意两件组合。
+    - listitem [ref=f240e21]: 无任务 ID：统一动态扩展的 softmax 输出层，新词只加输出节点；推理 argmax 全类别，可同时监控全部已学词。
+    - listitem [ref=f240e22]: 主结果：GSC V2-35（20 基础类 + 15 增量类、5 步），RK ≈ 88.5% 平均准确率，比最佳基线 iCaRL 高约 4.2 点，存储预算相同。
+    - listitem [ref=f240e23]: 消融：去 DAS 掉约 4 点（最大）；去 MLDA / KD 各掉 1.5–2 点；采样策略排序 DAS > 遗忘感知 > 随机 > 类中心（Herding 最差）。
+    - listitem [ref=f240e24]: 诚实边界：熵采样要对全部旧样本过一遍前向；熵质量依赖模型状态；增强手工设计；仅 GSC 一个数据集验证。
+  - heading "§01 问题：边缘设备上的类增量 KWS" [level=2] [ref=f240e25]:
+    - generic [ref=f240e26]: §01
+    - text: 问题：边缘设备上的类增量 KWS
+  - paragraph [ref=f240e27]: 为什么「持续学新唤醒词」在手表 / 耳机上是个存储问题，而不只是算法问题
+  - generic [ref=f240e28]:
+    - generic [ref=f240e29]:
+      - generic [ref=f240e30]: 约束一
+      - generic [ref=f240e31]: 存储预算以 KB 计
+      - paragraph [ref=f240e32]: 智能手表可用存储常常只有几十 KB；一条 1 秒频谱样本约 2–4KB——50KB 缓冲区只装得下十几个样本，每多存一条都在挤占别的进程。
+    - generic [ref=f240e33]:
+      - generic [ref=f240e34]: 约束二
+      - generic [ref=f240e35]: 新词注册样本极少
+      - paragraph [ref=f240e36]: 用户不会为一个新唤醒词录一百遍——3–5 条是产品上限。少样本学新类本身已难，还要不伤旧类。
+    - generic [ref=f240e37]:
+      - generic [ref=f240e38]: 约束三
+      - generic [ref=f240e39]: 增量过程必须在设备上实时完成
+      - paragraph [ref=f240e40]: 不能上传云端重训再推模型——注册到生效的延迟以秒计，用户就在旁边等。
+    - generic [ref=f240e41]:
+      - generic [ref=f240e42]: 任务 ID 不可知
+      - generic [ref=f240e43]: 系统须同时监控全部词
+      - paragraph [ref=f240e44]: 部分 CIL 方法假设推理时知道输入属于哪个增量步——实际用户可能说任何已学词，KWS 推理没有任务 ID 可用。
+  - generic [ref=f240e45]:
+    - img [ref=f240e46]:
+      - generic [ref=f240e48]: Rainbow Keywords：少而精的回放——挑最脆弱的知识存下来
+      - generic [ref=f240e49]: ① 在线 KWS 增量学习的严苛约束 + 现有回放方法的四种不足
+      - generic [ref=f240e51]: 产品级约束：存储预算极低（智能手表几十 KB）· 每个新词注册样本仅 3–5 条 · 增量过程须在设备端实时完成
+      - generic [ref=f240e52]: （每个频谱样本约 2–4KB——50KB 缓冲区只装得下十几个样本；10 个任务 × 每任务 50 样本 ≈ 1–2MB，直接爆预算）
+      - generic [ref=f240e54]: 需要任务 ID
+      - generic [ref=f240e55]: 部分 CIL 方法假设推理时知道输入属于哪个增量步骤——实际用户
+      - generic [ref=f240e56]: 可能说任何已学词，系统须同时监控全部词，任务 ID 不可知
+      - generic [ref=f240e58]: 存储线性增长
+      - generic [ref=f240e59]: iCaRL / GEM 为每个任务存固定数量旧样本，任务数增加总存储
+      - generic [ref=f240e60]: 线性增长——边缘设备的低存储预算很快被突破
+      - generic [ref=f240e62]: 随机采样低效
+      - generic [ref=f240e63]: 随机保留的多是类别中心的典型样本（模型已能正确分类，保护
+      - generic [ref=f240e64]: 无益），决策边界附近的困难样本反而可能被丢弃
+      - generic [ref=f240e66]: 回放数据不足
+      - generic [ref=f240e67]: 每类只留 5–10 个样本不足以代表原始分布——模型在少量回放
+      - generic [ref=f240e68]: 样本上过拟合，记住特定样本而非类别本身
+      - generic [ref=f240e69]: ② 三件套：DAS 挑点 · MLDA 扩邻域 · KD 填间隙
+      - generic [ref=f240e71]: DAS 多样性感知采样器
+      - generic [ref=f240e72]: 对每个旧样本算预测熵：
+      - generic [ref=f240e73]: H(xᵢ) = −Σⱼ p(yⱼ|xᵢ)·log p(yⱼ|xᵢ)
+      - generic [ref=f240e74]: 高熵 = 模型最不确定 = 决策边界附近
+      - generic [ref=f240e75]: = 最容易遗忘的「边界知识」
+      - generic [ref=f240e76]: 按类别分组 → 组内按熵降序优先保留
+      - generic [ref=f240e77]: 高熵样本；预算 m 均分给 C 个旧类
+      - generic [ref=f240e78]: 与主动学习同源（不确定性采样），
+      - generic [ref=f240e79]: 但目标是「保护知识」而非「获取信息」
+      - generic [ref=f240e81]: MLDA 混合标签数据增强
+      - generic [ref=f240e82]: 每个存储样本 × K=5–10 种增强：
+      - generic [ref=f240e83]: · 时间拉伸/压缩 α∈[0.8,1.2]（语速）
+      - generic [ref=f240e84]: · 频率掩蔽 Δf∈[1,5] / 时间掩蔽 Δt∈[1,10]
+      - generic [ref=f240e85]: （SpecAugment，频谱信息丢失/中断）
+      - generic [ref=f240e86]: · 音量增益 g∈[0.5,2.0]（距离/音量）
+      - generic [ref=f240e87]: · 噪声叠加 SNR∈[5,20]dB（环境）
+      - generic [ref=f240e88]: 变体共享原标签（增强不改语义）
+      - generic [ref=f240e89]: m=100 样本 → 等效 m×K=1000 训练集
+      - generic [ref=f240e90]: 存储效率虚拟提升 K 倍（5–10×）
+      - generic [ref=f240e92]: KD 知识蒸馏损失
+      - generic [ref=f240e93]: 学新任务前复制当前模型作教师 f_old
+      - generic [ref=f240e94]: L_KD = KL(p_old(y|x) ‖ p_new(y|x))
+      - generic [ref=f240e95]: 总损失：
+      - generic [ref=f240e96]: L = CE_new + CE_replay + α·L_KD_all
+      - generic [ref=f240e97]: 回放只保护了保留样本的区域；教师软标签
+      - generic [ref=f240e98]: 对未回放区域（类别中心）提供「隐式保护」
+      - generic [ref=f240e99]: ——输出空间上的模糊约束覆盖全类
+      - generic [ref=f240e100]: ③ 协同保护网 + 无任务 ID 推理
+      - generic [ref=f240e102]: DAS 选出关键点（决策边界）→ MLDA 把每个关键点扩展成一片邻域
+      - generic [ref=f240e103]: （增强变体）→ KD 用软标签填充邻域之间的间隙——三层互补保护网
+      - generic [ref=f240e104]: 证据：边界样本经 MLDA 增强产生更多边界附近变体，进一步放大 KD 的保护效果
+      - generic [ref=f240e106]: 不需要任务 ID
+      - generic [ref=f240e107]: 所有已学类别共享统一输出层（softmax 动态扩展：
+      - generic [ref=f240e108]: 新类别只加输出节点，旧节点不动）
+      - generic [ref=f240e109]: 推理直接 argmax 全类别——系统同时监控
+      - generic [ref=f240e110]: 全部已学词，无需知道输入属于哪个增量步
+      - generic [ref=f240e112]: +4.2%
+      - generic [ref=f240e113]: vs 最佳基线（绝对提升）
+      - generic [ref=f240e114]: ~88–89%
+      - generic [ref=f240e115]: 5 步增量后平均准确率
+      - generic [ref=f240e116]: ×5–10
+      - generic [ref=f240e117]: 存储效率（等效训练集）
+      - generic [ref=f240e118]: "0"
+      - generic [ref=f240e119]: 任务 ID 依赖
+      - generic [ref=f240e120]: "3"
+      - generic [ref=f240e121]: 互补组件（DAS+MLDA+KD）
+      - generic [ref=f240e122]: 设定：Google Speech Command V2-35（约 105,000 条 1 秒语音）——20 类做基础模型，15 类做增量（每步加 3–5 类）；指标 = 全部增量步结束后的平均准确率 + 存储开销
+    - paragraph [ref=f240e123]: 图1 · 机制全景：在线 KWS 增量学习的约束与旧方案四不足（上），DAS / MLDA / KD 三件套与协同保护网、无任务 ID 推理（中），关键数字速览（下）。
+  - paragraph [ref=f240e124]: 旧方案为什么不行：微调把旧类全忘光（65%）；LwF 零存储但软标签保护太弱（79%）；iCaRL / GEM 的回放有效但每任务固定样本数使存储线性增长（10 任务 × 50 样本 ≈ 1–2MB，爆预算）；随机采样还专留「模型已经会的」典型样本——保护价值最低。
+  - heading "§02 方法：三层互补保护网" [level=2] [ref=f240e125]:
+    - generic [ref=f240e126]: §02
+    - text: 方法：三层互补保护网
+  - paragraph [ref=f240e127]: DAS 挑点 · MLDA 扩邻域 · KD 填间隙——同一个存储预算，保护密度翻几倍
+  - generic [ref=f240e128]:
+    - generic [ref=f240e129]: H(xᵢ) = −Σⱼ p(yⱼ|xᵢ) · log p(yⱼ|xᵢ)
+    - generic [ref=f240e130]: 预测熵，衡量模型对样本的不确定度。分布接近 one-hot（模型笃定）→ 熵低；分布平坦（模型纠结）→ 熵高。DAS 按类别分组、组内熵降序，优先保留高熵样本——它们落在决策边界附近，是遗忘最先发生的位置。预算 m 在 C 个旧类间均分。
+  - generic [ref=f240e131]:
+    - generic [ref=f240e132]: L = CE_new + CE_replay + α · KL( p_old(y|x) ‖ p_new(y|x) )
+    - generic [ref=f240e133]: 三部分各管一块：CE_new 学新词；CE_replay 在回放样本上复习旧类；KL 蒸馏项让新模型在全部旧样本分布上贴近教师（学新词前的模型快照）——回放只保护了保留样本的区域，软标签对未回放区域（类别中心）提供隐式兜底。
+  - generic [ref=f240e134]:
+    - generic [ref=f240e135]:
+      - generic [ref=f240e136]: DAS · 挑点
+      - generic [ref=f240e137]: 多样性感知采样
+      - paragraph [ref=f240e138]: 与主动学习的不确定性采样同源，但目标反着——主动学习挑「信息最大」的样本去标注，DAS 挑「保护价值最大」的样本去回放。都是熵，用途不同。
+    - generic [ref=f240e139]:
+      - generic [ref=f240e140]: MLDA · 扩邻域
+      - generic [ref=f240e141]: 存储效率虚拟 ×K
+      - paragraph [ref=f240e142]: 时间拉伸 α∈[0.8,1.2]、频掩 Δf∈[1,5]、时掩 Δt∈[1,10]（SpecAugment）、增益 g∈[0.5,2.0]、噪声 SNR∈[5,20]dB——五种增强覆盖语速、频谱缺失、音量、环境四个变异轴。
+    - generic [ref=f240e143]:
+      - generic [ref=f240e144]: KD · 填间隙
+      - generic [ref=f240e145]: 输出空间的模糊约束
+      - paragraph [ref=f240e146]: 教师不需要存任何样本，只存参数快照（几十 KB 的模型本身）；KL 项在全类输出上生效，把 DAS+MLDA 邻域之间的空隙罩住。
+    - generic [ref=f240e147]:
+      - generic [ref=f240e148]: 架构
+      - generic [ref=f240e149]: 动态扩展的统一输出层
+      - paragraph [ref=f240e150]: 新类只加输出节点、旧节点不动；推理 argmax 全类别。对比需要任务 ID 或每任务独立分类头的设计，这才符合「用户可能说任何词」的真实部署。
+  - generic [ref=f240e151]:
+    - img [ref=f240e152]:
+      - generic [ref=f240e154]: 主对比（约 值）：同存储预算下 +4.2 点
+      - generic [ref=f240e155]: "60"
+      - generic [ref=f240e156]: "68"
+      - generic [ref=f240e157]: "76"
+      - generic [ref=f240e158]: "84"
+      - generic [ref=f240e159]: "92"
+      - generic [ref=f240e161]: ~65
+      - generic [ref=f240e162]: Fine-tuni
+      - generic [ref=f240e163]: 0 存储
+      - generic [ref=f240e165]: ~79
+      - generic [ref=f240e166]: LwF
+      - generic [ref=f240e167]: 无回放））
+      - generic [ref=f240e168]: 0 存储
+      - generic [ref=f240e170]: ~81
+      - generic [ref=f240e171]: 随机回放
+      - generic [ref=f240e172]: 回放
+      - generic [ref=f240e174]: ~84
+      - generic [ref=f240e175]: iCaRL
+      - generic [ref=f240e176]: 回放
+      - generic [ref=f240e178]: ~88.5
+      - generic [ref=f240e179]: RK
+      - generic [ref=f240e180]: 本文）★）
+      - generic [ref=f240e181]: 回放
+      - generic [ref=f240e182]: 5 步增量后平均准确率（%）· GSC V2-35 · 20 基础类 + 15 增量类
+      - generic [ref=f240e184]: vs iCaRL（最佳基线）
+      - generic [ref=f240e185]: +4.2 点 · 相同存储预算
+      - generic [ref=f240e186]: 优势随增量步数扩大
+      - generic [ref=f240e189]: "70"
+      - generic [ref=f240e191]: "80"
+      - generic [ref=f240e192]: "90"
+      - generic [ref=f240e193]: "1"
+      - generic [ref=f240e194]: "2"
+      - generic [ref=f240e195]: "3"
+      - generic [ref=f240e196]: "4"
+      - generic [ref=f240e197]: "5"
+      - generic [ref=f240e198]: 增量步骤
+      - generic [ref=f240e236]: FT
+      - generic [ref=f240e238]: 随机
+      - generic [ref=f240e240]: iCaRL
+      - generic [ref=f240e242]: RK
+      - generic [ref=f240e243]: 注：数字为笔记记录的约值（论文原表见 arXiv 2203.16361）；RK 曲线下降最平缓——每一步 DAS 都重选最具保护价值的样本、MLDA 扩大覆盖，步数越多差距越大
+    - paragraph [ref=f240e244]: 图2 · 主对比与步数曲线：同存储预算下 RK ≈ 88.5% vs iCaRL 84%、随机回放 81%、LwF 79%、微调 65%（左）；五步增量曲线——差距随步数单调扩大（右）。
+  - heading "§03 实验：同预算下每一层都在交收益" [level=2] [ref=f240e245]:
+    - generic [ref=f240e246]: §03
+    - text: 实验：同预算下每一层都在交收益
+  - paragraph [ref=f240e247]: GSC V2-35：20 类基础 + 15 类增量（每步 3–5 类）· 指标 = 全部增量步后的平均准确率 + 存储开销
+  - generic [ref=f240e248]:
+    - img [ref=f240e249]:
+      - generic [ref=f240e251]: 消融（约 值）：DAS 贡献最大；「选典型」最差
+      - generic [ref=f240e252]: 组件拆解（完整 RK ≈ 88.5）
+      - generic [ref=f240e254]: 完整 RK
+      - generic [ref=f240e256]: ~88.5
+      - generic [ref=f240e258]: 去 KD
+      - generic [ref=f240e260]: ~87.2
+      - generic [ref=f240e262]: 去 MLDA
+      - generic [ref=f240e264]: ~86.8
+      - generic [ref=f240e266]: 仅 DAS
+      - generic [ref=f240e268]: ~84.5
+      - generic [ref=f240e270]: 去 DAS（随机采样）
+      - generic [ref=f240e272]: ~84.5
+      - generic [ref=f240e274]: 仅 MLDA
+      - generic [ref=f240e276]: ~82.5
+      - generic [ref=f240e277]: → DAS 一项值 4 点（最大）；MLDA / KD 各值 1.5–2 点
+      - generic [ref=f240e278]: 采样策略排序（同预算）
+      - generic [ref=f240e281]: DAS（预测熵采样）
+      - generic [ref=f240e282]: 保护决策边界知识 → 最好
+      - generic [ref=f240e285]: 遗忘感知采样
+      - generic [ref=f240e286]: 选历史最易忘样本 → 次之
+      - generic [ref=f240e289]: 随机采样
+      - generic [ref=f240e290]: 大量冗余典型样本 → 一般
+      - generic [ref=f240e293]: Herding（类中心）
+      - generic [ref=f240e294]: 选最典型样本——最易分类
+      - generic [ref=f240e295]: → 最差 −2~3 点
+      - generic [ref=f240e296]: 「最容易分类的样本」保护边际收益最低
+      - generic [ref=f240e297]: 协同效应：三件组合（88.5）> 任意两件组合（85–87）；边界样本经 MLDA 增强产生更多边界附近变体 → 进一步放大 KD 保护效果——组件之间是乘法不是加法
+    - paragraph [ref=f240e298]: 图3 · 消融与采样策略排序：去 DAS 掉约 4 点（最大单组件贡献）；采样策略 DAS > 遗忘感知 > 随机 > Herding 类中心——「选典型」保护收益最低。
+  - table [ref=f240e299]:
+    - rowgroup [ref=f240e300]:
+      - row [ref=f240e301]:
+        - columnheader "方法" [ref=f240e302]
+        - columnheader "平均准确率（约）" [ref=f240e303]
+        - columnheader "历史样本存储" [ref=f240e304]
+        - columnheader "关键短板" [ref=f240e305]
+      - row [ref=f240e306]:
+        - cell "Fine-tuning" [ref=f240e307]
+        - cell "~65%" [ref=f240e308]
+        - cell "0" [ref=f240e309]
+        - cell "灾难性遗忘，旧类几乎全丢" [ref=f240e310]
+      - row [ref=f240e311]:
+        - cell "LwF" [ref=f240e312]
+        - cell "~79%" [ref=f240e313]
+        - cell "0" [ref=f240e314]
+        - cell "软标签单独撑不住，步数越多退化越重" [ref=f240e315]
+      - row [ref=f240e316]:
+        - cell "随机回放" [ref=f240e317]
+        - cell "~81%" [ref=f240e318]
+        - cell "同预算" [ref=f240e319]
+        - cell "冗余典型样本占坑，难样本被挤掉" [ref=f240e320]
+      - row [ref=f240e321]:
+        - cell "iCaRL" [ref=f240e322]
+        - cell "~84%" [ref=f240e323]
+        - cell "同预算" [ref=f240e324]
+        - cell "每任务固定样本数 → 存储线性增长" [ref=f240e325]
+      - row [ref=f240e326]:
+        - cell "RK（本文）" [ref=f240e327]
+        - cell "~88.5%" [ref=f240e328]
+        - cell "同预算" [ref=f240e329]
+        - cell "熵采样需一次全量前向（仅采样阶段）" [ref=f240e330]
+  - paragraph [ref=f240e331]: 读数：五步曲线里 RK 从 92% 只降到 88.5%，iCaRL 降到 84%——差距随增量步数单调扩大，说明「每一步都重选最有保护价值的样本」在长增量序列里复利累积。
+  - heading "§04 贡献：把「存什么」变成可计算的决策" [level=2] [ref=f240e332]:
+    - generic [ref=f240e333]: §04
+    - text: 贡献：把「存什么」变成可计算的决策
+  - paragraph [ref=f240e334]: 从随机 / 类中心采样，到显式优化「保护价值」的采样准则
+  - generic [ref=f240e335]:
+    - generic [ref=f240e336]:
+      - generic [ref=f240e337]: "1"
+      - paragraph [ref=f240e338]: 提出 RK 框架：DAS + MLDA + KD 三件套，专为 KWS 的低存储在线增量设计——同预算 +4.2 点，是「数据选择质量」而非「数据量」带来的提升。
+    - generic [ref=f240e339]:
+      - generic [ref=f240e340]: "2"
+      - paragraph [ref=f240e341]: 把回放采样从启发式变成准则：用预测熵度量「遗忘脆弱度」，并实验证明熵采样 > 遗忘感知采样 > 随机 > 类中心（Herding）——「典型样本」的保护边际收益最低，反直觉但数据一致。
+    - generic [ref=f240e342]:
+      - generic [ref=f240e343]: "3"
+      - paragraph [ref=f240e344]: MLDA 让存储预算虚拟翻倍：5–10 倍增强把每条存储样本展开成一个小邻域，等效训练集 ×K——在不增加一字节存储的前提下扩大回放覆盖。
+    - generic [ref=f240e345]:
+      - generic [ref=f240e346]: "4"
+      - paragraph [ref=f240e347]: 协同效应有实证：三件组合（88.5）> 任意两件组合（85–87）；边界样本经增强产生更多边界附近变体，进一步放大 KD——组件之间是乘法不是加法。
+    - generic [ref=f240e348]:
+      - generic [ref=f240e349]: "5"
+      - paragraph [ref=f240e350]: 无任务 ID 的部署形态：统一动态扩展输出层 + 全类别 argmax，直接对应「设备不知道用户接下来说哪个词」的真实约束。
+  - heading "§05 边界与判断" [level=2] [ref=f240e351]:
+    - generic [ref=f240e352]: §05
+    - text: 边界与判断
+  - paragraph [ref=f240e353]: 什么时候这套方案不适用，以及能带走什么
+  - generic [ref=f240e354]:
+    - img [ref=f240e355]:
+      - generic [ref=f240e357]: 边界与延伸
+      - generic [ref=f240e359]: 技术边界
+      - generic [ref=f240e360]: · 熵计算开销：DAS 采样时要对全部候选旧样本做一次前向推理
+      - generic [ref=f240e361]: （数万样本时不可忽视）——好在只在采样阶段执行一次，
+      - generic [ref=f240e362]: 不影响推理性能
+      - generic [ref=f240e363]: · 熵质量依赖模型状态：训练早期熵不准；模型过度自信时熵
+      - generic [ref=f240e364]: 普遍偏低、区分困难样本失效
+      - generic [ref=f240e365]: · 增强策略手工预定义：五类增强未必覆盖新词的独特声学
+      - generic [ref=f240e366]: 变异（如声调语言的基频模式变化）
+      - generic [ref=f240e367]: · 存储旧样本的隐私问题：量虽小，但医疗/金融等严格场景
+      - generic [ref=f240e368]: 可能完全不允许原始样本落盘
+      - generic [ref=f240e370]: 实验边界 + 延伸
+      - generic [ref=f240e371]: · 单一数据集：仅 GSC——英文短命令词；多字唤醒词（Hey
+      - generic [ref=f240e372]: Google）、声调语言、真实远场噪声均未验证
+      - generic [ref=f240e373]: · 对比不全：未与 PCL-KWS（动态架构）、MT-BT+CIL 等
+      - generic [ref=f240e374]: 2022 同期方法直接对比
+      - generic [ref=f240e375]: · 无存储预算扫描：固定 m 评估，缺 m=50/100/200/500
+      - generic [ref=f240e376]: 性能曲线——DAS 在不同资源约束下优势无法量化
+      - generic [ref=f240e377]: 延伸：按「遗忘风险」动态分配内存（而非均分）；RL/元学习
+      - generic [ref=f240e378]: 采样策略；与 PCL-KWS 动态架构结合；AutoAugment 搜索增强
+      - generic [ref=f240e379]: 可迁移判断：聪明的数据选择远比大量的数据存储重要——同预算下精心选 5 个困难样本胜过随机存 20 个；模型知识最脆弱的地方在决策边界，保护资源应向那里倾斜
+    - paragraph [ref=f240e380]: 图4 · 边界与延伸：熵采样开销与稳定性、增强手工设计、隐私、单一数据集验证（左）；缺同期对比与预算扫描、四个延伸方向（右）。
+  - generic [ref=f240e381]:
+    - generic [ref=f240e382]:
+      - generic [ref=f240e383]: 开销
+      - generic [ref=f240e384]: 熵采样要全量前向
+      - paragraph [ref=f240e385]: DAS 采样时须对全部候选旧样本跑一遍前向推理（数万样本时不可忽视）——好在只在采样阶段执行一次，不进推理路径。
+    - generic [ref=f240e386]:
+      - generic [ref=f240e387]: 稳定性
+      - generic [ref=f240e388]: 熵质量依赖模型状态
+      - paragraph [ref=f240e389]: 训练早期熵不准；模型过度自信时熵普遍偏低、区分难样本失效——熵准则本身没有鲁棒性保证。
+    - generic [ref=f240e390]:
+      - generic [ref=f240e391]: 覆盖
+      - generic [ref=f240e392]: 增强是手工设计的
+      - paragraph [ref=f240e393]: 五类增强未必覆盖新词的独特声学变异（如声调语言的基频模式变化）；存原始样本在医疗 / 金融等严格场景可能被隐私合规直接禁止。
+    - generic [ref=f240e394]:
+      - generic [ref=f240e395]: 验证
+      - generic [ref=f240e396]: 单一数据集
+      - paragraph [ref=f240e397]: 仅 GSC（英文短命令词）；多字唤醒词、声调语言、真实远场均未验证；未与 PCL-KWS、MT-BT+CIL 等 2022 同期方法对比；缺存储预算扫描（m=50/100/200/500 曲线）。
+  - generic [ref=f240e398]:
+    - heading "可迁移的判断" [level=3] [ref=f240e399]
+    - paragraph [ref=f240e400]: ↳ 聪明的数据选择远比大量的数据存储重要——同预算下精心选 5 个困难样本，胜过随机存 20 个。
+    - paragraph [ref=f240e401]: ↳ 模型知识最脆弱的位置在决策边界，保护资源应向那里倾斜；「选最典型的样本」直觉上对，实测保护收益最低。
+    - paragraph [ref=f240e402]: ↳ 回放（显式样本）+ 蒸馏（隐式软标签）是互补而非替代：前者精确保护关键点，后者模糊覆盖全空间——两层一起用才便宜又完整。
+    - paragraph [ref=f240e403]: ↳ 增强是免费的存储：一条样本加五种变体等于存储效率 ×6，这对一切「样本宝贵」的小样本场景（不只是 CIL）都成立。
+  - generic [ref=f240e404]:
+    - link "论文原文 · arXiv 2203.16361" [ref=f240e405] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2203.16361
+    - link "← 返回总目录" [ref=f240e406] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f240e407]: 论文精读 · 可视化版 · Rainbow Keywords（Interspeech 2022）· 数字为笔记记录约值，精确值以论文原表为准

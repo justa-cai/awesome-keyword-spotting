@@ -1,0 +1,297 @@
+- generic [active] [ref=f214e1]:
+  - generic [ref=f214e2]:
+    - link "← 返回论文列表" [ref=f214e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f214e4]: 论文精读 · 可视化版 · 2022 №20
+    - heading "增量学习的上限， 在基础训练时已经定死" [level=1] [ref=f214e5]: 增量学习的上限，在基础训练时已经定死
+    - generic [ref=f214e6]:
+      - generic [ref=f214e7]: MT-BT + AS-ES · arXiv 2204.12915
+      - generic [ref=f214e8]: 剑桥大学 × 新加坡管理大学
+      - generic [ref=f214e9]: 类别增量学习 / 灾难性遗忘
+      - generic [ref=f214e10]: GSC-12/35 + UrbanSound8K
+    - generic [ref=f214e11]: 现有 CIL 方法全部聚焦「增量阶段怎么补救遗忘」——治标。本文证明：如果基础模型的特征过拟合于基础类别，增量性能的上限已被卡死；从基础训练阶段下手，+4~5%。
+    - generic [ref=f214e12]:
+      - heading "一分钟版本" [level=3] [ref=f214e13]
+      - list [ref=f214e14]:
+        - listitem [ref=f214e15]: ▸ 场景：真实 KWS 产品的词表动态演进——今天 Ok Google，明天加自定义词。边缘三约束：旧类数据可能因隐私不可用、算力有限无法回放大量历史、增量须在端上完成。
+        - listitem [ref=f214e16]: ▸ 老方法的盲区：LwF 蒸馏 / Replay 回放 / EWC 正则全在增量阶段做文章；但如果基础特征提取器学到的是「恰好能区分这几个基础词」的最短路径（类别特有特征），新类必须复用它——无论增量阶段怎么补，上限已定。
+        - listitem [ref=f214e17]: ▸ MT-BT 机制：N 个基础类随机分 K 个子集，每子集独立分类头、共享 backbone——不同子任务梯度方向冲突，聚合时相互抵消，迫使提取器学「对所有子任务都有用的折中特征」= 更通用的音素级特征。
+        - listitem [ref=f214e18]: ▸ 负迁移的账：基础准确率可能低 0.5–1%（子任务冲突的代价），换增量阶段 +4–5%——总收益远大于基础损失。
+        - listitem [ref=f214e19]: ▸ AS-ES 早停：增量数据不平衡时固定轮次要么过拟合要么欠拟合（不同场景最优 10–200 epochs）；验证集 + patience 5–10 + best checkpoint——零额外开销，+1–2%。
+        - listitem [ref=f214e20]: ▸ 主结果：五种 CIL 策略上 MT-BT 一致 +3~5%，AS-ES 再 +1%；最强组合 MT-BT + AS-ES + LwF 达 90.5%（GSC-12，10 基础类 + 5 增量步）。
+        - listitem [ref=f214e21]: ▸ K 的甜点：K=1 退化单任务无增益；K=3–4 最优（+3~4%）；K≥6 每子集类太少、子任务太简单、梯度冲突不足。
+        - listitem [ref=f214e22]: ▸ 优势随增量步放大：第 1 步 +1% → 第 5 步 +3–5%——每加一个新类，好基础特征就多提供一次「便利」。
+        - listitem [ref=f214e23]: ▸ 任务无关：UrbanSound8K 上同样 3–5 点改进——不只语音 KWS，适用一般声音分类 CIL。
+        - listitem [ref=f214e24]: ▸ 边界：K 是经验超参无自动机制；基础训练开销 1.2–1.5×（推理零增量）；基础类只验证了 10 个（100+ 类时子任务可能仍太简单）；单一小 CNN 骨干；未与数据增强组合评估。
+    - heading "§01 问题：增量阶段的方法治标不治本" [level=2] [ref=f214e25]:
+      - generic [ref=f214e26]: §01
+      - text: 问题：增量阶段的方法治标不治本
+    - generic [ref=f214e27]: 基础模型的质量是增量学习性能的上限决定因素
+    - paragraph [ref=f214e28]: 单一分类任务联合训练 N 个基础类时，梯度方向是「最小化基础类别的分类误差」——模型寻找最容易区分这些类别的特征维度。如果某些声学特征（特定关键词的共振峰频率）恰好能完美区分基础类别，模型会过度依赖它们而忽略其他同样有用的维度。当新类别（stop、go）的声学特性与基础类别差异大时，共享提取器给不出有效表示。
+    - generic [ref=f214e29]:
+      - generic [ref=f214e30]:
+        - heading "灾难性遗忘 + 边缘约束" [level=4] [ref=f214e31]
+        - paragraph [ref=f214e32]: 学新类时新任务的梯度覆盖旧权重——旧类识别急剧退化；而边缘场景旧类原始数据可能不再可用（隐私法规）、设备无法存储回放大量历史、增量须在端上完成。
+      - generic [ref=f214e33]:
+        - heading "缺训练终止策略" [level=4] [ref=f214e34]
+        - paragraph [ref=f214e35]: 增量场景数据天然不平衡（新类样本少、回放样本有限）——不同场景最优训练轮次差异巨大（10 到 200 epochs），固定轮次在新类样本少时严重过拟合：新类准确率虚高、旧类急剧下降。
+    - heading "§02 方法：多任务基础训练 + 自适应早停" [level=2] [ref=f214e36]:
+      - generic [ref=f214e37]: §02
+      - text: 方法：多任务基础训练 + 自适应早停
+    - generic [ref=f214e38]: 根源层（MT-BT）+ 工程层（AS-ES）的配合
+    - generic [ref=f214e39]:
+      - img [ref=f214e40]:
+        - generic [ref=f214e42]: MT-BT：增量学习的上限，在基础训练时已经定死
+        - generic [ref=f214e43]: ① 场景与核心洞察
+        - generic [ref=f214e45]: 边缘 KWS 的增量约束 + 灾难性遗忘
+        - generic [ref=f214e46]: · 用户需求动态演进：今天 Ok Google，明天加自定义词
+        - generic [ref=f214e47]: · 旧类数据可能不可用（隐私法规禁长期存储）
+        - generic [ref=f214e48]: · 设备算力有限——无法存/回放大量历史数据
+        - generic [ref=f214e49]: · 增量须在端上完成，不能依赖云端
+        - generic [ref=f214e50]: · 学新词时梯度覆盖旧权重 → 对旧类识别急剧退化
+        - generic [ref=f214e52]: 核心洞察：良好的增量学习始于良好的基础模型
+        - generic [ref=f214e53]: 现有 CIL 方法（LwF 蒸馏 / Replay 回放 / EWC 正则）
+        - generic [ref=f214e54]: 全部聚焦增量阶段——治标
+        - generic [ref=f214e55]: 更根本的问题：基础特征提取器过拟合于基础类别——
+        - generic [ref=f214e56]: 学到「恰好能区分这几个词」的最短路径（类别特有特征），
+        - generic [ref=f214e57]: 新类必须复用它 → 无论增量阶段怎么补，上限已被卡死
+        - generic [ref=f214e58]: MT-BT 从根源入手：让基础特征本身更通用
+        - generic [ref=f214e59]: ② MT-BT：多任务基础训练——梯度冲突逼出通用特征
+        - generic [ref=f214e61]: 机制（式：θ ← θ − η·Σk ∇θ Lk）
+        - generic [ref=f214e62]: N 个基础类随机分 K 个子集（每子集 ≈N/K 类）
+        - generic [ref=f214e63]: 每个子集独立分类头（FC+softmax），共享同一 backbone
+        - generic [ref=f214e64]: 不同子任务梯度方向可能冲突——某特征维对子任务 1
+        - generic [ref=f214e65]: 有用但对子任务 2 无用/有害；聚合时冲突相互抵消，
+        - generic [ref=f214e66]: 迫使提取器找「对所有子任务都有用的折中特征」
+        - generic [ref=f214e67]: ——恰好是更通用、更具迁移性的声学特征
+        - generic [ref=f214e68]: （音素级，而非特定词汇级）
+        - generic [ref=f214e69]: 与 MAML 思想类似但更简单：无需内外循环优化
+        - generic [ref=f214e71]: 负迁移的账 + AS-ES 自适应早停
+        - generic [ref=f214e72]: 负迁移风险：子任务冲突可能让每个子任务都变差——
+        - generic [ref=f214e73]: 实测基础准确率低 0.5–1%，但换增量阶段 +4–5%，
+        - generic [ref=f214e74]: 总收益远大于基础损失
+        - generic [ref=f214e75]: AS-ES（工程层）：增量数据不平衡（新类样本少、回放样本
+        - generic [ref=f214e76]: 有限），固定轮次要么过拟合要么欠拟合——不同场景最优轮次
+        - generic [ref=f214e77]: 差异巨大（10 到 200 epochs）
+        - generic [ref=f214e78]: 做法：增量训练数据划 10–20% 做验证集，每 epoch 评估，
+        - generic [ref=f214e79]: 连续 P=5–10 个 epoch 无改善即停，保存最佳 checkpoint
+        - generic [ref=f214e80]: ——零额外计算开销，只多一个 patience 超参
+        - generic [ref=f214e81]: ③ 与现有 CIL 方法正交叠加
+        - generic [ref=f214e83]: 增量阶段策略（任选其一）
+        - generic [ref=f214e84]: LwF / EWC / GEM / Repl
+        - generic [ref=f214e85]: ay / 纯微调
+        - generic [ref=f214e87]: ＋ AS-ES 自适应早停
+        - generic [ref=f214e88]: 验证集 + patience + best
+        - generic [ref=f214e89]: checkpoint（+1%）
+        - generic [ref=f214e91]: ＋ MT-BT 基础训练 ★
+        - generic [ref=f214e92]: 多任务分解基础类别（+3–5%，上限决定因素
+        - generic [ref=f214e93]: ）
+        - generic [ref=f214e94]: MT-BT 不替代任何现有策略——作为「基础训练增强模块」叠加，与 4 种 CIL 策略的组合实验均验证一致增益
+        - generic [ref=f214e96]: +4~5%
+        - generic [ref=f214e97]: MT-BT 在各 CIL 策略上的增益
+        - generic [ref=f214e98]: 90.5%
+        - generic [ref=f214e99]: 最佳组合（MT-BT+AS-ES+LwF）
+        - generic [ref=f214e100]: K=3–4
+        - generic [ref=f214e101]: 子集数甜点
+        - generic [ref=f214e102]: 1.2–1.5×
+        - generic [ref=f214e103]: 基础训练开销（推理零增量）
+        - generic [ref=f214e104]: +1–2%
+        - generic [ref=f214e105]: AS-ES 额外收益
+        - generic [ref=f214e106]: 实验：GSC-12（10 基础类 + 5 增量步 × 每步 2 新类）/ GSC-35 / UrbanSound8K（10 类环境声，验证任务无关性）；骨干 3–4 层小 CNN 约 50K 参数
+      - paragraph [ref=f214e107]: 图1 · 机制全景：CIL 场景与「上限决定因素」洞察；MT-BT 的梯度冲突机制与负迁移的账；AS-ES 早停；与现有 CIL 方法正交叠加的三层结构。
+  - generic [ref=f214e108]:
+    - generic [ref=f214e109]: θ ← θ − η · Σ(k=1..K) ∇θ L_k(θ) （K 个子任务梯度聚合更新共享 backbone）
+    - generic [ref=f214e110]: 人话：把 N 个基础类随机分成 K 个子集，每个子集一个独立分类头，交替/混合训练——某个特征维对子任务 1 有用但对子任务 2 无用甚至有害，梯度聚合时冲突相互抵消，提取器被迫寻找对所有子任务都通用的折中特征。与 MAML 思想类似但无需内外循环，训练更简单。
+  - paragraph [ref=f214e111]: 正交叠加：MT-BT 不替代任何现有 CIL 策略——它是「基础训练增强模块」：MT-BT 提供更好的基础特征，LwF/EWC/GEM/Replay 在增量阶段各自保留旧知识，两者作用在不同阶段所以可叠加。推理时只用一个分类头，推理零增量。
+  - heading "§03 实验：五种 CIL 策略的一致增益" [level=2] [ref=f214e112]:
+    - generic [ref=f214e113]: §03
+    - text: 实验：五种 CIL 策略的一致增益
+  - generic [ref=f214e114]: GSC-12（10 基础类 + 5 增量步）+ UrbanSound8K
+  - generic [ref=f214e115]:
+    - img [ref=f214e116]:
+      - generic [ref=f214e118]: GSC-12 主对比（约 值）：MT-BT 对所有 CIL 策略一致增益
+      - generic [ref=f214e119]: "75"
+      - generic [ref=f214e120]: "80"
+      - generic [ref=f214e121]: "85"
+      - generic [ref=f214e122]: "90"
+      - generic [ref=f214e123]: "95"
+      - generic [ref=f214e127]: "75"
+      - generic [ref=f214e128]: "78"
+      - generic [ref=f214e129]: "79.0"
+      - generic [ref=f214e130]: Fine-tuning
+      - generic [ref=f214e131]: 下界
+      - generic [ref=f214e135]: "85"
+      - generic [ref=f214e136]: "89"
+      - generic [ref=f214e137]: "90.5"
+      - generic [ref=f214e138]: LwF
+      - generic [ref=f214e142]: "83"
+      - generic [ref=f214e143]: "86"
+      - generic [ref=f214e144]: "87.5"
+      - generic [ref=f214e145]: EWC
+      - generic [ref=f214e149]: "88"
+      - generic [ref=f214e150]: "91"
+      - generic [ref=f214e151]: "92.0"
+      - generic [ref=f214e152]: GEM
+      - generic [ref=f214e156]: "87"
+      - generic [ref=f214e157]: "90"
+      - generic [ref=f214e158]: "91.5"
+      - generic [ref=f214e159]: Replay
+      - generic [ref=f214e161]: 标准训练
+      - generic [ref=f214e163]: + MT-BT
+      - generic [ref=f214e165]: + MT-BT + AS-ES
+      - generic [ref=f214e166]: 平均增量准确率（%）· 10 基础类 + 5 增量步 × 每步 2 新类
+      - generic [ref=f214e167]: UrbanSound8K 上同样 3–5 点一致改进——任务无关（不只语音 KWS，也适用一般声音分类 CIL）；最强组合 MT-BT + AS-ES + LwF 达 90.5%
+    - paragraph [ref=f214e168]: 图2 · GSC-12 主对比（约 值）：五种 CIL 策略下标准训练 → +MT-BT → +MT-BT+AS-ES——一致 +3~5%，最强组合 90.5%；UrbanSound8K 同样有效（任务无关）。
+  - table [ref=f214e169]:
+    - rowgroup [ref=f214e170]:
+      - row [ref=f214e171]:
+        - columnheader "CIL 策略" [ref=f214e172]
+        - columnheader "标准训练" [ref=f214e173]
+        - columnheader "+MT-BT" [ref=f214e174]
+        - columnheader "+MT-BT+AS-ES" [ref=f214e175]
+        - columnheader "总增益" [ref=f214e176]
+      - row [ref=f214e177]:
+        - cell "Fine-tuning（下界）" [ref=f214e178]
+        - cell "~75%" [ref=f214e179]
+        - cell "~78%" [ref=f214e180]
+        - cell "~79%" [ref=f214e181]
+        - cell "+4%" [ref=f214e182]
+      - row [ref=f214e183]:
+        - cell "LwF" [ref=f214e184]
+        - cell "~85%" [ref=f214e185]
+        - cell "~89%" [ref=f214e186]
+        - cell "~90.5%" [ref=f214e187]
+        - cell "+5.5%" [ref=f214e188]
+      - row [ref=f214e189]:
+        - cell "EWC" [ref=f214e190]
+        - cell "~83%" [ref=f214e191]
+        - cell "~86%" [ref=f214e192]
+        - cell "~87.5%" [ref=f214e193]
+        - cell "+4.5%" [ref=f214e194]
+      - row [ref=f214e195]:
+        - cell "GEM" [ref=f214e196]
+        - cell "~88%" [ref=f214e197]
+        - cell "~91%" [ref=f214e198]
+        - cell "~92%" [ref=f214e199]
+        - cell "+4%" [ref=f214e200]
+      - row [ref=f214e201]:
+        - cell "Replay" [ref=f214e202]
+        - cell "~87%" [ref=f214e203]
+        - cell "~90%" [ref=f214e204]
+        - cell "~91.5%" [ref=f214e205]
+        - cell "+4.5%" [ref=f214e206]
+  - generic [ref=f214e207]:
+    - img [ref=f214e208]:
+      - generic [ref=f214e210]: 消融：子集数 K 的甜点 + 增益随增量步放大 + 早停
+      - generic [ref=f214e211]: 子集数 K vs 增益
+      - generic [ref=f214e212]: "+0"
+      - generic [ref=f214e213]: "+1"
+      - generic [ref=f214e214]: "+2"
+      - generic [ref=f214e215]: "+3"
+      - generic [ref=f214e216]: "+4"
+      - generic [ref=f214e228]: "1"
+      - generic [ref=f214e229]: "2"
+      - generic [ref=f214e230]: "3"
+      - generic [ref=f214e231]: "6"
+      - generic [ref=f214e232]: "10"
+      - generic [ref=f214e233]: 子集数 K（每个子集的类别数 = N/K）
+      - generic [ref=f214e235]: K=3–4 最优；K=1 退化单任务；
+      - generic [ref=f214e236]: K≥6 子任务太简单（梯度冲突不足）
+      - generic [ref=f214e237]: 优势随增量步数放大
+      - generic [ref=f214e243]: +1%
+      - generic [ref=f214e244]: 步1
+      - generic [ref=f214e246]: +2%
+      - generic [ref=f214e247]: 步2
+      - generic [ref=f214e249]: +2%
+      - generic [ref=f214e250]: 步3
+      - generic [ref=f214e252]: +3%
+      - generic [ref=f214e253]: 步4
+      - generic [ref=f214e255]: +4%
+      - generic [ref=f214e256]: 步5
+      - generic [ref=f214e257]: 每加一个新类，好基础特征就多「便利」一次
+      - generic [ref=f214e258]: AS-ES 早停
+      - generic [ref=f214e260]: 固定 50 epochs（新类样本少时）
+      - generic [ref=f214e261]: 旧类准确率急剧下降——过拟合
+      - generic [ref=f214e263]: AS-ES：样本多 → 自动 ~20 ep
+      - generic [ref=f214e264]: 样本少 → 5–8 ep 快速终止
+      - generic [ref=f214e265]: 净收益 +1–2 个百分点
+      - generic [ref=f214e266]: 另：随机划分 vs 按声学相似度划分差异 <0.5%——随机化已保证子集类别多样性，足以产生有效梯度冲突
+    - paragraph [ref=f214e267]: 图3 · 消融：子集数 K 的甜点（3–4 最优，K≥6 子任务太简单）；优势随增量步数放大（第 1 步 +1% → 第 5 步 3–5%）；AS-ES vs 固定 50 epochs。
+  - generic [ref=f214e268]:
+    - img [ref=f214e269]:
+      - generic [ref=f214e271]: 「预防优于治疗」+ 边界
+      - generic [ref=f214e272]: 基础特征质量 = 增量学习的上限（示意）
+      - generic [ref=f214e274]: "70"
+      - generic [ref=f214e275]: "80"
+      - generic [ref=f214e276]: "90"
+      - generic [ref=f214e287]: 标准基础训练
+      - generic [ref=f214e288]: MT-BT 基础训练
+      - generic [ref=f214e289]: "0"
+      - generic [ref=f214e290]: "1"
+      - generic [ref=f214e291]: "2"
+      - generic [ref=f214e292]: "3"
+      - generic [ref=f214e293]: "4"
+      - generic [ref=f214e294]: "5"
+      - generic [ref=f214e295]: 增量步骤（同一增量策略 LwF 下）
+      - generic [ref=f214e296]: 差距随步骤拉大：第 1 步 ~1 点 → 第 5 步 3–5 点
+      - generic [ref=f214e298]: 边界
+      - generic [ref=f214e299]: · K 是经验超参：3–4 最优但无自动确定机制；极端划分
+      - generic [ref=f214e300]: （声学极相似的类被分开）可能产生过多梯度冲突
+      - generic [ref=f214e301]: · 基础训练开销 1.2–1.5×（K 个分类头分别算损失梯度）；
+      - generic [ref=f214e302]: 推理只用一个分类头——推理零增量
+      - generic [ref=f214e303]: · 基础类只有 10 个：100+ 类时 K=4 每子集仍有 25+ 类，
+      - generic [ref=f214e304]: 子任务可能仍太简单（可扩展性未验证）
+      - generic [ref=f214e305]: · 单一小 CNN 骨干（3–4 层 50K）：Transformer / 更深网络
+      - generic [ref=f214e306]: 对基础训练策略的敏感度可能不同
+      - generic [ref=f214e307]: · 未与数据增强组合评估：SpecAugment/噪声增强本身是正则，
+      - generic [ref=f214e308]: 与 MT-BT 的隐式正则可能协同也可能冗余
+      - generic [ref=f214e309]: 可迁移判断（预防优于治疗）：所有需要持续学习的 AI 系统，都应在基础训练阶段投入更多精力优化特征表示（多任务/增强/预训练），而非仅在增量阶段修补遗忘
+    - paragraph [ref=f214e310]: 图4 · 上限示意 + 边界：同一增量策略下标准 vs MT-BT 基础模型的准确率轨迹（示意形态，差距随步骤拉大）；K 经验性、训练开销、可扩展性等边界。
+  - heading "§04 贡献：四条" [level=2] [ref=f214e311]:
+    - generic [ref=f214e312]: §04
+    - text: 贡献：四条
+  - generic [ref=f214e313]:
+    - generic [ref=f214e314]:
+      - generic [ref=f214e315]: "1"
+      - paragraph [ref=f214e316]: 重新审视基础训练阶段：首次系统性证明「基础模型训练质量对增量学习性能的决定性影响」——此前研究几乎全部集中在增量阶段的遗忘缓解。
+    - generic [ref=f214e317]:
+      - generic [ref=f214e318]: "2"
+      - paragraph [ref=f214e319]: 多任务学习提升特征泛化性：梯度冲突逼出通用特征——简单（K 个独立分类头）、通用（与任何 CIL 策略兼容）、推理零成本。
+    - generic [ref=f214e320]:
+      - generic [ref=f214e321]: "3"
+      - paragraph [ref=f214e322]: 自适应早停的实用性：解决实际部署「不知道训练多少轮才够」——数据不平衡下 +1–2%。
+    - generic [ref=f214e323]:
+      - generic [ref=f214e324]: "4"
+      - paragraph [ref=f214e325]: 正交叠加性验证：与 4 种 CIL 策略组合均一致增益（3–5%），证明通用性；UrbanSound8K 上同样有效。
+  - heading "§05 局限与边界" [level=2] [ref=f214e326]:
+    - generic [ref=f214e327]: §05
+    - text: 局限与边界
+  - generic [ref=f214e328]: 预防的代价与验证范围
+  - generic [ref=f214e329]:
+    - generic [ref=f214e330]:
+      - heading "K 是经验决策" [level=4] [ref=f214e331]
+      - paragraph [ref=f214e332]: K=3–4 在大多数场景最优但无自动确定机制；极端情况下（声学极相似的两类被分到不同子集）可能产生过多梯度冲突、降低训练效率。
+    - generic [ref=f214e333]:
+      - heading "训练开销与可扩展性" [level=4] [ref=f214e334]
+      - paragraph [ref=f214e335]: 基础训练需同时训 K 个分类头（1.2–1.5× 计算量）；基础类只验证 10 个——100+ 类时 K=4 每子集仍有 25+ 类，子任务可能仍太简单，可扩展性未知。
+    - generic [ref=f214e336]:
+      - heading "骨干单一" [level=4] [ref=f214e337]
+      - paragraph [ref=f214e338]: 全部实验用 3–4 层小 CNN（约 50K 参数）——Transformer 或更深 CNN 的冗余参数更多，对基础训练策略的敏感度可能不同。
+    - generic [ref=f214e339]:
+      - heading "未与数据增强组合评估" [level=4] [ref=f214e340]
+      - paragraph [ref=f214e341]: SpecAugment/噪声增强本身是正则化手段，与 MT-BT 的隐式正则可能协同也可能冗余——组合效果未测；主表数字为约值，无方差报告。
+  - generic [ref=f214e342]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f214e343]
+    - list [ref=f214e344]:
+      - listitem [ref=f214e345]: ↳ 预防优于治疗：持续学习系统的上限由基础模型质量决定——基础训练阶段投资特征表示（多任务/增强/预训练）比增量阶段修补遗忘回报更高。
+      - listitem [ref=f214e346]: ↳ 梯度冲突是特性不是缺陷：子任务间的目标冲突在聚合时相互抵消，逼出「对所有任务都有用的折中特征」——这正是迁移性的来源。
+      - listitem [ref=f214e347]: ↳ 接受小幅基础性能损失换大幅下游增益：0.5–1% 的基础掉点换 4–5% 的增量增益——评价多任务训练要看全生命周期，不只看基础任务。
+      - listitem [ref=f214e348]: ↳ 子任务难度要适中：任务太简单（每子集类太少）梯度冲突不足、正则失效；任务太难（K=1 退化单任务）没有冲突——甜点在中间。
+      - listitem [ref=f214e349]: ↳ 数据不平衡下「训练多少轮」本身是个超参：验证集 + patience 早停是最便宜的自适应方案，任何增量/微调流程都该默认带上。
+  - generic [ref=f214e350]:
+    - link "论文原文 ↗" [ref=f214e351] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2204.12915
+    - link "笔记全文 ↗" [ref=f214e352] [cursor=pointer]:
+      - /url: Improving_Feature_Generalizability_with_Multitask_Learning_in_Class_Incremental_Learning.md
+    - link "返回列表" [ref=f214e353] [cursor=pointer]:
+      - /url: ../index.html

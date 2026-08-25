@@ -1,0 +1,289 @@
+- generic [active] [ref=f193e1]:
+  - generic [ref=f193e2]:
+    - link "← 返回论文列表" [ref=f193e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f193e4]: 论文精读 · 可视化版 · 2022 №10
+    - heading "砍掉八成注意力计算，精度几乎不掉： 免训练的 Delta 剪枝怎么做到" [level=1] [ref=f193e5]: 砍掉八成注意力计算，精度几乎不掉：免训练的 Delta 剪枝怎么做到
+    - generic [ref=f193e6]:
+      - generic [ref=f193e7]: Delta-KWT · tinyML Research Symposium 2022
+      - generic [ref=f193e8]: DTU × Demant × 鲁汶大学
+      - generic [ref=f193e9]: 特征维度级动态剪枝 MHSA
+      - generic [ref=f193e10]: KWT-1 · GSC V1-12
+    - generic [ref=f193e11]: 语音相邻帧频谱相关系数 >0.95——这个被忽略 30 年的老事实，成了 Transformer KWS 边缘部署的杠杆：推理时逐维度判断「变没变」，没变的直接复用前一帧。
+    - generic [ref=f193e12]:
+      - heading "一分钟版本" [level=3] [ref=f193e13]
+      - list [ref=f193e14]:
+        - listitem [ref=f193e15]: ▸ 瓶颈：KWT 系列 GSC-12 到 98.4%，但 MHSA 复杂度 O(N²·d)——N=40、d=64 单层约 102,400 次乘加，叠 12 层后吃掉推理的 60–80%。
+        - listitem [ref=f193e16]: ▸ 三类老剪枝的不足：结构化/幅度剪枝需要重训（离线、不能按输入动态调）；token 级/头级剪枝「全有或全无」（一帧里判别信息和噪声混着，留不下有用的一半）；非结构化稀疏需要专用硬件（Cortex-M 上条件分支打乱流水线，可能比密集计算还慢）。
+        - listitem [ref=f193e17]: "▸ 核心机制：δt[j] = |x_t[j] − x_{t−1}[j]|，小于阈值 τ 的特征维度直接复用前一帧的计算结果——递归应用于 Q/K/V 投影、注意力分数、加权求和三个子步骤。"
+        - listitem [ref=f193e18]: ▸ 思想来源：delta cepstrum 是 ASR 经典概念——语音的判别信息在「变化」而非「绝对值」中，相邻帧的「不变部分」是冗余的。
+        - listitem [ref=f193e19]: ▸ 核心结果：80% 操作减少时仍 98.4%（损失 <0.1 点，理论 4.2×）；87–94% 减少时损 1–4 点（理论 7.5–16×）。
+        - listitem [ref=f193e20]: ▸ 免训练五连：不改架构、免校准数据、免微调、即插即用（任何预训练 KWT 直接加载）、τ 运行时可调（电量/CPU 负载实时权衡精度与效率）。
+        - listitem [ref=f193e21]: ▸ 硬件友好：判断只需比较指令（Cortex-M 单周期）；输出仍是密集张量不是稀疏矩阵；内存访问规则；额外存储只有前一帧向量 + d 个布尔。
+        - listitem [ref=f193e22]: ▸ 消融：冗余不均匀——底层（层 1–4）可跳 85–90%（低级声学特征变化慢），高层（层 9–12）只有 70–75%（语义特征变化频繁）；元音稳态段可跳 80–90%，辅音过渡段降到 30–50%。
+        - listitem [ref=f193e23]: ▸ 细粒度的价值：同 80% 目标下比 token 级剪枝高 3–5 个点——token 级要完全跳过 32/40 帧，Delta 每帧保留 20% 关键变化维度。
+        - listitem [ref=f193e24]: ▸ 边界：加速比是操作计数估计非实测；快速语速/爆破音密集词的可跳比例下降；噪声会拉大帧间差异（未评估）；近似误差会累积；只在 KWT-1 一个模型上验证。
+    - heading "§01 问题：MHSA 是边缘部署的账单大头" [level=2] [ref=f193e25]:
+      - generic [ref=f193e26]: §01
+      - text: 问题：MHSA 是边缘部署的账单大头
+    - generic [ref=f193e27]: O(N²) 的注意力 × 语音的短时稳定性 = 被浪费的八成计算
+    - paragraph [ref=f193e28]: Transformer KWS 的精度优势建立在 MHSA 的全局建模上——区分「yes」和「yet」这类局部相似、全局时间结构不同的词正需要它。但二次复杂度让 12 层模型的 MHSA 占掉推理计算的六到八成。而语音信号有一个被现有剪枝方法系统性忽略的物理特性：短时稳定性——10ms 帧移内相邻帧频谱的相关系数通常 >0.95，相邻帧的注意力计算里藏着大量重复。
+    - generic [ref=f193e29]:
+      - generic [ref=f193e30]:
+        - heading "剪枝要重训 = 没法按输入动态调" [level=4] [ref=f193e31]
+        - paragraph [ref=f193e32]: 不同输入样本的计算难度不同（安静语音比噪声语音更「规则」、冗余更多），但结构化/幅度剪枝是离线一次性动作，剪完还要微调恢复——推理时动不了。
+      - generic [ref=f193e33]:
+        - heading "稀疏计算 ≠ 通用硬件加速" [level=4] [ref=f193e34]
+        - paragraph [ref=f193e35]: 非结构化剪枝产生随机分布的零值，需要稀疏张量核心或定制加速器；在 ARM Cortex-M 上要引入大量条件分支和间接索引，实际加速远低于理论值，甚至更慢。
+    - heading "§02 方法：逐维度判断「变没变」，没变就复用" [level=2] [ref=f193e36]:
+      - generic [ref=f193e37]: §02
+      - text: 方法：逐维度判断「变没变」，没变就复用
+    - generic [ref=f193e38]: delta 特征的经典直觉 × MHSA 的三个子步骤
+    - generic [ref=f193e39]:
+      - img [ref=f193e40]:
+        - generic [ref=f193e42]: Delta-KWT：把「delta 特征」的老直觉搬进 MHSA 推理
+        - generic [ref=f193e43]: ① 瓶颈：MHSA 占 Transformer KWS 推理的 60–80%
+        - generic [ref=f193e45]: 二次复杂度账
+        - generic [ref=f193e46]: 长度 N=40 帧、维度 d=64：单层 MHSA 约
+        - generic [ref=f193e47]: 40² × 64 = 102,400 次乘加 + O(N²) 存储
+        - generic [ref=f193e48]: KWT 系列 GSC-12 到 98.4%，但叠 12 层后
+        - generic [ref=f193e49]: MHSA 吃掉六到八成推理计算
+        - generic [ref=f193e51]: 现有剪枝的三类不足
+        - generic [ref=f193e52]: 需重训：结构化/幅度剪枝后要微调恢复——离线、
+        - generic [ref=f193e53]: 耗时，无法按输入动态调整
+        - generic [ref=f193e54]: 粗粒度：token 级/头级「全有或全无」——一帧里
+        - generic [ref=f193e55]: 判别信息和噪声混着，留不下「有用的一半」
+        - generic [ref=f193e56]: 需专用硬件：非结构化稀疏在 Cortex-M 上要条件
+        - generic [ref=f193e57]: 分支 + 间接索引，实际比密集计算还慢——而语音的短时稳定性（相邻帧频谱相关系数 >0.95）一直没人系统性利用
+        - generic [ref=f193e58]: ② 核心机制：特征维度级的 delta 阈值剪枝
+        - generic [ref=f193e60]: 判断 + 传播（逐维度）
+        - generic [ref=f193e61]: δt[j] = | x_t[j] − x_t−1[j] |
+        - generic [ref=f193e62]: δt[j] < τ → 该维度复用 x_t−1 的结果
+        - generic [ref=f193e63]: δt[j] ≥ τ → 正常计算（保留「关键变化」）
+        - generic [ref=f193e64]: 递归应用到 MHSA 所有子步骤：
+        - generic [ref=f193e65]: ① Q/K/V 投影：被跳维度直接用前一 token 的
+        - generic [ref=f193e66]: 对应值——省投影矩阵乘法
+        - generic [ref=f193e67]: ② 注意力分数 St = QtK^T/√dk：Q 变化小，
+        - generic [ref=f193e68]: St 与 St−1 差异同步减小
+        - generic [ref=f193e69]: ③ 注意力加权求和：进一步省计算
+        - generic [ref=f193e70]: 累积效应：稳定段内只有第一帧要完整算，
+        - generic [ref=f193e71]: 后续帧大多数维度一路「传递」下去
+        - generic [ref=f193e73]: 为什么信号处理出身的人会想到这招
+        - generic [ref=f193e74]: delta cepstrum / delta-delta cepstrum 是 ASR 老
+        - generic [ref=f193e75]: 家伙：一阶/二阶差分倒谱捕获语音动态
+        - generic [ref=f193e76]: 隐含假设：语音的判别信息在「变化」而非
+        - generic [ref=f193e77]: 「绝对值」中，相邻帧的「不变部分」是冗余的
+        - generic [ref=f193e78]: 把这个直觉搬到推理：相邻 token 特征差异小
+        - generic [ref=f193e79]: → MHSA 结果也相似 → 跳过小变化的计算，
+        - generic [ref=f193e80]: 直接复用前一帧结果
+        - generic [ref=f193e81]: 细粒度收益：同一帧内「选择性计算」——稳定
+        - generic [ref=f193e82]: 维度跳过、变化维度保留，token 级剪不到这一层
+        - generic [ref=f193e83]: ③ 免训练 + 硬件友好：推理时优化，不动模型一根毫毛
+        - generic [ref=f193e85]: 五个「无需」
+        - generic [ref=f193e86]: · 无需改架构：层数/头数/维度全不动
+        - generic [ref=f193e87]: · 无需校准数据：不统计权重重要性分布
+        - generic [ref=f193e88]: · 无需微调/重训：零训练过程
+        - generic [ref=f193e89]: · 即插即用：直接加载任何预训练 KWT
+        - generic [ref=f193e90]: · 动态可调：τ 运行时设置——高资源小 τ 高精度，
+        - generic [ref=f193e91]: · 低电量大 τ 高效率（一档旋钮两用）
+        - generic [ref=f193e93]: 为什么通用 CPU 就能跑
+        - generic [ref=f193e94]: · 判断只用比较指令（|δ| < τ）——Cortex-M 上
+        - generic [ref=f193e95]: · 单周期指令，全处理器最高效的一类
+        - generic [ref=f193e96]: · 输出仍是密集张量（跳过=替换成前帧值），不是
+        - generic [ref=f193e97]: · 不规则稀疏矩阵——不需要稀疏加速硬件
+        - generic [ref=f193e98]: · 内存访问模式规则（连续帧顺序处理），缓存友好
+        - generic [ref=f193e99]: · 额外存储极小：前一帧特征向量 + d 个布尔值
+        - generic [ref=f193e101]: 80% ↓ops
+        - generic [ref=f193e102]: 仍 98.4%（损失 <0.1 点）
+        - generic [ref=f193e103]: 4.2×
+        - generic [ref=f193e104]: 该点理论加速
+        - generic [ref=f193e105]: 94% ↓ops
+        - generic [ref=f193e106]: ~95.0%（损 ~3.4 点）
+        - generic [ref=f193e107]: 16×
+        - generic [ref=f193e108]: 该点理论加速
+        - generic [ref=f193e109]: +3~5
+        - generic [ref=f193e110]: vs token 级剪枝（同 80% 目标）
+        - generic [ref=f193e111]: 平台：预训练 KWT-1（12 层 Transformer 编码器，8 头 × 8 维，GSC V1-12 约 65,000 条 1 秒样本）；τ ∈ [0.01, 0.1]，权衡曲线平滑无突变点
+      - paragraph [ref=f193e112]: 图1 · 机制全景：MHSA 二次复杂度账 + 三类老剪枝的不足；核心的 delta 阈值判断与递归传播（Q/K/V 投影 → 注意力分数 → 加权求和）；免训练五连 + 硬件友好设计。
+  - generic [ref=f193e113]:
+    - generic [ref=f193e114]:
+      - text: δt[j] = | x
+      - subscript [ref=f193e115]: t
+      - text: "[j] − x"
+      - subscript [ref=f193e116]: t−1
+      - text: "[j] | → δt[j] < τ 则 x"
+      - subscript [ref=f193e117]: t
+      - text: "[j] 复用 x"
+      - subscript [ref=f193e118]: t−1
+      - text: "[j] 的计算结果"
+    - generic [ref=f193e119]: 人话：对每个特征维度做一次绝对差比较——差异小于阈值就认为「这个维度没变，前面的计算结果还能用」。替换在 MHSA 内部递归发生：Q/K/V 投影省矩阵乘、注意力分数差异同步缩小、加权求和跟着省。连续稳定段（元音稳态）内只有第一帧要完整算，后续帧大多数维度一路传递下去。
+  - paragraph [ref=f193e120]: 为什么维度级比 token 级强：一个时间帧往往一半是判别信息一半是噪声——token 级剪枝只能整帧留或整帧丢，Delta 在帧内做「选择性计算」：稳定维度跳过、变化维度保留。同 80% 操作减少目标下，token 级要完全跳过 40 帧里的 32 帧（严重信息丢失），Delta 每帧保留 20% 关键变化——这就是 3–5 个点差距的来源。
+  - heading "§03 实验：KWT-1 上的精度-效率权衡" [level=2] [ref=f193e121]:
+    - generic [ref=f193e122]: §03
+    - text: 实验：KWT-1 上的精度-效率权衡
+  - generic [ref=f193e123]: 预训练模型直接加载，一个阈值旋钮扫出整条曲线
+  - generic [ref=f193e124]:
+    - img [ref=f193e125]:
+      - generic [ref=f193e127]: 核心结果：操作减少 vs 准确率（KWT-1 · GSC V1-12）
+      - generic [ref=f193e128]: "94"
+      - generic [ref=f193e129]: "95"
+      - generic [ref=f193e130]: "96"
+      - generic [ref=f193e131]: "97"
+      - generic [ref=f193e132]: "98"
+      - generic [ref=f193e133]: "99"
+      - generic [ref=f193e134]: "100"
+      - generic [ref=f193e135]: 0%
+      - generic [ref=f193e136]: 20%
+      - generic [ref=f193e137]: 40%
+      - generic [ref=f193e138]: 60%
+      - generic [ref=f193e139]: 80%
+      - generic [ref=f193e140]: 100%
+      - generic [ref=f193e145]: 原始 98.4
+      - generic [ref=f193e147]: 80%↓ 仍 ~98.4（<0.1 损失）
+      - generic [ref=f193e149]: ~97.5 · 7.5×
+      - generic [ref=f193e151]: ~96.5 · 10×
+      - generic [ref=f193e153]: ~95.0 · 16×
+      - generic [ref=f193e155]: 横轴：被跳过的乘加操作占比 · 纵轴：准确率（%）· 标注为理论加速比
+      - generic [ref=f193e157]: 80% 操作确实是冗余的——且冗余源于
+      - generic [ref=f193e158]: 语音的时间连续性，而非模型设计冗余
+      - generic [ref=f193e159]: （87–94% 区间损 1–4 点，7.5–16×）
+      - generic [ref=f193e160]: 注意：加速比为基于操作计数的理论估计——Delta 判断本身的开销、前帧缓存的读写、条件分支对流水线的影响未实测（论文无实机延迟）
+    - paragraph [ref=f193e161]: 图2 · 核心结果：操作减少比例 vs 准确率——80% 减少仍 98.4%（<0.1 点损失，理论 4.2×），94% 减少损 ~3.4 点（理论 16×）。
+  - table [ref=f193e162]:
+    - rowgroup [ref=f193e163]:
+      - row [ref=f193e164]:
+        - columnheader "操作减少" [ref=f193e165]
+        - columnheader "准确率（%）" [ref=f193e166]
+        - columnheader "理论加速比" [ref=f193e167]
+        - columnheader "准确率损失" [ref=f193e168]
+      - row [ref=f193e169]:
+        - cell "0%（原始）" [ref=f193e170]
+        - cell "98.4" [ref=f193e171]
+        - cell "1.0×" [ref=f193e172]
+        - cell "0" [ref=f193e173]
+      - row [ref=f193e174]:
+        - cell "80%" [ref=f193e175]
+        - cell "~98.4" [ref=f193e176]
+        - cell "4.2×" [ref=f193e177]
+        - cell "<0.1" [ref=f193e178]
+      - row [ref=f193e179]:
+        - cell "87%" [ref=f193e180]
+        - cell "~97.5" [ref=f193e181]
+        - cell "7.5×" [ref=f193e182]
+        - cell "~0.9" [ref=f193e183]
+      - row [ref=f193e184]:
+        - cell "90%" [ref=f193e185]
+        - cell "~96.5" [ref=f193e186]
+        - cell "10×" [ref=f193e187]
+        - cell "~1.9" [ref=f193e188]
+      - row [ref=f193e189]:
+        - cell "94%" [ref=f193e190]
+        - cell "~95.0" [ref=f193e191]
+        - cell "16×" [ref=f193e192]
+        - cell "~3.4" [ref=f193e193]
+  - paragraph [ref=f193e194]: 关键读数：80% 操作减少几乎无损——说明语音里八成的 MHSA 计算确实是冗余的，且冗余源于时间连续性而非模型设计。阈值 τ 在 [0.01, 0.1] 内权衡曲线平滑无突变点，部署时不需要精确定位某个「最优」阈值。
+  - generic [ref=f193e195]:
+    - img [ref=f193e196]:
+      - generic [ref=f193e198]: 消融：冗余长在哪几层 + 细粒度为什么赢
+      - generic [ref=f193e199]: 各层可跳过比例（12 层 KWT-1）
+      - generic [ref=f193e201]: ~88%
+      - generic [ref=f193e202]: 层 1–4（近输入）
+      - generic [ref=f193e203]: 低级声学特征变化慢
+      - generic [ref=f193e205]: ~80%
+      - generic [ref=f193e206]: 层 5–8（中层）
+      - generic [ref=f193e208]: ~72%
+      - generic [ref=f193e209]: 层 9–12（近输出）
+      - generic [ref=f193e210]: 语义特征变化频繁
+      - generic [ref=f193e211]: 与「层次化信息处理」一致：低层管缓慢变化的
+      - generic [ref=f193e212]: 声学特征，高层管快速变化的语义——冗余不是均匀的
+      - generic [ref=f193e213]: 稳态 vs 过渡 + 细粒度对比
+      - generic [ref=f193e214]: 语音段类型决定可跳比例：
+      - generic [ref=f193e216]: 85%
+      - generic [ref=f193e217]: 差异主要来自频谱随机波动，可跳 80–90%
+      - generic [ref=f193e219]: 40%
+      - generic [ref=f193e220]: 判别信息密集，可跳降到 30–50%
+      - generic [ref=f193e222]: vs token 级剪枝（同 80% 目标）
+      - generic [ref=f193e223]: token 级：要完全跳过 40 帧里的 32 帧——
+      - generic [ref=f193e224]: 整帧信息直接丢，准确率低 3–5 个点
+      - generic [ref=f193e225]: Delta 级：每帧只跳 80% 特征维度，保留 20%
+      - generic [ref=f193e226]: 关键变化——「留下有用的一半」才可能
+      - generic [ref=f193e227]: 另：vs 静态幅度剪枝——Delta 保留的是「关键变化」（δ 大的维度）而非随机保留；静态剪枝可能剪掉权重小但对变化敏感的关键连接
+    - paragraph [ref=f193e228]: 图3 · 消融：冗余的分布不均匀——底层可跳 85–90%、高层 70–75%；元音稳态段 80–90% vs 辅音过渡段 30–50%；与 token 级剪枝的细粒度对比。
+  - generic [ref=f193e229]:
+    - img [ref=f193e230]:
+      - generic [ref=f193e232]: 边界：这招什么时候不灵 + 正交组合空间
+      - generic [ref=f193e234]: 五个边界
+      - generic [ref=f193e235]: · 依赖时间稳定性：快速语速、爆破音密集词（stop/go）
+      - generic [ref=f193e236]: 相邻帧差异大 → 可跳比例降、加速减弱；
+      - generic [ref=f193e237]: 跳变信号场景可能无显著加速
+      - generic [ref=f193e238]: · 加速比是操作计数估计，非实测：判断开销 + 前帧
+      - generic [ref=f193e239]: 缓存读写 + 条件分支打乱流水线，三项都没上机验证
+      - generic [ref=f193e240]: · 噪声未评估：噪声随机波动会拉大相邻帧差异，
+      - generic [ref=f193e241]: 可跳比例降——重要场景缺实验
+      - generic [ref=f193e242]: · 递归替换的近似误差随序列增长在层间/帧间累积，
+      - generic [ref=f193e243]: 长期效应无系统分析
+      - generic [ref=f193e244]: · 只在 KWT-1 验证（12 层 8 头 64 维）；更大模型
+      - generic [ref=f193e245]: （KWT-3 约 3M / AST-Base 约 85M）冗余度可能不同
+      - generic [ref=f193e247]: 正交组合空间
+      - generic [ref=f193e248]: 量化：减少每次操作的开销
+      - generic [ref=f193e249]: × Delta：减少要执行的操作数
+      - generic [ref=f193e250]: 联合应用初步估算：50–100× 综合加速
+      - generic [ref=f193e251]: （论文未做，方向声明）
+      - generic [ref=f193e253]: 改进方向
+      - generic [ref=f193e254]: · 自适应阈值：按帧间差异统计量动态调 τ
+      - generic [ref=f193e255]: （稳态段大 τ 多剪、过渡段小 τ 保信息）
+      - generic [ref=f193e256]: · 学习型判断：小网络替代阈值比较，更准地
+      - generic [ref=f193e257]: 识别真冗余
+      - generic [ref=f193e258]: · 扩展到长序列任务：ASR / 语音翻译动辄数百帧，
+      - generic [ref=f193e259]: Delta 的加速潜力更大
+      - generic [ref=f193e260]: · 阈值搜索自动化：给定目标准确率约束反解 τ
+      - generic [ref=f193e261]: 可迁移洞见：KWS 推理时的计算冗余是「有结构的、可预测的」——结构源于输入的物理特性（时间连续性），不是模型结构的偶然；基于输入特性的动态优化是一整类被低估的方法
+    - paragraph [ref=f193e262]: 图4 · 边界与正交组合：五个边界（依赖时间稳定性、理论加速未实测、噪声未评估、误差累积、单模型验证）+ 与量化正交组合的 50–100× 估算。
+  - heading "§04 贡献：四条" [level=2] [ref=f193e263]:
+    - generic [ref=f193e264]: §04
+    - text: 贡献：四条
+  - generic [ref=f193e265]:
+    - generic [ref=f193e266]:
+      - generic [ref=f193e267]: "1"
+      - paragraph [ref=f193e268]: 首个特征维度级的 MHSA 动态剪枝：把「delta 计算」这一经典信号处理概念（判别信息在变化而非绝对值中）接进现代 Transformer 推理。
+    - generic [ref=f193e269]:
+      - generic [ref=f193e270]: "2"
+      - paragraph [ref=f193e271]: 即插即用的模型后处理：任何预训练 Transformer 直接加载，一个超参数（τ）在精度与效率间连续权衡——工业部署时间从数小时缩短到零。
+    - generic [ref=f193e272]:
+      - generic [ref=f193e273]: "3"
+      - paragraph [ref=f193e274]: 极致操作减少：80% 减少保 98.4%（4.2×），87–94% 减少仅损 1–4 点（7.5–16×），远超同期动态剪枝方法。
+    - generic [ref=f193e275]:
+      - generic [ref=f193e276]: "4"
+      - paragraph [ref=f193e277]: 纯比较操作的硬件友好设计：不需要任何专用硬件即可在通用处理器上实现。
+  - heading "§05 局限与边界" [level=2] [ref=f193e278]:
+    - generic [ref=f193e279]: §05
+    - text: 局限与边界
+  - generic [ref=f193e280]: 对时间稳定性的依赖是双刃剑
+  - generic [ref=f193e281]:
+    - generic [ref=f193e282]:
+      - heading "输入越跳变，加速越弱" [level=4] [ref=f193e283]
+      - paragraph [ref=f193e284]: 快速语速、爆破音密集的关键词（stop/go）相邻帧差异大，可跳比例降低；跳变信号场景可能无显著加速——方法本质上在「赌」输入平稳。
+    - generic [ref=f193e285]:
+      - heading "理论加速 ≠ 实测加速" [level=4] [ref=f193e286]
+      - paragraph [ref=f193e287]: 4.2–16× 是操作计数估计；判断指令开销、前帧缓存读写、条件分支对流水线的影响都未在 Cortex-M4/RISC-V 等实机上测端到端延迟，功耗能量数据也没有。
+    - generic [ref=f193e288]:
+      - heading "噪声场景未评估" [level=4] [ref=f193e289]
+      - paragraph [ref=f193e290]: 全部实验在干净条件下做。噪声的随机波动会拉大相邻帧差异、降低可跳比例——对常驻 KWS 这是关键场景，缺实验。
+    - generic [ref=f193e291]:
+      - heading "误差累积 + 单模型验证" [level=4] [ref=f193e292]
+      - paragraph [ref=f193e293]: 递归替换每帧引入微小近似误差，层间帧间累积的长期效应无分析；只在 KWT-1（12 层 8 头 64 维）上验证，更大模型（KWT-3 约 3M、AST-Base 约 85M）的冗余度可能不同；也缺与动态深度/动态宽度方法的系统对比。
+  - generic [ref=f193e294]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f193e295]
+    - list [ref=f193e296]:
+      - listitem [ref=f193e297]: ↳ 推理时的计算冗余是「有结构的、可预测的」——结构源于输入的物理特性（时间连续性），不是模型结构的偶然；基于输入特性的动态优化是一整类被低估的方法。
+      - listitem [ref=f193e298]: ↳ 剪枝粒度决定信息保留能力：能到特征维度就不要停在 token/头级——「保留有用的一半、丢弃冗余的一半」比「全有或全无」多 3–5 个点。
+      - listitem [ref=f193e299]: ↳ 替换成密集值比产生稀疏模式更硬件友好——优化方法要过「通用 CPU 流水线」这一关才算边缘可用。
+      - listitem [ref=f193e300]: ↳ 运行时可调的单旋钮（τ）让同一模型覆盖高精度/低功耗两档——比训练多个模型版本便宜得多。
+      - listitem [ref=f193e301]: ↳ 与量化正交：一个减少操作数、一个减少单次操作开销，联合估算可达 50–100×——论文没做，留给后人。
+  - generic [ref=f193e302]:
+    - link "论文原文 ↗" [ref=f193e303] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2204.03479
+    - link "笔记全文 ↗" [ref=f193e304] [cursor=pointer]:
+      - /url: Delta_Keyword_Transformer_Bringing_Transformers_to_the_Edge_through_Dynamically_Pruned_Multi_Head_Self_Attention.md
+    - link "返回列表" [ref=f193e305] [cursor=pointer]:
+      - /url: ../index.html

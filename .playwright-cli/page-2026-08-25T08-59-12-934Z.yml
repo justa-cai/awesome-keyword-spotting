@@ -1,0 +1,219 @@
+- generic [active] [ref=f235e1]:
+  - generic [ref=f235e2]:
+    - link "← 返回论文列表" [ref=f235e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f235e4]: 论文精读 · 可视化版 · 2022 №30
+    - heading "30 万设备上的联邦训练： 隐私和性能不矛盾" [level=1] [ref=f235e5]: 30 万设备上的联邦训练：隐私和性能不矛盾
+    - generic [ref=f235e6]:
+      - generic [ref=f235e7]: Interspeech 2022 · Google
+      - generic [ref=f235e8]: 联邦蒸馏 + 置信度过滤 + 联合训练
+      - generic [ref=f235e9]: 300K 客户端 · 每天 6,000 轮 FL
+      - generic [ref=f235e10]: SVDF 320K · 在线 A/B 数百万设备
+    - generic [ref=f235e11]: 「Hey Google」跑在全球超 10 亿设备上——真实用户数据的多样性任何实验室集都比不了，但语音含私人对话/医疗/金融信息。本文是首个在生产环境部署 FL 训练 KWS 的完整方案。
+    - generic [ref=f235e12]:
+      - heading "一分钟版本" [level=3] [ref=f235e13]
+      - list [ref=f235e14]:
+        - listitem [ref=f235e15]: ▸ 三个核心问题：标签缺失（设备缓存音频无人工标注——设备只知道「自己检测到了」可能误检、「用户说了没响应」可能漏检）；标签噪声（教师对边缘样本的软标签可能错——越训越差）；域不匹配（缓存大量是「系统接受」的音频、缺被拒绝的——非关键词和极端噪声域缺席）。
+        - listitem [ref=f235e16]: ▸ 三件套一一对应：联邦蒸馏管标签缺失——服务器用集中式标注数据训教师，对缓存音频生成软标签（含类别间相似度信息），经安全聚合分发，设备用 KL 散度本地训练。
+        - listitem [ref=f235e17]: ▸ 置信度过滤管标签噪声：巧妙利用系统自然产生的用户反馈信号——服务器拒绝（二次验证拒了 → 可能误检）、重试信号（2 秒内重说 → 前一次可能漏检）、说话人 ID 不匹配；任一触发即排除；保守过滤宁丢正确样本也要低假阳性。
+        - listitem [ref=f235e18]: ▸ 联合训练管域不匹配：FL 轮（真实用户分布）与集中式轮（公开数据 + 模拟增强，不涉隐私）交替进行（如每 5 轮 FL + 1 轮集中式）——集中式补「明确的非关键词」「极端噪声」「静音」这些设备端不缓存的域。
+        - listitem [ref=f235e19]: ▸ 规模：约 300,000 客户端、每客户端中位 175 个样本（约 1.7s）、总量约 5,250 万——每天约 6,000 轮 FL，远超学术 FL 的数百到数千客户端模拟规模。
+        - listitem [ref=f235e20]: ▸ 标签准确性验证：117 名专业标注员 × 11,908 样本（每人独立标、3 人多数投票，Kappa > 0.85）——过滤后标签准确率比未过滤高约 15–20 个百分点。
+        - listitem [ref=f235e21]: ▸ 性能：离线固定 FPR=0.1% 下 TPR 比纯集中式高约 3–5%（整体相同误检率下检测率相对提升约 5–10%）；在线 A/B（数百万设备数周）误唤醒率相对降约 10–15%、漏检率降约 5–8%、用户满意度显著提升。
+        - listitem [ref=f235e22]: ▸ 消融：蒸馏去软标签 → 难例 −3~5%；不过滤 → 假阳性率增加（低质量标签学出错误边界）；去集中式轮 → 非典型噪声 −2~3%。
+        - listitem [ref=f235e23]: ▸ 隐私机制：所有用户数据留设备端，仅上传梯度（安全聚合下服务器无法反推个体梯度）；教师软标签加密分发；运行在 DP 框架下。
+        - listitem [ref=f235e24]: ▸ 边界：需要大用户基数（新兴助手可能不够）；设备端只支持简单增强；每轮约 1.3MB 通信；Non-IID 收敛慢；DP 预算 ε 未报；缺同规模集中式公平对比。
+    - heading "§01 问题：无标签的设备端数据怎么用" [level=2] [ref=f235e25]:
+      - generic [ref=f235e26]: §01
+      - text: 问题：无标签的设备端数据怎么用
+    - generic [ref=f235e27]: 标准 FL 假设设备端有标签——KWS 场景根本不成立
+    - paragraph [ref=f235e28]: 联邦学习允许设备端训练、只上传梯度，从根本上保护隐私——但标准 FL 假设设备端数据有标签（图像分类里用户行为可当标签）。KWS 设备端缓存的音频片段没有人工标注：设备只知道「自己检测到了关键词」（可能是误检）或「用户说了唤醒词但没响应」（可能是漏检），无法确定音频的真实类别。此外真实用户数据的价值恰恰在多样性——数百种环境噪声、各年龄段说话人、口袋里/桌上/远处的设备位置——这种多样性是任何实验室录制集都无法比拟的。
+    - generic [ref=f235e29]:
+      - generic [ref=f235e30]:
+        - heading "集中式训练的合规风险" [level=4] [ref=f235e31]
+        - paragraph [ref=f235e32]: 语音可能含私人对话、医疗、金融、个人身份信息——GDPR/CCPA 下上传原始音频有严重法律风险；即使匿名化（去设备 ID），原始音频仍可能通过声纹识别关联到特定个人；在 Google 规模下任何隐私事件的影响都是灾难性的。
+      - generic [ref=f235e33]:
+        - heading "设备端训练的硬限制" [level=4] [ref=f235e34]
+        - paragraph [ref=f235e35]: 移动设备计算存储有限——只能做简单增强（SpecAugment），无法执行噪声混合、房间混响模拟这类复杂操作；训练须在数分钟内完成（用户随时在用设备）。
+    - heading "§02 方法：三件套 + 隐私机制" [level=2] [ref=f235e36]:
+      - generic [ref=f235e37]: §02
+      - text: 方法：三件套 + 隐私机制
+    - generic [ref=f235e38]: 每件解决一个核心问题，形成端到端联邦方案
+    - generic [ref=f235e39]:
+      - img [ref=f235e40]:
+        - generic [ref=f235e42]: Google 生产级联邦 KWS：10 亿设备上的隐私训练
+        - generic [ref=f235e43]: ① 三个核心问题
+        - generic [ref=f235e45]: 标签缺失
+        - generic [ref=f235e46]: 设备缓存音频无人工标签——设备只知道「自己检测到了」
+        - generic [ref=f235e47]: （可能误检）或「用户说了没响应」（可能漏检）
+        - generic [ref=f235e49]: 标签噪声
+        - generic [ref=f235e50]: 教师模型对边缘样本（极端噪声/特殊口音/儿童语音）
+        - generic [ref=f235e51]: 的软标签可能错——错误标签越训越差
+        - generic [ref=f235e53]: 域不匹配
+        - generic [ref=f235e54]: 缓存大量是「系统接受」的音频、缺「被拒绝」的——
+        - generic [ref=f235e55]: 非关键词和极端噪声域在训练分布里缺席
+        - generic [ref=f235e56]: 背景：真实用户数据的多样性（数百种噪声/口音/年龄/设备位置）是实验室数据无法比拟的——但语音含私人对话/医疗/金融信息，GDPR/CCPA 下集中上传有合规风险
+        - generic [ref=f235e57]: ② 三件套：蒸馏管标签缺失 · 过滤管标签噪声 · 联合训练管域不匹配
+        - generic [ref=f235e59]: ① 联邦蒸馏
+        - generic [ref=f235e60]: 服务器：集中式标注数据训练教师 T_θ
+        - generic [ref=f235e61]: （可以是更强的架构）
+        - generic [ref=f235e62]: 教师对缓存音频生成软标签（softmax/τ）：
+        - generic [ref=f235e63]: "[0.02, 0.85, 0.10, 0.03]——含类别间相似度"
+        - generic [ref=f235e64]: 软标签经安全聚合分发 → 设备用 KL 散度
+        - generic [ref=f235e65]: 本地训练 → 梯度上传 FedAvg
+        - generic [ref=f235e67]: ② 置信度过滤
+        - generic [ref=f235e68]: 利用系统自然产生的用户反馈信号：
+        - generic [ref=f235e69]: · 服务器拒绝：设备检测后服务器二次验证
+        - generic [ref=f235e70]: 拒绝 → 设备端可能是误检
+        - generic [ref=f235e71]: · 重试信号：2 秒内重复说唤醒词 → 前一次
+        - generic [ref=f235e72]: 可能是漏检
+        - generic [ref=f235e73]: · 说话人 ID：缓存说话人与注册用户不匹配
+        - generic [ref=f235e74]: → 可靠性降低
+        - generic [ref=f235e75]: 任一信号触发 → 标记低置信度排除出训练；
+        - generic [ref=f235e76]: 保守过滤：宁丢正确样本也要低假阳性
+        - generic [ref=f235e78]: ③ 联合联邦-集中式训练
+        - generic [ref=f235e79]: FL 轮：数千设备梯度 FedAvg
+        - generic [ref=f235e80]: （真实用户分布/个性化噪声）
+        - generic [ref=f235e81]: 集中式轮：公开数据 + 模拟增强
+        - generic [ref=f235e82]: （完整域覆盖，不涉隐私）
+        - generic [ref=f235e83]: 交替进行（如每 5 轮 FL + 1 轮集中式），
+        - generic [ref=f235e84]: 更新作用于同一全局 θ
+        - generic [ref=f235e85]: 集中式补的域：明显非关键词（设备端
+        - generic [ref=f235e86]: 直接拒绝不缓存）、极端噪声、静音片段
+        - generic [ref=f235e87]: ③ 模型与隐私机制
+        - generic [ref=f235e89]: 两阶段堆叠 SVDF（约 320K 参数）
+        - generic [ref=f235e90]: W ≈ U·V（r ≪ min(m,n)）——参数 mn → r(m+n)
+        - generic [ref=f235e91]: 瓶颈编码器-解码器结构：压缩中间表示，
+        - generic [ref=f235e92]: 减少上传梯度大小（隐私增强）与通信带宽
+        - generic [ref=f235e93]: 输入：40 维 log-Mel（25ms 窗/10ms 移，约 1s=100 帧）
+        - generic [ref=f235e94]: SVDF 低秩结构特别适合移动端训练和推理
+        - generic [ref=f235e96]: 隐私保护
+        - generic [ref=f235e97]: 所有用户数据留在设备端，仅上传模型梯度
+        - generic [ref=f235e98]: 安全聚合协议：服务器无法从聚合梯度反推
+        - generic [ref=f235e99]: 任何个体设备的梯度
+        - generic [ref=f235e100]: 教师软标签经加密通道分发——不暴露音频内容
+        - generic [ref=f235e101]: 符合 Google 隐私原则，运行在 DP 框架下
+        - generic [ref=f235e103]: 300K
+        - generic [ref=f235e104]: 客户端（每天约 6,000 轮 FL）
+        - generic [ref=f235e105]: "175"
+        - generic [ref=f235e106]: 每客户端缓存样本中位数
+        - generic [ref=f235e107]: 5,250 万
+        - generic [ref=f235e108]: 总样本量（约 1.7s/条）
+        - generic [ref=f235e109]: +15~20
+        - generic [ref=f235e110]: 过滤后标签准确率提升（点）
+        - generic [ref=f235e111]: 117 人
+        - generic [ref=f235e112]: 标注 11,908 样本验证过滤
+        - generic [ref=f235e113]: 规模远超学术 FL（数百到数千客户端的模拟环境）——首次在真实用户设备上部署 FL 用于 KWS 训练，证明工业级可行性和可扩展性
+      - paragraph [ref=f235e114]: 图1 · 方案全景：三个核心问题（标签缺失/噪声/域不匹配）与三件套的一一对应（联邦蒸馏/置信度过滤/联合训练）；SVDF 模型与隐私机制；生产规模数字。
+  - heading "§03 实验：离线 + 罕见的在线 A/B" [level=2] [ref=f235e115]:
+    - generic [ref=f235e116]: §03
+    - text: 实验：离线 + 罕见的在线 A/B
+  - generic [ref=f235e117]: 数百万设备数周的真实用户证据——绝大多数学术 FL 只有模拟
+  - generic [ref=f235e118]:
+    - img [ref=f235e119]:
+      - generic [ref=f235e121]: 离线 + 在线 A/B 的性能对比（约 值）
+      - generic [ref=f235e122]: 离线：固定 FPR=0.1% 的 TPR 提升
+      - generic [ref=f235e124]: 基线
+      - generic [ref=f235e125]: 纯 FL（无蒸馏）
+      - generic [ref=f235e127]: +3%
+      - generic [ref=f235e128]: 纯集中式训练
+      - generic [ref=f235e130]: +5%
+      - generic [ref=f235e131]: 完整方案（蒸馏+过滤+联合）★
+      - generic [ref=f235e133]: 整体：相同误检率下检测率相对提升约 5–10%
+      - generic [ref=f235e134]: 在线 A/B（数百万设备 · 数周）
+      - generic [ref=f235e136]: 相对降低约 10–15%
+      - generic [ref=f235e137]: 误唤醒率
+      - generic [ref=f235e139]: 相对降低约 4–9%
+      - generic [ref=f235e140]: 漏检率
+      - generic [ref=f235e142]: 用户满意度（继续使用率、误唤醒反馈率）
+      - generic [ref=f235e143]: 显著提升——实验组（联邦模型）vs 对照组
+      - generic [ref=f235e144]: （前一版集中式模型）
+      - generic [ref=f235e145]: 注：本页数字为笔记记录的约值/相对量（论文未提供精确对照表）；在线 A/B 是 FL 工作里罕见的真实用户级证据——绝大多数学术 FL 只有模拟结果
+    - paragraph [ref=f235e146]: 图2 · 性能对比（约 值）：离线固定 FPR 下 TPR 提升（完整方案 > 纯集中式 > 纯 FL）；在线 A/B（数百万设备数周）——误唤醒率相对降 10–15%、漏检率降 5–8%、满意度显著提升。
+  - generic [ref=f235e147]:
+    - img [ref=f235e148]:
+      - generic [ref=f235e150]: 组件消融（约 值）：三件套缺一不可
+      - generic [ref=f235e153]: 联邦蒸馏
+      - generic [ref=f235e154]: 去掉（软标签→硬标签）→ 难例性能 −3~5%
+      - generic [ref=f235e155]: 软标签编码的类别间相似度信息至关重要
+      - generic [ref=f235e158]: 置信度过滤
+      - generic [ref=f235e159]: 过滤掉约 10–20% 低置信度样本
+      - generic [ref=f235e160]: 不过滤的退化集中在假阳性率——低质量标签
+      - generic [ref=f235e161]: 学出错误的判别边界；难例（边界/高噪）改善最大
+      - generic [ref=f235e164]: 联合训练
+      - generic [ref=f235e165]: 去掉集中式轮 → 非典型噪声 −2~3%
+      - generic [ref=f235e166]: 集中式数据补「明确的非关键词」——帮助模型
+      - generic [ref=f235e167]: 建立精确的关键词 vs 非关键词边界
+      - generic [ref=f235e168]: 标签准确性研究：117 名专业标注员 × 11,908 样本（每样本 3 人独立标注取多数投票，Cohen's Kappa > 0.85）——
+      - generic [ref=f235e169]: 过滤后保留样本的标签准确率比未过滤高约 15–20 个百分点：置信度过滤的机制验证与性能验证双闭环
+    - paragraph [ref=f235e170]: 图3 · 组件消融（约 值）：蒸馏去软标签难例 −3~5%；不过滤假阳性率增加；去集中式轮非典型噪声 −2~3%；117 人 × 11,908 样本的标签准确性双闭环验证。
+  - generic [ref=f235e171]:
+    - img [ref=f235e172]:
+      - generic [ref=f235e174]: 边界与延伸
+      - generic [ref=f235e176]: 技术边界
+      - generic [ref=f235e177]: · 用户规模门槛：FL 需要足够大的用户基数保证 FedAvg
+      - generic [ref=f235e178]: 收敛——300K 客户端够用；新兴助手（用户量小）
+      - generic [ref=f235e179]: 可能无法保证收敛质量
+      - generic [ref=f235e180]: · 设备端训练能力：只支持简单增强（SpecAugment）——
+      - generic [ref=f235e181]: 噪声混合/RIR 混响模拟做不了；须数分钟内完成
+      - generic [ref=f235e182]: · 通信开销：每轮上传梯度约 1.3MB（320K × 4 bytes）
+      - generic [ref=f235e183]: · Non-IID：安静办公室手机 vs 嘈杂厨房音箱——分布
+      - generic [ref=f235e184]: 差异大，FedAvg 收敛慢或次优
+      - generic [ref=f235e186]: 实验设计边界 + 延伸
+      - generic [ref=f235e187]: · DP 预算 ε 未报——隐私-效用权衡无定量分析
+      - generic [ref=f235e188]: · 缺同规模公平对比：相同数量的集中式标注 vs FL
+      - generic [ref=f235e189]: 数据——FL 本身的增益难以量化
+      - generic [ref=f235e190]: · FL 总成本未报（服务器聚合/设备能耗/带宽）
+      - generic [ref=f235e191]: 延伸：形式化用户级 DP（近期工作：好的裁剪+噪声
+      - generic [ref=f235e192]: 校准可把损失压到 1–2% 内）；个性化 FL（车载/桌面
+      - generic [ref=f235e193]: 分型号）；异步 FL 降低对在线率依赖
+      - generic [ref=f235e194]: 可迁移判断：隐私保护和模型性能不矛盾——联邦蒸馏（解决无标签）+ 置信度过滤（利用系统副产品信号）+ 联合训练（补域）是隐私合规训练的可复制蓝图
+    - paragraph [ref=f235e195]: 图4 · 边界与延伸：用户规模门槛、设备端能力限制、通信开销、Non-IID；DP 预算未报、缺同规模公平对比、总成本未报；形式化 DP、个性化 FL、异步 FL 等方向。
+  - heading "§04 贡献：四条" [level=2] [ref=f235e196]:
+    - generic [ref=f235e197]: §04
+    - text: 贡献：四条
+  - generic [ref=f235e198]:
+    - generic [ref=f235e199]:
+      - generic [ref=f235e200]: "1"
+      - paragraph [ref=f235e201]: 首个大规模生产级联邦 KWS 系统：近 300K 客户端、每天约 6,000 轮 FL——证明 FL 在工业级 KWS 的可行性和可扩展性。
+    - generic [ref=f235e202]:
+      - generic [ref=f235e203]: "2"
+      - paragraph [ref=f235e204]: 联邦蒸馏解决标签缺失：软标签作为设备端监督信号——FL 在 KWS 场景的关键使能技术（没有它 FL 训练根本无法进行）。
+    - generic [ref=f235e205]:
+      - generic [ref=f235e206]: "3"
+      - paragraph [ref=f235e207]: 置信度过滤：首次利用系统副产品信号（服务器拒绝/重试/说话人 ID）过滤不可靠标签——零额外标注成本、零隐私风险。
+    - generic [ref=f235e208]:
+      - generic [ref=f235e209]: "4"
+      - paragraph [ref=f235e210]: 联合训练范式：FL + 集中式交替解决域不完整——可推广到输入法预测、推荐系统等其他 FL 任务。
+  - heading "§05 局限与边界" [level=2] [ref=f235e211]:
+    - generic [ref=f235e212]: §05
+    - text: 局限与边界
+  - generic [ref=f235e213]: 规模是护城河也是门槛
+  - generic [ref=f235e214]:
+    - generic [ref=f235e215]:
+      - heading "用户规模门槛" [level=4] [ref=f235e216]
+      - paragraph [ref=f235e217]: FL 需要足够大的用户基数保证 FedAvg 统计收敛——300K 客户端够用，但新兴语音助手（用户量小）可能无法保证收敛质量：这套方案有大厂专属的门槛。
+    - generic [ref=f235e218]:
+      - heading "设备端能力与通信" [level=4] [ref=f235e219]
+      - paragraph [ref=f235e220]: 只支持 SpecAugment 级别的简单增强——噪声混合/RIR 模拟做不了；每轮上传梯度约 1.3MB（320K×4B），3G/4G 下流量能耗不可忽视；Non-IID（安静办公室手机 vs 嘈杂厨房音箱）收敛慢或次优。
+    - generic [ref=f235e221]:
+      - heading "隐私-效用权衡无定量" [level=4] [ref=f235e222]
+      - paragraph [ref=f235e223]: DP 预算 ε 未报数值、未分析不同隐私级别的性能损失——而 DP 保证强度直接影响法律合规性。
+    - generic [ref=f235e224]:
+      - heading "对比与成本缺口" [level=4] [ref=f235e225]
+      - paragraph [ref=f235e226]: 缺与纯集中式训练在同规模数据上的公平对比（相同数量集中式标注 vs FL 数据）——FL 本身的增益难以量化；FL 总成本（服务器聚合/设备能耗/带宽）未报。
+  - generic [ref=f235e227]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f235e228]
+    - list [ref=f235e229]:
+      - listitem [ref=f235e230]: ↳ 隐私保护和模型性能不矛盾——联邦蒸馏 + 置信度过滤 + 联合训练是隐私合规训练的可复制蓝图，对整个语音行业的合规实践有参考价值。
+      - listitem [ref=f235e231]: ↳ 无标签设备端数据的解法是「教师打标」：软标签比硬标签多携带类别相似度结构——蒸馏不只是压缩，更是标签工厂。
+      - listitem [ref=f235e232]: ↳ 系统副产品信号（服务器拒绝/用户重试/说话人匹配）是免费的置信度来源——产品系统里自然产生的反馈往往比专门收集的标注更便宜且无隐私代价。
+      - listitem [ref=f235e233]: ↳ 数据分布不完整时用不涉隐私的模拟数据补域：FL 与集中式不是二选一——交替训练作用于同一全局参数可兼得真实分布与完整覆盖。
+      - listitem [ref=f235e234]: ↳ 保守过滤优于激进保留：宁丢正确样本也要低假阳性——训练数据的标签质量比数量更值得优先保证。
+  - generic [ref=f235e235]:
+    - link "论文原文 ↗" [ref=f235e236] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2204.06322
+    - link "笔记全文 ↗" [ref=f235e237] [cursor=pointer]:
+      - /url: Production_Federated_Keyword_Spotting_via_Distillation_Filtering_and_Joint_Federated_Centralized_Training.md
+    - link "返回列表" [ref=f235e238] [cursor=pointer]:
+      - /url: ../index.html

@@ -1,0 +1,276 @@
+- generic [active] [ref=f195e1]:
+  - generic [ref=f195e2]:
+    - link "← 返回论文列表" [ref=f195e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f195e4]: 论文精读 · 可视化版 · 2022 №11
+    - heading "砍掉 93% 参数只掉 0.65 个点： 秘密不在「少剪」，在换掉分类头" [level=1] [ref=f195e5]: 砍掉 93% 参数只掉 0.65 个点：秘密不在「少剪」，在换掉分类头
+    - generic [ref=f195e6]:
+      - generic [ref=f195e7]: ICASSP 2022 · De Leon & Atienza
+      - generic [ref=f195e8]: 菲律宾大学 × 三星研究院
+      - generic [ref=f195e9]: 深度剪枝 + 辅助网络
+      - generic [ref=f195e10]: MLPerf Tiny · Cortex-M0 实测
+    - generic [ref=f195e11]: 标准深度剪枝掉点 5–15% 的根因不是丢了参数，而是浅层特征语义不够用——一个 <5K 参数的深度可分离卷积辅助网络把这句话变成了可部署的密集小模型。
+    - generic [ref=f195e12]:
+      - heading "一分钟版本" [level=3] [ref=f195e13]
+      - list [ref=f195e14]:
+        - listitem [ref=f195e15]: ▸ 约束：Cortex-M0 只有 32–64KB SRAM、128–256KB Flash、48MHz 无 FPU 无分支预测器——MobileNetV1-0.25× FP32 要 902KB Flash，直接超限。
+        - listitem [ref=f195e16]: ▸ 三条老路的坑：幅度剪枝产出非结构化稀疏（M0 无分支预测，分支 miss 清空流水线，可能比密集还慢）；标准深度剪枝 + 线性头掉 5–15 点；紧凑模型（DS-CNN 42K）冗余本就小，大模型「剪一半没事」的结论不能搬。
+        - listitem [ref=f195e17]: ▸ 核心洞察：深度剪枝掉准确率的根因不在「丢失深层参数」，而在「浅层特征图的语义表达能力不足以支撑分类」——解法不是少剪，是增强浅层的分类能力。
+        - listitem [ref=f195e18]: ▸ 方法：保前 k 层 + 换上一个 <5K 参数的辅助网络（2–3 个 DWSConv 块 + BN + ReLU6 + GAP + FC）当「浅层特征语义提升器」——产物仍是标准密集网络，任何 MCU 直接跑。
+        - listitem [ref=f195e19]: ▸ VWW 结果：226K→16K 参数（−93%），准确率 88.5%→87.85%（−0.65%）——比参数多 4 倍的标准深剪（70K，82.5%）高 5.35 个点，「剪多必掉多」被打破。
+        - listitem [ref=f195e20]: ▸ M0 实测：Flash 902KB→192KB（4.7×），SRAM 80→40KB，延迟 470→290ms（1.6×），准确率反而 +1.0（辅助网络起了正则化作用）。
+        - listitem [ref=f195e21]: ▸ KWS 结果弱得多：42K→30K 只减 28%，掉 1.06 点；INT8 量化再掉 2.21 点——DS-CNN 本就超紧凑 + KWS 更依赖高级时序特征。
+        - listitem [ref=f195e22]: ▸ 消融：辅助网络比线性头高 3–8 点（剪越深差距越大）；DWS 辅助比全连接辅助同参数下高约 2 点；冻结式两阶段训练 20 epoch ≈ 端到端 80 epoch（免灾难性干扰）。
+        - listitem [ref=f195e23]: ▸ 边界：辅助网络能弥补浅层、不能创造深层里不存在的信息——yes/yet 这类最后 50ms 细粒度区分的损失不可恢复；只适用于顺序架构，ResNet 的残差连接会被剪断。
+        - listitem [ref=f195e24]: ▸ 可迁移判断：对已紧凑的模型，「重构分类器」比「删参数」更有杠杆——重新定义问题比优化旧解法有效。
+    - heading "§01 问题：MCU 三重约束下的剪枝困局" [level=2] [ref=f195e25]:
+      - generic [ref=f195e26]: §01
+      - text: 问题：MCU 三重约束下的剪枝困局
+    - generic [ref=f195e27]: Flash 装参数、SRAM 装激活、延迟要实时——三者相互牵制
+    - paragraph [ref=f195e28]: TinyML 要把神经网络塞进 Cortex-M0/M4：SRAM 装所有运行时激活值、Flash 装所有参数、推理延迟满足实时性（KWS 通常 <100ms）。当预训练模型超出约束（902KB Flash vs 256KB 上限），压缩是唯一出路——但压缩目标不只是参数量：SRAM 和延迟约束同样硬，且三者相互影响。
+    - generic [ref=f195e29]:
+      - generic [ref=f195e30]:
+        - heading "幅度剪枝：理论压缩 ≠ MCU 加速" [level=4] [ref=f195e31]
+        - paragraph [ref=f195e32]: 小权重置零产生非结构化稀疏，需要稀疏计算支持才能兑现加速。Cortex-M 上要引入大量条件分支和 CSR/CSC 索引——M0 没有分支预测器，每次分支 miss 清空 3 级流水线，有时比密集计算还慢。
+      - generic [ref=f195e33]:
+        - heading "标准深度剪枝：浅层特征撑不住分类" [level=4] [ref=f195e34]
+        - paragraph [ref=f195e35]: 移除深层后在新末端接线性分类器，准确率掉 5–15%——网络浅层捕获的是边缘纹理这类低级特征，判别性不足。而紧凑模型剪枝研究本身是空白：大多剪枝论文的对象是 ResNet-50（25M）/VGG-16（138M）这类冗余 50–90% 的大模型。
+    - heading "§02 方法：保前 k 层，换上「语义提升器」" [level=2] [ref=f195e36]:
+      - generic [ref=f195e37]: §02
+      - text: 方法：保前 k 层，换上「语义提升器」
+    - generic [ref=f195e38]: 两阶段训练：冻结训辅助网络，可选联合微调
+    - generic [ref=f195e39]:
+      - img [ref=f195e40]:
+        - generic [ref=f195e42]: 深度剪枝 + 辅助网络：掉点的根因不是丢参数，是浅层特征不够用
+        - generic [ref=f195e43]: ① MCU 三重约束 × 三条老路的坑
+        - generic [ref=f195e45]: Cortex-M0 的账（TinyML 最低档）
+        - generic [ref=f195e46]: · SRAM 32–64KB：装所有运行时激活值
+        - generic [ref=f195e47]: · Flash 128–256KB：装所有参数（FP32 下
+        - generic [ref=f195e48]: · MobileNetV1-0.25× 要 902KB——直接超限）
+        - generic [ref=f195e49]: · 48MHz 无 FPU 无分支预测器；KWS 要 <100ms 延迟
+        - generic [ref=f195e51]: 三条老路各自的坑
+        - generic [ref=f195e52]: 幅度剪枝→非结构化稀疏：M0 无分支预测，分支 miss
+        - generic [ref=f195e53]: 清空 3 级流水线——实测可能比密集还慢
+        - generic [ref=f195e54]: 标准深度剪枝+线性头：浅层特征缺语义，掉 5–15 点
+        - generic [ref=f195e55]: 紧凑模型研究空白：DS-CNN 42K 冗余本就小，
+        - generic [ref=f195e56]: 大模型「剪一半没事」的结论不能搬
+        - generic [ref=f195e57]: ② 核心洞察：重新定义问题——「增强浅层」而非「少剪点」
+        - generic [ref=f195e59]: 深度剪枝掉准确率的根本原因：不在于「丢失了深层参数」，而在于「浅层特征图的语义表达能力不足以支撑分类」
+        - generic [ref=f195e61]: 预训练紧凑模型
+        - generic [ref=f195e62]: "VWW: MobileNetV1"
+        - generic [ref=f195e63]: "-0.25×（13 层）"
+        - generic [ref=f195e64]: "KWS: DS-CNN（6 层）"
+        - generic [ref=f195e66]: 深度剪枝（保前 k 层）
+        - generic [ref=f195e67]: "VWW: k=7 / 13 层"
+        - generic [ref=f195e68]: "KWS: k=5 / 6 层"
+        - generic [ref=f195e69]: 移除第 k+1 层及之后
+        - generic [ref=f195e71]: 辅助网络（<5K 参数）
+        - generic [ref=f195e72]: 2–3 个 DWSConv 块（3×3 DW + PW）
+        - generic [ref=f195e73]: + BN + ReLU6 → GAP → FC
+        - generic [ref=f195e74]: 「浅层特征语义提升器」
+        - generic [ref=f195e76]: 标准密集网络
+        - generic [ref=f195e77]: 任何 MCU 直接跑
+        - generic [ref=f195e78]: CMSIS-NN / TFLite Micro
+        - generic [ref=f195e79]: 零框架修改、零专用硬件
+        - generic [ref=f195e80]: 为什么不用线性头：线性分类器假设特征线性可分，但中间层特征图保留着复杂时频空间结构——需要非线性变换才能有效分类
+        - generic [ref=f195e81]: ③ 两阶段训练 + 与三条老路的技术差异
+        - generic [ref=f195e83]: 两阶段训练
+        - generic [ref=f195e84]: 阶段1（主训练）：冻结保留层，只训辅助网络
+        - generic [ref=f195e85]: ——保留层的特征已够好，辅助网络只学「怎么从
+        - generic [ref=f195e86]: 这些特征提取分类信息」；20–30 epoch 收敛，
+        - generic [ref=f195e87]: Adam lr=0.001
+        - generic [ref=f195e88]: 阶段2（可选微调）：解冻全部，lr=0.0001 端到端
+        - generic [ref=f195e89]: ——提升通常仅 0.3–0.5 点；冻结训练避免联合训练
+        - generic [ref=f195e90]: 的灾难性干扰（20 vs 80 epochs，最终准确率相当）
+        - generic [ref=f195e92]: 横向差异
+        - generic [ref=f195e93]: vs 幅度剪枝：产出是密集标准网络——稀疏计算在
+        - generic [ref=f195e94]: MCU 上的效率损失远大于 GPU/TPU，这是根本优势
+        - generic [ref=f195e95]: vs 蒸馏：不需完整训练集，仅 10% 校准数据；不需
+        - generic [ref=f195e96]: 多轮训练
+        - generic [ref=f195e97]: vs NAS：无昂贵搜索过程，辅助网络架构固定（只调
+        - generic [ref=f195e98]: 通道数这类超参）
+        - generic [ref=f195e99]: vs 线性头深剪：非线性 2–3 层 DWSConv 提准确率 3–8 点
+        - generic [ref=f195e101]: −93%
+        - generic [ref=f195e102]: VWW 参数（226K→16K）
+        - generic [ref=f195e103]: −0.65%
+        - generic [ref=f195e104]: VWW 准确率代价（88.5→87.85）
+        - generic [ref=f195e105]: 4.7×
+        - generic [ref=f195e106]: Flash 缩小（M0 实测）
+        - generic [ref=f195e107]: "+1.0"
+        - generic [ref=f195e108]: VWW 实测准确率反升
+        - generic [ref=f195e109]: −28%
+        - generic [ref=f195e110]: KWS 参数（42K→30K）
+        - generic [ref=f195e111]: 基准：MLPerf Tiny 两个任务（VWW 有人/无人二分类 约 115K 张 64×64 灰度；KWS 基于 GSC V1 12 类 约 51K 条 1 秒 MFCC 49×10）· 目标硬件 Cortex-M0 · TFLite Micro
+      - paragraph [ref=f195e112]: 图1 · 方法全景：MCU 三重约束与三条老路的坑；「保前 k 层 + 辅助网络」管线与两阶段训练；与幅度剪枝/蒸馏/NAS/线性头深剪的横向差异。
+  - generic [ref=f195e113]:
+    - generic [ref=f195e114]: 块结构：DWSConv(3×3) → BN → ReLU6 → PWConv → BN → ReLU6 （×2–3 块，<5K 参数）→ GAP → FC
+    - generic [ref=f195e115]: 人话：辅助网络就是一串小卷积块。参数预算必须极小（<5K），否则抵消剪枝收益——靠小通道数（32/64）+ 深度可分离卷积（参数约为标准卷积的 1/C_out）实现。为什么必须非线性：线性分类器假设特征线性可分，但中间层特征图保留着复杂的时频空间结构，需要非线性变换才能有效分类。
+  - paragraph [ref=f195e116]: 剪枝深度 k 怎么选：逐层评估——对每个候选 k 训练辅助网络、评估验证集准确率，选准确率-模型大小权衡最优点。结果 VWW 是 k=7（13 层留 7 层）、KWS 是 k=5（6 层留 5 层）；超过最优 k 后准确率急剧下降——过浅的特征图连辅助网络也救不回来。
+  - heading "§03 实验：MLPerf Tiny 双任务 + Cortex-M0 实测" [level=2] [ref=f195e117]:
+    - generic [ref=f195e118]: §03
+    - text: 实验：MLPerf Tiny 双任务 + Cortex-M0 实测
+  - generic [ref=f195e119]: VWW（有人/无人二分类）与 KWS（GSC V1 12 类）
+  - generic [ref=f195e120]:
+    - img [ref=f195e121]:
+      - generic [ref=f195e123]: VWW 主对比：更激进的剪枝，更高的准确率（颠覆直觉）
+      - generic [ref=f195e124]: 50K
+      - generic [ref=f195e125]: 100K
+      - generic [ref=f195e126]: 150K
+      - generic [ref=f195e127]: 200K
+      - generic [ref=f195e129]: ~226K
+      - generic [ref=f195e131]: 88.50%
+      - generic [ref=f195e132]: 原始
+      - generic [ref=f195e133]: MobileNetV1-0.25×
+      - generic [ref=f195e135]: ~181K
+      - generic [ref=f195e137]: 87.50%
+      - generic [ref=f195e138]: 幅度剪枝
+      - generic [ref=f195e139]: 20%
+      - generic [ref=f195e141]: ~70K
+      - generic [ref=f195e143]: 82.50%
+      - generic [ref=f195e144]: 标准深度剪枝
+      - generic [ref=f195e145]: +
+      - generic [ref=f195e146]: 线性头
+      - generic [ref=f195e148]: ~16K
+      - generic [ref=f195e150]: 87.85%
+      - generic [ref=f195e151]: 辅助网络深度剪枝
+      - generic [ref=f195e152]: ★
+      - generic [ref=f195e153]: 柱高 = 参数量（越矮越好）· 下方胶囊 = 准确率（越高越好）
+      - generic [ref=f195e155]: 关键读数：
+      - generic [ref=f195e156]: · 标准深剪（70K）只有 82.5%——参数多 4 倍
+      - generic [ref=f195e157]: 反而更差；浅层特征 + 线性头撑不住分类
+      - generic [ref=f195e158]: · 本文 16K（更激进的剪枝）达 87.85%
+      - generic [ref=f195e159]: ——「辅助网络」把 5.35 个点找回来了
+      - generic [ref=f195e160]: VWW = Visual Wakewords（MLPerf Tiny 视觉唤醒词任务，COCO 构建有人/无人二分类）——本文最强的结果在这个任务上；KWS 任务的改进幅度小得多（见图4）
+    - paragraph [ref=f195e161]: 图2 · VWW 主对比：柱高 = 参数量、胶囊 = 准确率——本文 16K 参数（最激进剪枝）反而比 70K 的标准深剪高 5.35 个点，「剪多必掉多」被辅助网络打破。
+  - table [ref=f195e162]:
+    - rowgroup [ref=f195e163]:
+      - row [ref=f195e164]:
+        - columnheader "方法" [ref=f195e165]
+        - columnheader "参数量" [ref=f195e166]
+        - columnheader "参数减少" [ref=f195e167]
+        - columnheader "准确率" [ref=f195e168]
+        - columnheader "变化" [ref=f195e169]
+      - row [ref=f195e170]:
+        - cell "原始 MobileNetV1-0.25×" [ref=f195e171]
+        - cell "~226K" [ref=f195e172]
+        - cell "—" [ref=f195e173]
+        - cell "88.5%" [ref=f195e174]
+        - cell "基线" [ref=f195e175]
+      - row [ref=f195e176]:
+        - cell "幅度剪枝（20%）" [ref=f195e177]
+        - cell "~181K" [ref=f195e178]
+        - cell "20%" [ref=f195e179]
+        - cell "87.5%" [ref=f195e180]
+        - cell "−1.0%" [ref=f195e181]
+      - row [ref=f195e182]:
+        - cell "标准深度剪枝（线性头）" [ref=f195e183]
+        - cell "~70K" [ref=f195e184]
+        - cell "68.9%" [ref=f195e185]
+        - cell "82.5%" [ref=f195e186]
+        - cell "−6.0%" [ref=f195e187]
+      - row [ref=f195e188]:
+        - cell "辅助网络深度剪枝（本文）" [ref=f195e189]
+        - cell "~16K" [ref=f195e190]
+        - cell "93%" [ref=f195e191]
+        - cell "87.85%" [ref=f195e192]
+        - cell "−0.65%" [ref=f195e193]
+  - generic [ref=f195e194]:
+    - img [ref=f195e195]:
+      - generic [ref=f195e197]: Cortex-M0 实测（VWW）：不是理论操作量，是上机数字
+      - generic [ref=f195e198]: Flash 占用
+      - generic [ref=f195e200]: 原始 902KB
+      - generic [ref=f195e202]: 剪枝后 192KB
+      - generic [ref=f195e204]: 4.7× 缩小
+      - generic [ref=f195e205]: SRAM 占用
+      - generic [ref=f195e207]: 原始 80KB
+      - generic [ref=f195e209]: 剪枝后 40KB
+      - generic [ref=f195e211]: 2× 缩小
+      - generic [ref=f195e212]: 推理延迟
+      - generic [ref=f195e214]: 原始 470ms
+      - generic [ref=f195e216]: 剪枝后 290ms
+      - generic [ref=f195e218]: 1.6× 加速
+      - generic [ref=f195e220]: 意外收获：实测准确率 88.5% → 89.5%（反升 1 个点）
+      - generic [ref=f195e221]: 推测：辅助网络起了正则化作用——更小的模型避开了原始模型的过拟合
+      - generic [ref=f195e222]: 意义：从 902KB 降到 192KB，让 Cortex-M0（通常 128–256KB Flash）上的部署从「不可行」变「可行」；M0 级 MCU 成本低于 1 美元——方法可扩展到几乎所有物联网设备
+    - paragraph [ref=f195e223]: 图3 · Cortex-M0 实测（VWW）：Flash 4.7× 缩小（902KB→192KB）、SRAM 减半、1.6× 加速，实测准确率反升 1 个点（辅助网络的正则化效应）。
+  - generic [ref=f195e224]:
+    - img [ref=f195e225]:
+      - generic [ref=f195e227]: KWS 任务 + 消融：同一招在语音上没那么灵
+      - generic [ref=f195e228]: KWS（DS-CNN，GSC V1-12）
+      - generic [ref=f195e230]: 原始 DS-CNN
+      - generic [ref=f195e231]: 42K
+      - generic [ref=f195e233]: 93.8%
+      - generic [ref=f195e235]: 辅助网络深剪 ★
+      - generic [ref=f195e236]: 30K
+      - generic [ref=f195e238]: 92.7%
+      - generic [ref=f195e240]: 再 INT8 量化
+      - generic [ref=f195e241]: —
+      - generic [ref=f195e243]: −2.21 点
+      - generic [ref=f195e244]: 参数只减 28%（vs VWW 的 93%）——原因：
+      - generic [ref=f195e245]: ① DS-CNN 本就 42K 超紧凑，冗余远小于 226K
+      - generic [ref=f195e246]: ② KWS 分类更依赖高级时序特征，深剪损失难弥补
+      - generic [ref=f195e247]: ③ 论文未深入分析 VWW/KWS 差异——留白
+      - generic [ref=f195e248]: 四个消融
+      - generic [ref=f195e250]: 辅助网络 vs 线性头
+      - generic [ref=f195e251]: 同剪枝深度 +3~8 点；剪越深差距越大
+      - generic [ref=f195e253]: DWS vs 全连接辅助
+      - generic [ref=f195e254]: 同 5K 参数：DWS 高约 2 点
+      - generic [ref=f195e256]: 两阶段 vs 端到端
+      - generic [ref=f195e257]: 冻结训练 20ep ≈ 端到端 80ep（免
+      - generic [ref=f195e258]: 灾难干扰）
+      - generic [ref=f195e260]: 剪枝深度 k
+      - generic [ref=f195e261]: VWW k=7/13 最优；KWS k=5/
+      - generic [ref=f195e262]: 6；超过最优 k 急剧下降
+      - generic [ref=f195e264]: 边界：辅助网络能「弥补」浅层，不能「创造」深层里不存在的信息
+      - generic [ref=f195e265]: · 细粒度时序区分（yes vs yet，最后 50ms 差异）依赖深层高级时序模式——过度深剪的损失不可恢复
+      - generic [ref=f195e266]: · 只适用于顺序架构（VGG/MobileNet/DS-CNN）；ResNet/EfficientNet 的残差连接会被剪断（第 k 层输出被多层引用）
+      - generic [ref=f195e267]: · 辅助网络架构手工设计，可能不是所有剪枝深度最优；量化误差可能在剪枝后的浅层特征上被放大（未系统分析）
+    - paragraph [ref=f195e268]: 图4 · KWS 任务 + 消融：KWS 上参数只减 28%（DS-CNN 本就超紧凑 + 时序特征更依赖深层）；四个消融——辅助网络 vs 线性头 +3~8 点、DWS vs 全连接 +2 点、冻结两阶段 20ep≈端到端 80ep、k 的选择。
+  - heading "§04 贡献：四条" [level=2] [ref=f195e269]:
+    - generic [ref=f195e270]: §04
+    - text: 贡献：四条
+  - generic [ref=f195e271]:
+    - generic [ref=f195e272]:
+      - generic [ref=f195e273]: "1"
+      - paragraph [ref=f195e274]: 辅助网络增强的深度剪枝范式：用精心设计的小辅助网络替代线性头，重新定义了深度剪枝的问题——不是「如何减少参数损失」而是「如何增强浅层特征的分类能力」。
+    - generic [ref=f195e275]:
+      - generic [ref=f195e276]: "2"
+      - paragraph [ref=f195e277]: 极端压缩 + 微小代价：VWW 93% 参数减少只掉 0.65 点；KWS 28% 减少掉 1.06 点。
+    - generic [ref=f195e278]:
+      - generic [ref=f195e279]: "3"
+      - paragraph [ref=f195e280]: 真实 MCU 部署验证：Cortex-M0 上实测 Flash 4.7× 缩小、1.6× 加速——902KB→192KB 让 M0（<1 美元）上的部署从不可行变可行，可扩展到几乎所有物联网设备。
+    - generic [ref=f195e281]:
+      - generic [ref=f195e282]: "4"
+      - paragraph [ref=f195e283]: 零专用硬件零框架修改：产物是标准密集网络，CMSIS-NN / TFLite Micro 直接跑。
+  - heading "§05 局限与边界" [level=2] [ref=f195e284]:
+    - generic [ref=f195e285]: §05
+    - text: 局限与边界
+  - generic [ref=f195e286]: 「弥补」与「创造」的区别
+  - generic [ref=f195e287]:
+    - generic [ref=f195e288]:
+      - heading "浅层语义瓶颈" [level=4] [ref=f195e289]
+      - paragraph [ref=f195e290]: 细粒度时序区分（yes vs yet，最后 50ms 音素差异）依赖深层高级时序模式——过度深剪的损失不可恢复，辅助网络能弥补不能创造原始网络里不存在的信息。
+    - generic [ref=f195e291]:
+      - heading "只适用于顺序架构" [level=4] [ref=f195e292]
+      - paragraph [ref=f195e293]: VGG/MobileNet/DS-CNN 可从末端逐层移除；ResNet/EfficientNet 的残差连接会被剪断——第 k 层输出被多个后续层引用，移除引用层破坏残差加法，需要同时剪跳跃连接两端的更复杂策略。
+    - generic [ref=f195e294]:
+      - heading "KWS 上改进有限且未深究" [level=4] [ref=f195e295]
+      - paragraph [ref=f195e296]: 28% vs 93% 的巨大任务差异没有深入分析；INT8 量化与剪枝的交互效应（量化误差可能在浅层特征上放大）未系统研究。
+    - generic [ref=f195e297]:
+      - heading "覆盖面不足" [level=4] [ref=f195e298]
+      - paragraph [ref=f195e299]: 只有 MLPerf Tiny 两个任务；噪声、多说话人、远场条件未验证；辅助网络架构手工设计，未必是所有剪枝深度的最优。
+  - generic [ref=f195e300]:
+    - heading "可迁移判断（超出 TinyML 也成立）" [level=4] [ref=f195e301]
+    - list [ref=f195e302]:
+      - listitem [ref=f195e303]: ↳ 压缩掉点的根因诊断决定方法选型：是「丢了参数」还是「丢了表达」——后者要用结构补（换分类头/加非线性），不是少剪。
+      - listitem [ref=f195e304]: ↳ 对已紧凑的模型，「重构分类器」比「删参数」更有杠杆——冗余小的模型里每个参数都重要，但分类端还有改良空间。
+      - listitem [ref=f195e305]: ↳ 稀疏化方法在 MCU 上天然吃亏（无分支预测 + 无稀疏加速器）；产出密集结构的方法才在边缘侧兑现理论收益。
+      - listitem [ref=f195e306]: ↳ 冻结预训练层只训新增部分：收敛快 4 倍且避免灾难性干扰——增量改造大模型时的默认姿势。
+      - listitem [ref=f195e307]: ↳ 小模型反而在实测中可能涨点（辅助网络当正则）——压缩不一定伤泛化，别默认「剪必掉」。
+  - generic [ref=f195e308]:
+    - link "论文原文 ↗" [ref=f195e309] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2204.10546
+    - link "笔记全文 ↗" [ref=f195e310] [cursor=pointer]:
+      - /url: Depth_Pruning_with_Auxiliary_Networks_for_TinyML.md
+    - link "返回列表" [ref=f195e311] [cursor=pointer]:
+      - /url: ../index.html

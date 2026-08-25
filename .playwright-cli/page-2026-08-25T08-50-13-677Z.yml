@@ -1,0 +1,284 @@
+- generic [active] [ref=f232e1]:
+  - generic [ref=f232e2]:
+    - link "← 返回论文列表" [ref=f232e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f232e4]: 论文精读 · 可视化版 · 2022 №29
+    - heading "电视里的「Hey Alexa」不该唤醒你的音箱： 关键词系统学会认人" [level=1] [ref=f232e5]: 电视里的「Hey Alexa」不该唤醒你的音箱：关键词系统学会认人
+    - generic [ref=f232e6]:
+      - generic [ref=f232e7]: PK-MTL · Qualcomm AI Research
+      - generic [ref=f232e8]: KWS+SV 硬参数共享 + 任务自适应打分
+      - generic [ref=f232e9]: TB-KWS / TO-KWS 双任务
+      - generic [ref=f232e10]: 四骨干验证 · GSC v1
+    - generic [ref=f232e11]: C-KWS 只认词不认人——通用负样本（电视/会议/旁人对话）命中关键词就拖起整条 ASR 链路。多任务把说话人监督「白送」进网络（+4.8% 乘法），任务自适应打分把它兑现成近乎清零的误唤醒。
+    - generic [ref=f232e12]:
+      - heading "一分钟版本" [level=3] [ref=f232e13]
+      - list [ref=f232e14]:
+        - listitem [ref=f232e15]: ▸ 痛点：设备交互绝大多数来自注册的目标用户——模型理应偏置；误报不是「多亮一次灯」而是把整条 ASR 链路拖起来跑的功耗问题；电视常开的客厅里是可感知的续航损失。QbE 解决「换词」不解决「认人」；双模型拼装 +22% 计算且表征层无互通。
+        - listitem [ref=f232e16]: ▸ 任务形式化：四象限输入分类（ts-tk / nts-tk / ts-ntk / nts-ntk）——模糊象限是 nts-tk（非目标用户说目标词）：TB-KWS 视为中性（偏置型产品）/ TO-KWS 划为负样本（独占型产品）——「个性化」从营销词变成可重复评测的协议。
+        - listitem [ref=f232e17]: ▸ 骨架：硬参数共享——低层共享编码器（通用声学编码两任务共用），高层双子网分流（两任务目标「对抗」：关键词要说话人无关、说话人要内容无关，强行共享会互相拖累）。
+        - listitem [ref=f232e18]: ▸ λ=0.1：关键词是主任务、说话人是辅助信息源——压低权重保证主任务不被带偏：C-KWS 精度 97.57%→97.68%（说话人监督白送进网络还微升了主任务）。
+        - listitem [ref=f232e19]: ▸ 统一原型打分：关键词侧用「学到的原型」（余弦分类器权重——选余弦分类器是关键伏笔）、说话人侧用「注册嵌入」（一句注册语音）——训练/测试说话人不重叠的开集难题下两侧打分形式统一。
+        - listitem [ref=f232e20]: ▸ 任务自适应两级：SCM（免训练线性组合，α 按目标 FAR 网格搜索校准——最优 α 依赖工作点所以用校准不是学习）→ TRM（可训练模块：2 维 SE 式注意力只多约 1.8k 参数；angular prototypical loss + 模仿四象限的批构造——任务语义直接写进表征学习）。
+        - listitem [ref=f232e21]: ▸ 量级跳跃：TB FRR@1% 从 96.50%（Vanilla）到 6.56%（PK-MTL）——约 90 个百分点；TO EER 从 21.17% 到 3.37%——只学多任务不做任务自适应，实用工作点上几乎不可用。
+        - listitem [ref=f232e22]: ▸ 现实场景近乎清零：对 WSJ/Librispeech 通用负样本的 FAR@FRR1% 从 46.61% 降到 5.58%（TB）/ 0.15%（TO）——通用负样本全部来自非目标说话人，正好落进 TO 训练过的拒绝面。
+        - listitem [ref=f232e23]: ▸ 三级阶梯结论：推理端算术组合（SCM-M）< 按工作点校准（SCM-GS）< 表征端任务塑形（TRM）——「有没有任务自适应打分」远比「骨干强弱」重要。
+        - listitem [ref=f232e24]: ▸ 边界：单句注册假设（噪声信道下嵌入方差可能吞掉收益）；GSC v1 孤立词近讲训练——跨信道/远场未检验；任务数线性扩张；只覆盖说话人维度（自定义词+认人叠加未触及）；无时延功耗实测。
+    - heading "§01 问题：通用负样本的功耗黑洞" [level=2] [ref=f232e25]:
+      - generic [ref=f232e26]: §01
+      - text: 问题：通用负样本的功耗黑洞
+    - generic [ref=f232e27]: 关键词分数对说话人身份零分辨力
+    - paragraph [ref=f232e28]: C-KWS 的 ts-tk 和 nts-tk 在打分上被同等对待——BC-ResNet 直接放到 TO-KWS 任务上 EER 恶化到 21.17%：关键词分数只能判断「说的是不是这个词」，对说话人身份零分辨力，而 TO 把 nts-tk 划为负样本，关键词分数在这一象限内部完全失效。此前 KWS+SV 联合训练 [24][25] 的目标是「互相提升两个任务各自的性能」，没有人回答共享表征学出来之后如何针对「个性化检测」这个决策目标做适配。
+    - generic [ref=f232e29]:
+      - generic [ref=f232e30]:
+        - heading "双模型拼装的账" [level=4] [ref=f232e31]
+        - paragraph [ref=f232e32]: KWS + 独立 SV 模型（Vanilla +SV）在 BC-ResNet-3 上要 22.5M 乘法 / 82.4k 参数（vs 单模型 16.7M）——两个模型各自编码、表征层没有任何信息互通，说话人信息并没有「进入」关键词系统。
+      - generic [ref=f232e33]:
+        - heading "端侧预算约束" [level=4] [ref=f232e34]
+        - paragraph [ref=f232e35]: always-on 模型本来就是为省电而生——任何个性化改造必须满足「参数和计算只允许轻微增加、C-KWS 性能不能掉」，否则是拿主任务的工程预算去赌个性化收益。
+    - heading "§02 方法：两阶段框架" [level=2] [ref=f232e36]:
+      - generic [ref=f232e37]: §02
+      - text: 方法：两阶段框架
+    - generic [ref=f232e38]: 多任务学表征 + 任务自适应打分
+    - generic [ref=f232e39]:
+      - img [ref=f232e40]:
+        - generic [ref=f232e42]: PK-MTL：关键词系统学会「认人」，误唤醒近乎清零
+        - generic [ref=f232e43]: ① 通用负样本：C-KWS 的功耗黑洞
+        - generic [ref=f232e45]: C-KWS 只认词不认人
+        - generic [ref=f232e46]: 设备交互绝大多数来自注册的目标用户——模型理应偏置
+        - generic [ref=f232e47]: 通用负样本（含目标词的背景声/近音词）：电视流媒体、
+        - generic [ref=f232e48]: 在线会议、旁边人的对话——命中即拖起整条 ASR 链路
+        - generic [ref=f232e49]: 误报不是「多亮一次灯」，是续航损失
+        - generic [ref=f232e50]: QbE 解决「换词」不解决「认人」；双模型拼装 +22% 计算
+        - generic [ref=f232e51]: 且表征层无信息互通
+        - generic [ref=f232e53]: 任务形式化：四象限 + TB/TO 双任务
+        - generic [ref=f232e54]: 输入空间四象限：ts-tk / nts-tk / ts-ntk / nts-ntk
+        - generic [ref=f232e55]: 模糊象限 = nts-tk（非目标用户说目标词）——怎么处置？
+        - generic [ref=f232e56]: · TB-KWS（偏向）：nts-tk 视为中性——「减少电视误唤醒」
+        - generic [ref=f232e57]: · TO-KWS（独占）：nts-tk 划为负样本——「只响应机主」
+        - generic [ref=f232e58]: 把「个性化」从营销词变成可重复评测的协议
+        - generic [ref=f232e59]: ② 硬参数共享骨架：低层共享、高层分流
+        - generic [ref=f232e61]: 输入音频
+        - generic [ref=f232e62]: 40 维 log-Mel /
+        - generic [ref=f232e63]: MFCC
+        - generic [ref=f232e65]: 共享编码器 f_φ
+        - generic [ref=f232e66]: 骨干去掉最后 1–2 层卷积
+        - generic [ref=f232e67]: 通用声学编码两任务共用
+        - generic [ref=f232e69]: 关键词子网 f_ϕk
+        - generic [ref=f232e70]: 骨干剩余层 + FC
+        - generic [ref=f232e71]: → z^k，余弦分类器 g^
+        - generic [ref=f232e72]: k
+        - generic [ref=f232e74]: 说话人子网 f_ϕs
+        - generic [ref=f232e75]: 骨干剩余层 + FC
+        - generic [ref=f232e76]: → z^s，余弦分类器 g^
+        - generic [ref=f232e77]: s
+        - generic [ref=f232e79]: L_mtl = L^k + 0.1·L^s
+        - generic [ref=f232e80]: 主任务不被带偏
+        - generic [ref=f232e81]: 说话人监督「白送」进网络
+        - generic [ref=f232e82]: ↑ 低层共享：频谱纹理/音素模式两任务共用，互补信息近零代价
+        - generic [ref=f232e83]: ↑ 高层分流：两任务目标「对抗」——
+        - generic [ref=f232e84]: 关键词要说话人无关 / 说话人要内容无关
+        - generic [ref=f232e85]: ③ 统一原型打分 + 任务自适应两级
+        - generic [ref=f232e87]: 打分的不对称设计（开集难题）
+        - generic [ref=f232e88]: 关键词侧：预定义、训练见过——用「学到的原型」
+        - generic [ref=f232e89]: ψ^k = sim(z^k, W^k_ref)（余弦分类器权重即类原型）
+        - generic [ref=f232e90]: 说话人侧：开集、测试才出现——用「注册嵌入」
+        - generic [ref=f232e91]: ψ^s = sim(z^s, f(x_ref))（一句注册语音）
+        - generic [ref=f232e92]: 训练/测试说话人不重叠 → 这是唯一可行路线；
+        - generic [ref=f232e93]: 余弦分类器是两侧打分统一形式的关键伏笔
+        - generic [ref=f232e95]: 任务自适应：SCM（免训练）→ TRM（可训练）
+        - generic [ref=f232e96]: SCM：ψ = α·ψ^k + (1−α)·ψ^s——α 按目标 FAR 网格
+        - generic [ref=f232e97]: 搜索校准（不是学习：最优 α 依赖工作点）
+        - generic [ref=f232e98]: TRM：输入 (z^k, z^s) 输出任务特定嵌入，与原型相似度
+        - generic [ref=f232e99]: 打分；angular prototypical loss + 模仿四象限的批构造——
+        - generic [ref=f232e100]: 任务语义（TB 容忍/TO 拒绝 nts-tk）写进表征学习
+        - generic [ref=f232e101]: 结构：拼接归一化嵌入 → 2 维注意力（SE 式重加权）——
+        - generic [ref=f232e102]: 只多约 1.8k 参数（82.0k vs 80.2k）
+        - generic [ref=f232e104]: 96.5→6.56
+        - generic [ref=f232e105]: TB FRR@1%（Vanilla→PK-MTL）
+        - generic [ref=f232e106]: 21.17→3.37
+        - generic [ref=f232e107]: TO EER（四骨干一致改善）
+        - generic [ref=f232e108]: 46.61→0.15
+        - generic [ref=f232e109]: 现实场景 FAR@FRR1%（TO）
+        - generic [ref=f232e110]: +4.8%
+        - generic [ref=f232e111]: 乘法增幅（BC-ResNet-3）
+        - generic [ref=f232e112]: 97.68%
+        - generic [ref=f232e113]: C-KWS 精度（不掉反微升）
+        - generic [ref=f232e114]: 数据：GSC v1（64,727 条 30 词 1,881 说话人）12 类设置；个性化测试 10 split × 16,000 对；SV 验证 160,000 说话人对；现实负样本 = WSJ-SI200 / Librispeech 切 1 秒段；四骨干验证（BC-ResNet-3/8、Res15、DS-ResNet18）
+      - paragraph [ref=f232e115]: 图1 · 框架全景：通用负样本痛点与四象限/TB/TO 任务形式化；硬参数共享骨架（低层共享/高层分流）与 λ=0.1；统一原型打分的不对称设计与 SCM→TRM 两级任务自适应。
+  - generic [ref=f232e116]:
+    - generic [ref=f232e117]: "L_mtl = L^k + 0.1·L^s ； SCM: ψ = α·ψ^k + (1−α)·ψ^s（α 按 FAR 校准）；TRM: ψ^tb = sim(TRM^tb(z^k, z^s), TRM^tb(p^k, p^s))"
+    - generic [ref=f232e118]: 人话：TRM 输入两个嵌入输出任务特定嵌入，与原型的相似度打分；训练用 angular prototypical loss——测试时的比较对象就是原型（关键词权重 + 注册嵌入），训练分布与推理分布严格对齐；批构造模仿四象限测试情形（TB 中 nts-tk 中性 / TO 中明确为负）——这是任务语义注入训练的唯一入口，也是 TRM 与 SCM 的本质区别。
+  - heading "§03 实验：三级阶梯 + 现实场景" [level=2] [ref=f232e119]:
+    - generic [ref=f232e120]: §03
+    - text: 实验：三级阶梯 + 现实场景
+  - generic [ref=f232e121]: 基线是被强化过的（也换用余弦分类器）——对比公平性做了明确处理
+  - generic [ref=f232e122]:
+    - img [ref=f232e123]:
+      - generic [ref=f232e125]: 主结果（Table 1 · BC-ResNet-3）：三级阶梯的每一级都有真实收益
+      - generic [ref=f232e126]: FRR / EER（%，越低越好）
+      - generic [ref=f232e127]: TB FRR@1%
+      - generic [ref=f232e128]: TB FRR@10%
+      - generic [ref=f232e129]: TO EER
+      - generic [ref=f232e131]: Vanilla（C-KWS）
+      - generic [ref=f232e133]: "96.50"
+      - generic [ref=f232e135]: "64.32"
+      - generic [ref=f232e137]: "21.12"
+      - generic [ref=f232e139]: Vanilla (+SV 双模型)
+      - generic [ref=f232e140]: —
+      - generic [ref=f232e141]: —
+      - generic [ref=f232e142]: —
+      - generic [ref=f232e144]: Naive MTL（只学多任务）
+      - generic [ref=f232e146]: "96.44"
+      - generic [ref=f232e148]: "64.26"
+      - generic [ref=f232e150]: "21.12"
+      - generic [ref=f232e152]: SCM-M（α=0.5 手工）
+      - generic [ref=f232e154]: "6.28"
+      - generic [ref=f232e155]: —
+      - generic [ref=f232e157]: "3.89"
+      - generic [ref=f232e159]: SCM-GS（按工作点校准 α）
+      - generic [ref=f232e161]: "6.24"
+      - generic [ref=f232e163]: "1.97"
+      - generic [ref=f232e165]: "3.76"
+      - generic [ref=f232e167]: TRM = PK-MTL ★
+      - generic [ref=f232e169]: "6.56"
+      - generic [ref=f232e171]: "1.52"
+      - generic [ref=f232e173]: "3.37"
+      - generic [ref=f232e174]: 读数：Vanilla/Naive MTL 的 TB FRR@1% 卡在 96.5%——只学多任务、不做任务自适应，实用工作点上几乎不可用（说话人信息学进了网络但没任务化打分就用不上）；三级阶梯：
+      - generic [ref=f232e175]: 推理端算术组合（SCM-M）< 按工作点校准（SCM-GS）< 表征端任务塑形（TRM）；Vanilla (+SV) 22.5M 乘法 vs 共享 17.5M——省约 22% 计算拿同等 SV 能力（EER 3.36 vs 3.32）
+    - paragraph [ref=f232e176]: 图2 · 主结果（Table 1 · BC-ResNet-3）：三级阶梯——Vanilla/Naive MTL 的 TB FRR@1% 卡在 96.5%（实用上不可用）到 TRM 的 6.56%；SCM-M < SCM-GS < TRM。
+  - table [ref=f232e177]:
+    - rowgroup [ref=f232e178]:
+      - row [ref=f232e179]:
+        - columnheader "BC-ResNet-3" [ref=f232e180]
+        - columnheader "C-KWS 精度" [ref=f232e181]
+        - columnheader "TB FRR@1%" [ref=f232e182]
+        - columnheader "TO EER" [ref=f232e183]
+        - columnheader "#Mult" [ref=f232e184]
+        - columnheader "#Param" [ref=f232e185]
+      - row [ref=f232e186]:
+        - cell "Vanilla" [ref=f232e187]
+        - cell "97.57%" [ref=f232e188]
+        - cell "96.50%" [ref=f232e189]
+        - cell "21.12%" [ref=f232e190]
+        - cell "16.7M" [ref=f232e191]
+        - cell "63.5k" [ref=f232e192]
+      - row [ref=f232e193]:
+        - cell "Vanilla (+SV 双模型)" [ref=f232e194]
+        - cell "—" [ref=f232e195]
+        - cell "—" [ref=f232e196]
+        - cell "—" [ref=f232e197]
+        - cell "22.5M" [ref=f232e198]
+        - cell "82.4k" [ref=f232e199]
+      - row [ref=f232e200]:
+        - cell "Naive MTL" [ref=f232e201]
+        - cell "97.68%" [ref=f232e202]
+        - cell "96.44%" [ref=f232e203]
+        - cell "21.12%" [ref=f232e204]
+        - cell "17.5M" [ref=f232e205]
+        - cell "80.2k" [ref=f232e206]
+      - row [ref=f232e207]:
+        - cell "PK-MTL (TRM)" [ref=f232e208]
+        - cell "97.68%" [ref=f232e209]
+        - cell "6.56%" [ref=f232e210]
+        - cell "3.37%" [ref=f232e211]
+        - cell "17.5M" [ref=f232e212]
+        - cell "82.0k" [ref=f232e213]
+  - generic [ref=f232e214]:
+    - img [ref=f232e215]:
+      - generic [ref=f232e217]: 现实场景（Table 2 · FAR@FRR 1%）：通用负样本误唤醒近乎清零
+      - generic [ref=f232e218]: 对通用负样本的 FAR（%，FRR 固定 1%）
+      - generic [ref=f232e219]: GSC + WSJ
+      - generic [ref=f232e221]: 41.49%
+      - generic [ref=f232e222]: Vanilla（四骨干）
+      - generic [ref=f232e223]: (四骨干范围 41.5–47.4)
+      - generic [ref=f232e225]: 5.58%
+      - generic [ref=f232e226]: PK-MTL (TB)
+      - generic [ref=f232e228]: 0.20%
+      - generic [ref=f232e229]: PK-MTL (TO)
+      - generic [ref=f232e230]: GSC + Librispeech
+      - generic [ref=f232e232]: 21.83%
+      - generic [ref=f232e233]: Vanilla（四骨干）
+      - generic [ref=f232e234]: (四骨干范围 21.8–37.5)
+      - generic [ref=f232e236]: 3.14%
+      - generic [ref=f232e237]: PK-MTL (TB)
+      - generic [ref=f232e239]: 0.15%
+      - generic [ref=f232e240]: PK-MTL (TO)
+      - generic [ref=f232e241]: Vanilla 每 2–5 个含词负样本就误唤醒一次；TO 模式接近清零——通用负样本全部来自
+      - generic [ref=f232e242]: 非目标说话人，正好落进 TO 训练过的拒绝面；WSJ 比 Librispeech 更差（录音棚读语更清晰
+      - generic [ref=f232e243]: → 关键词分数更高反而更易误穿透——笔注机理推断）
+      - generic [ref=f232e245]: 骨干泛化：Res15 / DS-ResNet18 / BC-ResNet-8 全部获益（TB EER 3.03→2.14 / 2.41→1.61 / 2.43→1.33）
+      - generic [ref=f232e246]: ——框架模型无关；SV 性能随骨干变化（4.43 / 3.29 / 2.58%）但个性化收益不依赖特定骨干
+    - paragraph [ref=f232e247]: 图3 · 现实场景（Table 2 · FAR@FRR1%）：对 WSJ/Librispeech 通用负样本——Vanilla 每 2–5 个含词负样本误唤醒一次，TO 模式降到 0.20/0.15% 近乎清零；四骨干全部获益（框架模型无关）。
+  - generic [ref=f232e248]:
+    - img [ref=f232e249]:
+      - generic [ref=f232e251]: 分数分布证据（Fig. 3）+ 边界
+      - generic [ref=f232e252]: PK-MTL (TO) 的散点（示意形态）
+      - generic [ref=f232e254]: 关键词分 →
+      - generic [ref=f232e255]: ↑ 说话人分
+      - generic [ref=f232e270]: ts-tk（唯一正象限）
+      - generic [ref=f232e283]: nts-tk
+      - generic [ref=f232e294]: ts-ntk / nts-ntk
+      - generic [ref=f232e295]: TO 模式：ts-tk 与其余所有象限完全拉开——
+      - generic [ref=f232e296]: Vanilla：通用负样本即使词对也拿高分；Naive MTL：说话人
+      - generic [ref=f232e297]: 信息学进了网络（负样本说话人分低）但无任务化打分用不上
+      - generic [ref=f232e299]: 边界
+      - generic [ref=f232e300]: · 单句注册假设：注册句时长/内容/信道质量对嵌入稳定
+      - generic [ref=f232e301]: 性的影响未报告——噪声信道下单句嵌入方差可能吞掉收益
+      - generic [ref=f232e302]: · 说话人判别力天花板：GSC v1（1,881 人孤立词近讲）训练
+      - generic [ref=f232e303]: ——跨信道/远场/口音未检验；TO 残余错误来自声近说话人
+      - generic [ref=f232e304]: · 任务数线性扩张：每加一个任务多训一个 TRM；SCM 每个
+      - generic [ref=f232e305]: 工作点都要重搜 α
+      - generic [ref=f232e306]: · λ=0.1 与注意力中间维 2 无敏感性分析（工程经验值）
+      - generic [ref=f232e307]: · 只覆盖说话人维度——自定义词 + 认人的叠加未触及；
+      - generic [ref=f232e308]: · GSC 孤立词 vs 真实连续流式远场的差距；无时延/功耗实测；
+      - generic [ref=f232e309]: Table 1 部分列的配对/协议不透明（横向读数需谨慎）
+      - generic [ref=f232e310]: 可迁移判断：辅助监督要「白送」进网络（λ 压低保主任务），还要任务化打分才能兑现——表征端任务塑形优于推理端分数算术
+    - paragraph [ref=f232e311]: 图4 · 分数分布证据（Fig. 3 示意）与边界：TO 模式下 ts-tk 与其余象限完全拉开；单句注册假设、说话人判别力天花板、任务线性扩张、协议透明度等边界。
+  - heading "§04 贡献：四条" [level=2] [ref=f232e312]:
+    - generic [ref=f232e313]: §04
+    - text: 贡献：四条
+  - generic [ref=f232e314]:
+    - generic [ref=f232e315]:
+      - generic [ref=f232e316]: "1"
+      - paragraph [ref=f232e317]: 任务形式化：四象限分类法 + TB/TO 双任务——nts-tk 的两种处置覆盖偏置型与独占型两类设备需求，所有数字可被讨论的前提。
+    - generic [ref=f232e318]:
+      - generic [ref=f232e319]: "2"
+      - paragraph [ref=f232e320]: PK-MTL 两阶段框架：硬参数共享骨架 + 任务自适应打分（SCM/TRM），三骨干一致有效——框架模型无关。
+    - generic [ref=f232e321]:
+      - generic [ref=f232e322]: "3"
+      - paragraph [ref=f232e323]: 统一的原型打分：余弦分类器权重作关键词原型、注册嵌入作说话人原型——开集难题下训练损失与推理判据严格对齐。
+    - generic [ref=f232e324]:
+      - generic [ref=f232e325]: "4"
+      - paragraph [ref=f232e326]: 量级级实证收益：TB FRR@1% 96.50→6.56、TO EER 21.17→3.37、现实场景 FAR 46.61→0.15（TO）——代价约 +4.8% 乘法且 C-KWS 不掉点。
+  - heading "§05 局限与边界" [level=2] [ref=f232e327]:
+    - generic [ref=f232e328]: §05
+    - text: 局限与边界
+  - generic [ref=f232e329]: 从 GSC 孤立词到真实产品还有几步
+  - generic [ref=f232e330]:
+    - generic [ref=f232e331]:
+      - heading "单句注册假设" [level=4] [ref=f232e332]
+      - paragraph [ref=f232e333]: 整套打分建立在一句注册语音的嵌入上——注册句时长/内容/信道质量对嵌入稳定性的影响未报告；噪声信道下单句嵌入方差可能吞掉 TB/TO 收益；注册数量、间隔、说话人状态变化（感冒/语速）均未研究。
+    - generic [ref=f232e334]:
+      - heading "说话人判别力天花板" [level=4] [ref=f232e335]
+      - paragraph [ref=f232e336]: 说话人子网在 GSC v1（1,881 人、孤立词、近讲）训练——跨信道/远场/口音鲁棒性未检验；TO 的残余错误很可能来自声音相近的说话人穿透，更大说话人规模下如何变化未知。
+    - generic [ref=f232e337]:
+      - heading "任务数线性扩张 + 超参" [level=4] [ref=f232e338]
+      - paragraph [ref=f232e339]: 每加一个个性化任务多训一个 TRM；SCM 每个工作点重搜 α 且跨工作点迁移性未报；λ=0.1 与注意力中间维 2 都是工程经验值无敏感性分析。
+    - generic [ref=f232e340]:
+      - heading "验证范围与协议透明度" [level=4] [ref=f232e341]
+      - paragraph [ref=f232e342]: 只覆盖说话人维度（自定义词+认人叠加未触及）；「现实场景」负样本也是 WSJ/Librispeech 切 1 秒仿真段非真实电视录音；无流式时延/内存/功耗实测；Table 1 部分列的配对/打分协议不透明（Vanilla 的 TB EER 2.47% 与 FRR@1% 96.50% 在单一协议下难以同时成立）；无 QbE/已有多任务工作的实证对比、无显著性检验。
+  - generic [ref=f232e343]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f232e344]
+    - list [ref=f232e345]:
+      - listitem [ref=f232e346]: ↳ 辅助监督要「白送」（λ 压低保主任务）还要任务化打分才能兑现——学到 ≠ 用上：Naive MTL 的说话人信息学进了网络但 FRR@1% 仍 96.44%。
+      - listitem [ref=f232e347]: ↳ 表征端任务塑形优于推理端分数算术：把任务语义写进训练（批构造模仿测试情形）比事后组合现成分数天花板更高。
+      - listitem [ref=f232e348]: ↳ 任务的定义先于方法：四象限分类法把模糊象限（nts-tk）的两种处置显式化——产品语言的「个性化」才变成可评测的协议。
+      - listitem [ref=f232e349]: ↳ 开集一侧用注册嵌入、闭集一侧用学到原型，统一在余弦相似度下——训练与推理判据对齐是跨开闭集打分的通用解法。
+      - listitem [ref=f232e350]: ↳ 共享编码器省 22% 计算拿到同等辅助能力——硬参数共享在端侧多任务里仍是最划算的信息搬运方式。
+  - generic [ref=f232e351]:
+    - link "论文原文 ↗" [ref=f232e352] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2206.13708
+    - link "笔记全文 ↗" [ref=f232e353] [cursor=pointer]:
+      - /url: Personalized_Keyword_Spotting_Through_Multi-task_Learning.md
+    - link "返回列表" [ref=f232e354] [cursor=pointer]:
+      - /url: ../index.html

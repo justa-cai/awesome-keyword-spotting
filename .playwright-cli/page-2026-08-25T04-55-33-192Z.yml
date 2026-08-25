@@ -1,0 +1,314 @@
+- generic [active] [ref=f199e1]:
+  - generic [ref=f199e2]:
+    - link "← 返回论文列表" [ref=f199e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f199e4]: 论文精读 · 可视化版 · 2022 №13
+    - heading "注册五条发音就能换唤醒词， 还得拒绝其余整个世界" [level=1] [ref=f199e5]: 注册五条发音就能换唤醒词，还得拒绝其余整个世界
+    - generic [ref=f199e6]:
+      - generic [ref=f199e7]: D-ProtoNet · arXiv 2206.13691
+      - generic [ref=f199e8]: Qualcomm AI Research
+      - generic [ref=f199e9]: 少样本开集 KWS（首个设定）
+      - generic [ref=f199e10]: splitGSC 基准 · 三骨干验证
+    - generic [ref=f199e11]: 哑原型不是训练后固定的参数，而是每个回合从当前 N 个已知类原型现场生成的一个嵌入点——开集检测被改写成 N+1 类分类，推理开销接近零。
+    - generic [ref=f199e12]:
+      - heading "一分钟版本" [level=3] [ref=f199e13]
+      - list [ref=f199e14]:
+        - listitem [ref=f199e15]: ▸ 新设定 FSOS-KWS：用户/OEM 注册 M 条发音即插即用（少样本），同时拒绝所有不属于注册词的开集发音（噪声/闲聊/电视/相近词）——第一篇提出该设定的工作。
+        - listitem [ref=f199e16]: ▸ 本质难点：开集随回合漂移——N 个已知类每个回合临时抽，「开集 = 剩下的一切」（含 Silence），拒绝边界必须从本回合支持样本即时推断；固定哑类（Proser）或静态 Unknown 类都无从适配。
+        - listitem [ref=f199e17]: ▸ SnaTCHer 的两宗罪：每个查询都要过 Transformer（端侧常驻监听硬伤）；弱骨干上距离法直接崩（Conv4-64 AUROC 51.1/53.1，不如什么都不做的 ProtoNet 55.3/63.8）。
+        - listitem [ref=f199e18]: ▸ 核心机制：哑原型生成器 gϕ（DeepSets：FC → 沿类维 Maxpool → 投影，隐藏维仅 32）从本回合原型集现场合成哑类中心，与真原型同空间同度量进入同一个 softmax 分母。
+        - listitem [ref=f199e19]: ▸ 非对称温度 γ=3：哑类是单个点却要替 5 个未知类的并集兜底——开集查询到单点的平均距离系统性偏大，温度=1 时哑类概率永远上不去，梯度会逼编码器扭曲整个嵌入空间；放大 τ 把哑类那一路压平「更容易降低损失」。
+        - listitem [ref=f199e20]: ▸ 双路损失 λ=0.1：已知与开集查询数量相当，等权会让哑类监督占掉一半分类头容量——0.1 宣示「闭集少样本精度是主任务不容侵蚀」。
+        - listitem [ref=f199e21]: ▸ 主结果：ResNet-12 上 5-shot AUROC 86.7（对 SnaTCHer-F +3.4、对 ProtoNet +18.3），Acc 86.9 反而最高；弱骨干 Conv4-64 上优势更大（+10.6/+10.1）；KWS 骨干 BCResNet-8 上 +14.8/+13.5。
+        - listitem [ref=f199e22]: ▸ 消融大头：裸加哑类训练（γ=1）就 +14.3（Acc 几乎不动）——「给开集一个显式类表征」这一个动作解释了总增益的绝大部分，温度/Gumbel/L 都是精修。
+        - listitem [ref=f199e23]: ▸ RFN 意外发现：频率轴实例归一化（抹掉说话人音色/信道色差）对全骨干一致有效，还把哑类在 BCResNet-8 上欠的闭集精度账还了（65.2→69.7）。
+        - listitem [ref=f199e24]: ▸ 边界：1-shot 闭集精度让位（miniImageNet 63.4 vs SnaTCHer 67.4）；点状哑类逼近多模态开集有天花板（L=3 饱和）；开集全来自同一词表——更像 held-out 类检测。
+    - heading "§01 问题：换词的自由与拒绝的义务" [level=2] [ref=f199e25]:
+      - generic [ref=f199e26]: §01
+      - text: 问题：换词的自由与拒绝的义务
+    - generic [ref=f199e27]: 唤醒词是产品决策变量，为每个新词重跑管线是成本黑洞
+    - paragraph [ref=f199e28]: 过去 KWS 研究全建立在 GSC 固定词表闭集分类范式上——词表训练时冻结。产品侧正在松动：不同地区、品牌、技能都想换词。query-by-example 路线让注册 M 条发音即可识别新词，但真实音频流补上残酷的另一半：绝大多数音频不是任何注册词，而 DNN 是过度自信的——面对没有支持样本的未预期类别，模型会以高置信度硬塞进 N 个已知类之一。对唤醒词系统，误唤醒直接打击用户信任还搭上后续链路上电的功耗。
+    - generic [ref=f199e29]:
+      - generic [ref=f199e30]:
+        - heading "闭集方案的 Unknown 类失效" [level=4] [ref=f199e31]
+        - paragraph [ref=f199e32]: 传统 GSC 12 类把剩余 25 个词打包成 Unknown 类——本质是把开集重包装成闭集，前提是「未知」能被训练时剩余词表穷举。少样本场景 N 类每回合临时抽，静态 Unknown 类完全对不上。
+      - generic [ref=f199e33]:
+        - heading "视觉 FSOSR 方法各有硬伤" [level=4] [ref=f199e34]
+        - paragraph [ref=f199e35]: PEELER 用熵最大化间接压低已知类概率——没有显式未知类表征可校准；SnaTCHer 是当时的 SOTA 但每个查询都要过 Transformer；Proser 的哑分类器训练后固定——只适用于标签空间固定的传统 OSR，开集随回合漂移时无从适配。
+    - heading "§02 方法：episode-known 哑原型" [level=2] [ref=f199e36]:
+      - generic [ref=f199e37]: §02
+      - text: 方法：episode-known 哑原型
+    - generic [ref=f199e38]: 度量学习一脉：适配阶段一次前向、零梯度、零微调
+    - generic [ref=f199e39]:
+      - img [ref=f199e40]:
+        - generic [ref=f199e42]: D-ProtoNet：哑原型每个回合现场生成，开集检测 = N+1 类分类
+        - generic [ref=f199e43]: ① 新设定 FSOS-KWS：注册即用 + 拒绝一切未知
+        - generic [ref=f199e45]: 两个需求的叠加
+        - generic [ref=f199e46]: 少样本（query-by-example）：用户/OEM 注册 M 条
+        - generic [ref=f199e47]: 发音，即插即用识别训练时没见过的词
+        - generic [ref=f199e48]: 开集：常驻监听里绝大多数音频不是任何注册词
+        - generic [ref=f199e49]: ——噪声/闲聊/电视/相近词，DNN 又过度自信，
+        - generic [ref=f199e50]: 会高置信度硬塞进 N 个已知类（误唤醒 = 信任崩塌）
+        - generic [ref=f199e52]: 工具箱为什么没现成答案
+        - generic [ref=f199e53]: 闭集 KWS 的 Unknown 类：开集重包装成闭集——少样本
+        - generic [ref=f199e54]: 下 N 类每回合临时抽，静态 Unknown 对不上
+        - generic [ref=f199e55]: 已有少样本 KWS（[7][8][9]）：只优化闭集精度
+        - generic [ref=f199e56]: SnaTCHer（SOTA）：每个查询都要过 Transformer——端侧
+        - generic [ref=f199e57]: 常驻监听硬伤；弱骨干上距离法直接崩（AUROC 51）
+        - generic [ref=f199e58]: Proser 固定哑分类器：标签空间固定的传统 OSR 专用
+        - generic [ref=f199e59]: 本质难点：开集随回合漂移——N 个已知类临时抽，开集就是「剩下的一切」（含 Silence），拒绝边界必须从本回合支持样本即时推断
+        - generic [ref=f199e60]: ② 核心：episode-known 哑原型
+        - generic [ref=f199e62]: 编码器 fφ
+        - generic [ref=f199e63]: Conv4-64 → 768 维
+        - generic [ref=f199e64]: ResNet-12 → 512 维
+        - generic [ref=f199e65]: BCResNet-8 → 256 维
+        - generic [ref=f199e66]: （KWS 骨干）
+        - generic [ref=f199e68]: 本回合 N 个原型
+        - generic [ref=f199e69]: cn = 支持样本嵌入均值
+        - generic [ref=f199e70]: N-way M-shot 回合
+        - generic [ref=f199e71]: 已知类每回合临时抽
+        - generic [ref=f199e72]: C = [c1; …; cN]
+        - generic [ref=f199e74]: 哑原型生成器 gϕ（DeepSets）
+        - generic [ref=f199e75]: cd = Maxpool(g1(C)) · Wg
+        - generic [ref=f199e76]: g1：FC-ReLU-FC（隐藏维 32）
+        - generic [ref=f199e77]: Maxpool 沿类维（对称 → 置换不变）
+        - generic [ref=f199e78]: 每回合现算一次 → 开集=已知类的「包络」
+        - generic [ref=f199e80]: N+1 类 softmax + 推理
+        - generic [ref=f199e81]: 分类：argmax 前 N 类
+        - generic [ref=f199e82]: 开集：p(哑类) > δ 则拒绝
+        - generic [ref=f199e83]: 哑类温度 τ=γ·τn（γ=3）
+        - generic [ref=f199e84]: "增广原型集 {c1..cN, cd}"
+        - generic [ref=f199e85]: 开集检测被改写成 N+1 类分类问题——检测器就是分类器本身，零额外打分管线，阈值只有一个
+        - generic [ref=f199e86]: ③ 四个设计的「为什么」
+        - generic [ref=f199e88]: 非对称温度 γ=3（最精巧）
+        - generic [ref=f199e89]: 哑类是单个点，却要替 N_U=5 个未知类的并集兜底
+        - generic [ref=f199e90]: ——开集查询到单点的平均距离系统性偏大，温度=1 时
+        - generic [ref=f199e91]: 指数放大后哑类概率永远上不去 → 梯度逼编码器扭曲
+        - generic [ref=f199e92]: 整个嵌入空间（把开集样本硬拉近哑点）伤及已知类
+        - generic [ref=f199e93]: τ 放大 3 倍 = 把哑类那一路指数压平，「更容易降低损失」
+        - generic [ref=f199e94]: ——允许哑类用更宽容的地盘覆盖更分散的开集质量
+        - generic [ref=f199e95]: 数据背书：γ 1→3，5-shot AUROC 82.7 → 86.2
+        - generic [ref=f199e97]: λ=0.1 / Gumbel / L=3
+        - generic [ref=f199e98]: 双路损失 L = L^K + 0.1·L^U：已知与开集查询数量相当，
+        - generic [ref=f199e99]: 等权会让哑类监督占掉一半分类头容量——0.1 宣示
+        - generic [ref=f199e100]: 「闭集少样本精度是主任务不容侵蚀」（Acc 与基线持平）
+        - generic [ref=f199e101]: 开集多模态（5 未知类 + Silence 聚不成一团）→ 多哑原型
+        - generic [ref=f199e102]: 分工；「查询归哪个哑点」是离散选择，硬 argmax 切断梯度
+        - generic [ref=f199e103]: → Gumbel softmax 软化：训练用概率加权合成哑原型，
+        - generic [ref=f199e104]: 推理切回硬 argmax；L=3 后饱和（4/5 无进一步收益）
+        - generic [ref=f199e105]: ④ splitGSC 基准：为 FSOS-KWS 立的规矩
+        - generic [ref=f199e107]: "· 类级 15/10/10 固定划分（train: Happy/House/Bird…；val: 数字 Zero–Nine；test: Yes/No/Up/Down/Left/Right/On/Off/Stop/go）"
+        - generic [ref=f199e108]: · 固定划分防「换一次随机划分结果就波动」；测试词特意选传统 12 类 KWS 的那 10 个命令词——能和主流 GSC 文献直接对话
+        - generic [ref=f199e109]: · Silence 只允许出现在开集（没人把静音注册成唤醒词，背景噪声永远是被拒绝对象）；每回合 5 已知类（不含 Silence）+ 5 开集类
+        - generic [ref=f199e110]: · 规模：GSC v2 105,829 条 → 类划分筛选 + 补 Silence → 24,444 / 4,007 / 4,482；1,000 回合 × 5 trial 报均值（标准差）
+        - generic [ref=f199e112]: 86.7%
+        - generic [ref=f199e113]: 5-shot AUROC（ResNet-12）
+        - generic [ref=f199e114]: "+3.4"
+        - generic [ref=f199e115]: vs SnaTCHer（5-shot AUROC）
+        - generic [ref=f199e116]: "+14.8"
+        - generic [ref=f199e117]: BCResNet-8 上 vs ProtoNet
+        - generic [ref=f199e118]: L=3
+        - generic [ref=f199e119]: 哑原型饱和点
+        - generic [ref=f199e120]: ~0
+        - generic [ref=f199e121]: 推理开销（每查询 L 次距离）
+        - generic [ref=f199e122]: 作者线：Qualcomm AI Research（第一作者也是 BCResNet 提出者）——端侧可定制唤醒词的延续研究线；度量学习一脉被选中因为适配阶段一次前向、零梯度、零微调
+      - paragraph [ref=f199e123]: 图1 · 机制全景：FSOS-KWS 设定与工具箱缺口；episode-known 哑原型管线（编码器 → 本回合 N 原型 → DeepSets 生成器 → N+1 类 softmax）；四个设计的「为什么」与 splitGSC 协议。
+  - generic [ref=f199e124]:
+    - generic [ref=f199e125]: "c_d = gϕ(C) = Maxpool(g₁(C)) · W_g ； p(y=n|x) = softmax(−d(f(x), c_n)/τ_n)，τ_{N+1} = γ·τ_n（γ=3）"
+    - generic [ref=f199e126]: 人话：N 个原型按行堆叠 → 每个原型过同样的 FC 变换 → 沿类维做 Maxpool（对称函数 → 置换不变，打乱类顺序不改变结果）→ 投影回嵌入空间。Maxpool 的语义：每个隐藏维只保留「所有已知类中最显著的那个值」——哑原型学到的是已知类的包络而非平均，包络之外才是开集该占的地方。
+  - paragraph [ref=f199e127]: 为什么选 ProtoNets 作基座：类表征就是嵌入空间里的一个原型点——这给「再添加一个哑类中心」留下天然接口，开集检测复用整套分类机制，不需要额外二分类头或重打分管线。**为什么推理近零开销**：哑原型每回合只生成一次（生成器是隐藏维 32 的两层 FC），每个查询只多算 L=3 次欧氏距离。
+  - heading "§03 实验：splitGSC 三骨干 + miniImageNet 跨域" [level=2] [ref=f199e128]:
+    - generic [ref=f199e129]: §03
+    - text: 实验：splitGSC 三骨干 + miniImageNet 跨域
+  - generic [ref=f199e130]: AUROC（免阈值开集质量）+ Acc（没伤主任务的守门指标）
+  - generic [ref=f199e131]:
+    - img [ref=f199e132]:
+      - generic [ref=f199e134]: splitGSC 主对比（Table 1 · ResNet-12 · 5-way 1/5-shot）
+      - generic [ref=f199e135]: 开集检测 AUROC（越高越好）
+      - generic [ref=f199e138]: "60.7"
+      - generic [ref=f199e139]: "68.4"
+      - generic [ref=f199e140]: ProtoNet
+      - generic [ref=f199e143]: "65.6"
+      - generic [ref=f199e144]: "71.0"
+      - generic [ref=f199e145]: FEAT
+      - generic [ref=f199e148]: "66.2"
+      - generic [ref=f199e149]: "72.1"
+      - generic [ref=f199e150]: PEELER
+      - generic [ref=f199e153]: "73.2"
+      - generic [ref=f199e154]: "83.3"
+      - generic [ref=f199e155]: SnaTCHer-F（SOTA）
+      - generic [ref=f199e158]: "78.8"
+      - generic [ref=f199e159]: "86.7"
+      - generic [ref=f199e160]: D-ProtoNet L=3 ★
+      - generic [ref=f199e162]: 1-shot
+      - generic [ref=f199e164]: 5-shot
+      - generic [ref=f199e165]: 闭集精度 Acc（守门指标）
+      - generic [ref=f199e168]: "68.3"
+      - generic [ref=f199e169]: "85.9"
+      - generic [ref=f199e172]: "68.8"
+      - generic [ref=f199e173]: "84.0"
+      - generic [ref=f199e176]: "65.4"
+      - generic [ref=f199e177]: "82.4"
+      - generic [ref=f199e180]: "70.4"
+      - generic [ref=f199e181]: "84.7"
+      - generic [ref=f199e184]: "69.7"
+      - generic [ref=f199e185]: "86.9"
+      - generic [ref=f199e186]: 开集机制的天生风险是哑类挤占分类头
+      - generic [ref=f199e187]: 容量、把闭集精度拖下水——Acc 证明没伤主任务
+      - generic [ref=f199e188]: 关键对位：D-ProtoNet 对 SnaTCHer-F 开集 1-shot +5.6 / 5-shot +3.4，同时 5-shot Acc 反高 2.2，标准差更小（0.3 vs 0.8–1.0）；弱骨干上优势进一步放大（见下图）
+    - paragraph [ref=f199e189]: 图2 · splitGSC 主对比（Table 1 · ResNet-12）：左为开集检测 AUROC、右为闭集精度 Acc——D-ProtoNet 开集 5-shot 86.7 全场最高，Acc 86.9 同时最高（哑类没挤占分类头容量）。
+  - table [ref=f199e190]:
+    - rowgroup [ref=f199e191]:
+      - row [ref=f199e192]:
+        - columnheader "模型（ResNet-12）" [ref=f199e193]
+        - columnheader "1-shot Acc" [ref=f199e194]
+        - columnheader "1-shot AUROC" [ref=f199e195]
+        - columnheader "5-shot Acc" [ref=f199e196]
+        - columnheader "5-shot AUROC" [ref=f199e197]
+      - row [ref=f199e198]:
+        - cell "ProtoNet" [ref=f199e199]
+        - cell "68.3" [ref=f199e200]
+        - cell "60.7" [ref=f199e201]
+        - cell "85.9" [ref=f199e202]
+        - cell "68.4" [ref=f199e203]
+      - row [ref=f199e204]:
+        - cell "FEAT" [ref=f199e205]
+        - cell "68.8" [ref=f199e206]
+        - cell "65.6" [ref=f199e207]
+        - cell "84.0" [ref=f199e208]
+        - cell "71.0" [ref=f199e209]
+      - row [ref=f199e210]:
+        - cell "PEELER" [ref=f199e211]
+        - cell "65.4" [ref=f199e212]
+        - cell "66.2" [ref=f199e213]
+        - cell "82.4" [ref=f199e214]
+        - cell "72.1" [ref=f199e215]
+      - row [ref=f199e216]:
+        - cell "SnaTCHer-F（SOTA）" [ref=f199e217]
+        - cell "70.4" [ref=f199e218]
+        - cell "73.2" [ref=f199e219]
+        - cell "84.7" [ref=f199e220]
+        - cell "83.3" [ref=f199e221]
+      - row [ref=f199e222]:
+        - cell "D-ProtoNet L=3" [ref=f199e223]
+        - cell "69.7" [ref=f199e224]
+        - cell "78.8" [ref=f199e225]
+        - cell "86.9" [ref=f199e226]
+        - cell "86.7" [ref=f199e227]
+  - generic [ref=f199e228]:
+    - img [ref=f199e229]:
+      - generic [ref=f199e231]: 三个骨干全景：越弱的骨干，哑类优势越大（Table 1 · AUROC）
+      - generic [ref=f199e232]: "55"
+      - generic [ref=f199e233]: "65"
+      - generic [ref=f199e234]: "75"
+      - generic [ref=f199e235]: "85"
+      - generic [ref=f199e236]: "95"
+      - generic [ref=f199e239]: "63.8"
+      - generic [ref=f199e240]: "73.9"
+      - generic [ref=f199e242]: "53.1"
+      - generic [ref=f199e243]: Conv4-64（弱）
+      - generic [ref=f199e244]: D−Proto：+10.1 / +10.6
+      - generic [ref=f199e247]: "68.4"
+      - generic [ref=f199e248]: "86.7"
+      - generic [ref=f199e250]: "83.3"
+      - generic [ref=f199e251]: ResNet-12（中）
+      - generic [ref=f199e252]: D−Proto：+18.3 / +18.1
+      - generic [ref=f199e255]: "68.8"
+      - generic [ref=f199e256]: "82.3"
+      - generic [ref=f199e257]: BCResNet-8（KWS）
+      - generic [ref=f199e258]: D−Proto：+13.5 / +14.8
+      - generic [ref=f199e260]: ProtoNet
+      - generic [ref=f199e262]: D-ProtoNet ★
+      - generic [ref=f199e264]: SnaTCHer-F
+      - generic [ref=f199e265]: （BCResNet-8 未跑该基线）
+      - generic [ref=f199e266]: 5-shot AUROC · 括号注为 5-shot/1-shot 相对 ProtoNet 提升
+      - generic [ref=f199e267]: 两个读数：① Conv4-64 弱骨干上 SnaTCHer（51.1/53.1）反而不如什么都不做的 ProtoNet（55.3/63.8）——依赖嵌入质量的间接机制在弱表征下崩；哑类显式监督稳（+10.6/+10.1）
+      - generic [ref=f199e268]: ② BCResNet-8 上最大相对增益 +14.8/+13.5，但 Acc 让位（65.2 vs 66.7、81.9 vs 83.1）——小容量骨干扛不动无归一化的哑类监督，需 RFN 托底（图4）
+    - paragraph [ref=f199e269]: 图3 · 三骨干全景（5-shot AUROC）：越弱的骨干哑类优势越大——Conv4-64 上 SnaTCHer 崩（51.1/53.1）而哑类 +10.6/+10.1；BCResNet-8 上最大增益 +14.8/+13.5（代价：Acc 让位，需 RFN 托底）。
+  - paragraph [ref=f199e270]: miniImageNet 跨域验证：D-ProtoNet L=3 达 AUROC 70.2/77.8，超过自跑 SnaTCHer-F（69.4/76.4）；与 FEAT 组合（正交可叠加）进一步到 70.6/78.5。但 1-shot Acc 只有 63.4，落后 FEAT（67.1）/SnaTCHer（67.4）约 4 个点——set-to-set 变换能利用支持样本之间的关系，极低样本区间更鲁棒；D-ProtoNet 不做原型变换，把容量花在开集上。5-shot 时差距基本消失。开集分数「距离 vs 概率」两条路线各有失效域：与 FEAT 组合时未归一化距离反而更好，SnaTCHer 的距离法在弱骨干上崩——哑类机制的好处是对分数选择不敏感。
+  - generic [ref=f199e271]:
+    - img [ref=f199e272]:
+      - generic [ref=f199e274]: 消融（Table 3/4）：大头是「给开集一个显式表征」这一个动作
+      - generic [ref=f199e275]: 增益阶梯（ResNet-12 · 5-shot AUROC）
+      - generic [ref=f199e277]: "68.4"
+      - generic [ref=f199e278]: ProtoNet 基线
+      - generic [ref=f199e280]: "82.7"
+      - generic [ref=f199e281]: + 哑原型训练（γ=1）
+      - generic [ref=f199e283]: "86.2"
+      - generic [ref=f199e284]: + 非对称温度 γ=3
+      - generic [ref=f199e286]: "86.7"
+      - generic [ref=f199e287]: + Gumbel 多哑 L=3 ★
+      - generic [ref=f199e288]: 裸加哑类就 +14.3（Acc 几乎不动）
+      - generic [ref=f199e289]: γ 补偿 +3.5
+      - generic [ref=f199e290]: Gumbel +0.5（小而稳）
+      - generic [ref=f199e291]: L 扫描：3 后饱和
+      - generic [ref=f199e292]: （1-shot 同形态：60.7 → 76.4 → 78.7 → 78.8）
+      - generic [ref=f199e293]: RFN 输入归一化（Table 4 · 全骨干有效）
+      - generic [ref=f199e295]: ResNet-12 · D-Proto+RFN
+      - generic [ref=f199e296]: Acc 69.7→72.6 / 86.9→88.3
+      - generic [ref=f199e297]: AUROC 78.8→80.3 / 86.7→87.8
+      - generic [ref=f199e299]: BCResNet-8 · D-Proto+RFN
+      - generic [ref=f199e300]: Acc 65.2→69.7 / 81.9→85.5
+      - generic [ref=f199e301]: AUROC 75.7→78.3 / 82.3→85.4
+      - generic [ref=f199e303]: Conv4-64 · ProtoNet+RFN
+      - generic [ref=f199e304]: AUROC 1-shot 55.3→57.3
+      - generic [ref=f199e305]: （连最朴素基线也涨）
+      - generic [ref=f199e306]: RFN = λ·LN + (1−λ)·IFN（频率轴实例归一化，λ=0.5）
+      - generic [ref=f199e307]: 抹掉说话人音色/信道色差——把 D-Proto 在闭集精度上欠的账还了
+      - generic [ref=f199e309]: 边界：机会成本曲线 + 点状哑类的天花板
+      - generic [ref=f199e310]: · 1-shot 闭集精度让位：miniImageNet 上 Acc 63.4 vs FEAT 67.1 / SnaTCHer 67.4（无 set-to-set 变换，支持集只有 5 个点时容量被哑类分走）——5-shot 才追平
+      - generic [ref=f199e311]: · 点状哑类逼近多模态开集有天花板：splitGSC 开集 25 词 + Silence，L=3 够；真实开集是「全部人类语音」，模态数远超 3，能否外推未验证
+      - generic [ref=f199e312]: · 开集同分布：未知类全来自同一词表剩余词 + Silence——更像「held-out 类检测」；对话语音/媒体音频/跨语种才是真实开集，且缺流式误报率指标（每小时误唤醒缺席）
+      - generic [ref=f199e313]: · 五个旋钮（γ/λ/L/退火/δ）只消融了两个；阈值 δ 按误报预算标定的流程未给；Qualcomm 名头下却无 FLOPs/时延/功耗数字
+    - paragraph [ref=f199e314]: 图4 · 消融与边界（Table 3/4）：增益阶梯——裸加哑类 +14.3 是大头，γ 补偿 +3.5，Gumbel +0.5，L=3 饱和；RFN 输入归一化全骨干有效并还清闭集精度的账。
+  - heading "§04 贡献：五条" [level=2] [ref=f199e315]:
+    - generic [ref=f199e316]: §04
+    - text: 贡献：五条
+  - generic [ref=f199e317]:
+    - generic [ref=f199e318]:
+      - generic [ref=f199e319]: "1"
+      - paragraph [ref=f199e320]: 问题形式化：定义 FSOS-KWS 设定，指出「开集随回合漂移」是它区别于传统 OSR 与普通 FSL 的本质难点。
+    - generic [ref=f199e321]:
+      - generic [ref=f199e322]: "2"
+      - paragraph [ref=f199e323]: splitGSC 基准：固定类级 15/10/10 划分消除试次方差、测试词对齐传统 12 类 GWS 便于对话主流文献、Silence 只进开集贴合部署现实。
+    - generic [ref=f199e324]:
+      - generic [ref=f199e325]: "3"
+      - paragraph [ref=f199e326]: episode-known 哑原型机制：DeepSets 生成器 + 非对称温度 + 双路加权损失 + Gumbel 多哑扩展，推理开销接近零。
+    - generic [ref=f199e327]:
+      - generic [ref=f199e328]: "4"
+      - paragraph [ref=f199e329]: 实证：三骨干 AUROC 全面领先（弱骨干优势更大），miniImageNet 上 SOTA 水平开集检测，证明机制域无关。
+    - generic [ref=f199e330]:
+      - generic [ref=f199e331]: "5"
+      - paragraph [ref=f199e332]: 发现性贡献：RFN 全骨干一致有效——识别出「实例伪差异（说话人音色）是少样本开集语音任务的重要捷径风险」这一独立问题。
+  - heading "§05 局限与边界" [level=2] [ref=f199e333]:
+    - generic [ref=f199e334]: §05
+    - text: 局限与边界
+  - generic [ref=f199e335]: 机会成本曲线在 1-shot 处最陡
+  - generic [ref=f199e336]:
+    - generic [ref=f199e337]:
+      - heading "1-shot 闭集精度让位" [level=4] [ref=f199e338]
+      - paragraph [ref=f199e339]: miniImageNet 1-shot Acc 63.4 落后 FEAT/SnaTCHer 约 4 个点——支持集只有 5 个点时哑类监督分走的容量无从补偿；「开集检测 vs 极端低样本分类」存在明确的机会成本曲线，5-shot 后才追平。
+    - generic [ref=f199e340]:
+      - heading "点状哑类的天花板" [level=4] [ref=f199e341]
+      - paragraph [ref=f199e342]: splitGSC 开集是 25 词 + Silence 的有限组合，L=3 饱和；真实开集是「全部人类语音」，模态数远超 3——分布化哑类（高斯）或自动聚类多哑结构是理论上的更自然做法，未验证。
+    - generic [ref=f199e343]:
+      - heading "开集来源单一且同分布" [level=4] [ref=f199e344]
+      - paragraph [ref=f199e345]: 未知类全来自同一词表剩余词——更像「闭集词的 held-out 类检测」；对话语音、媒体音频、跨语种的真实开集，类间差距和类内多样性都大得多。episode 级 AUROC 之外缺流式误报率（每小时误唤醒）等操作点指标。
+    - generic [ref=f199e346]:
+      - heading "旋钮多 + 开销未量化" [level=4] [ref=f199e347]
+      - paragraph [ref=f199e348]: γ/λ/L/退火/δ 五个旋钮只消融了 γ 和 L；阈值 δ 按误报预算标定的流程没给；挂 Qualcomm 名头的端侧工作却无 FLOPs/时延/功耗数字。BCResNet-8（最贴部署的骨干）上没跑 FEAT/PEELER/SnaTCHer 对照。
+  - generic [ref=f199e349]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f199e350]
+    - list [ref=f199e351]:
+      - listitem [ref=f199e352]: ↳ 拒绝边界必须从本回合的已知类推断——开集的定义随任务实例漂移时，任何静态学出来的「未知类」都会失效。
+      - listitem [ref=f199e353]: ↳ 把异常检测改写成 N+1 类分类：检测器就是分类器本身，机制直接、可校准、阈值只有一个——比间接评分路线（熵/一致性）在弱表征下稳健得多。
+      - listitem [ref=f199e354]: ↳ 单个辅助类替多个类的并集兜底时，要给它更宽的温度（更宽容的决策地盘），否则梯度会去扭曲主表征空间来迁就损失。
+      - listitem [ref=f199e355]: ↳ 辅助任务的损失权重压到 0.1 是显式的优先级声明：附加能力不许侵蚀主任务——并配一个守门指标（Acc）持续监控。
+      - listitem [ref=f199e356]: ↳ 少样本场景最大的捷径风险是实例伪差异（说话人音色/信道色差）——支持样本越少，模型越省力地抓住伪相关；输入级的实例归一化是低成本解药。
+  - generic [ref=f199e357]:
+    - link "论文原文 ↗" [ref=f199e358] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2206.13691
+    - link "笔记全文 ↗" [ref=f199e359] [cursor=pointer]:
+      - /url: Dummy_Prototypical_Networks_For_Few-Shot_Open-Set_Keyword_Spotting.md
+    - link "返回列表" [ref=f199e360] [cursor=pointer]:
+      - /url: ../index.html

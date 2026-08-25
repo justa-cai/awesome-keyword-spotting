@@ -1,0 +1,308 @@
+- generic [active] [ref=f192e1]:
+  - generic [ref=f192e2]:
+    - link "← 返回论文列表" [ref=f192e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f192e4]: 论文精读 · 可视化版 · 2022 №9
+    - heading "词表 25 万词也兜不住专名检索： 甩掉词典的字素 STD怎么做" [level=1] [ref=f192e5]: 词表 25 万词也兜不住专名检索：甩掉词典的字素 STD怎么做
+    - generic [ref=f192e6]:
+      - generic [ref=f192e7]: Interspeech 2022 · Švec 等
+      - generic [ref=f192e8]: 西波希米亚大学（捷克）
+      - generic [ref=f192e9]: Wav2Vec 2.0 + 字素混淆网络
+      - generic [ref=f192e10]: MALACH 口述历史档案 · 英/捷双语
+    - generic [ref=f192e11]: DNN-HMM 的词典与语言模型知识只在训练期当一次「老师」，蒸馏进打分网络参数；检索系统本体零词典零 LM，OOV 从「检不到」变成「同一套打分机制」。
+    - generic [ref=f192e12]:
+      - heading "一分钟版本" [level=3] [ref=f192e13]
+      - list [ref=f192e14]:
+        - listitem [ref=f192e15]: ▸ 任务：STD 是 KWS 面向大规模口语档案的变体——离线做识别和索引，换在线查询秒级响应；查询词是用户事后给出的任意词，口述历史档案里最有价值的恰是词表外人名地名（OOV 率 3.2%/2.6%，词表 24.4 万/25.2 万也兜不住）。
+        - listitem [ref=f192e16]: ▸ 老范式的死穴：DNN-HMM → 词格 → 倒排索引，OOV 根本进不了索引；代理词/子词补救受制于发音词典这个人工知识瓶颈。
+        - listitem [ref=f192e17]: ▸ 三件套：Wav2Vec 2.0 字素识别器（CTC 后验矩阵，无词典无 LM）→ 字素混淆网络（带帧对齐、带竞争假设的压缩表示）→ 双管线 Deep LSTM 打分（音频嵌入与查询嵌入在同一联合空间做点积）。
+        - listitem [ref=f192e18]: ▸ 知识迁移管线：同一批无标注档案过两遍识别器，DNN-HMM 置信度 >0.95 的词充当查询词自举训练——词典/LM 知识以教师标注形式蒸进网络参数，运行时完全不需要。
+        - listitem [ref=f192e19]: ▸ 核心结果：测试集 ATWV 英文 0.7616、捷克文 0.9100——即便给旧基线开满 LM+词表只搜词内词，仍被无词典系统以 +3.41/+8.17 个点击败。
+        - listitem [ref=f192e20]: ▸ OOV 质变：词外项 0.7027/0.8784，只比词内略降；传统词表系统的词外是直接零分。
+        - listitem [ref=f192e21]: ▸ 表示升级 > 打分升级：同一打分骨架，输入从 DNN-HMM 音素后验换成字素混淆网络，MTWV 跳 16 个点——瓶颈原来卡在音素识别器质量。
+        - listitem [ref=f192e22]: ▸ 工程三对策：18s 窗 + 3s 重叠滑窗解码（Transformer O(L²) 只能吃几十秒）且拼接在后验层不在文本层；边界掩码吸收 CTC 对齐误差（错位从未超 5 个字素）；Sigmoid 校准点积输出给阈值稳定语义。
+        - listitem [ref=f192e23]: ▸ 掩码消融：有最优点且语言相关（英文 ±1、捷克文 ±2）；±3 英文崩到 0.7293 比无掩码还低 9 点——偏差-方差权衡而非单调改进。
+        - listitem [ref=f192e24]: ▸ 可迁移判断：下游可学习的检索结构能部分吸收上游识别器的错误——两阶段各自最优不等于整体最优。
+    - heading "§01 问题：词表路线的天花板" [level=2] [ref=f192e25]:
+      - generic [ref=f192e26]: §01
+      - text: 问题：词表路线的天花板
+    - generic [ref=f192e27]: 25 万词表的档案识别器，测试集 OOV 率仍有 3.2%
+    - paragraph [ref=f192e28]: STD 与端侧唤醒 KWS 的分工不同：唤醒只检测一个预先训练好的固定词，STD 面对「用户事后才给出的任意查询词」。传统管线把音频转成词格再建倒排索引，检索单元是「词表里的词」——OOV 天生进不了索引。历史上面向口述档案的识别器在发音词典和语言模型里塞进大量人工领域知识（MALACH 项目），这些知识既是资产（领域适配好）也是枷锁（维护成本高、OOV 残废）。
+    - generic [ref=f192e29]:
+      - generic [ref=f192e30]:
+        - heading "裸 Wav2Vec 做 STD 不行" [level=4] [ref=f192e31]
+        - paragraph [ref=f192e32]: 词内项 MTWV 英文 0.6178 / 捷克文 0.7248，明显低于 DNN-HMM 基线（0.7899/0.8760）——1-best 字素转写没有语言模型约束，同音字竞争错误直接进索引。外挂 LM 加束搜索能追平（0.8105/0.8757），但又把「不依赖 LM」的优势丢了，OOV 依旧无解。
+      - generic [ref=f192e33]:
+        - heading "自己前一年的系统也没拔根" [level=4] [ref=f192e34]
+        - paragraph [ref=f192e35]: 作者 2021 年的 Deep LSTM 嵌入打分挂在 DNN-HMM 音素识别器上（ATWV 英 0.5823 / 捷 0.7531），但音素识别器本身仍需发音词典——OOV 问题的根没拔掉。另有工程障碍：Transformer 自注意力 O(L²) 只能吃几十秒输入而档案录音动辄 1 小时+；CTC 不保证字素-帧精确对齐。
+    - heading "§02 方法：字素混淆网络 + 联合嵌入空间" [level=2] [ref=f192e36]:
+      - generic [ref=f192e37]: §02
+      - text: 方法：字素混淆网络 + 联合嵌入空间
+    - generic [ref=f192e38]: 四个子问题各配一个解，全部端到端可训练
+    - generic [ref=f192e39]:
+      - img [ref=f192e40]:
+        - generic [ref=f192e42]: Wav2Vec 2.0 字素 STD：检索系统本体彻底甩掉发音词典和语言模型
+        - generic [ref=f192e43]: ① 任务画像：STD ≠ 端侧唤醒，痛点在 OOV
+        - generic [ref=f192e45]: STD 的架构诉求
+        - generic [ref=f192e46]: 离线把识别/索引做完，换在线查询秒级响应
+        - generic [ref=f192e47]: 查询词是「用户事后给出的任意词」——口述历史
+        - generic [ref=f192e48]: 档案里最有检索价值的恰是人名地名等专名
+        - generic [ref=f192e49]: ——「离线重、在线轻」的检索架构是刚需
+        - generic [ref=f192e51]: 词表路线的死穴（Tab. 1）
+        - generic [ref=f192e52]: DNN-HMM → 词格 → 倒排索引：OOV 根本进不了索引
+        - generic [ref=f192e53]: 词表 243,699（英）/ 252,082（捷）也兜不住专名检索
+        - generic [ref=f192e54]: ——测试集 OOV 率仍 3.2% / 2.6%
+        - generic [ref=f192e55]: 代理词/子词补救受制于发音词典质量（人工知识瓶颈）
+        - generic [ref=f192e56]: 四个子问题 → 四个解：可检索中间表示（字素混淆网络）｜无标注训练（高置信词自举）｜CTC 对齐误差（边界掩码）｜任意长度（滑窗解码）
+        - generic [ref=f192e57]: ② 三件套：字素识别器 + 字素混淆网络 + 双管线 Deep LSTM
+        - generic [ref=f192e59]: ① Wav2Vec 2.0 字素识别器
+        - generic [ref=f192e60]: 微调成字素 CTC（英 53 / 捷 51 符号）
+        - generic [ref=f192e61]: 输出「帧 × 字素」后验矩阵
+        - generic [ref=f192e62]: 18s 窗 + 3s 重叠滑窗解码长录音
+        - generic [ref=f192e63]: 重叠区对半劈开后验再拼接
+        - generic [ref=f192e64]: 无语言模型、无发音词典
+        - generic [ref=f192e66]: ② 字素混淆网络（式1–2）
+        - generic [ref=f192e67]: 贪心 1-best 作枢轴对齐（book → b-b-□-o-o-□-o-k-k）
+        - generic [ref=f192e68]: 替代字素平行挂到各段：每段记前 3 个
+        - generic [ref=f192e69]: 最可能字素 + 概率 + 段时长
+        - generic [ref=f192e70]: 空白符概率质量按帧内比例重分摊给字素
+        - generic [ref=f192e71]: → 去空白、帧对齐、带竞争假设的压缩表示
+        - generic [ref=f192e73]: ③ Deep LSTM STD 打分网络
+        - generic [ref=f192e74]: 绿管线：混淆网络段特征 → 6 层 BiLSTM（300 维）
+        - generic [ref=f192e75]: → 音频嵌入序列（与查询无关，离线预计算）
+        - generic [ref=f192e76]: 黄管线：查询字素 → 共享网络 + 最大池化 → 3 个
+        - generic [ref=f192e77]: 局部查询嵌入（前/中/后半）
+        - generic [ref=f192e78]: 逐段点积取最大 → Sigmoid 校准（式3）
+        - generic [ref=f192e79]: 联合嵌入空间：音频侧与查询侧彻底解耦——音频嵌入离线全算好，在线检索只剩向量点积；另有小 BiLSTM 预测查询应有的最小段数
+        - generic [ref=f192e80]: ③ 知识迁移管线：词典/LM 知识只当一次「老师」
+        - generic [ref=f192e83]: 无标注档案
+        - generic [ref=f192e84]: 同一批音频过两遍
+        - generic [ref=f192e86]: Wav2Vec
+        - generic [ref=f192e87]: 字素混淆网络
+        - generic [ref=f192e89]: DNN-HMM
+        - generic [ref=f192e90]: 带置信度词假设
+        - generic [ref=f192e92]: 高置信词（>0.95）
+        - generic [ref=f192e93]: 充当查询词 + 二值目标
+        - generic [ref=f192e95]: 训练 Deep LSTM 打分网络
+        - generic [ref=f192e96]: 巧妙之处：DNN-HMM 背后的发音词典 + 语言模型知识不再以显式资源存在于检索系统里，
+        - generic [ref=f192e97]: 而是以「教师标注」形式蒸馏进打分网络参数——运行时零词典零 LM，训练数据可无限扩到整个档案，零人工标注
+        - generic [ref=f192e98]: ④ 两个工程对策：边界掩码 + 滑窗拼接
+        - generic [ref=f192e100]: 边界掩码吸收 CTC 对齐误差
+        - generic [ref=f192e101]: 观测：Wav2Vec 1-best 与参考词错位至多几个字素
+        - generic [ref=f192e102]: （从未超过 5 个）
+        - generic [ref=f192e103]: 对策：训练目标 0↔1 跳变点左右各掩几段不回传损失，
+        - generic [ref=f192e104]: 让网络自己学「软过渡」——把对齐不确定区间从
+        - generic [ref=f192e105]: 监督里摘出去；宽度语言相关：英文 ±1、捷克文 ±2
+        - generic [ref=f192e107]: 滑窗拼接在后验层不在文本层
+        - generic [ref=f192e108]: Transformer 自注意力 O(L²) → 只能吃几十秒输入；
+        - generic [ref=f192e109]: 口述档案录音动辄 1 小时+
+        - generic [ref=f192e110]: 窗边字素被切断很难处理 → 在后验矩阵层拼接：
+        - generic [ref=f192e111]: 时间轴连续即可，后续混淆网络流程完全无感
+        - generic [ref=f192e112]: 3s 重叠给窗边声学上下文留余量
+        - generic [ref=f192e114]: "0.9100"
+        - generic [ref=f192e115]: 测试集 ATWV（捷克文）
+        - generic [ref=f192e116]: "0.7616"
+        - generic [ref=f192e117]: 测试集 ATWV（英文）
+        - generic [ref=f192e118]: "+17.9"
+        - generic [ref=f192e119]: vs 前作 ATWV（英文，百分点）
+        - generic [ref=f192e120]: "0.7027"
+        - generic [ref=f192e121]: OOV 项 MTWV（英文，传统=0）
+        - generic [ref=f192e122]: 8 万 h
+        - generic [ref=f192e123]: 捷克文自监督预训练（已开源）
+        - generic [ref=f192e124]: 数据：MALACH 口述历史档案英/捷双语（测试各 11.3h / 19.4h，说话人各 10）；英文 Wav2Vec 从公开 Base 微调（246h × 86 epoch），捷克文无公开模型——作者从零自训 80,000h（TV/议会/广播/体育/电话）并开源
+      - paragraph [ref=f192e125]: 图1 · 框架全景：三件套（Wav2Vec 字素识别器 → 字素混淆网络 → 双管线 Deep LSTM 打分）+ 知识迁移管线（DNN-HMM 高置信词自举训练）+ 边界掩码/滑窗两个工程对策。
+  - generic [ref=f192e126]:
+    - generic [ref=f192e127]:
+      - text: p
+      - subscript [ref=f192e128]: i
+      - text: (k) = Σ
+      - subscript [ref=f192e129]: t∈段i
+      - text: p
+      - subscript [ref=f192e130]: t
+      - text: (k) / Σ
+      - subscript [ref=f192e131]: t∈段i
+      - text: Σ
+      - subscript [ref=f192e132]: k′≠□
+      - text: p
+      - subscript [ref=f192e133]: t
+      - text: (k′)
+    - generic [ref=f192e134]: 人话（式2，混淆网络构造）：先按 CTC 贪心解码拿 1-best 及帧对齐当枢轴，替代字素平行挂到各位置。这一步把空白符占据的概率质量按帧内比例重新分摊给真正的字素——得到「去掉空白、帧对齐、带竞争假设」的压缩表示。例：book 逐帧最优 b-b-□-o-o-□-o-k-k → 四段对齐 ((1,4),(4,7),(7,8),(8,10))。
+  - generic [ref=f192e135]:
+    - generic [ref=f192e136]:
+      - text: p(段i 命中) = σ( a · max
+      - subscript [ref=f192e137]: j
+      - text: (e
+      - subscript [ref=f192e138]: i
+      - text: · q
+      - subscript [ref=f192e139]: j
+      - text: ) + b )
+    - generic [ref=f192e140]: 人话（式3，打分）：音频段嵌入与所有查询嵌入点积取最大，乘可训练斜率 a 加偏置 b 过 Sigmoid——校准成概率让阈值决策有稳定语义。查询侧出 3 个局部嵌入（前/中/后半）：一个词的不同部位对齐质量不同，多嵌入 + 最大池化天然容忍局部错位，还不增加参数。
+  - paragraph [ref=f192e141]: 输入特征刻意极简：段时长 + 前三个字素及其概率——沿用音素版验证过的配方。好处是混淆网络里的竞争假设信息进特征而不只是 1-best，识别不确定性可以传导给打分网络。词分隔符与空白符合并 → 表示天然按词分段，与「查询不是其他词的子串」的筛选规则咬合，避免子串误命中。
+  - heading "§03 实验：MALACH 英/捷双语" [level=2] [ref=f192e142]:
+    - generic [ref=f192e143]: §03
+    - text: 实验：MALACH 英/捷双语
+  - generic [ref=f192e144]: 开发集 MTWV 调超参，测试集 ATWV 用固定阈值——诚实的部署模拟
+  - generic [ref=f192e145]:
+    - img [ref=f192e146]:
+      - generic [ref=f192e148]: 开发集 MTWV：识别器校准（Tab.2）与方法演进阶梯（Tab.3）
+      - generic [ref=f192e149]: 词内项 · 识别器校准（MTWV）
+      - generic [ref=f192e150]: "0.6"
+      - generic [ref=f192e151]: "0.7"
+      - generic [ref=f192e152]: "0.8"
+      - generic [ref=f192e153]: "0.9"
+      - generic [ref=f192e156]: "0.790"
+      - generic [ref=f192e157]: "0.876"
+      - generic [ref=f192e160]: "0.618"
+      - generic [ref=f192e161]: "0.725"
+      - generic [ref=f192e164]: "0.810"
+      - generic [ref=f192e165]: "0.876"
+      - generic [ref=f192e166]: DNN-HMM
+      - generic [ref=f192e167]: 混合基线
+      - generic [ref=f192e168]: 裸字素
+      - generic [ref=f192e169]: Wav2Vec
+      - generic [ref=f192e170]: Wav2Vec
+      - generic [ref=f192e171]: +
+      - generic [ref=f192e172]: 外挂
+      - generic [ref=f192e173]: LM
+      - generic [ref=f192e175]: 英文
+      - generic [ref=f192e177]: 捷克文
+      - generic [ref=f192e178]: 裸模型缺 LM 约束明显偏弱，但外挂 LM 即追平——
+      - generic [ref=f192e179]: 后验质量够用，值得走可训练路线
+      - generic [ref=f192e180]: 方法演进阶梯（MTWV）
+      - generic [ref=f192e183]: "0.4636"
+      - generic [ref=f192e184]: "0.6225"
+      - generic [ref=f192e185]: 经验方法 [4]
+      - generic [ref=f192e188]: "0.5012"
+      - generic [ref=f192e189]: "0.6547"
+      - generic [ref=f192e190]: 孪生网络 [18]
+      - generic [ref=f192e193]: "0.6703"
+      - generic [ref=f192e194]: "0.7723"
+      - generic [ref=f192e195]: Deep LSTM + DNN-HMM 音素 [13]
+      - generic [ref=f192e198]: "0.8308"
+      - generic [ref=f192e199]: "0.8987"
+      - generic [ref=f192e200]: 本文：字素混淆网络 + Deep LSTM ★
+      - generic [ref=f192e201]: 英 +16.05 / 捷 +12.64 个点（vs 前作）——瓶颈原来卡在
+      - generic [ref=f192e202]: 音素识别器质量而非打分框架
+      - generic [ref=f192e203]: 读数：同一打分骨架，把输入从 DNN-HMM 音素后验换成 Wav2Vec 字素混淆网络，MTWV 跳了 16 个点——表示升级的收益远大于打分网络本身的改进空间
+    - paragraph [ref=f192e204]: 图2 · 开发集 MTWV：左为识别器校准（Tab.2，词内项）——裸 Wav2Vec 偏弱但外挂 LM 即追平混合基线；右为方法演进阶梯（Tab.3）——同一打分骨架换输入表示，英/捷各跳 16.05/12.64 个点。
+  - generic [ref=f192e205]:
+    - img [ref=f192e206]:
+      - generic [ref=f192e208]: 测试集终榜（Tab.4 ATWV）+ 词内/词外分解
+      - generic [ref=f192e209]: 测试集 ATWV（阈值固定自开发集）
+      - generic [ref=f192e212]: "0.4435"
+      - generic [ref=f192e213]: "0.6564"
+      - generic [ref=f192e214]: 经验方法 [4]
+      - generic [ref=f192e217]: "0.4956"
+      - generic [ref=f192e218]: "0.6873"
+      - generic [ref=f192e219]: 孪生网络 [18]
+      - generic [ref=f192e222]: "0.5823"
+      - generic [ref=f192e223]: "0.7531"
+      - generic [ref=f192e224]: Deep LSTM+DNN-HMM [13]
+      - generic [ref=f192e227]: "0.7275"
+      - generic [ref=f192e228]: "0.8283"
+      - generic [ref=f192e229]: DNN-HMM + LM + 词表
+      - generic [ref=f192e232]: "0.7616"
+      - generic [ref=f192e233]: "0.9100"
+      - generic [ref=f192e234]: 本文（无词典无 LM）★
+      - generic [ref=f192e236]: 即便给旧基线开满 LM+词表只搜词内词，
+      - generic [ref=f192e237]: 无词典系统仍赢 英 +3.41 / 捷 +8.17 个点
+      - generic [ref=f192e238]: 词内 vs 词外（开发集 MTWV）
+      - generic [ref=f192e240]: "0.8398"
+      - generic [ref=f192e241]: 英文 · 词内
+      - generic [ref=f192e243]: "0.7027"
+      - generic [ref=f192e244]: 英文 · 词外
+      - generic [ref=f192e246]: "0.9117"
+      - generic [ref=f192e247]: 捷克文 · 词内
+      - generic [ref=f192e249]: "0.8784"
+      - generic [ref=f192e250]: 捷克文 · 词外
+      - generic [ref=f192e252]: 传统词表系统：词外 = 0（检不到）
+      - generic [ref=f192e253]: 词外只比词内略降——从「无法处理」到
+      - generic [ref=f192e254]: 「同一套打分机制」的质变；纯字素表示
+      - generic [ref=f192e255]: 缺发音归一化，差距主要留给打分网络消化
+      - generic [ref=f192e256]: 注意：英文测试集仅 6 个 OOV 查询项（开发 31 个），词外 0.7027 的统计置信度存疑；捷克文（测试 948 个 OOV 项）数字扎实得多
+    - paragraph [ref=f192e257]: 图3 · 测试集终榜（Tab.4 ATWV）+ 词内/词外分解：无词典系统在英文 +3.41 / 捷克文 +8.17 个点击败开满 LM+词表的旧基线；词外项只比词内略降——从「检不到」到「同一套打分机制」的质变。
+  - paragraph [ref=f192e258]: 指标用 STD 标准 TWV 家族：漏检率与虚警率按代价加权合成单一数值，逼系统在两类错误间显式权衡。MTWV 在开发集取最优阈值（能力上限比较），ATWV 用开发集选定的阈值固定后上测试集（真实上线表现）。捷克文没有公开的单语预训练模型，作者从零自训了一个 80,000 小时的（电视 2.7 万 / 议会 2.4 万 / 广播 2.2 万 / 体育 0.5 万 / 电话 0.2 万），以 fav-kky/wav2vec2-base-cs-80k-ClTRUS 名义开源在 HuggingFace。
+  - generic [ref=f192e259]:
+    - img [ref=f192e260]:
+      - generic [ref=f192e262]: 边界掩码消融（Tab.3 开发集 MTWV）：有最优点，且语言相关
+      - generic [ref=f192e263]: "0.72"
+      - generic [ref=f192e264]: "0.78"
+      - generic [ref=f192e265]: "0.84"
+      - generic [ref=f192e266]: "0.90"
+      - generic [ref=f192e268]: "0.8198"
+      - generic [ref=f192e270]: "0.8308"
+      - generic [ref=f192e272]: "0.7873"
+      - generic [ref=f192e274]: "0.7293"
+      - generic [ref=f192e276]: "0.8823"
+      - generic [ref=f192e278]: "0.8888"
+      - generic [ref=f192e280]: "0.8987"
+      - generic [ref=f192e282]: "0.8790"
+      - generic [ref=f192e289]: 无掩码
+      - generic [ref=f192e290]: ±1
+      - generic [ref=f192e291]: ±2
+      - generic [ref=f192e292]: ±3
+      - generic [ref=f192e295]: 英最优 ±1
+      - generic [ref=f192e296]: 捷最优 ±2
+      - generic [ref=f192e298]: 英文
+      - generic [ref=f192e300]: 捷克文
+      - generic [ref=f192e301]: 掩码宽度（跳变点左右各掩几段）
+      - generic [ref=f192e302]: 两个发现：① 掩码总体有效（无→最优：英 +1.10 / 捷 +1.64 点）验证 CTC 边界噪声确实污染监督；但 ±3 英文崩到 0.7293 比无掩码还低 9 点——
+      - generic [ref=f192e303]: 掩掉太多段等于扔掉边界附近的真实监督，是偏差-方差权衡而非单调改进。② 最优宽度语言相关（捷语更复杂的字素-发音映射与形态变化）——换语言必须重调
+    - paragraph [ref=f192e304]: 图4 · 边界掩码消融（Tab.3）：掩码宽度 0/±1/±2/±3 的 MTWV——有最优点且语言相关（英 ±1 / 捷 ±2），±3 英文崩到比无掩码还低 9 点。
+  - heading "§04 贡献：五条" [level=2] [ref=f192e305]:
+    - generic [ref=f192e306]: §04
+    - text: 贡献：五条
+  - generic [ref=f192e307]:
+    - generic [ref=f192e308]:
+      - generic [ref=f192e309]: "1"
+      - paragraph [ref=f192e310]: 全可训练端到端 STD 框架：字素 Wav2Vec + Deep LSTM 嵌入打分，检索系统本体彻底摆脱发音词典和语言模型，词外词检索成为内建能力而非外挂补丁。
+    - generic [ref=f192e311]:
+      - generic [ref=f192e312]: "2"
+      - paragraph [ref=f192e313]: 无标注档案自举训练的知识迁移管线：DNN-HMM 及其背后词典/LM 知识以教师标注形式蒸进打分网络；训练数据可无限扩展到整个档案、零人工标注。
+    - generic [ref=f192e314]:
+      - generic [ref=f192e315]: "3"
+      - paragraph [ref=f192e316]: CTC 后验 → 字素混淆网络的完整算法（式1–2），并验证了贪心 CTC 对齐对 STD 任务的实际可用性。
+    - generic [ref=f192e317]:
+      - generic [ref=f192e318]: "4"
+      - paragraph [ref=f192e319]: 工程对策成套：18s 窗 / 3s 重叠 / 后验层拼接的滑窗解码解决任意长度；边界掩码吸收量化过的 CTC 对齐误差（从未超 5 个字素）。
+    - generic [ref=f192e320]:
+      - generic [ref=f192e321]: "5"
+      - paragraph [ref=f192e322]: 双语言大幅刷新自己保持的纪录（ATWV 英 0.7616 / 捷 0.9100，对旧基线 +17.93/+15.69 个点）并开源 8 万小时捷克文预训练模型。
+  - heading "§05 局限与边界" [level=2] [ref=f192e323]:
+    - generic [ref=f192e324]: §05
+    - text: 局限与边界
+  - generic [ref=f192e325]: 依赖被挪到训练期，不是被消灭
+  - generic [ref=f192e326]:
+    - generic [ref=f192e327]:
+      - heading "DNN-HMM 依赖只是挪了位置" [level=4] [ref=f192e328]
+      - paragraph [ref=f192e329]: 造训练查询仍需带词典和 LM 的混合识别器——对完全没有这类资源的语言，冷启动成本依然在。
+    - generic [ref=f192e330]:
+      - heading "掩码是经验性补救" [level=4] [ref=f192e331]
+      - paragraph [ref=f192e332]: 宽度靠开发集网格搜索；「偏移不超过 5 个字素」是观测性结论而非保证，换模型换语言可能失效。
+    - generic [ref=f192e333]:
+      - heading "窗缝后验质量未分析" [level=4] [ref=f192e334]
+      - paragraph [ref=f192e335]: 拼接缝附近后验来自两个不同注意力上下文，1.5s 切分点附近的字素后验理论上有劣化，论文未做边界误差分析。
+    - generic [ref=f192e336]:
+      - heading "词外项仍系统性低于词内" [level=4] [ref=f192e337]
+      - paragraph [ref=f192e338]: 英文 0.7027 vs 0.8398：纯字素表示缺发音层归一化，同音异形与形态变体（捷克语尤甚）全靠打分网络消化；多词短语查询未讨论。
+    - generic [ref=f192e339]:
+      - heading "评测规模小 + 无显著性" [level=4] [ref=f192e340]
+      - paragraph [ref=f192e341]: 开发/测试各 10 个说话人；英文 OOV 查询项尤其稀少（测试 6 个、开发 31 个）——0.7027 的置信度存疑；部分差距（捷 ±1 vs ±2 差 0.99 点）落在随机波动区间。
+    - generic [ref=f192e342]:
+      - heading "系统账单缺失" [level=4] [ref=f192e343]
+      - paragraph [ref=f192e344]: 索引时间、检索实时率、嵌入存储、参数量一概未报——Wav2Vec 要对全档案过一遍前向，离线计算账单不小；BiLSTM 天然不适合流式，新音频须整段过完才能入档。
+  - generic [ref=f192e345]:
+    - heading "可迁移判断（超出 STD 也成立）" [level=4] [ref=f192e346]
+    - list [ref=f192e347]:
+      - listitem [ref=f192e348]: ↳ 下游可学习的检索结构能部分吸收上游识别器的错误——「更准的 1-best + 朴素检索」输给「原始混淆网络 + 可训练打分」，两阶段各自最优不等于整体最优。
+      - listitem [ref=f192e349]: ↳ 资源依赖可以从运行时挪到训练期：让带资源的老师产生伪标签，学生网络内化学到的知识——部署形态由「需要什么资源」变成「训练期借过什么资源」。
+      - listitem [ref=f192e350]: ↳ 保留识别不确定性（竞争假设进特征）比只存 1-best 更值钱——不可逆的压缩丢掉的信息，后面花再大力气也补不回来。
+      - listitem [ref=f192e351]: ↳ 监督信号里本质随机的区间（对齐边界）应该掩掉交给模型裁量，而不是逼网络拟合噪声；但掩码宽度有最优点——掩太多连真实监督一起扔。
+      - listitem [ref=f192e352]: ↳ 拼接要在「中间表示层」做而不是「解码文本层」做：保证表示时间轴连续，后续流程无感。
+  - generic [ref=f192e353]:
+    - link "论文原文 ↗" [ref=f192e354] [cursor=pointer]:
+      - /url: https://doi.org/10.21437/interspeech.2022-10409
+    - link "笔记全文 ↗" [ref=f192e355] [cursor=pointer]:
+      - /url: Deep_LSTM_Spoken_Term_Detection_Using_Wav2Vec_20_Recognizer.md
+    - link "返回列表" [ref=f192e356] [cursor=pointer]:
+      - /url: ../index.html

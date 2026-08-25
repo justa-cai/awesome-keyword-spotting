@@ -1,0 +1,294 @@
+- generic [active] [ref=f207e1]:
+  - generic [ref=f207e2]:
+    - link "← 返回论文列表" [ref=f207e3] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f207e4]: 论文精读 · 可视化版 · 2022 №17
+    - heading "零人工标签训练少样本 KWS： 正负样本都是免费合成的" [level=1] [ref=f207e5]: 零人工标签训练少样本 KWS：正负样本都是免费合成的
+    - generic [ref=f207e6]:
+      - generic [ref=f207e7]: ICASSP 2023 · 首尔国立大学
+      - generic [ref=f207e8]: 伪 TTS 数据引擎 + 原型网络
+      - generic [ref=f207e9]: wav2vec2.0 伪音素
+      - generic [ref=f207e10]: GSCv1 + MSWC-en · 100 次重复
+    - generic [ref=f207e11]: 度量学习的训练目标不需要文本标签——只需要「哪些样本同发音」的分组关系。伪音素切段 × 不同参考语音 = 免费的多视角正样本；不同切段天然互为负样本。
+    - generic [ref=f207e12]:
+      - heading "一分钟版本" [level=3] [ref=f207e13]
+      - list [ref=f207e14]:
+        - listitem [ref=f207e15]: ▸ 两根刺：标注依赖（每条「唤醒词出现没出现」都要人听打标，成本随词数线性膨胀）+ 关键词不可换（只为选定词学过判别边界，换词 = 重采+重训+发版）——对用户自定义唤醒词是结构性障碍。
+        - listitem [ref=f207e16]: ▸ 核心反问：度量学习只需要样本间的「同/异」分组关系，不需要显式文本监督——如果能批量拿到「同发音、多说话人多韵律」的多视角样本，标注语料还非有不可吗？
+        - listitem [ref=f207e17]: ▸ 数据引擎：无标注语音 → wav2vec2.0 表征 → k-means 得伪音素序列 → 随机切段（L∈10–20）成任意「伪关键词」→ 配参考语音喂伪 TTS 合成——发音内容与音色韵律解耦重组，换视角只需换参考语音。
+        - listitem [ref=f207e18]: ▸ 三环零标签：wav2vec2.0 自监督 + 伪 TTS 只用无标注语音训练（VITS 架构）+ 原型网络不需标签——任何一环换成有监督组件（如真 TTS），链条就断。
+        - listitem [ref=f207e19]: ▸ 域适配：音量缩放（峰值→0.2–0.9）+ 模拟混响（p=0.9）+ MUSAN 加噪（SNR 10–20，p=0.9）——把真实录音的条件多样性人工注入合成分布。
+        - listitem [ref=f207e20]: ▸ 缓冲区机制：囤 32768 类、每次迭代抽 512 类训练、换血 1 类——生成开销摊薄到近零，又不过拟合当前缓冲区（与 RL replay buffer 同构的生产者-消费者设计）。
+        - listitem [ref=f207e21]: ▸ 主结果：GSCv1 上 1-shot Acc(target) 76.0 vs 监督基线 69.0（+7.0）——两边公平地都跨域时，全无监督反而多数指标占优；MSWC-en（监督主场）落后 3–6 点。
+        - listitem [ref=f207e22]: ▸ 增强消融：去掉全部增强 1-shot 从 76.0 崩到 49.5（−26.5）；无增强时 20-shot 的 AUROC（76.7）还不如有增强的 1-shot（81.1）——瓶颈在嵌入空间的域失配，不是样本量。
+        - listitem [ref=f207e23]: ▸ 编码器：TC-ResNet 改造——avgpool 换单层 GRU（保关键词内部时序动态）、宽度 k=2（撑 512-way 细粒度）、40 MFCC → 192 维嵌入。
+        - listitem [ref=f207e24]: ▸ 边界：合成多样性天花板（MSWC 输 3–6 点的直接原因）；免标注 ≠ 免成本（伪 TTS 训 500k 迭代 + 预生成 32768×6 条）；Dth 定在 EER 而产品工作在极低虚警区；全英语链路零跨语言验证。
+    - heading "§01 问题：标注是 FS-KWS 最贵的一环" [level=2] [ref=f207e25]:
+      - generic [ref=f207e26]: §01
+      - text: 问题：标注是 FS-KWS 最贵的一环
+    - generic [ref=f207e27]: 所有路线的预训练都吃真实标注语料
+    - paragraph [ref=f207e28]: 分类式 KWS 把一切非目标声音压成单一 other 类——非目标声音在现实里无穷无尽，训练只见有限的负样本集合，检测性能被这个集合的天花板卡住；KWS 在真实场景里更接近开放集检测而非封闭集分类。已有 FS-KWS 路线（元学习/迁移学习/度量学习）在「怎么用少量样本适配新类」上各有创新，但预训练统统依赖大规模带关键词标签的真实语料——数据瓶颈原封不动。
+    - generic [ref=f207e29]:
+      - generic [ref=f207e30]:
+        - heading "常规 TTS 进不了无监督链条" [level=4] [ref=f207e31]
+        - paragraph [ref=f207e32]: TTS 本身要文本-语音配对才能训练——招进来就等于把监督从后门放回去了。伪 TTS 是为低资源迁移学习设计的预训练模型：伪音素从 wav2vec2 表征聚类而来，整条链没有一处人工标签。
+      - generic [ref=f207e33]:
+        - heading "合成到真实的域失配" [level=4] [ref=f207e34]
+        - paragraph [ref=f207e35]: 合成语音再干净，与真实录音（信道/混响/噪声/口音）都有分布差距——Table 1 消融显示去掉增强后 1-shot 掉 26.5 个点。「干净」在分布意义上反而是偏科：真实语音的响度、房间、噪声条件它一样都不沾。
+    - heading "§02 方法：数据引擎 → 域适配 → 度量学习" [level=2] [ref=f207e36]:
+      - generic [ref=f207e37]: §02
+      - text: 方法：数据引擎 → 域适配 → 度量学习
+    - generic [ref=f207e38]: 分解发音因子，再按度量学习需要的形式重组
+    - generic [ref=f207e39]:
+      - img [ref=f207e40]:
+        - generic [ref=f207e42]: 全无监督 FS-KWS：度量学习不需要标签，只需要「分组关系」
+        - generic [ref=f207e43]: ① 两根刺 + 一个反问
+        - generic [ref=f207e45]: 主流 KWS 的两根硬刺
+        - generic [ref=f207e46]: 标注依赖：每条「唤醒词出现没出现」都要人听过打标——
+        - generic [ref=f207e47]: 成本随候选词数线性膨胀
+        - generic [ref=f207e48]: 关键词不可换：只为选定词学过判别边界，从没学过
+        - generic [ref=f207e49]: 区分非目标声音内部的多样性——换词 = 重采+重训+发版
+        - generic [ref=f207e50]: 元学习/迁移/度量学习各路线，预训练统统吃真实标注语料
+        - generic [ref=f207e52]: 核心反问（Section 1）
+        - generic [ref=f207e53]: 度量学习的训练目标本身不需要文本标签——
+        - generic [ref=f207e54]: 只需要知道「哪些样本同发音、哪些不同」的分组关系
+        - generic [ref=f207e55]: 如果能批量拿到「同发音、多说话人多韵律」的
+        - generic [ref=f207e56]: 多视角样本，标注的 KWS 语料还非有不可吗？
+        - generic [ref=f207e57]: 赌注：表征学习的瓶颈是分组信息，不是标签语义——
+        - generic [ref=f207e58]: 而分组信息可以由合成系统免费提供
+        - generic [ref=f207e59]: ② 三段式流水线：数据引擎 → 域适配 → 度量学习
+        - generic [ref=f207e61]: 数据引擎（正负样本都是免费的）
+        - generic [ref=f207e63]: 无标注语音
+        - generic [ref=f207e64]: MLS 英语（不用 transcript）
+        - generic [ref=f207e66]: wav2vec2.0 表征
+        - generic [ref=f207e67]: XLSR-53 预训练
+        - generic [ref=f207e69]: k-means 聚类
+        - generic [ref=f207e70]: → 伪音素序列（无文本 token）
+        - generic [ref=f207e72]: 随机切段 L∈(10,20)
+        - generic [ref=f207e73]: → 任意「伪关键词」
+        - generic [ref=f207e75]: × 参考语音 → 伪 TTS
+        - generic [ref=f207e76]: 发音内容 + 音色韵律解耦重组
+        - generic [ref=f207e77]: 正样本：同切段 × 不同参考语音；负样本：不同切段天然互异
+        - generic [ref=f207e79]: 域适配：三重增强
+        - generic [ref=f207e80]: 音量缩放（峰值 → 0.2–0.9）· 模拟混响（RIR，p=0.9）
+        - generic [ref=f207e81]: · MUSAN 加噪（SNR 10–20，p=0.9）——把真实录音的条件
+        - generic [ref=f207e82]: 多样性人工注入合成分布，压低域失配
+        - generic [ref=f207e84]: 度量学习（原型网络 N-way K-shot）
+        - generic [ref=f207e85]: 编码器：TC-ResNet 改造（avgpool→单层 GRU 保时序动态；
+        - generic [ref=f207e86]: k=2 放宽容量撑 512-way 细粒度；40 MFCC → 192 维嵌入）
+        - generic [ref=f207e87]: 缓冲区囤 32768 类，每次迭代抽 512 类、换血 1 类
+        - generic [ref=f207e88]: ③ 推理：最近原型答「是谁」，阈值答「是不是」
+        - generic [ref=f207e90]: 注册：K 条目标词语音 → 嵌入均值 = 原型 cn（式 1）；查询：x → 编码 → 最近原型（式 4）→
+        - generic [ref=f207e91]: dist < Dth 才接受候选类，否则输出 unknown（式 5）——训练期的封闭集分类干净地转成使用期的开放集检测
+        - generic [ref=f207e92]: Dth 定在「是否 unknown」二分类的等错误率（EER）点，按目标虚警率可调
+        - generic [ref=f207e93]: 缓冲区机制 = 生产者-消费者设计（与 RL replay buffer 同构）：M_update(1) ≪ N(512) ≪ M_buffer(32768)——生成开销摊薄到近零，又保住类别多样性
+        - generic [ref=f207e95]: "0"
+        - generic [ref=f207e96]: 人工标签（三环全无监督）
+        - generic [ref=f207e97]: "+7.0"
+        - generic [ref=f207e98]: GSCv1 1-shot Acc vs 监督
+        - generic [ref=f207e99]: "+26.5"
+        - generic [ref=f207e100]: 增强消融 1-shot 提升
+        - generic [ref=f207e101]: "32768"
+        - generic [ref=f207e102]: 缓冲区类别数
+        - generic [ref=f207e103]: −3~6
+        - generic [ref=f207e104]: MSWC 上 vs 同域监督
+        - generic [ref=f207e105]: 三环零标签：wav2vec2.0 自监督预训练 + 伪 TTS 只用无标注语音训练（VITS 架构，500k 迭代）+ 原型网络不需标签——任何一环换有监督组件（如真 TTS），链条就断
+        - generic [ref=f207e106]: 评测：GSCv1（30 词抽 10 目标 + 20 unknown）与 MSWC-en（700 万样本 3.9 万词抽 100 测试词）各重复 100 次报均值 + 95% 置信区间
+      - paragraph [ref=f207e107]: 图1 · 框架全景：两根刺与核心反问；三段式流水线（伪 TTS 数据引擎 → 三重增强域适配 → 原型网络度量学习 + 32768 类缓冲区）；推理的两步判决（最近原型 + 阈值）。
+  - generic [ref=f207e108]:
+    - generic [ref=f207e109]: c_n = (1/K) Σ f(x_n,k) → p(y=n|x) = softmax(−dist(f(x), c_n)) → ŷ = argmin_n dist；dist < D_th 接受，否则 unknown
+    - generic [ref=f207e110]: 人话：原型是每个伪关键词在嵌入空间的质心；负距离过 softmax 做分类。推理两步走——最近原型回答「是谁」，阈值回答「是不是」：距离小于 Dth 才接受候选类，否则拒识为 unknown，Dth 按目标虚警率调节。训练期的封闭集分类干净地转成了使用期的开放集检测。
+  - paragraph [ref=f207e111]: 为什么伪音素当内容因子：wav2vec2.0 的自监督表征携带丰富语音学信息，k-means 得到的 token 序列近似音素级发音单元——想换「视角」只需换参考语音，发音内容不动。与视觉领域用 GAN 潜空间搜索造多视角同思路，但语音侧有伪音素这个显式内容因子，可控性和可解释性更强。
+  - heading "§03 实验：双数据集 + 100 次重复" [level=2] [ref=f207e112]:
+    - generic [ref=f207e113]: §03
+    - text: 实验：双数据集 + 100 次重复
+  - generic [ref=f207e114]: GSCv1（双方都跨域）vs MSWC-en（监督主场）
+  - generic [ref=f207e115]:
+    - img [ref=f207e116]:
+      - generic [ref=f207e118]: 主对比（Table 1）：一个数据集赢、一个输——域失配的不对称
+      - generic [ref=f207e119]: GSCv1 · 双方都跨域 · Acc(target) %
+      - generic [ref=f207e120]: "65"
+      - generic [ref=f207e121]: "75"
+      - generic [ref=f207e122]: "85"
+      - generic [ref=f207e123]: "95"
+      - generic [ref=f207e126]: "76.0"
+      - generic [ref=f207e127]: "69.0"
+      - generic [ref=f207e128]: 1-shot
+      - generic [ref=f207e131]: "91.0"
+      - generic [ref=f207e132]: "90.5"
+      - generic [ref=f207e133]: 5-shot
+      - generic [ref=f207e136]: "93.3"
+      - generic [ref=f207e137]: "93.7"
+      - generic [ref=f207e138]: 20-shot
+      - generic [ref=f207e140]: 1-shot +7.0 ★
+      - generic [ref=f207e141]: MSWC-en · 监督主场 · Acc(target) %
+      - generic [ref=f207e142]: "65"
+      - generic [ref=f207e143]: "75"
+      - generic [ref=f207e144]: "85"
+      - generic [ref=f207e145]: "95"
+      - generic [ref=f207e148]: "67.1"
+      - generic [ref=f207e149]: "72.8"
+      - generic [ref=f207e150]: 1-shot
+      - generic [ref=f207e153]: "86.5"
+      - generic [ref=f207e154]: "91.7"
+      - generic [ref=f207e155]: 5-shot
+      - generic [ref=f207e158]: "91.4"
+      - generic [ref=f207e159]: "94.4"
+      - generic [ref=f207e160]: 20-shot
+      - generic [ref=f207e162]: 落后 3–6 点
+      - generic [ref=f207e164]: 绿 = 本文（全无监督）· 蓝 = MSWC 监督基线
+      - generic [ref=f207e165]: 解读：监督基线在 MSWC 训练——测 MSWC 同域、测 GSCv1 跨域；本文测两个集都是「合成→真实」跨域。两边公平地都跨域时（GSCv1），全无监督反而多数指标占优——
+      - generic [ref=f207e166]: 合成表征不针对单一录音条件过拟合，泛化面更宽；注意：监督基线是现搭的，非领域 SOTA，结论含义是「标注语料的角色可被替代大半」
+    - paragraph [ref=f207e167]: 图2 · 主对比（Table 1 · Acc(target)）：GSCv1 双方都跨域——全无监督 1-shot +7.0 占优；MSWC-en 是监督基线主场——本文落后 3–6 点。域失配的不对称解释了两边胜负。
+  - table [ref=f207e168]:
+    - rowgroup [ref=f207e169]:
+      - row [ref=f207e170]:
+        - columnheader "设置" [ref=f207e171]
+        - columnheader "GSCv1 本文" [ref=f207e172]
+        - columnheader "GSCv1 监督" [ref=f207e173]
+        - columnheader "MSWC 本文" [ref=f207e174]
+        - columnheader "MSWC 监督" [ref=f207e175]
+      - row [ref=f207e176]:
+        - cell "1-shot Acc(target)" [ref=f207e177]
+        - cell "76.0" [ref=f207e178]
+        - cell "69.0" [ref=f207e179]
+        - cell "67.1" [ref=f207e180]
+        - cell "72.8" [ref=f207e181]
+      - row [ref=f207e182]:
+        - cell "5-shot Acc(target)" [ref=f207e183]
+        - cell "91.0" [ref=f207e184]
+        - cell "90.5" [ref=f207e185]
+        - cell "86.5" [ref=f207e186]
+        - cell "91.7" [ref=f207e187]
+      - row [ref=f207e188]:
+        - cell "20-shot Acc(target)" [ref=f207e189]
+        - cell "93.3" [ref=f207e190]
+        - cell "93.7" [ref=f207e191]
+        - cell "91.4" [ref=f207e192]
+        - cell "94.4" [ref=f207e193]
+      - row [ref=f207e194]:
+        - cell "1-shot Acc(total)" [ref=f207e195]
+        - cell "69.6" [ref=f207e196]
+        - cell "66.0" [ref=f207e197]
+        - cell "62.2" [ref=f207e198]
+        - cell "64.8" [ref=f207e199]
+      - row [ref=f207e200]:
+        - cell "1-shot AUROC" [ref=f207e201]
+        - cell "81.1" [ref=f207e202]
+        - cell "77.8" [ref=f207e203]
+        - cell "74.5" [ref=f207e204]
+        - cell "75.9" [ref=f207e205]
+  - paragraph [ref=f207e206]: 嵌入空间的主观验证：GSCv1 的 t-SNE 可视化里 10 个目标词形成清晰分离的簇——训练方案（合成 + 原型）与推理方案（原型 + 距离）的判别有效性有直观证据。
+  - generic [ref=f207e207]:
+    - img [ref=f207e208]:
+      - generic [ref=f207e210]: 唯一的消融（增强 on/off）：干净合成语音 ≠ 好训练分布
+      - generic [ref=f207e211]: GSCv1 Acc(target)：增强边际收益随 K 递减
+      - generic [ref=f207e212]: "50"
+      - generic [ref=f207e213]: "60"
+      - generic [ref=f207e214]: "70"
+      - generic [ref=f207e215]: "80"
+      - generic [ref=f207e216]: "90"
+      - generic [ref=f207e217]: "100"
+      - generic [ref=f207e220]: "49.5"
+      - generic [ref=f207e221]: "76.0"
+      - generic [ref=f207e222]: 1-shot
+      - generic [ref=f207e224]: "+26.5"
+      - generic [ref=f207e227]: "78.0"
+      - generic [ref=f207e228]: "91.0"
+      - generic [ref=f207e229]: 5-shot
+      - generic [ref=f207e231]: "+13.0"
+      - generic [ref=f207e234]: "86.8"
+      - generic [ref=f207e235]: "93.3"
+      - generic [ref=f207e236]: 20-shot
+      - generic [ref=f207e238]: "+6.5"
+      - generic [ref=f207e239]: AUROC：堆样本填不平表征缺陷
+      - generic [ref=f207e240]: "65"
+      - generic [ref=f207e241]: "75"
+      - generic [ref=f207e242]: "85"
+      - generic [ref=f207e253]: K = 1 → 20（注册样本数）
+      - generic [ref=f207e255]: 无增强
+      - generic [ref=f207e257]: 有增强
+      - generic [ref=f207e258]: 无增强 20-shot（76.7）还不如
+      - generic [ref=f207e259]: 有增强 1-shot（81.1）——瓶颈在
+      - generic [ref=f207e260]: 嵌入空间的域失配，不是样本量
+      - generic [ref=f207e261]: 为什么 K 小时增强收益被放大：原型是 K 条支持嵌入的均值——K 越小，单条样本携带的域偏差越直接进原型；增强让编码器对录音条件不变，支持嵌入更稳、原型更准
+    - paragraph [ref=f207e262]: 图3 · 增强消融（唯一消融）：去掉增强 1-shot 崩 26.5 个点，边际收益随 K 递减；无增强时 20-shot 的 AUROC 还不如有增强的 1-shot——瓶颈在嵌入空间域失配，不是样本量。
+  - generic [ref=f207e263]:
+    - img [ref=f207e264]:
+      - generic [ref=f207e266]: 边界：免标注 ≠ 免成本，EER ≠ 产品工作点
+      - generic [ref=f207e268]: 技术边界
+      - generic [ref=f207e269]: · 合成多样性天花板（论文自认）：TTS 对说话人、语速、
+      - generic [ref=f207e270]: 韵律可控性有限——MSWC 输给同域监督 3–6 点的直接原因；
+      - generic [ref=f207e271]: 论文把合成语音多样性列为「最关键的钥匙」
+      - generic [ref=f207e272]: · 域失配只被缓解未被根除：三重增强是通用手段，
+      - generic [ref=f207e273]: 精细域匹配算法留待探索
+      - generic [ref=f207e274]: · 编码器输入仍是 40 维 MFCC 手工特征——数据无监督了，
+      - generic [ref=f207e275]: 特征还是 1980 年代那套；没直接消费 wav2vec2 表征
+      - generic [ref=f207e276]: · 伪关键词长度 (10,20) 是经验超参：对极短（单音节）或
+      - generic [ref=f207e277]: 更长关键词的覆盖未验证
+      - generic [ref=f207e278]: · 隐性算力：伪 TTS 先训 500k 迭代 + 缓冲区预生成
+      - generic [ref=f207e279]: 32768×6 条——标注预算换成了无标注语料 + GPU 时间
+      - generic [ref=f207e281]: 实验设计边界
+      - generic [ref=f207e282]: · 基线只有自建 Supervised(MSWC) 与去掉增强的自消融——
+      - generic [ref=f207e283]: 未与元学习/迁移/度量学习公开数字对比，领域坐标系位置不明
+      - generic [ref=f207e284]: · 全英语链路：MLS 英语训练，GSCv1/MSWC-en 评测——
+      - generic [ref=f207e285]: 跨语言泛化零验证（伪音素不依赖正字法，本是跨语言优势）
+      - generic [ref=f207e286]: · Dth 固定在 EER 工作点——真实唤醒词产品工作在极低
+      - generic [ref=f207e287]: 虚警区间，EER 处的排序未必外推得到产品工作点
+      - generic [ref=f207e288]: · 100 次重复每次仍只抽 10 目标/20 unknown——关键词选择
+      - generic [ref=f207e289]: 方差被平均未被消除；MSWC 测试词限定 2000–3000 样本
+      - generic [ref=f207e290]: （选择偏倚）
+      - generic [ref=f207e291]: · 增强消融只有全开/全关：三种增强各自贡献没拆开
+      - generic [ref=f207e292]: 可迁移判断：度量学习的监督是分组关系不是标签语义——凡能免费批量制造「同语义、多视角」样本组的系统（可控合成/潜空间搜索），都能替代标注语料的这一角色
+    - paragraph [ref=f207e293]: 图4 · 边界：合成多样性天花板、MFCC 手工特征、隐性算力成本（免标注≠免成本）；EER 工作点 vs 产品低虚警区间、全英语链路、基线自建等实验设计边界。
+  - heading "§04 贡献：五条" [level=2] [ref=f207e294]:
+    - generic [ref=f207e295]: §04
+    - text: 贡献：五条
+  - generic [ref=f207e296]:
+    - generic [ref=f207e297]:
+      - generic [ref=f207e298]: "1"
+      - paragraph [ref=f207e299]: 首个全无监督 FS-KWS 训练框架：三环全部零人工标签、训练期不接触任何真实数据。
+    - generic [ref=f207e300]:
+      - generic [ref=f207e301]: "2"
+      - paragraph [ref=f207e302]: 伪 TTS 从迁移学习工具改造成度量学习数据引擎：伪音素切段造任意伪关键词、参考语音控制多视角——「分解发音因子再按需重组」可迁移到其他任务。
+    - generic [ref=f207e303]:
+      - generic [ref=f207e304]: "3"
+      - paragraph [ref=f207e305]: 实证结论：不用任何真实与标注数据，在 GSCv1 上多数指标反超 MSWC 监督基线——高保真可控合成有替代标注语料的潜力。
+    - generic [ref=f207e306]:
+      - generic [ref=f207e307]: "4"
+      - paragraph [ref=f207e308]: 缓冲区机制（M_update≪N≪M_buffer）把合成数据的生成开销压到可负担，「无限量数据」工程上可行。
+    - generic [ref=f207e309]:
+      - generic [ref=f207e310]: "5"
+      - paragraph [ref=f207e311]: 两个可转述的工程判断：生成干净语音本身不保证下游最优；简单增强即可大幅缓解合成-真实域失配。
+  - heading "§05 局限与边界" [level=2] [ref=f207e312]:
+    - generic [ref=f207e313]: §05
+    - text: 局限与边界
+  - generic [ref=f207e314]: 结论的含义不是「无监督打败监督」
+  - generic [ref=f207e315]:
+    - generic [ref=f207e316]:
+      - heading "合成多样性天花板" [level=4] [ref=f207e317]
+      - paragraph [ref=f207e318]: TTS 对说话人、语速、韵律的可控性有限，与真实多条件录音的变异性有差距——MSWC 上输给同域监督 3–6 个点的直接原因；论文把合成语音多样性列为性能提升「最关键的钥匙」。
+    - generic [ref=f207e319]:
+      - heading "特征端还是手工的" [level=4] [ref=f207e320]
+      - paragraph [ref=f207e321]: 编码器输入仍是 40 维 MFCC——数据无监督了，特征还是 1980 年代那套；没有直接消费 wav2vec2.0 表征或以其为蒸馏教师。
+    - generic [ref=f207e322]:
+      - heading "免标注 ≠ 免成本" [level=4] [ref=f207e323]
+      - paragraph [ref=f207e324]: 伪 TTS 要先训 500k 迭代、缓冲区要预生成 32768×6 条语音——只是把标注预算换成了无标注语料加 GPU 时间；编码器参数量、推理延迟、流式可行性均未报告。
+    - generic [ref=f207e325]:
+      - heading "评测边界" [level=4] [ref=f207e326]
+      - paragraph [ref=f207e327]: 基线是现搭的（非领域 SOTA），未与元学习/迁移/度量学习公开数字对比；Dth 定在 EER 而产品工作在极低虚警区间；全英语链路零跨语言验证；增强消融只有全开/全关。
+  - generic [ref=f207e328]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f207e329]
+    - list [ref=f207e330]:
+      - listitem [ref=f207e331]: ↳ 度量学习的监督是分组关系不是标签语义——凡能免费批量制造「同语义、多视角」样本组的系统（可控合成/潜空间搜索）都能替代标注语料的这一角色。
+      - listitem [ref=f207e332]: ↳ 生成数据的「干净」是分布偏科：简单增强把真实条件多样性人工注入合成分布，比追求更高保真的干净合成更划算。
+      - listitem [ref=f207e333]: ↳ few-shot 的原型是 K 条嵌入的均值——K 越小，单条样本的域偏差越直接进原型；对注册样本做条件不变的编码器改造，收益在 K 小时被放大。
+      - listitem [ref=f207e334]: ↳ 数据生成与数据消费解耦（缓冲区 + 缓慢换血）：生成开销摊薄到近零又不过拟合当前池——replay buffer 的思想适用于一切在线造数据的训练。
+      - listitem [ref=f207e335]: ↳ 对比实验要标注域关系：一个数据集赢一个输时，先画「谁同域谁跨域」的不对称表，再下结论。
+  - generic [ref=f207e336]:
+    - link "论文原文 ↗" [ref=f207e337] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2210.02732
+    - link "笔记全文 ↗" [ref=f207e338] [cursor=pointer]:
+      - /url: Fully_Unsupervised_Training_Of_Few-shot_Keyword_Spotting.md
+    - link "返回列表" [ref=f207e339] [cursor=pointer]:
+      - /url: ../index.html
