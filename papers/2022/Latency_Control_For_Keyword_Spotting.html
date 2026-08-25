@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Latency Control for KWS：损失函数级的唤醒延迟旋钮</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 15.5px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №23</div>
+  <h1 class="hero">在损失函数里放一个伯努利随机数，<br>唤醒延迟变成<span class="g">可调旋钮</span></h1>
+  <div class="chips">
+    <span class="chip">Amazon Science · arXiv 2206.07261</span>
+    <span class="chip">max-pooling 损失 + β 回退</span>
+    <span class="chip">「Amazon」唤醒词 · 20000h 内部数据</span>
+    <span class="chip">零端点标注 · 单超参数单调权衡</span>
+  </div>
+  <div class="meta">max-pooling 损失让模型「自己选最大帧」——峰值整体后漂，检测对了但迟到了。改动只有一行：正例选帧下标减一个伯努利随机的 β。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>张力</b>：KWS 是语音助手的门控——唤醒触发后续重计算；准和快天然反向。延迟不只让回应慢，还改变用户行为：等不到回应就把唤醒词再说一遍 → 重复触发。</li>
+      <li><b>界定</b>：本文治的是<b>算法延迟</b>（关键词端点之后还要多听几帧才判决），不是工程延迟（算力受限的推理开销）——所以工作落在损失函数层，与省算力路线正交可叠加。</li>
+      <li><b>病根</b>：max-pooling 损失自动选帧免对齐（正例选最大帧、负例选最小帧），但模型会利用关键词之后的额外上下文抬置信度——峰值后漂；决策窗口显著大于关键词长度时（语速快）尤其严重。</li>
+      <li><b>核心改动</b>：t = (argmax(p^y) − β)₊，β~Bernoulli(b)——以概率 b 把损失从峰值帧挪到前一帧：要么置信度质量整体前移、要么峰值前一帧后验抬高，都通向更早检测。</li>
+      <li><b>为什么随机</b>：β 逐例随机让峰值帧和前峰值帧交替受监督——不为早检单点过拟合，精度退化渐进、由 b 连续控制的软权衡。</li>
+      <li><b>为什么一步够</b>：本架构后验时间步长较大（一层池化 + 3 跨步卷积），回退一步就是可观的毫秒数；小步长模型需泊松式多变回退（只有提议无实验）。</li>
+      <li><b>主结果</b>：固定延迟下相对 max-latency SOTA（依赖端点标注）约 25% 相对误收改善；相对 CE 对齐训练同样约 25%——b=0 严格退化为 max-pooling 且是全场精度最优点（无隐藏精度税）。</li>
+      <li><b>甜点 b=0.33</b>：精度恰好回到 CE 基线水平、延迟已显著低于 max-pooling——「免对齐训练 + 精度不亏 + 延迟赚一段」。</li>
+      <li><b>单调旋钮</b>：b 与延迟单调挂钩——给定延迟约束只需少量几个 b 各训一版就能命中；b=1 时峰值抢在关键词物理终点之前（信息不完整就下判决的激进工作点）。</li>
+      <li><b>通用化</b>：Eqn. 3 把机制从交叉熵解耦——任何「单时刻后验向量+标签」形态的损失都能挂上延迟控制，误唤醒/漏唤醒的代价不对称加权可正交组合。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：峰值后漂，检测对了但迟到了</h2>
+  <div class="h2sub">四层相关路线在延迟维度上的短板</div>
+  <p class="lead">两阶段 DNN+HMM 靠 Viterbi 解码天然给出端点和低延迟，但要子词标注、计算昂贵、训练调参难；单阶段全神经方案标注友好但失去端点结构——判决落在哪个时刻完全由模型自己学出来；max-pooling 损失免对齐但引入新的延迟病根；已有的延迟治理手段（直接加延迟惩罚、max-latency 遮蔽）要么丢掉免对齐优势要么依赖端点知识。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>Fig. 1 的直观例子</h4>
+      <p>作者本人说「Amazon, what's the weather」——max-pooling 模型训练出的对齐后验曲线里，峰值后验对应的上下文窗口明显延伸到关键词之后：检测是对的，但迟到了。</p>
+    </div>
+    <div class="card bad">
+      <h4>max-latency 的两个结构依赖</h4>
+      <p>遮蔽的起点是关键词端点（必须先有端点标注，实验里用 HMM 估计）；遮蔽作用在输入数据上而非损失里——换个损失函数要重新适配，不通用。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：选帧下标减一个随机步</h2>
+  <div class="h2sub">最小侵入的改动拿到一个可调旋钮——不动架构/数据/训练流程</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 960">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="960.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">在损失函数里放一个伯努利随机数，唤醒延迟变成可调旋钮</text>
+<line x1="36.0" y1="60.0" x2="600.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 门控定位的两目标张力</text>
+<rect x="36.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延迟不只是慢</text>
+<text x="52.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率提升常以引入检测延迟为代价（行业现状）</text>
+<text x="52.0" y="154.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延迟改变用户行为：喊完唤醒词等不到回应 → 忍不住</text>
+<text x="52.0" y="167.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  再说一遍 → 重复触发 + 更糟的体验</text>
+<text x="52.0" y="179.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">对日活量级助手，延迟与误唤醒率是同等级体验指标</text>
+<text x="52.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——不是附属的工程细节</text>
+<rect x="474.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">本文关心的是算法延迟</text>
+<text x="490.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">算法延迟 = 关键词端点之后模型还要多听多少帧才吐判决</text>
+<text x="490.0" y="154.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（区别于算力受限硬件上的工程/推理延迟）</text>
+<text x="490.0" y="167.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="179.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">这决定了工作落在损失函数层，不是模型压缩层——</text>
+<text x="490.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  与省算力的路线正交，可叠加</text>
+<text x="36.0" y="212.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 四层相关路线在延迟维度上的短板</text>
+<rect x="36.0" y="228.0" width="848.0" height="54.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="250.0" font-size="11" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段 DNN+HMM</text>
+<text x="52.0" y="270.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">✓ Viterbi 解码天然给端点和低延迟</text>
+<text x="52.0" y="284.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">✗ 但计算昂贵 / 需子词级标注 / 训练调参难</text>
+<rect x="36.0" y="290.0" width="848.0" height="54.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="312.0" font-size="11" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单阶段全神经</text>
+<text x="52.0" y="332.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">✓ 硬件友好 / 只需关键词级标注 / 优于 filler HMM</text>
+<text x="52.0" y="346.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">✗ 但没有显式端点结构——判决落哪由模型自己学，延迟失控</text>
+<rect x="36.0" y="352.0" width="848.0" height="54.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="374.0" font-size="11" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">max-pooling 损失 [12]</text>
+<text x="52.0" y="394.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">✓ 自动选帧免对齐，实证优于人工对齐</text>
+<text x="52.0" y="408.0" font-size="9" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">✗ 病根：模型用关键词之后的额外上下文抬置信度 → 峰值后漂</text>
+<rect x="36.0" y="414.0" width="848.0" height="54.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="436.0" font-size="11" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">现有延迟治理</text>
+<text x="52.0" y="456.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">✓ max-latency [19]：遮蔽端点后上下文</text>
+<text x="52.0" y="470.0" font-size="9" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">✗ 需要端点标注 + 绑定具体损失，不通用</text>
+<text x="460.0" y="482.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Fig. 1 实例：作者说「Amazon, what's the weather」，max-pooling 模型的峰值后验窗口（绿色叠加段）明显延伸到关键词之后——检测对了，但迟到了</text>
+<text x="36.0" y="486.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 核心改动：正例选帧下标减一个伯努利随机数（Eqn. 1 → 2）</text>
+<rect x="36.0" y="500.0" width="414.0" height="150.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="524.0" font-size="12.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Eqn. 2：t = ( argmax(p^y) − β )₊　y ≠ 0</text>
+<text x="52.0" y="546.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">β ~ Bernoulli(b)：以概率 b 取 1、1−b 取 0；负例支不动</text>
+<text x="52.0" y="557.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="568.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">(·)₊ 截断：argmax 可能是第 0 帧，减 β 得 −1 非法——</text>
+<text x="52.0" y="579.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  max(x,0) 钳回合法区间</text>
+<text x="52.0" y="590.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="601.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">两个梯度压力：① 置信度质量整体前移（峰值提前）</text>
+<text x="52.0" y="612.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② 峰值前一帧的后验也抬高——都通向更早检测</text>
+<text x="52.0" y="623.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">β 逐例随机：峰值帧与前峰值帧交替受监督，不单点过拟合，</text>
+<text x="52.0" y="634.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  精度退化渐进、由 b 连续控制的软权衡</text>
+<rect x="474.0" y="500.0" width="414.0" height="150.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="490.0" y="524.0" font-size="12" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">适用条件 + 通用化（Eqn. 3）</text>
+<text x="490.0" y="546.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么伯努利一步就够：本架构（一层池化 + 3 跨步卷积）</text>
+<text x="490.0" y="557.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  的后验时间步长较大——回退一步就是可观的毫秒数</text>
+<text x="490.0" y="568.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">步长更小的模型 / 更大幅度削减：换正支撑分布（泊松）让 β</text>
+<text x="490.0" y="579.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  一次回退可变多帧——只给方向无实验</text>
+<text x="490.0" y="590.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="601.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Eqn. 3 通用化：p^y 换成完整后验向量 P，损失函数换成任意</text>
+<text x="490.0" y="612.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  接受「单时刻后验向量+标签」的 L——交叉熵可插拔换成</text>
+<text x="490.0" y="623.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  加权 CE 等（误唤醒/漏唤醒代价不对称的产品需求）</text>
+<rect x="36.0" y="660.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="686.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−25%</text>
+<text x="130.0" y="706.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">相对误收 vs max-latency SOTA</text>
+<text x="298.0" y="686.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−25%</text>
+<text x="298.0" y="706.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">相对误收 vs CE 损失（同延迟）</text>
+<text x="466.0" y="686.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b=0</text>
+<text x="466.0" y="706.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">严格退化为 max-pooling</text>
+<text x="634.0" y="686.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b=0.33</text>
+<text x="634.0" y="706.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">甜点：精度回 CE 水平 + 延迟大降</text>
+<text x="802.0" y="686.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0 行</text>
+<text x="802.0" y="706.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">代码/架构/数据流程改动</text>
+<text x="36.0" y="744.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">载体：流式 CNN（5 层卷积 + 3 层 FC，LFBE 64 维，76 帧窗口）做「Amazon」二分类；20,000h 内部训练 / 1,400h 评测；所有模型共用架构/初始化/训练流程，只换损失——控制变量设计</text>
+</svg>
+    <p class="cap"><b>图1 · 机制全景</b>：门控定位的两目标张力与算法/工程延迟的区分；四层相关路线的短板；Eqn. 1→2 的核心改动（β 回退、(·)₊ 截断、两个梯度压力）与通用化 Eqn. 3。</p>
+  </div>
+  </div>
+  <div class="formula">
+    <div class="f">正例支：t = ( argmax(p_i^y) − β )₊　β ~ Bernoulli(b)；负例支不动（仍选 p⁰ 最小帧）</div>
+    <div class="why"><b>人话</b>：max-pooling 的正例支把全部监督集中在（往往迟到的）峰值帧——峰值之前的帧从未被要求给出高后验，判决自然后漂。减一个随机 β：要么网络学会把置信度质量整体前移，要么把峰值前一帧的后验也抬高。b 越大前移压力越强：延迟越低、精度损失越大——<b>由 b 连续控制的软权衡</b>。</div>
+  </div>
+  <p class="sub"><b>控制变量设计</b>：所有模型严格共用同一套架构（5 层卷积 + 3 层 FC 的流式 CNN）、初始化和训练流程，只换损失函数——本文全部论点落在「损失的改动导致延迟和精度变化」这条因果链上，任何架构或优化器的混杂因素都会污染它。</p>
+
+  <h2><span class="no">§03</span>实验：b 扫描就是消融</h2>
+  <div class="h2sub">六档 b ∈ {0, 0.1, 0.2, 0.33, 0.5, 1.0}——b 是方法里唯一的自由度</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 460">
+<rect x="0.0" y="0.0" width="880.0" height="460.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b 扫描：单超参数的单调权衡（Fig. 3/5 形态）</text>
+<line x1="36.0" y1="56.0" x2="440.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="280.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">同一段音频的后验峰值随 b 单调前移（示意）</text>
+<rect x="60.0" y="112.0" width="440.0" height="200.0" rx="6" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="360.0" y1="120.0" x2="360.0" y2="304.0" stroke="#c0392b" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="364.0" y="132.0" font-size="9" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词结束</text>
+<line x1="150.0" y1="288.0" x2="200.0" y2="272.0" stroke="#8a93a5" stroke-width="2.2"/>
+<line x1="200.0" y1="272.0" x2="240.0" y2="208.0" stroke="#8a93a5" stroke-width="2.2"/>
+<line x1="240.0" y1="208.0" x2="270.0" y2="136.0" stroke="#8a93a5" stroke-width="2.2"/>
+<line x1="270.0" y1="136.0" x2="310.0" y2="232.0" stroke="#8a93a5" stroke-width="2.2"/>
+<line x1="310.0" y1="232.0" x2="360.0" y2="283.2" stroke="#8a93a5" stroke-width="2.2"/>
+<text x="270.0" y="128.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b=0</text>
+<line x1="210.0" y1="288.0" x2="260.0" y2="272.0" stroke="#5aa886" stroke-width="2.2"/>
+<line x1="260.0" y1="272.0" x2="300.0" y2="208.0" stroke="#5aa886" stroke-width="2.2"/>
+<line x1="300.0" y1="208.0" x2="330.0" y2="136.0" stroke="#5aa886" stroke-width="2.2"/>
+<line x1="330.0" y1="136.0" x2="370.0" y2="232.0" stroke="#5aa886" stroke-width="2.2"/>
+<line x1="370.0" y1="232.0" x2="420.0" y2="283.2" stroke="#5aa886" stroke-width="2.2"/>
+<text x="330.0" y="128.0" font-size="9.5" fill="#5aa886" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b=0.33</text>
+<line x1="280.0" y1="288.0" x2="330.0" y2="272.0" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="330.0" y1="272.0" x2="370.0" y2="208.0" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="370.0" y1="208.0" x2="400.0" y2="136.0" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="400.0" y1="136.0" x2="440.0" y2="232.0" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="440.0" y1="232.0" x2="490.0" y2="283.2" stroke="#0b6e52" stroke-width="2.2"/>
+<text x="400.0" y="128.0" font-size="9.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b=1.0</text>
+<text x="280.0" y="326.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">时间 →（b=1 的峰值已抢在关键词物理终点之前——信息不完整就下判决）</text>
+<text x="690.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">精度 vs 延迟（示意形态）</text>
+<rect x="540.0" y="112.0" width="300.0" height="200.0" rx="6" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="560.0" y1="142.0" x2="586.0" y2="149.5" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="586.0" y1="149.5" x2="612.0" y2="164.5" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="612.0" y1="164.5" x2="645.8" y2="190.0" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="645.8" y1="190.0" x2="690.0" y2="217.0" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="690.0" y1="217.0" x2="820.0" y2="259.0" stroke="#0b6e52" stroke-width="2.2"/>
+<circle cx="560.0" cy="142.0" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="560.0" y="132.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b=0.00</text>
+<circle cx="586.0" cy="149.5" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<circle cx="612.0" cy="164.5" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<circle cx="645.8" cy="190.0" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="645.8" y="180.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b=0.33</text>
+<circle cx="690.0" cy="217.0" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<circle cx="820.0" cy="259.0" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="820.0" y="249.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b=1.00</text>
+<line x1="552.0" y1="190.0" x2="828.0" y2="190.0" stroke="#33507a" stroke-width="1.8" stroke-dasharray="6 4"/>
+<text x="826.0" y="184.0" font-size="9" fill="#33507a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">CE 基线精度</text>
+<text x="690.0" y="326.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">b（0=精度优先 → 1=峰值抢跑）</text>
+<text x="550.0" y="128.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">精度 ↑</text>
+<rect x="630.0" y="242.0" width="190.0" height="40.0" rx="6" fill="#eef6f1"/>
+<text x="725.0" y="258.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b=0.33 甜点：精度回 CE 水平</text>
+<text x="725.0" y="272.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">延迟已显著低于 max-pooling 基线</text>
+<text x="36.0" y="396.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：b=0 是全场精度最优点——前移机制没有隐藏精度税，退化只在你主动拧旋钮时发生；b=0→0.33 区间精度都在 CE 之上（max-pooling 的免对齐红利真实存在），本文用掉一部分红利换延迟</text>
+<text x="36.0" y="432.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">核心证据（Fig. 4，固定误拒率）：本文整条曲线优于 max-latency SOTA 和 CE 对齐模型，且全程不需要端点知识——固定延迟下相对误收改善约 25%</text>
+</svg>
+    <p class="cap"><b>图2 · b 扫描（Fig. 3/5 形态）</b>：同一段音频的后验峰值随 b 单调前移（b=1 抢跑关键词终点）；精度-延迟权衡曲线——b=0 全场精度最优、b=0.33 甜点（精度回 CE 水平 + 延迟大降）。</p>
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">横向对比：同样是压延迟，路径和依赖完全不同</text>
+<line x1="36.0" y1="56.0" x2="480.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="36.0" y="84.0" width="200.0" height="150.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="136.0" y="106.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段 HMM</text>
+<text x="136.0" y="130.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">手段</text>
+<text x="136.0" y="146.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Viterbi 解码</text>
+<text x="136.0" y="178.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">代价/依赖</text>
+<text x="136.0" y="194.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">子词标注 + 昂贵解码</text>
+<rect x="252.0" y="84.0" width="200.0" height="150.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="352.0" y="106.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">max-latency [19]</text>
+<text x="352.0" y="130.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">手段</text>
+<text x="352.0" y="146.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">遮蔽端点后上下文</text>
+<text x="352.0" y="178.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">代价/依赖</text>
+<text x="352.0" y="194.0" font-size="9" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">需端点标注 + 绑定损失</text>
+<rect x="468.0" y="84.0" width="200.0" height="150.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="568.0" y="106.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">低延迟 CRNN [18]</text>
+<text x="568.0" y="130.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">手段</text>
+<text x="568.0" y="146.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">减参数减算力</text>
+<text x="568.0" y="178.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">代价/依赖</text>
+<text x="568.0" y="194.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">压的是工程延迟（正交）</text>
+<rect x="684.0" y="84.0" width="200.0" height="150.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="784.0" y="106.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 β 回退 ★</text>
+<text x="784.0" y="130.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">手段</text>
+<text x="784.0" y="146.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">选帧下标减随机步</text>
+<text x="784.0" y="178.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">代价/依赖</text>
+<text x="784.0" y="194.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">零端点依赖 + 损失无关</text>
+<text x="460.0" y="258.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CE 对齐训练 [对比项]：用 HMM 对齐逐帧训练——精度低于 max-pooling（人工对齐方式直接影响模型表现）；二阶段渐进检测 [17]：用更多上下文换精度——方向相反，把延迟当资源花</text>
+<rect x="36.0" y="276.0" width="848.0" height="108.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="52.0" y="298.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">max-latency vs 本文：机制级的差别</text>
+<text x="52.0" y="318.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· max-latency 数学上等价于把 argmax 的搜索范围收窄——遮蔽作用在输入数据上：遮蔽起点是端点（必须有端点标注），换个损失要重新适配遮蔽逻辑</text>
+<text x="52.0" y="334.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文把「收窄搜索范围」换成「从搜索结果回退一个随机步」：回退相对峰值自身——不需要知道端点在哪；改动封装在选帧下标算式里——任何损失直接套 Eqn. 3</text>
+<text x="52.0" y="350.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 数据侧要求退回 max-pooling 本来的要求：只需一段「包含但不必精确对齐」关键词的音频裁剪</text>
+<text x="36.0" y="412.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">工程价值：b 与延迟单调挂钩——给定延迟约束只需少量几个 b 值各训一版就能命中（非单调关系则要密集扫参，每个点都是一次完整训练）；「延迟约束」第一次变成像学习率一样好调的超参数</text>
+</svg>
+    <p class="cap"><b>图3 · 横向对比</b>：四条压延迟路线的手段与依赖；max-latency（收窄搜索范围，需端点）vs 本文（从搜索结果回退，零端点依赖 + 损失无关）的机制级差别；单调映射的工程价值。</p>
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与展望</text>
+<line x1="36.0" y1="56.0" x2="220.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 一步回退依赖大后验步长：换到 10ms 级输出步长的模型，</text>
+<text x="72.0" y="144.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  一步只有 10ms 压不出有意义的延迟——泊松多变回退只有</text>
+<text x="72.0" y="158.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  提议没有验证，有效性存疑</text>
+<text x="72.0" y="172.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="186.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 负例支完全没动：延迟控制只作用正例选帧，误收侧的时序</text>
+<text x="72.0" y="200.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  行为不在控制范围内</text>
+<text x="72.0" y="214.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="228.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· b=1 峰值抢在关键词说完之前——鼓励不完整信息下判决，</text>
+<text x="72.0" y="242.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  误收风险上边界没有量化</text>
+<text x="72.0" y="256.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="270.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 饱和效应未讨论：峰值贴近窗口起点的大量样本，(·)₊ 截断</text>
+<text x="72.0" y="284.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  让 β 实际失效——有效 b 低于名义 b</text>
+<text x="72.0" y="298.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="312.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 算法延迟 vs 工程延迟只治前者；两者叠加才是完整延迟账本</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验设计边界</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 只验证「Amazon」单关键词二分类——多词/多类/短语未测</text>
+<text x="536.0" y="144.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="158.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全相对值：无每档 b 的绝对延迟毫秒表、无置信区间、</text>
+<text x="536.0" y="172.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  无显著性检验——跨论文不可比</text>
+<text x="536.0" y="186.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="200.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全内部数据（20,000h/1,400h）无公开代码——不可复现</text>
+<text x="536.0" y="214.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="228.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 延迟锚点是 HMM 给的端点——HMM 对齐误差直接污染延迟</text>
+<text x="536.0" y="242.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  测量本身，误差大小未报告</text>
+<text x="536.0" y="256.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="270.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· max-latency 基线的 f 扫描取值未报告——是否调到最优无从判断</text>
+<text x="536.0" y="284.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="298.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全离线指标：延迟对真实用户行为（重复唤醒率）的影响</text>
+<text x="536.0" y="312.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  无在线实验——而这恰是全文立论起点</text>
+<text x="36.0" y="414.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：把 trade-off 从「系统设计目标」变成「训练期超参数」的前提是单调映射——单调性让命中约束的搜索成本从密集扫参降到几个点</text>
+</svg>
+    <p class="cap"><b>图4 · 边界</b>：一步回退的前提（大后验步长）、负例支未动、b=1 风险上界未量化、饱和效应；单关键词、全相对值、内部数据不可复现、无在线实验等验证边界。</p>
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：四条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>免端点标注的延迟控制损失</b>：「控制算法延迟」与「不需要端点知识」第一次兼得——把 HMM 时代靠子词标注换低延迟、max-pooling 时代靠上下文堆精度丢延迟的两难折进一个损失函数。</p></div>
+    <div class="row"><div class="n">2</div><p><b>单超参数的单调权衡旋钮</b>：六档扫描覆盖「精度优先 → 峰值抢跑终点」全谱工作点——学术 trade-off 变成产线可操作参数。</p></div>
+    <div class="row"><div class="n">3</div><p><b>损失函数级通用化</b>：Eqn. 3 把机制从交叉熵解耦，为类别不对称代价等真实需求留好接口。</p></div>
+    <div class="row"><div class="n">4</div><p><b>SOTA 对比全面胜出</b>：固定延迟下相对依赖端点的 max-latency 约 25% 相对误收改善，且无需对齐标注。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">一步回退的前提与验证范围</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>一步回退依赖大后验步长</h4>
+      <p>伯努利 β 只能回退一个后验步——10ms 级输出步长的模型一步只有 10ms，压不出有意义的延迟；泊松多变回退只有提议没有验证。负例支完全没动——误收侧时序行为不在控制范围。</p>
+    </div>
+    <div class="card bad">
+      <h4>极端点与饱和效应</h4>
+      <p>b=1 峰值抢在关键词说完之前（信息不完整下判决），误收风险上边界未量化；峰值贴近窗口起点的样本 (·)₊ 截断让 β 实际失效——有效 b 低于名义 b，论文未讨论。</p>
+    </div>
+    <div class="card bad">
+      <h4>全相对值、单关键词</h4>
+      <p>只验证「Amazon」二分类——多词/多类/短语未测；无绝对延迟毫秒表、无置信区间显著性——跨论文不可比。</p>
+    </div>
+    <div class="card bad">
+      <h4>不可复现 + 无在线验证</h4>
+      <p>全部内部数据（20,000h 训练 / 1,400h 评测）无公开代码；延迟锚点是 HMM 端点（其对齐误差污染延迟测量本身）；max-latency 基线的 f 扫描未报告是否调到最优；延迟对真实用户行为（重复唤醒率）的影响无在线实验——而这恰是立论起点。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>自动选帧/选例的损失会让学生自己挑最舒服的位置——监督信号集中在哪个时刻，行为就漂向哪个时刻；要控制行为先控制监督落点。</li>
+      <li>「收窄搜索范围」可以换成「从搜索结果回退」：前者要边界知识，后者只要相对参照——免标注的控制往往来自相对化改写。</li>
+      <li>把 trade-off 从「系统设计目标」变成「训练期超参数」的前提是单调映射——单调性让命中约束的搜索成本从密集扫参降到几个点。</li>
+      <li>随机化回退优于确定性回退：交替监督两个位置避免单点过拟合，代价曲线从悬崖变成可调斜坡。</li>
+      <li>算法延迟与工程延迟是两本账：改损失压算法延迟、省算力压工程延迟——两者正交，完整的端侧延迟账本要两边一起算。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2206.07261" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="Latency_Control_For_Keyword_Spotting.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
