@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhonMatchNet · 音素引导零样本 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2023/PhonMatchNet_Phoneme-Guided_Zero-Shot_Keyword_Spotting_For_User-Defined_Keywords.md">深读笔记</a>
+    <a href="/papers/2023/PhonMatchNet_Phoneme-Guided_Zero-Shot_Keyword_Spotting_For_User-Defined_Keywords.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2308.16511" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2023 №30</p>
+  <h1>「Hallow 对 Hello」和「Hallow 对 monkey」在语句级损失里同样是 0——把标签拆到音素级（3 个 1、1 个 0），<br>发音越相似反而判得越准，655K 参数零样本拿到 GSC 96.8% 准确率</h1>
+  <p class="sub">PhonMatchNet: Phoneme-Guided Zero-Shot Keyword Spotting for User-Defined Keywords</p>
+  <p class="meta"><b>作者</b>：Yong-Hyeok Lee、Namhyun Cho（NCSOFT Speech AI Lab，韩国）· arXiv 2308.16511（2023-08）· 代码开源</p>
+  <p class="meta"><b>数据</b>：LibriPhrase 训练 + 四测试集（GSC V1 / Qualcomm 专有名词 / LibriPhrase-easy/hard）· <b>参数</b>：655K（基线 653K）</p>
+  <div class="chips">
+    <span class="chip">零样本 UDKWS（文本定义关键词）</span><span class="chip">音素级检测损失（免对齐）</span><span class="chip">绕开 CTC 标签匹配前提</span>
+    <span class="chip">双流编码器：冻结先验+可训练</span><span class="chip">拼接自注意力替代交叉注意力</span><span class="chip">平均 EER 相对改善 67%</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>问题</b>：用户自定义关键词（UDKWS）的词空间开放——稀有词、专有名词、任意自定义词都无法预先收集足够标注。零样本 KWS 要求模型学到的不是「某个词的声学模式」而是「语音与文本描述是否匹配」的可迁移关系——新增关键词只改文本输入，零重训零录音。</li>
+      <li><b>被点名的三条路线</b>：① <b>QbyE 注册负担</b>——比较的另一方是「预注册语音」，换词必须先念几遍：使用摩擦 + 注册样本质量瓶颈（信道/说话状态/噪声都成比对偏差源）+ 端侧存音频模板的开销；本质是把关键词定义绑在音频示例上而非更自然的文本上。② <b>CMCD 语句级粒度瓶颈</b>——语音文本比较改成好事，但整段语音汇聚成一个向量比对：「friend vs trend」只差一两个音素，差异被整词信息稀释（一句话大部分音素共享，强信号摊薄到整个向量，信噪比不足）；且音频编码器全可训练——表示能力完全由训练分布决定，专有名词等罕见发音没兜底先验。③ <b>CTC 不适配</b>——时间定位监督对高性能有帮助，但 CTC 的前提是语音与标签一定匹配（ASR 定义），UDKWS 必须含不匹配负样本对——CTC 对「不匹配对」没有合理的监督信号。</li>
+      <li><b>核心创新：音素级检测损失（式 7）</b>。音素级真值 = 逐位置比较语音转写与关键词转写的音素是否相同（Hallow 的 HH,AE1,L,OW0 对 Hello 的 HH,EH1,L,OW0 → 标签 1,0,1,1）——<b>三个「不需要」</b>：不需要语音与发音的对齐信息（只用音素序列逐位置比较）、不需要标签一定匹配（不匹配对产生「多数 1 少数 0」的有效监督——CTC 做不到）、不需要额外对齐解码模块。它把「区分相似发音」从「两个整句向量距离够不够远」转化为「逐音素比较对不对」——模型更容易学、梯度更容易纠正。</li>
+      <li><b>架构三件套</b>：① <b>双流语音编码器</b>——冻结预训练嵌入器（775ms 窗 / 80ms 步 / 96 维，YouTube 一般对话训练 = 通用发音先验）+ 全可训练 Conv1D 分支（40 维 Mel 输入）→ 上采样对齐后<b>逐帧相加</b>（非级联——两路优势每帧等权进入后续）；② <b>自注意力模式提取器</b>——音频+文本嵌入时间维拼接后统一做自注意力（下三角因果掩码）：参数效率（交叉注意力要为每个模态分别造 Q/K/V 投影）+ 信息完整（输出含语音→语音 / 文本→语音 / 文本→文本三方向——被语音上下文增强的文本段对罕见词更鲁棒）；③ <b>两路读出</b>——语句级（GRU 末隐态 → sigmoid 标量）+ 音素级（文本段逐帧 → sigmoid 概率序列），各算 BCE 相加。</li>
+      <li><b>主结果（Table 1）</b>：四测试集 EER——CMCD 复现 31.94/26.09/10.48/29.34 → PhonMatchNet 6.77/4.75/2.80/18.82（平均 EER 相对改善 67%、AUC 80%）；G −79%、Q −82%、LPE −73%、<b>LPH 仅 −36%</b>（不可区分发音如 friend/frind 是最难场景——论文自认短板）。</li>
+      <li><b>图 2 的形态差异（最有说服力的证据）</b>：按发音相似度分桶看误差——基线在归一化 Levenshtein 距离 &lt; 0.45 区间<b>误差恒定</b>（发音越像毫无改善，撞语句级天花板）；PhonMatchNet 随距离减小<b>线性改善</b>（发音越相似判得越准）——相似发音上的提升归因于音素级损失，与消融互证。</li>
+      <li><b>三组消融</b>（参数均调至 655K 排除容量干扰）：① w/o 音素级损失——全集合小幅恶化，但价值集中在刀刃上（LPH 和低距离区间——不是万金油而是定向补强）；② 交叉注意力替代——Q 专有名词集恶化最剧（EER 6.05→18.24 约三倍）：罕见词文本侧自身不可靠时没有语音自上下文可兜底；③ w/o 可训练支路——<b>最差配置</b>（Q 22.90、LPH 25.77）：嵌入器的 YouTube 分布边界；反过来只用嵌入器也已比全可训练 CMCD 好——<b>两条支路缺一不可，双流是「先验+适配」取长补短</b>。</li>
+      <li><b>零样本 vs full-shot（Table 3）</b>：GSC V1-12 阈值 0.8 下 96.8%——超过 DS-CNN/Att-RNN/TC-ResNet/MHAtt-RNN 四个经典 full-shot（它们全在这个词表上专门训练过、本文训练数据完全不含 GSC）、距 MatchboxNet/KWT-3 仅 0.7 点、距 BC-ResNet-8 差 1.2 点——零样本便利性红利换精度上限折让；准确率与 EER/AUC 不同量纲不可混读。</li>
+      <li><b>评测协议的诚实注记</b>：G/Q 无负对 → 作者自行构造「一个锚词对全部其他候选词」的开放比较（比一对一配对更严苛、更贴近开放词表场景）——但复现 CMCD 与原文数字不可直接对齐，67%/80% 的平均改善里混入了协议变化的影响。</li>
+      <li><b>边界</b>：高度相似发音仍是硬骨头（LPH 18.82，音素级监督缓解稀释但没彻底解决——差异音素本身发音接近时逐音素比较的判据也模糊）；对 G2P 转写质量隐性依赖（错一个音素后续标签全错位——未讨论误差传播、未报转写准确率）；嵌入器域边界（鲁棒性只到 babble 增广为止，无远场/强噪/多说话人实验）；无时延/FLOPS/流式实测（注意力需整段进计算、GRU 要听到末尾才输出）；<b>模型选择直接用测试集</b>（训练 100 epoch 后按测试集性能选最佳——数字带乐观偏差，全文最值得诟病的一点）；仅英语；阈值 0.8 如何选定未说明。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">四个互相牵制的挑战</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>四条挑战</b>：① 零样本、不注册语音的前提下显著提升高度相似关键词对的区分能力（CMCD 核心短板）；② 设计不依赖对齐标注的音素级监督信号，绕开 CTC「标签必须匹配」假设；③ 音频编码器既要通用发音先验（一般对话鲁棒）又要适配训练集外的特殊发音（专有名词），参数量不能超标；④ 在参数量与基线持平（655K 对 653K）约束下全部装进一个端到端模型。
+  </div>
+
+  <div class="formula">
+    L = L<sub>utt</sub>(BCE) + L<sub>phn</sub>(BCE)（式 6）；音素级真值 y<sub>phn</sub>[i] = 𝟙[phone<sub>speech</sub>[i] = phone<sub>keyword</sub>[i]]（式 7）
+    <div class="why">式 7 的构造只需要两侧各自的音素转写、完全不需要时间对齐标注——正面回应「逐时间戳标签难以获得」的痛点。逐帧 sigmoid 输出既可整体看（全 1 即整词匹配）也可定位看（哪些音素错了），推理无需解码搜索保持轻量。注意力用缩放点积（式 1）+ 下三角因果掩码（只用模态内因果信息，为流式保留结构可能）。</div>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">「发音相同性」标签替代「精确时间信息」</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 960">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="960.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="18" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三子模块与音素级损失的构造（图 1 复绘）</text>
+<line x1="36.0" y1="60.0" x2="320.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="86.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 双流语音编码器：冻结先验 + 可训练适配，逐帧相加（非级联）</text>
+<rect x="36.0" y="100.0" width="848.0" height="118.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<rect x="52.0" y="116.0" width="260.0" height="84.0" rx="9" fill="#eef1f5" stroke="#d9dee6" stroke-width="1"/>
+<text x="182.0" y="138.0" font-size="11.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">支路 1：冻结预训练嵌入器 ❄</text>
+<text x="182.0" y="156.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">775ms 窗、每 80ms 输出 96 维</text>
+<text x="182.0" y="172.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">YouTube 一般对话训练 → 通用发音先验</text>
+<text x="182.0" y="190.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">转置卷积(k5,s4)+FC 上采样到 128 维</text>
+<rect x="340.0" y="116.0" width="250.0" height="84.0" rx="9" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="465.0" y="138.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">支路 2：全可训练特征提取器 🔥</text>
+<text x="465.0" y="156.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">40 维 Mel Fbank（25ms/10ms）</text>
+<text x="465.0" y="172.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2×Conv1D(k3) + BN + ReLU（首层 s2）</text>
+<text x="465.0" y="190.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">分布内判别 + 特殊发音适配</text>
+<rect x="618.0" y="116.0" width="130.0" height="84.0" rx="9" fill="#f2f3f0" stroke="#e6e6df" stroke-width="1"/>
+<text x="683.0" y="148.0" font-size="12.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">逐帧相加 ⊕</text>
+<text x="683.0" y="170.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每 20ms 一帧</text>
+<text x="683.0" y="188.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">128 维音频嵌入</text>
+<rect x="768.0" y="130.0" width="100.0" height="60.0" rx="9" fill="#e3ecf6" stroke="#cfdce9" stroke-width="1"/>
+<text x="818.0" y="154.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">文本编码器</text>
+<text x="818.0" y="174.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">G2P→音素帧</text>
+<line x1="312.0" y1="158.0" x2="338.0" y2="158.0" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#ar)"/>
+<line x1="590.0" y1="158.0" x2="616.0" y2="158.0" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#ar)"/>
+<line x1="748.0" y1="158.0" x2="766.0" y2="158.0" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#ar)"/>
+<text x="36.0" y="234.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么双流：全可训练（CMCD 做法）缺乏通用发音先验、罕见发音没兜底；纯预训练又受制于 YouTube 分布（专有名词覆盖不到）——相加让两路信息在每帧等权融合</text>
+<text x="36.0" y="266.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 自注意力模式提取器（拼接后统一自注意力，非交叉注意力）</text>
+<rect x="36.0" y="280.0" width="848.0" height="96.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="304.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音频嵌入 ‖ 文本嵌入（时间维首尾拼接，128 维）→ 同时充当 Q/K/V 做自注意力（式 1–3），下三角因果掩码</text>
+<text x="52.0" y="326.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 参数效率：交叉注意力要为每个模态分别构造 Q/K/V 投影——模块与参数更多，KWS 要求少参数</text>
+<text x="52.0" y="343.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 信息完整性：输出同时含 语音→语音 / 文本→语音 / 文本→文本 三个方向；交叉注意力只有一个模态查另一个</text>
+<text x="52.0" y="360.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 因果性：下三角掩码只用模态内因果信息——为流式处理保留结构可能（但注意力需整段进计算，实际流式方案未讨论）</text>
+<text x="36.0" y="382.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 模式判别器与两层损失（式 4–7）——全文数学核心</text>
+<rect x="36.0" y="396.0" width="400.0" height="168.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="52.0" y="420.0" font-size="12.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两路读出</text>
+<rect x="52.0" y="430.0" width="170.0" height="40.0" rx="8" fill="#e3ecf6" stroke="#cfdce9" stroke-width="1"/>
+<text x="137.0" y="448.0" font-size="10.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">语句级：GRU 末隐态</text>
+<text x="137.0" y="464.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">→ sigmoid 标量</text>
+<rect x="240.0" y="430.0" width="176.0" height="40.0" rx="8" fill="#fdf1e4" stroke="#f0dfc9" stroke-width="1"/>
+<text x="328.0" y="448.0" font-size="10.5" fill="#d97a2b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音素级：文本段逐帧</text>
+<text x="328.0" y="464.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">→ sigmoid 概率序列</text>
+<text x="52.0" y="490.0" font-size="12.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">L = L_utt(BCE) + L_phn(BCE)（式 6）</text>
+<text x="52.0" y="512.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么不用 CTC：CTC 前提是语音与标签一定匹配（ASR 的任务</text>
+<text x="52.0" y="528.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">定义）；UDKWS 必须含不匹配负样本对——CTC 对「不匹配对」</text>
+<text x="52.0" y="544.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">没有合理的监督信号定义</text>
+<rect x="474.0" y="396.0" width="414.0" height="168.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="490.0" y="420.0" font-size="12" fill="#d97a2b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音素级真值构造（式 7）：逐位置比较，零对齐标注</text>
+<text x="490.0" y="444.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">语音「Hallow」</text>
+<text x="680.0" y="444.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词「Hello」</text>
+<rect x="490.0" y="452.0" width="56.0" height="24.0" rx="6" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="518.0" y="468.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">HH</text>
+<rect x="490.0" y="480.0" width="56.0" height="24.0" rx="6" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="518.0" y="496.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">HH</text>
+<rect x="490.0" y="510.0" width="56.0" height="20.0" rx="10" fill="#0e8a66"/>
+<text x="518.0" y="524.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1</text>
+<rect x="582.0" y="452.0" width="56.0" height="24.0" rx="6" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="610.0" y="468.0" font-size="10.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AE1</text>
+<rect x="582.0" y="480.0" width="56.0" height="24.0" rx="6" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="610.0" y="496.0" font-size="10.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">EH1</text>
+<rect x="582.0" y="510.0" width="56.0" height="20.0" rx="10" fill="#c0392b"/>
+<text x="610.0" y="524.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<rect x="674.0" y="452.0" width="56.0" height="24.0" rx="6" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="702.0" y="468.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">L</text>
+<rect x="674.0" y="480.0" width="56.0" height="24.0" rx="6" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="702.0" y="496.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">L</text>
+<rect x="674.0" y="510.0" width="56.0" height="20.0" rx="10" fill="#0e8a66"/>
+<text x="702.0" y="524.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1</text>
+<rect x="766.0" y="452.0" width="56.0" height="24.0" rx="6" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="794.0" y="468.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">OW0</text>
+<rect x="766.0" y="480.0" width="56.0" height="24.0" rx="6" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="794.0" y="496.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">OW0</text>
+<rect x="766.0" y="510.0" width="56.0" height="20.0" rx="10" fill="#0e8a66"/>
+<text x="794.0" y="524.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1</text>
+<text x="490.0" y="546.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标签 = 位置音素相同性：三个 1 一个 0——「大部分正确、个别错误」的结构化</text>
+<text x="490.0" y="560.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标签告诉模型逐音素比对、错误定位在第 2 个元音；负样本对也有定义（CTC 做不到）</text>
+<text x="36.0" y="582.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">④ 为什么音素级监督能区分相似发音</text>
+<rect x="36.0" y="596.0" width="848.0" height="76.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="620.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">语句级标签是整词一个比特：「Hallow 对 Hello」和「Hallow 对 monkey」同样都是 0——两种不匹配在损失里没有区别（信号被整句信息稀释）。</text>
+<text x="52.0" y="642.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">音素级标签把难题从「两个整句向量的距离够不够远」转化为「逐音素的比较对不对」——模型更容易学、梯度信号更容易纠正；图 2 验证：低距离区间基线误差恒定撞天花板，本文随距离减小线性改善</text>
+<rect x="36.0" y="680.0" width="848.0" height="92.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="704.0" font-size="12.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">数据与评测协议</text>
+<text x="52.0" y="724.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练：LibriPhrase 训练集 + MS-SNSD babble 噪声增强（规模未报告，细节回溯 CMCD 原文）</text>
+<text x="52.0" y="739.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 测试四集：GSC V1（G）· Qualcomm 专有名词（Q）· LibriPhrase-easy（LPE）· LibriPhrase-hard（LPH，不可区分发音如 friend/frind）</text>
+<text x="52.0" y="754.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· G/Q 无负对 → 自行构造「一个锚词对全部其他候选词」的开放比较（比一对一配对更严苛）——但导致复现 CMCD 与原文数字不可直接对齐</text>
+<text x="52.0" y="769.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 指标：EER + AUC（样本级二分类）；对 full-shot 比较时固定阈值 0.8 算 Accuracy</text>
+<text x="36.0" y="792.0" font-size="11" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四个挑战：零样本区分高度相似发音 · 免对齐的音素级监督 · 通用先验 + 罕见发音适配 · 参数量与基线持平（655K 对 653K）</text>
+</svg>
+    <p class="cap"><b>图 1 / 式 1–7 复绘</b>：双流语音编码器（冻结预训练嵌入器=通用发音先验 + 全可训练 Conv1D=分布内判别与特殊发音适配，逐帧相加非级联）；自注意力模式提取器（拼接后统一自注意力的三条理由）；两路判别器与式 6 联合损失；音素级真值构造的 Hallow/Hello 示例（逐位置比较 → 1,0,1,1——「大部分正确、个别错误」的结构化标签）；为什么能区分相似发音；数据与评测协议。</p>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与消融</p>
+  <h2 class="sec">EER + AUC + 相似度分桶</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="16.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主对比 + 三组消融（Table 1 · EER% · 越低越好 · 参数均调至 655K）</text>
+<line x1="36.0" y1="56.0" x2="480.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="196.0" y1="386.0" x2="830.0" y2="386.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="190.0" y="390.0" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<line x1="196.0" y1="315.7" x2="830.0" y2="315.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="190.0" y="319.7" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">8</text>
+<line x1="196.0" y1="245.4" x2="830.0" y2="245.4" stroke="#eef0ec" stroke-width="1"/>
+<text x="190.0" y="249.4" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">16</text>
+<line x1="196.0" y1="175.1" x2="830.0" y2="175.1" stroke="#eef0ec" stroke-width="1"/>
+<text x="190.0" y="179.1" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">24</text>
+<line x1="196.0" y1="104.8" x2="830.0" y2="104.8" stroke="#eef0ec" stroke-width="1"/>
+<text x="190.0" y="108.8" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">32</text>
+<rect x="219.8" y="105.3" width="22.0" height="280.7" rx="3" fill="#8a93a5"/>
+<rect x="243.8" y="260.0" width="22.0" height="126.0" rx="3" fill="#b9c4b0"/>
+<rect x="267.8" y="286.5" width="22.0" height="99.5" rx="3" fill="#e8b8b0"/>
+<rect x="291.8" y="319.9" width="22.0" height="66.1" rx="3" fill="#9fc8b8"/>
+<rect x="315.8" y="326.5" width="22.0" height="59.5" rx="3" fill="#0b6e52"/>
+<text x="278.8" y="404.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">G（GSC V1）</text>
+<rect x="377.2" y="156.7" width="22.0" height="229.3" rx="3" fill="#8a93a5"/>
+<rect x="401.2" y="184.8" width="22.0" height="201.2" rx="3" fill="#b9c4b0"/>
+<rect x="425.2" y="225.7" width="22.0" height="160.3" rx="3" fill="#e8b8b0"/>
+<rect x="449.2" y="332.8" width="22.0" height="53.2" rx="3" fill="#9fc8b8"/>
+<rect x="473.2" y="344.3" width="22.0" height="41.7" rx="3" fill="#0b6e52"/>
+<text x="436.2" y="404.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Q（专有名词）</text>
+<rect x="534.8" y="293.9" width="22.0" height="92.1" rx="3" fill="#8a93a5"/>
+<rect x="558.8" y="340.9" width="22.0" height="45.1" rx="3" fill="#b9c4b0"/>
+<rect x="582.8" y="355.5" width="22.0" height="30.5" rx="3" fill="#e8b8b0"/>
+<rect x="606.8" y="356.2" width="22.0" height="29.8" rx="3" fill="#9fc8b8"/>
+<rect x="630.8" y="361.4" width="22.0" height="24.6" rx="3" fill="#0b6e52"/>
+<text x="593.8" y="404.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LPE（易）</text>
+<rect x="692.2" y="128.2" width="22.0" height="257.8" rx="3" fill="#8a93a5"/>
+<rect x="716.2" y="159.5" width="22.0" height="226.5" rx="3" fill="#b9c4b0"/>
+<rect x="740.2" y="205.8" width="22.0" height="180.2" rx="3" fill="#e8b8b0"/>
+<rect x="764.2" y="213.3" width="22.0" height="172.7" rx="3" fill="#9fc8b8"/>
+<rect x="788.2" y="220.6" width="22.0" height="165.4" rx="3" fill="#0b6e52"/>
+<text x="751.2" y="404.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LPH（难发音）</text>
+<rect x="560.0" y="66.0" width="10.0" height="10.0" rx="2" fill="#8a93a5"/>
+<text x="574.0" y="75.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">CMCD 基线（复现）</text>
+<rect x="720.0" y="66.0" width="10.0" height="10.0" rx="2" fill="#b9c4b0"/>
+<text x="734.0" y="75.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">w/o 可训练支路</text>
+<rect x="560.0" y="81.0" width="10.0" height="10.0" rx="2" fill="#e8b8b0"/>
+<text x="574.0" y="90.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">交叉注意力替代</text>
+<rect x="720.0" y="81.0" width="10.0" height="10.0" rx="2" fill="#9fc8b8"/>
+<text x="734.0" y="90.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">w/o 音素级损失</text>
+<rect x="560.0" y="96.0" width="10.0" height="10.0" rx="2" fill="#0b6e52"/>
+<text x="574.0" y="105.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">PhonMatchNet ★</text>
+<text x="36.0" y="432.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：平均 EER 相对改善 67%、AUC 相对改善 80%；G −79% / Q −82% / LPE −73% / LPH 仅 −36%（最难的可区分发音集提升最小——论文自认短板）。</text>
+<text x="36.0" y="450.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">消融：w/o 可训练支路最差（嵌入器的 YouTube 分布边界）→ 两条支路缺一不可；交叉注意力在 Q 恶化最剧（18.24 vs 6.05，约三倍）</text>
+</svg>
+    <p class="cap"><b>Table 1 复绘</b>：主对比 + 三组消融（参数均调至 655K）。CMCD 复现 → PhonMatchNet：G −79% / Q −82% / LPE −73% / LPH 仅 −36%（最难场景提升最小）；w/o 可训练支路是最差配置（嵌入器的 YouTube 分布边界）；交叉注意力在 Q 恶化约三倍（罕见词文本侧不可靠时没有语音自上下文兜底）。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 420">
+<rect x="0.0" y="0.0" width="880.0" height="420.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">按发音相似度分桶的误差（图 2 · 归一化 Levenshtein 距离 · 形态示意，区间结论有据）</text>
+<line x1="36.0" y1="56.0" x2="560.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="110.0" y1="96.0" x2="110.0" y2="336.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="110.0" y1="336.0" x2="750.0" y2="336.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="238.0" y1="96.0" x2="238.0" y2="336.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="238.0" y="352.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.2</text>
+<line x1="366.0" y1="96.0" x2="366.0" y2="336.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="366.0" y="352.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.4</text>
+<line x1="494.0" y1="96.0" x2="494.0" y2="336.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="494.0" y="352.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.6</text>
+<line x1="622.0" y1="96.0" x2="622.0" y2="336.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="622.0" y="352.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.8</text>
+<line x1="750.0" y1="96.0" x2="750.0" y2="336.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="750.0" y="352.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1.0</text>
+<line x1="106.0" y1="276.0" x2="750.0" y2="276.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="280.0" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.25</text>
+<line x1="106.0" y1="216.0" x2="750.0" y2="216.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="220.0" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.50</text>
+<line x1="106.0" y1="156.0" x2="750.0" y2="156.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="160.0" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0.75</text>
+<line x1="106.0" y1="96.0" x2="750.0" y2="96.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="100.0" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">1.00</text>
+<line x1="110.0" y1="187.2" x2="238.0" y2="187.2" stroke="#c0392b" stroke-width="2.6"/>
+<line x1="238.0" y1="187.2" x2="398.0" y2="187.2" stroke="#c0392b" stroke-width="2.6"/>
+<line x1="398.0" y1="187.2" x2="494.0" y2="216.0" stroke="#c0392b" stroke-width="2.6"/>
+<line x1="494.0" y1="216.0" x2="622.0" y2="259.2" stroke="#c0392b" stroke-width="2.6"/>
+<line x1="622.0" y1="259.2" x2="750.0" y2="292.8" stroke="#c0392b" stroke-width="2.6"/>
+<line x1="110.0" y1="307.2" x2="206.0" y2="297.6" stroke="#0e8a66" stroke-width="2.6"/>
+<line x1="206.0" y1="297.6" x2="302.0" y2="278.4" stroke="#0e8a66" stroke-width="2.6"/>
+<line x1="302.0" y1="278.4" x2="398.0" y2="254.4" stroke="#0e8a66" stroke-width="2.6"/>
+<line x1="398.0" y1="254.4" x2="494.0" y2="230.4" stroke="#0e8a66" stroke-width="2.6"/>
+<line x1="494.0" y1="230.4" x2="622.0" y2="196.8" stroke="#0e8a66" stroke-width="2.6"/>
+<line x1="622.0" y1="196.8" x2="750.0" y2="163.2" stroke="#0e8a66" stroke-width="2.6"/>
+<text x="744.0" y="296.8" font-size="11.5" fill="#c0392b" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">基线 CMCD</text>
+<text x="744.0" y="155.2" font-size="11.5" fill="#0a6b4e" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PhonMatchNet</text>
+<rect x="110.0" y="96.0" width="288.0" height="240.0" rx="0" fill="#fdf0ee" opacity="0.5"/>
+<line x1="398.0" y1="96.0" x2="398.0" y2="336.0" stroke="#c0392b" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="254.0" y="116.0" font-size="11" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">发音高度相似区</text>
+<text x="254.0" y="134.0" font-size="10.5" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">基线误差恒定</text>
+<text x="254.0" y="150.0" font-size="10.5" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（撞语句级天花板）</text>
+<text x="430.0" y="374.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">归一化 Levenshtein 距离（越小发音越相似）→</text>
+<text x="36.0" y="400.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：PhonMatchNet 在所有距离区间都优于基线；形态差异是关键——基线在距离 &lt; 0.45 区间误差恒定（发音越像毫无改善），本文随距离减小</text>
+<text x="36.0" y="418.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">线性改善（发音越相似判得越准）——相似发音的性能提升归因于音素级检测损失，与消融互相印证</text>
+</svg>
+    <p class="cap"><b>图 2 复绘（形态示意，区间结论有据）</b>：按发音相似度（归一化 Levenshtein 距离）分桶的误差。基线在距离 &lt; 0.45 区间误差恒定——撞语句级表示的天花板；PhonMatchNet 随距离减小线性改善——发音越相似判得越准。相似发音上的提升归因于音素级检测损失，与消融互证。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">零样本 vs full-shot（Table 3 · GSC V1-12 · 阈值 0.8 · Accuracy%）</text>
+<line x1="36.0" y1="56.0" x2="460.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="260.0" y="88.0" width="123.2" height="26.0" rx="5" fill="#c9d8e8"/>
+<text x="391.2" y="106.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">95.4</text>
+<text x="248.0" y="106.0" font-size="11" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN</text>
+<rect x="260.0" y="126.0" width="140.8" height="26.0" rx="5" fill="#c9d8e8"/>
+<text x="408.8" y="144.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">95.6</text>
+<text x="248.0" y="144.0" font-size="11" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">Att-RNN</text>
+<rect x="260.0" y="164.0" width="228.8" height="26.0" rx="5" fill="#c9d8e8"/>
+<text x="496.8" y="182.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">96.6</text>
+<text x="248.0" y="182.0" font-size="11" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">TC-ResNet</text>
+<rect x="260.0" y="202.0" width="281.6" height="26.0" rx="5" fill="#c9d8e8"/>
+<text x="549.6" y="220.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">97.2</text>
+<text x="248.0" y="220.0" font-size="11" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">MHAtt-RNN</text>
+<rect x="260.0" y="240.0" width="308.0" height="26.0" rx="5" fill="#9fc8b8"/>
+<text x="576.0" y="258.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">97.5</text>
+<text x="248.0" y="258.0" font-size="11" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">MatchboxNet</text>
+<rect x="260.0" y="278.0" width="308.0" height="26.0" rx="5" fill="#9fc8b8"/>
+<text x="576.0" y="296.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">97.5</text>
+<text x="248.0" y="296.0" font-size="11" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">KWT-3</text>
+<rect x="260.0" y="316.0" width="352.0" height="26.0" rx="5" fill="#33507a"/>
+<text x="620.0" y="334.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">98.0</text>
+<text x="248.0" y="334.0" font-size="11" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">BC-ResNet-8</text>
+<rect x="260.0" y="354.0" width="246.4" height="26.0" rx="5" fill="#0b6e52"/>
+<text x="514.4" y="372.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">96.8</text>
+<text x="248.0" y="372.0" font-size="11" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PhonMatchNet（零样本）</text>
+<text x="260.0" y="406.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">full-shot 模型全部在 GSC 词表上专门训练；PhonMatchNet 训练数据完全不含 GSC</text>
+<rect x="260.0" y="418.0" width="600.0" height="54.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="276.0" y="438.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">合理姿势：超过 4 个经典 full-shot、距 MatchboxNet/KWT-3 仅 0.7 点、距最强 BC-ResNet-8 差 1.2 点——</text>
+<text x="276.0" y="456.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">零样本的便利性红利换来了精度上限折让；且准确率与 EER/AUC 不同量纲，两类对比不能混读</text>
+<text x="36.0" y="418.0" font-size="11" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注意：0.8 阈值如何选定未说明、无阈值敏感性分析——零样本与 full-shot 的差距对工作点的依赖程度不可知</text>
+</svg>
+    <p class="cap"><b>Table 3 复绘</b>：零样本 vs full-shot（GSC V1-12，阈值 0.8）。PhonMatchNet 96.8% 超过四个经典 full-shot 模型（它们全在此词表专门训练、本文训练数据完全不含 GSC）、距 MatchboxNet/KWT-3 仅 0.7 点。注意：0.8 阈值如何选定未说明、无敏感性分析——差距对工作点的依赖不可知。</p>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">五条贡献</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>语句级+音素级并用的零样本 UDKWS 模型</b>——第一个把音素级信息显式引入该任务比较框架：四数据集平均 EER 相对改善 67%、AUC 80%。</div>
+    <div class="c"><span class="n">2</span><b>音素级检测损失</b>——「发音相同性」逐音素标签：免对齐、免标签匹配、免解码模块，为 CTC 不适配的开放词表负样本场景提供细粒度监督。</div>
+    <div class="c"><span class="n">3</span><b>双流语音编码器</b>——冻结预训练嵌入器 + 全可训练卷积分路相加：通用对话先验与特殊发音适配兼得，消融显示两条支路缺一不可。</div>
+    <div class="c"><span class="n">4</span><b>自注意力式跨模态融合</b>——拼接后统一自注意力：不加模块、保留三方向信息流，专有名词场景收益最大（Q 集 6.05 对 18.24）。</div>
+    <div class="c" style="grid-column:1/-1;background:#fdf1e4;border-color:#f0dfc9"><span class="n" style="background:#d97a2b">★</span><b>零样本对 full-shot 的可行性验证</b>——训练未见 GSC 下 0.8 阈值 96.8% 准确率、超过多个专门训练的经典 full-shot 模型；代码与实现开源（github.com/ncsoft/PhonMatchNet）。</div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">相似发音硬骨头与测试集选模型</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>高度相似发音仍是硬骨头</b>：LPH 18.82、相对改善仅 36%（其他集 73–82%）——音素级监督缓解了语句级稀释但没彻底解决：差异音素本身发音接近（仅重音或元音细微差别）时，逐音素比较的判据也模糊。论文自列未来方向。</li>
+        <li><b>G2P 转写质量的隐性依赖</b>：整个监督体系建立在两侧都能正确转写音素上——非常规拼写、外来词、口音变体的转写错误直接污染逐位置标签（错位一个音素 → 后续全部错位）；未讨论误差传播、未报转写准确率。</li>
+        <li><b>嵌入器域边界</b>：YouTube 一般对话训练的能力边界就是模型边界之一；可训练支路容量（两层 Conv1D）有限；鲁棒性结论只到 babble 增广为止——无远场/强噪声/多说话人重叠实验。</li>
+        <li><b>部署侧指标缺失</b>：只有参数量——无时延/FLOPS/内存/流式行为；下三角掩码结构上保留流式可能但注意力需整段进计算；GRU 语句级通路要听到序列末尾——唤醒响应延迟未报。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>模型选择直接用测试集</b>：训练 100 epoch 后「基于测试集性能选出最佳模型」——数字带乐观偏差；严格应用独立验证集选模型（全文最值得诟病的一点）。</li>
+        <li><b>训练细节不透明</b>：LibriPhrase 训练集规模、噪声信噪比、增广比例全部未报——复现需交叉查阅前作。</li>
+        <li><b>基线比较受协议差异影响</b>：「一个锚对全部候选」的自构造负对比原文更严苛（有道理）——但复现 CMCD 在 G/Q 上明显低于原文，67%/80% 平均改善里混入协议变化影响，无法全归方法。</li>
+        <li><b>full-shot 对比维度单一</b>：只有 0.8 阈值一个准确率数字——无同指标 EER/AUC 对照、无阈值敏感性分析（0.8 如何选定未说明）。</li>
+        <li><b>仅英语</b>：音素级方法对声调语言、音节语言等不同音素体系是否有效未验证；各测试集样本规模未报、无显著性检验。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>自然的延伸方向（论文自列 + 笔者推断）</b>：改善高度相似发音性能（论文自述）；音素级标签从逐位置硬比较改为<b>音素相似度加权的软标签</b>（用音素间声学距离让 AE1 对 EH1 的差异以连续信号进入损失）；联合微调或蒸馏 G2P（文本侧转写与音频表示互相校准，缓解转写误差传播）；音素级概率显式用于推理时的<b>可解释拒绝</b>（输出「我听到的是 X 不是 Y」服务用户纠错引导）；补齐流式化与量化进入端侧常驻；多语言评测验证跨音素体系普适性。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2023/PhonMatchNet_Phoneme-Guided_Zero-Shot_Keyword_Spotting_For_User-Defined_Keywords.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2023/PhonMatchNet_Phoneme-Guided_Zero-Shot_Keyword_Spotting_For_User-Defined_Keywords.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2308.16511" target="_blank">arXiv · 2308.16511</a>
+    <a class="pill" href="https://github.com/ncsoft/PhonMatchNet" target="_blank">🔧 代码开源</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（Table 1–3、图 1–2、式 1–7）；图 2 曲线为示意形态（区间结论有据）。错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
