@@ -1,0 +1,343 @@
+- generic [ref=f246e2]:
+  - generic [ref=f246e3]: 论文精读 · 可视化版 · 2022 №36
+  - heading "硬件的量化器不能动？那就把权重养均匀： 流式 KWS 的亚 8 比特全组件量化" [level=1] [ref=f246e4]: 硬件的量化器不能动？那就把权重养均匀：流式 KWS 的亚 8 比特全组件量化
+  - generic [ref=f246e5]:
+    - generic [ref=f246e6]: Sub-8-bit QAT · Amazon Alexa
+    - generic [ref=f246e7]: arXiv 2207.06920 · 生产级 250K 无状态 FFN
+    - generic [ref=f246e8]: 26K 小时生产数据 · ARM NEON 实测
+    - generic [ref=f246e9]: 全 8 比特仅退化 3.5% · CPU 3.65× · 内存 −75%
+  - generic [ref=f246e10]: 一句话：把 Alexa 生产级流式唤醒模型的权重、gain、bias、BatchNorm 四套参数、激活、输入全部压到 8 比特及以下（权重最低到 1 比特），核心思路只有一个——硬件的均匀量化器不能动，就改造数值分布去适配它：tanh 把高斯权重养均匀、C_BN 把 BN 参数搬进窄动态范围、算子重排让 clip 作用在归一化量上。全 8 比特在工作点只付 3.5% 相对退化，ARM NEON 实测 CPU 37.6→10.3 MCPS、内存 912→228KB。
+  - generic [ref=f246e11]:
+    - generic [ref=f246e12]: TL;DR
+    - listitem [ref=f246e13]: ◈ 商用 KWS 有三条研究界普遍忽略的隐性约束：亚 8 比特要硬件指令集真支持、必须流式逐帧出后验、不能用可损坏内存——第三条直接决定基线是无状态 FFN（某帧异常下一帧自愈，递归状态会残留污染）。
+    - listitem [ref=f246e14]: ◈ NEON 的 MAC 最小容器是 8 比特：权重压到 4/5 位在通用芯片上不换 CPU 也不换内存，收益只有溢出余量与 OTA 分发体积；直接内存红利要靠专用加速器（投影 4–7×）。
+    - listitem [ref=f246e15]: ◈ 计算图关键：gain 放 MAC 外面——y_q ← α_q(W_q·x_q + b_q)，每层一个标量缩放乘在外面，内积用最稠密的整数指令跑满；逐元素缩放会把 SIMD 打散归零。
+    - listitem [ref=f246e16]: ◈ 精度最大来源是 tanh 权重整形：高斯过 tanh 的概率积分恰好摊平成 U(−1,1)，训练中用目标分布初始化+正则锁住——同一量化器，退化 7.4% vs 12.3%。
+    - listitem [ref=f246e17]: ◈ BN 全四套参数量化靠缩放因子 C_BN：分子分母同除（分母根号内除平方），代数恒等但每个进量化器的数都被压窄——5.3% vs 无缩放 9.0%，杠杆最高的单点技巧。
+    - listitem [ref=f246e18]: ◈ 激活到 8 比特就是墙：权重可继续压到 4/5 比特（静态、可整形），激活分布随输入逐帧漂移只能间接规训——全模型比特下限被激活卡死，不对称。
+    - listitem [ref=f246e19]: ◈ 二值档（1 比特权重）要 2×/6× 参数量换容量，且对学习率极度敏感：恒定 lr 掉 14%，仅把阶段 1 末尾若干次更新的 lr 调小就追平基线（0.4% / −0.4%）。
+  - heading "§01 问题：常驻端侧的六条约束" [level=2] [ref=f246e20]:
+    - generic [ref=f246e21]: §01
+    - text: 问题：常驻端侧的六条约束
+  - generic [ref=f246e22]: 三条显性（体积/内存/功耗）+ 三条隐性（指令集/流式/不可损坏内存）
+  - generic [ref=f246e23]:
+    - generic [ref=f246e24]:
+      - heading "生产基线：250K 无状态 FFN" [level=3] [ref=f246e25]
+      - paragraph [ref=f246e26]: "瓶颈架构 {87,400,87,400,87,400}，全部隐藏层配 BN+ReLU，LFBE 20 维、81 帧滑窗、3 倍时间下采样。唤醒词训练时中心对齐——后验峰位置固定，WMA 平滑+阈值才有稳定对齐前提。这不是学术基线，是 Alexa 的生产形态。"
+    - generic [ref=f246e27]:
+      - heading "为什么必须是 FFN 不是 RNN" [level=3] [ref=f246e28]
+      - paragraph [ref=f246e29]: 「不可损坏内存」红线：递归状态一旦被数值溢出污染会一直残留，唤醒整体失效只能重启；无状态模型某帧异常、下一帧从头开始，天然自愈。前馈结构对整数推理也最友好——全网络就是一串矩阵向量乘，NEON SIMD 满载。
+    - generic [ref=f246e30]:
+      - heading "PTQ 掉点，低位宽有地基" [level=3] [ref=f246e31]
+      - paragraph [ref=f246e32]: 训练后量化误差无人补偿，小模型上致命。QAT 靠伪量化+STE 直通估计器传梯度（量化函数离散、梯度几乎处处为零）。多数量化工作只处理权重顶多加激活，BN 四套参数留浮点——整数算力优势从最热路径漏光。
+    - generic [ref=f246e33]:
+      - heading "权重分布与量化器错配" [level=3] [ref=f246e34]
+      - paragraph [ref=f246e35]: 网络权重近似高斯：九成以上挤在零附近窄带，只分到中间少数码字；两侧长尾码字密布却无权重落点——等效于拿大部分精度去表示从不出现的值。改量化器成非均匀会破坏整数 MAC 的均匀格点假设，所以要反过来改分布。
+  - generic [ref=f246e36]:
+    - img [ref=f246e37]:
+      - generic [ref=f246e39]: 流式 KWS 的亚 8 比特量化：改分布去适配硬件，不是改硬件迁就分布
+      - generic [ref=f246e40]: ① 常驻端侧的商用约束：三条显性 + 三条研究界普遍忽略的隐性
+      - generic [ref=f246e42]: 显性三重：模型体积 · 运行时内存 · 功耗（用 CPU 周期数代理）同时压，准确率不能掉。生产基线是 250K 参数无状态 FFN（Alexa 生产形态）
+      - generic [ref=f246e43]: 隐性三条：(a) 亚 8 比特要硬件指令集真支持——不是软件存成 4 位就算落地；(b) 必须流式，每帧即时出后验，不能攒批；(c) 不能用可损坏内存——递归状态一旦被污染唤醒整体失效
+      - generic [ref=f246e45]: 无状态 FFN 自愈
+      - generic [ref=f246e46]: 第 (c) 条直接决定架构：基线无递归状态，某帧异常下一帧从头开始；
+      - generic [ref=f246e47]: RNN 状态被污染会一直残留——正好踩中红线。81 帧滑窗即可出判决
+      - generic [ref=f246e49]: NEON 的 8 比特地板
+      - generic [ref=f246e50]: 128 位 NEON 寄存器装 16 个 int8 / 8 个 int16 / 4 个 fp32；但 MAC 乘累加
+      - generic [ref=f246e51]: 最小容器是 8 位——权重压到 4/5 位不给更快指令、不省运行时内存
+      - generic [ref=f246e53]: 亚 8 位收益在哪
+      - generic [ref=f246e54]: 通用芯片上收益是间接的：给累加留溢出余量 · 允许低精度累加器 ·
+      - generic [ref=f246e55]: 缩小 OTA 分发体积。直接内存红利要靠专用加速器（MAX78000 / NDP120）
+      - generic [ref=f246e56]: ② 量化计算图：gain 放 MAC 外面，整数域跑满 + 两阶段训练
+      - generic [ref=f246e58]: 生产基线（250K 参数）
+      - generic [ref=f246e59]: "瓶颈 FFN，层尺寸 {87,400,87,400,87,400}"
+      - generic [ref=f246e60]: 全部隐藏层配 BN + ReLU，二分类输出
+      - generic [ref=f246e61]: LFBE 20 维 · 25ms 窗 / 10ms 移 · 81 帧输入
+      - generic [ref=f246e62]: 时间 3 倍下采样（步长约 30ms）
+      - generic [ref=f246e63]: 训练时唤醒词窗口内中心对齐→后验峰
+      - generic [ref=f246e64]: 位置固定，WMA 平滑+阈值才有对齐前提
+      - generic [ref=f246e65]: Adam · 训练 500K 次更新（基线）
+      - generic [ref=f246e67]: 一层的三步量化链
+      - generic [ref=f246e68]: y_q ← α_q(W_q·x_q + b_q)
+      - generic [ref=f246e69]: 内积在纯整数域，标量增益乘在外面
+      - generic [ref=f246e70]: y_q^φ ← q_z(ReLU(y_q)) 激活量化
+      - generic [ref=f246e71]: y_q^φψ ← q_z(BN(y_q^φ)) BN 量化
+      - generic [ref=f246e72]: 整条链路没有任何浮点逐元素运算
+      - generic [ref=f246e73]: ——这是「全组件量化」的数学含义
+      - generic [ref=f246e74]: 若每个权重带自己的缩放→SIMD 打散
+      - generic [ref=f246e75]: 成逐元素乘法，吞吐归零（XNOR 一脉）
+      - generic [ref=f246e77]: 两阶段训练
+      - generic [ref=f246e78]: 阶段 1：tanh 权重分布整形
+      - generic [ref=f246e79]: W_q ← q_z(tanh(W))，N(0,σ_t²) 初始化
+      - generic [ref=f246e80]: + 正则 λ_σ(σ_w−σ_t)² + λ_μμ_w²
+      - generic [ref=f246e81]: 阶段 2：对其余全部组件线性量化
+      - generic [ref=f246e82]: gain / bias / BN 四套 / 激活 / 输入
+      - generic [ref=f246e83]: 1 个 epoch（35K 次更新）重估参数
+      - generic [ref=f246e84]: 量化函数离散、梯度≈0 → STE 直通
+      - generic [ref=f246e85]: 为什么分两段：误差归因可追溯 + 稳定骨干托底
+      - generic [ref=f246e86]: ③ 四个技术点：全部是「改造数值分布去适配硬件」
+      - generic [ref=f246e88]: ① tanh 权重整形
+      - generic [ref=f246e89]: 高斯权重 vs 线性量化器错配：九成权重
+      - generic [ref=f246e90]: 挤在零附近窄带只分到少数码字；tanh
+      - generic [ref=f246e91]: 把分布压扁成近似 U(−1,1)，码字等载
+      - generic [ref=f246e93]: ② BN 缩放因子 C_BN
+      - generic [ref=f246e94]: x、μ_B、σ_B² 同除 C_BN 再进量化器——
+      - generic [ref=f246e95]: 代数恒等归一化结果不变，但每个数
+      - generic [ref=f246e96]: 被压进窄动态范围，分辨率提高
+      - generic [ref=f246e98]: ③ 激活有界化+算子重排
+      - generic [ref=f246e99]: ReLU 无界→clipped ReLU（选型胜 sigmoid/
+      - generic [ref=f246e100]: tanh/GeLU/SiLU）；交换顺序 dense→BN
+      - generic [ref=f246e101]: →clip，让 clip 作用在归一化的稳定量上
+      - generic [ref=f246e103]: ④ 输入量化
+      - generic [ref=f246e104]: LFBE 先做全局均值方差归一化，再除
+      - generic [ref=f246e105]: C_input 后线性量化——同款「先缩动态
+      - generic [ref=f246e106]: 范围再进量化器」手法
+      - generic [ref=f246e108]: 3.5%
+      - generic [ref=f246e109]: 全 8 比特相对退化（4 比特档 8.7%）
+      - generic [ref=f246e110]: 3.65×
+      - generic [ref=f246e111]: CPU 37.6→10.3 MCPS
+      - generic [ref=f246e112]: −75%
+      - generic [ref=f246e113]: 内存 912→228 KB
+      - generic [ref=f246e114]: 4–7×
+      - generic [ref=f246e115]: 加速器投影内存缩减
+      - generic [ref=f246e116]: −0.4%
+      - generic [ref=f246e117]: 二值档追平基线（调 lr 后）
+      - generic [ref=f246e118]: Amazon Alexa 生产数据：训练 26K 小时（远场设备+近场手机混合）· VAL 4K 小时 · TEST 4K 小时（更广商品设备，测跨设备泛化）；指标 = DET 曲线上基线工作点 FRR 处的相对 FDR 退化
+    - generic [ref=f246e119]: 图1 · 机制全景：上半是六条商用约束与 NEON 8 比特地板，中段是生产基线、三步量化链与两阶段训练，下半是四个技术点速览（tanh 整形 / C_BN 缩放 / 激活有界化+算子重排 / 输入量化）。
+  - heading "§02 方法：改造分布，适配硬件" [level=2] [ref=f246e120]:
+    - generic [ref=f246e121]: §02
+    - text: 方法：改造分布，适配硬件
+  - generic [ref=f246e122]: gain 外置的整数 MAC · tanh 概率积分摊平 · 代数恒等缩放
+  - generic [ref=f246e123]:
+    - generic [ref=f246e124]: "y_q ← α_q(W_q · x_q + b_q) # 整数域 dense，gain 乘在外面 y_q^φ ← q_z( ReLU(y_q) ) # 激活量化（实测选 clipped ReLU） y_q^φψ← q_z( BN(y_q^φ) ) # BN 量化（带 C_BN 缩放）"
+    - generic [ref=f246e125]: 人话：三步恰好对应原网络的计算顺序，整条链路没有任何浮点逐元素运算——这是「全组件量化」的数学含义。gain 若放进 MAC 里（每权重各自缩放），向量化整数乘累加被打散成逐元素乘法，SIMD 吞吐归零。
+  - generic [ref=f246e126]:
+    - generic [ref=f246e127]: "W_q ← q_z( tanh(W) ) · 初始化 W ~ N(0, σ_t²) 正则: λ_σ(σ_w − σ_t)² + λ_μ·μ_w²"
+    - generic [ref=f246e128]: 人话：若 W 服从合适方差的高斯，tanh(W) 的分布近似 U(−1,1)——高斯过 tanh 这个概率积分恰好把钟形摊平，每个码字承载的权重质量近似相等。只在量化时刻套 tanh 不够（零区陡峭挤压、饱和区复用码字），要训练中就用目标分布初始化+正则把权重「养」成甜点形状。
+  - generic [ref=f246e129]:
+    - generic [ref=f246e130]: x_norm = (x − μ_B)/√σ_B² = (x/C_BN − μ_B/C_BN)/√(σ_B²/C_BN²) x_norm_q ← ( q_z(x/C_BN) − q_z(μ_B/C_BN) ) / √q_z(σ_B²/C_BN²)
+    - generic [ref=f246e131]: 人话：分子分母同除 C_BN（分母在根号内除平方），归一化的数学结果一个字不变——但 μ_B、σ_B² 这类动态范围大且训练中持续漂移的值被压进窄区间，量化分辨率随之提高。这是「把数值搬进量化器甜点区、又不改网络函数」的标准手法，与 tanh 异曲同工。
+  - generic [ref=f246e132]:
+    - generic [ref=f246e133]:
+      - heading "激活：clipped ReLU + 算子重排" [level=3] [ref=f246e134]
+      - paragraph [ref=f246e135]: ReLU 正半轴无界，线性量化器被迫覆盖大值域导致单位分辨率极差。系统试了 clipped ReLU / sigmoid / tanh / GeLU / SiLU：clipped ReLU 胜出；sigmoid/tanh 反而更差（梯度饱和要更多更新）。同时把 dense→ReLU→BN 交换成 dense→BN→clipped ReLU——clip 作用在归一化后的稳定量上，阈值稳健；块输出有界，恰好对齐 8 比特无符号罐。
+    - generic [ref=f246e136]:
+      - heading "两阶段训练的用意" [level=3] [ref=f246e137]
+      - paragraph [ref=f246e138]: 阶段 1 只量化权重（tanh 整形效果可单独测量）；阶段 2 对其余组件线性量化+1 epoch（35K 次更新）重估。两层动机：误差归因可追溯——商用发布决策（压到几比特、量化哪些组件）需要每步代价的证据链；权重整形扰动训练动力学，需要全精度组件构成的稳定骨干托底。
+    - generic [ref=f246e139]:
+      - heading "输入量化：第三次同款手法" [level=3] [ref=f246e140]
+      - paragraph [ref=f246e141]: LFBE 特征先做全局均值方差归一化，再除 C_input 后线性量化——与 BN 缩放同源：先缩小动态范围，再进量化器。
+    - generic [ref=f246e142]:
+      - heading "验证口径的讲究" [level=3] [ref=f246e143]
+      - paragraph [ref=f246e144]: DET 曲线上报告「基线工作点 FRR 处的相对 FDR 退化」：两个错误代价极不对称（误拒伤可用性、误报伤信任与云端成本），固定 FRR 锚点比 FDR 才公平；相对归一化让不同规模模型的数字可直接横比。WMA 平滑参数在 held-out 数据上调，防泄漏。
+  - generic [ref=f246e145]:
+    - img [ref=f246e146]:
+      - generic [ref=f246e148]: 机制解剖：把钟形压平的 tanh · 代数恒等的 C_BN · 两个排序
+      - generic [ref=f246e149]: tanh 权重分布整形
+      - generic [ref=f246e191]: tanh
+      - generic [ref=f246e192]: 近高斯权重
+      - generic [ref=f246e193]: 零附近挤 9 成
+      - generic [ref=f246e194]: tanh 后 ≈ U(−1,1)
+      - generic [ref=f246e195]: 每个码字等载
+      - generic [ref=f246e196]: 码字轴（线性量化器均匀铺满值域）：钟形 → 中间几个码字过载、长尾码字浪费；
+      - generic [ref=f246e197]: 整形后每个码字承载权重质量近似相等，量化误差最小
+      - generic [ref=f246e199]: 训练中「养」出甜点形状，而非量化时才套 tanh：
+      - generic [ref=f246e200]: · 初始化 N(0, σ_t²)：高斯过 tanh 的概率积分恰好摊平
+      - generic [ref=f246e201]: · 正则 λ_σ(σ_w−σ_t)² + λ_μμ_w² 全程锁住分布不漂
+      - generic [ref=f246e202]: · 消融：5 比特权重退化 7.4%（带 tanh）vs 12.3%（不带）
+      - generic [ref=f246e203]: BN 全四套参数量化：缩放因子 C_BN
+      - generic [ref=f246e205]: BN 四套参数（γ β 可训练 · μ_B σ_B² 滑动估计）全部量化——
+      - generic [ref=f246e206]: 任何一套留浮点，最热路径就要浮点单元，整数算力优势漏光
+      - generic [ref=f246e207]: 难点：μ_B、σ_B² 动态范围大且训练中持续漂移，固定位数直接量化分辨率差
+      - generic [ref=f246e208]: x_norm = (x/C − q(μ_B/C)) / √q(σ_B²/C²) ← 分子分母同除 C_BN
+      - generic [ref=f246e209]: 代数恒等：归一化结果不变，但进量化器的数全被压进窄动态范围
+      - generic [ref=f246e210]: 消融：带缩放 5.3% vs 无缩放 9.0% —— 一个因子回收 3.7pp（杠杆最高）
+      - generic [ref=f246e211]: 两个排序决定成败
+      - generic [ref=f246e213]: 算子序：dense→BN→clipped ReLU（交换了原来的 ReLU→BN）
+      - generic [ref=f246e214]: clip 作用在 BN 归一化后的稳定量上（零均值、方差受 γ 控制），阈值稳健；
+      - generic [ref=f246e215]: 块输出 = 有界输出，恰好对齐 8 比特无符号罐。若 ReLU 在前，clip 要作用在
+      - generic [ref=f246e216]: 未归一化、训练中尺度会漂的 dense 输出上，阈值脆弱
+      - generic [ref=f246e217]: 激活选型：clipped ReLU 胜出 · sigmoid/tanh 更差（梯度饱和需更多更新）
+      - generic [ref=f246e218]: · GeLU / SiLU 无确定性结论 · gain 排在 MAC 外面（每层一个标量）
+      - generic [ref=f246e219]: 哲学：让每个量化器面对的都是被规训过的分布
+      - generic [ref=f246e220]: 左：权重侧的整形——高斯过 tanh 恰好摊平成均匀分布，训练全程用正则锁住。右：BN 侧的缩放与排序——恒等变换搬窄动态范围 + clip 前置到归一化之后，都是不改网络函数只改数值分布
+    - generic [ref=f246e221]: 图2 · 机制解剖：左是 tanh 整形的分布图景（钟形 → 均匀，训练全程用正则锁住）；右上是 BN 的 C_BN 缩放（代数恒等搬窄动态范围），右下是两个决定成败的排序（算子序 dense→BN→clip、gain 在 MAC 外）。
+  - heading "§03 实验：没有悬崖的压缩曲线" [level=2] [ref=f246e222]:
+    - generic [ref=f246e223]: §03
+    - text: 实验：没有悬崖的压缩曲线
+  - generic [ref=f246e224]: 26K 小时生产数据 · TEST 4K 小时 · NEON 实测
+  - generic [ref=f246e225]:
+    - img [ref=f246e226]:
+      - generic [ref=f246e228]: 主结果与消融：压缩曲线上没有悬崖，代价逐组件可追溯
+      - generic [ref=f246e229]: 模型矩阵（TEST · 相对 FDR 退化）
+      - generic [ref=f246e230]: "0"
+      - generic [ref=f246e231]: "2"
+      - generic [ref=f246e232]: "5"
+      - generic [ref=f246e233]: "8"
+      - generic [ref=f246e234]: "10"
+      - generic [ref=f246e235]: "0"
+      - generic [ref=f246e236]: M0 全精度
+      - generic [ref=f246e237]: "37.6"
+      - generic [ref=f246e238]: "912"
+      - generic [ref=f246e240]: "3.1"
+      - generic [ref=f246e241]: M1 w8·p
+      - generic [ref=f246e242]: 8·a16
+      - generic [ref=f246e243]: "18.8"
+      - generic [ref=f246e244]: "228"
+      - generic [ref=f246e246]: "3.5"
+      - generic [ref=f246e247]: M2 全 8
+      - generic [ref=f246e248]: 比特
+      - generic [ref=f246e249]: "10.3"
+      - generic [ref=f246e250]: "228"
+      - generic [ref=f246e252]: "7.4"
+      - generic [ref=f246e253]: M3 权重 5
+      - generic [ref=f246e254]: 比特
+      - generic [ref=f246e255]: "10.3"
+      - generic [ref=f246e256]: "142"
+      - generic [ref=f246e258]: "8.7"
+      - generic [ref=f246e259]: M4 权重 4
+      - generic [ref=f246e260]: 比特
+      - generic [ref=f246e261]: "10.3"
+      - generic [ref=f246e262]: "114"
+      - generic [ref=f246e263]: MCPS→
+      - generic [ref=f246e264]: KB→
+      - generic [ref=f246e265]: 柱高=退化% · 柱下蓝字=CPU(MCPS) · 橙字=模型大小(KB)
+      - generic [ref=f246e266]: 读数：全 8 比特只付 3.5%；激活 16→8 仅 +0.4pp；权重 8→4 仍平缓
+      - generic [ref=f246e267]: M2/M3/M4 的 CPU 与内存相同——NEON 8 比特地板：亚 8 位权重
+      - generic [ref=f246e268]: 不换周期不换内存，换来的是溢出余量 + OTA 分发体积（142/114KB）
+      - generic [ref=f246e269]: 内存 912→228KB（−75%）：运行时内存=模型大小，无状态流式 FFN 红利
+      - generic [ref=f246e271]: 二值档（表5）：扩参数量换容量 + 末期调小学习率
+      - generic [ref=f246e272]: M5（2× 参数·混合 1/5 比特）0.4% · M6（6× 参数·全 1 比特）−0.4%
+      - generic [ref=f246e273]: 恒定学习率时 14.0%/6.2% → 调整回收 13.6/6.6pp；加速器投影省 86%/78%
+      - generic [ref=f246e274]: 消融阶梯：代价逐组件可追溯
+      - generic [ref=f246e276]: 逐组件加到 8 比特（表4 · 全 8 比特）
+      - generic [ref=f246e277]: 只重量化
+      - generic [ref=f246e279]: "3.8"
+      - generic [ref=f246e280]: +bias/gain
+      - generic [ref=f246e282]: "4.7"
+      - generic [ref=f246e283]: +输入激活
+      - generic [ref=f246e285]: "5.2"
+      - generic [ref=f246e286]: +BN（带缩放）
+      - generic [ref=f246e288]: "5.3"
+      - generic [ref=f246e289]: BN 无缩放直接量化 = 9.0% ← 缩放一项回收 3.7pp
+      - generic [ref=f246e291]: 不对称的墙（图2 + 消融3）
+      - generic [ref=f246e292]: 权重 / 静态参数：8→5 比特只 +3.0pp，可以继续压
+      - generic [ref=f246e293]: （训练中能被整形到量化器甜点形状）
+      - generic [ref=f246e294]: 激活 / 输入：8→5 比特 DET 整条曲线崩掉——8 比特
+      - generic [ref=f246e295]: 就是墙（分布随输入逐帧漂移，只能间接规训）
+      - generic [ref=f246e296]: 全模型的比特下限被激活卡死，权重侧单飞没用
+      - generic [ref=f246e298]: 二值模型的学习率敏感性（表5）
+      - generic [ref=f246e299]: Adam 恒定 lr：末期大步长让权重符号在临界点反复翻转，
+      - generic [ref=f246e300]: 量化网络与影子权重脱节 → M5 掉 14.0%
+      - generic [ref=f246e301]: 仅把阶段 1 末尾若干次更新的 lr 手动调小：让符号模式
+      - generic [ref=f246e302]: 先沉淀再进阶段 2 → 0.4% / −0.4%（追平基线）
+      - generic [ref=f246e303]: 注：所有数字为 TEST 集相对 FDR 退化（基线 M0=0.0）；CPU 为 ARM NEON 实测 MCPS，内存/模型大小为实测；加速器为数据手册投影。生产数据 26K 小时训练 · 4K 小时评估
+    - generic [ref=f246e304]: 图3 · 主结果与消融：左是模型矩阵（柱高=相对退化，柱下蓝字=MCPS、橙字=模型 KB）与二值档；右是逐组件消融阶梯、激活/权重不对称的墙、二值模型的学习率敏感性。
+  - table [ref=f246e305]:
+    - rowgroup [ref=f246e306]:
+      - row [ref=f246e307]:
+        - columnheader "模型" [ref=f246e308]
+        - columnheader "比特配置" [ref=f246e309]
+        - columnheader "相对 FDR 退化" [ref=f246e310]
+        - columnheader "CPU (MCPS)" [ref=f246e311]
+        - columnheader "运行时内存 / 模型" [ref=f246e312]
+      - row [ref=f246e313]:
+        - cell "M0 基线" [ref=f246e314]
+        - cell "全 32 比特" [ref=f246e315]
+        - cell "0.0%" [ref=f246e316]
+        - cell "37.6" [ref=f246e317]
+        - cell "912 / 912 KB" [ref=f246e318]
+      - row [ref=f246e319]:
+        - cell "M1" [ref=f246e320]
+        - cell "权重 8 · 参数 8 · 激活输入 16" [ref=f246e321]
+        - cell "3.1%" [ref=f246e322]
+        - cell "18.8" [ref=f246e323]
+        - cell "228 / 228 KB" [ref=f246e324]
+      - row [ref=f246e325]:
+        - cell "M2 全 8 比特 ★" [ref=f246e326]
+        - cell "全部 8 比特" [ref=f246e327]
+        - cell "3.5%" [ref=f246e328]
+        - cell "10.3" [ref=f246e329]
+        - cell "228 / 228 KB" [ref=f246e330]
+      - row [ref=f246e331]:
+        - cell "M3" [ref=f246e332]
+        - cell "权重 5 · 其余 8" [ref=f246e333]
+        - cell "7.4%" [ref=f246e334]
+        - cell "10.3" [ref=f246e335]
+        - cell "228 / 142 KB" [ref=f246e336]
+      - row [ref=f246e337]:
+        - cell "M4" [ref=f246e338]
+        - cell "权重 4 · 其余 8" [ref=f246e339]
+        - cell "8.7%" [ref=f246e340]
+        - cell "10.3" [ref=f246e341]
+        - cell "228 / 114 KB" [ref=f246e342]
+  - generic [ref=f246e343]:
+    - generic [ref=f246e344]: 读表要点
+    - listitem [ref=f246e345]: ◈ M0→M1 一口气付 3.1%（同时含权重 32→8、参数 32→8、激活 32→16 三重压缩）；激活 16→8 只再 +0.4pp；权重 8→4 到 8.7%——整条曲线没有悬崖，两阶段 QAT+分布整形的直接成果。
+    - listitem [ref=f246e346]: ◈ CPU 的两段收益来源不同：M0→M1 是 32→8/16 比特参数（省 50%）；M1→M2 是 128 位寄存器装 8 个 int8 吞吐翻倍（再省 45%）。M2→M4 的 CPU 纹丝不动——NEON 8 比特地板。
+    - listitem [ref=f246e347]: ◈ 运行时内存 = 模型大小：无状态流式 FFN 没有递归状态没有大缓冲，内存故事干净（912→228KB，−75%）。M3/M4 权重已是 5/4 位内存却不变——同一块地板。
+    - listitem [ref=f246e348]: ◈ 那为什么还要亚 8 位权重？给 16 路累加留溢出余量、允许更低精度累加器、缩小 OTA 分发体积（142/114KB）；真吃内存红利要换加速器——投影 912/128≈7.1×、912/198≈4.6×，即摘要的「4 到 7 倍」。
+    - listitem [ref=f246e349]: ◈ 逐组件阶梯（全 8 比特）：只重量化 3.8% → +bias/gain 4.7% → +输入激活 5.2% → +BN（带缩放）5.3%——每层边际代价 <1pp，「全组件 8 比特」几乎免费；BN 无缩放直接量化 = 9.0%。
+  - heading "§04 贡献" [level=2] [ref=f246e350]:
+    - generic [ref=f246e351]: §04
+    - text: 贡献
+  - generic [ref=f246e352]: 五点：从算法到系统级账本
+  - generic [ref=f246e353]:
+    - generic [ref=f246e354]:
+      - generic [ref=f246e355]: "1"
+      - paragraph [ref=f246e356]: 两阶段全组件亚 8 比特 QAT 算法：阶段 1 tanh 权重分布整形（适配 Strom 等），阶段 2 对 gain、bias、BN 四套、激活、输入做线性量化——覆盖了此前工作普遍留浮点的组件。
+    - generic [ref=f246e357]:
+      - generic [ref=f246e358]: "2"
+      - paragraph [ref=f246e359]: 生产规模数据上与全精度工作点打平：全 8 比特仅 3.5% 相对退化、4 比特权重 8.7%；二值权重加扩容模型在学习率调整后 0.4%/−0.4%。
+    - generic [ref=f246e360]:
+      - generic [ref=f246e361]: "3"
+      - paragraph [ref=f246e362]: 真实指令集上的系统级收益账本：NEON 实测 CPU 37.6→10.3 MCPS、内存 912→228KB、模型最小 114KB；并讲清「亚 8 比特权重在通用芯片换不到 CPU/内存、换得到溢出余量与分发体积」这个反直觉结论。
+    - generic [ref=f246e363]:
+      - generic [ref=f246e364]: "4"
+      - paragraph [ref=f246e365]: 可直接抄的工程配方：BN 动态范围缩放量化（9.0%→5.3%）、激活选型结论（clipped ReLU 胜出）、算子顺序要交换（dense→BN→clip）。
+    - generic [ref=f246e366]:
+      - generic [ref=f246e367]: "5"
+      - paragraph [ref=f246e368]: 二值权重的落地投影：M5/M6 在 86.0%/78.3% 内存缩减下保持精度，验证 1 比特权重 KWS 在扩参数量补偿后可用。
+  - heading "§05 局限与判断" [level=2] [ref=f246e369]:
+    - generic [ref=f246e370]: §05
+    - text: 局限与判断
+  - generic [ref=f246e371]: 投影不等于实测 · 零外部对比 · FFN 之外未验证
+  - generic [ref=f246e372]:
+    - img [ref=f246e373]:
+      - generic [ref=f246e375]: 边界与延伸
+      - generic [ref=f246e377]: 技术边界
+      - generic [ref=f246e378]: · 亚 8 比特在通用 NEON 无 CPU/内存收益（M2/M3/M4 同为 10.3
+      - generic [ref=f246e379]: MCPS · 228KB），真要吃红利必须换专用加速器——而后者只有投影
+      - generic [ref=f246e380]: · 激活与输入的量化下限是 8 比特（图2），与权重侧 tanh 不对称，
+      - generic [ref=f246e381]: 全模型比特下限被激活卡死
+      - generic [ref=f246e382]: · 二值档依赖参数量扩张：要 2×/6× 参数（500K/1.5M）才追平，
+      - generic [ref=f246e383]: 训练与重估成本更高，收益依赖加速器真能按比特存权重
+      - generic [ref=f246e384]: · 手工超参一堆：σ_t · λ_σ/λ_μ · clip 阈值 · C_BN/C_input · lr 调整
+      - generic [ref=f246e385]: 时机幅度，论文均未报告数值，复现要自己重新搜参
+      - generic [ref=f246e386]: · 只在 FFN 上验证：TC-ResNet/BC-ResNet 类卷积架构的权重分布
+      - generic [ref=f246e387]: 与激活统计不同，是否同样有效存疑
+      - generic [ref=f246e389]: 实验边界 + 延伸
+      - generic [ref=f246e390]: · 零外部对比：所有表格只与自家全精度基线比，未与 Mishchenko
+      - generic [ref=f246e391]: 等低比特 KWS QAT 在可比数据上对垒，「更优」无从判断
+      - generic [ref=f246e392]: · 加速器收益是纸面投影（MAX78000/NDP120 数据手册），未实测
+      - generic [ref=f246e393]: 延迟/功耗/精度漂移（专用硬件舍入语义可能不同）
+      - generic [ref=f246e394]: · 功耗用 CPU 周期代理，无实测能量；唤醒词内容/配比/语言封闭
+      - generic [ref=f246e395]: · 单次训练无方差报告：−0.4% 这种数字的统计波动不明
+      - generic [ref=f246e396]: · M5 的混合精度选层（首二层+末层 5 比特）无消融佐证
+      - generic [ref=f246e397]: 延伸：激活侧分布整形（LSQ 类）推激活下限；按层敏感度自动
+      - generic [ref=f246e398]: 分配比特；NDP120 真机验证；外推到时序卷积/流式 attention；
+      - generic [ref=f246e399]: 与蒸馏/低秩正交叠加
+      - generic [ref=f246e400]: 可迁移判断：量化器（硬件）不能动，就动分布——tanh 整形、C_BN 缩放、算子重排全是「不改网络函数只改数值分布」的同族手法；每压一档都要重新核对硬件的真实最小容器
+    - generic [ref=f246e401]: 图4 · 边界与延伸：左技术边界（NEON 无收益、激活 8 位墙、二值靠扩容、超参不公开、仅 FFN），右实验边界（零外部对比、加速器纸面投影、功耗代理指标、无方差）+ 延伸方向。
+  - generic [ref=f246e402]:
+    - generic [ref=f246e403]: 可迁移判断
+    - paragraph [ref=f246e404]: ↳ 量化器不能动，就动分布：tanh 整形、C_BN 缩放、算子重排全是同族手法——不改网络函数、只改数值分布去适配硬件的均匀格点。遇到「量化掉点」先看分布与量化器错配在哪，而不是急着加比特。
+    - paragraph [ref=f246e405]: ↳ 每压一档都要重新核对硬件的最小容器：NEON 的 8 比特 MAC 地板让 4/5 位权重白压——比特数的收益以指令集真实支持为前提，纸面压缩率不等于系统收益。
+    - paragraph [ref=f246e406]: ↳ 静态可整形，动态只能间接规训：权重能在训练中被「养」成量化器喜欢的形状，激活的分布随输入逐帧漂移——这解释了两者量化下限的不对称，也提示下一步该做激活侧的分布整形（LSQ 类）。
+    - paragraph [ref=f246e407]: ↳ 二值模型的精度挑战可能部分在训练日程而非方法本身：末期大步长让权重符号在临界点反复翻转，仅调小最后若干次更新的学习率就回收 13.6pp——调参的边际收益大到必须先排除再谈方法论。
+  - generic [ref=f246e408]:
+    - link "arXiv 2207.06920 ↗" [ref=f246e409] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2207.06920
+    - link "← 返回总目录" [ref=f246e410] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f246e411]: 笔记与可视化页基于 arXiv v2 整理 · 生产数据不可复现，唤醒词内容/配比未公开 · 2022 №36 · 179+/305

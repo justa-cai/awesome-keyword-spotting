@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sub 8-Bit Quantization of Streaming KWS · 论文精读可视化</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;}
+.wrap{max-width:980px;margin:0 auto;padding:56px 28px 80px;}
+.kicker{font-size:13px;letter-spacing:.22em;color:var(--acc);font-weight:700;margin-bottom:14px;text-transform:uppercase;}
+h1.hero{font-size:40px;line-height:1.32;font-weight:800;letter-spacing:.01em;margin-bottom:18px;}
+h1.hero .g{color:var(--acc);}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+.chip{font-size:12.5px;padding:4px 13px;border:1px solid var(--line);border-radius:999px;color:var(--ink2);background:#fffdf8;}
+.chip.acc{background:var(--lt);border-color:#bfe5d6;color:var(--dk);}
+.meta{border-left:3px solid var(--acc);background:#fffdf8;padding:12px 18px;font-size:13.5px;color:var(--ink2);margin-bottom:40px;border-radius:0 8px 8px 0;}
+.meta b{color:var(--ink);}
+h2{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:800;margin:56px 0 6px;}
+h2 .no{flex:none;font-size:12px;font-weight:800;color:#fff;background:var(--ink);padding:3px 10px;border-radius:999px;letter-spacing:.08em;}
+.h2sub{font-size:13.5px;color:var(--ink3);margin:0 0 18px 46px;}
+.tldr{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-bottom:8px;}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--dk);letter-spacing:.12em;margin-bottom:10px;}
+.tldr li{list-style:none;font-size:14.5px;color:var(--ink2);padding-left:20px;position:relative;margin-bottom:7px;}
+.tldr li:before{content:"◈";position:absolute;left:0;color:var(--acc);font-size:12px;top:2px;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.card{background:#fffdf8;border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
+.card h3{font-size:15.5px;font-weight:700;margin-bottom:8px;}
+.card p{font-size:13.5px;color:var(--ink2);}
+.card.acc{background:var(--lt);border-color:#bfe5d6;}
+.card.acc h3{color:var(--dk);}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4;}
+.card.bad h3{color:var(--warn);}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--lt);color:var(--dk);margin-bottom:8px;}
+.fig{margin:26px 0;}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:14px;}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:10px;line-height:1.7;}
+.cap b{color:var(--ink2);}
+.formula{background:#fffdf8;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 12px 12px 0;padding:16px 20px;margin:16px 0;}
+.formula .f{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:15px;color:var(--ink);background:#f2f4ef;padding:10px 14px;border-radius:8px;margin-bottom:10px;overflow-x:auto;white-space:pre;}
+.formula .why{font-size:13.5px;color:var(--ink2);}
+.formula .why b{color:var(--dk);}
+table.tb{width:100%;border-collapse:collapse;background:#fffdf8;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:18px 0;font-size:13.5px;}
+table.tb th{background:var(--ink);color:#fff;padding:10px 14px;text-align:left;font-weight:700;font-size:13px;}
+table.tb td{padding:10px 14px;border-top:1px solid var(--line);color:var(--ink2);}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:700;}
+.contrib{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:18px 0;}
+.contrib .row{display:flex;gap:16px;padding:12px 0;border-bottom:1px dashed var(--line);}
+.contrib .row:last-child{border-bottom:none;}
+.contrib .n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.contrib .row p{font-size:14px;color:var(--ink2);}
+.contrib .row p b{color:var(--ink);}
+.lim{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.judge{background:#fffaf4;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:18px 0;}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.12em;margin-bottom:10px;}
+.judge p{font-size:14px;color:var(--ink2);margin-bottom:8px;}
+.judge p b{color:var(--ink);}
+.foot{margin-top:64px;padding-top:28px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.pill{display:inline-block;font-size:13px;font-weight:700;color:var(--dk);background:var(--lt);border:1px solid #bfe5d6;border-radius:999px;padding:7px 18px;text-decoration:none;}
+.pill.ghost{background:transparent;color:var(--ink2);border-color:var(--line);}
+.foot-note{font-size:12px;color:var(--ink3);margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2022 №36</div>
+<h1 class="hero">硬件的量化器不能动？那就<span class="g">把权重养均匀</span>：<br>流式 KWS 的亚 8 比特全组件量化</h1>
+<div class="chips">
+<span class="chip acc">Sub-8-bit QAT · Amazon Alexa</span>
+<span class="chip">arXiv 2207.06920 · 生产级 250K 无状态 FFN</span>
+<span class="chip">26K 小时生产数据 · ARM NEON 实测</span>
+<span class="chip">全 8 比特仅退化 3.5% · CPU 3.65× · 内存 −75%</span>
+</div>
+<div class="meta">
+<b>一句话</b>：把 Alexa 生产级流式唤醒模型的权重、gain、bias、BatchNorm 四套参数、激活、输入全部压到 8 比特及以下（权重最低到 1 比特），核心思路只有一个——硬件的均匀量化器不能动，就改造数值分布去适配它：tanh 把高斯权重养均匀、C_BN 把 BN 参数搬进窄动态范围、算子重排让 clip 作用在归一化量上。全 8 比特在工作点只付 3.5% 相对退化，ARM NEON 实测 CPU 37.6→10.3 MCPS、内存 912→228KB。
+</div>
+
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<li>商用 KWS 有三条研究界普遍忽略的隐性约束：亚 8 比特要<b>硬件指令集真支持</b>、必须<b>流式</b>逐帧出后验、不能用<b>可损坏内存</b>——第三条直接决定基线是无状态 FFN（某帧异常下一帧自愈，递归状态会残留污染）。</li>
+<li>NEON 的 MAC 最小容器是 <b>8 比特</b>：权重压到 4/5 位在通用芯片上不换 CPU 也不换内存，收益只有溢出余量与 OTA 分发体积；直接内存红利要靠专用加速器（投影 4–7×）。</li>
+<li>计算图关键：<b>gain 放 MAC 外面</b>——y_q ← α_q(W_q·x_q + b_q)，每层一个标量缩放乘在外面，内积用最稠密的整数指令跑满；逐元素缩放会把 SIMD 打散归零。</li>
+<li>精度最大来源是 <b>tanh 权重整形</b>：高斯过 tanh 的概率积分恰好摊平成 U(−1,1)，训练中用目标分布初始化+正则锁住——同一量化器，退化 7.4% vs 12.3%。</li>
+<li><b>BN 全四套参数量化</b>靠缩放因子 C_BN：分子分母同除（分母根号内除平方），代数恒等但每个进量化器的数都被压窄——5.3% vs 无缩放 9.0%，杠杆最高的单点技巧。</li>
+<li>激活到 <b>8 比特就是墙</b>：权重可继续压到 4/5 比特（静态、可整形），激活分布随输入逐帧漂移只能间接规训——全模型比特下限被激活卡死，不对称。</li>
+<li>二值档（1 比特权重）要 2×/6× 参数量换容量，且对学习率极度敏感：恒定 lr 掉 14%，仅把阶段 1 末尾若干次更新的 lr 调小就追平基线（0.4% / −0.4%）。</li>
+</div>
+
+<h2><span class="no">§01</span>问题：常驻端侧的六条约束</h2>
+<div class="h2sub">三条显性（体积/内存/功耗）+ 三条隐性（指令集/流式/不可损坏内存）</div>
+<div class="cards">
+<div class="card">
+<h3>生产基线：250K 无状态 FFN</h3>
+<p>瓶颈架构 {87,400,87,400,87,400}，全部隐藏层配 BN+ReLU，LFBE 20 维、81 帧滑窗、3 倍时间下采样。唤醒词训练时中心对齐——后验峰位置固定，WMA 平滑+阈值才有稳定对齐前提。这不是学术基线，是 Alexa 的生产形态。</p>
+</div>
+<div class="card bad">
+<h3>为什么必须是 FFN 不是 RNN</h3>
+<p>「不可损坏内存」红线：递归状态一旦被数值溢出污染会一直残留，唤醒整体失效只能重启；无状态模型某帧异常、下一帧从头开始，天然自愈。前馈结构对整数推理也最友好——全网络就是一串矩阵向量乘，NEON SIMD 满载。</p>
+</div>
+<div class="card bad">
+<h3>PTQ 掉点，低位宽有地基</h3>
+<p>训练后量化误差无人补偿，小模型上致命。QAT 靠伪量化+STE 直通估计器传梯度（量化函数离散、梯度几乎处处为零）。多数量化工作只处理权重顶多加激活，BN 四套参数留浮点——整数算力优势从最热路径漏光。</p>
+</div>
+<div class="card bad">
+<h3>权重分布与量化器错配</h3>
+<p>网络权重近似高斯：九成以上挤在零附近窄带，只分到中间少数码字；两侧长尾码字密布却无权重落点——等效于拿大部分精度去表示从不出现的值。改量化器成非均匀会破坏整数 MAC 的均匀格点假设，所以要反过来改分布。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 900">
+<rect x="0.0" y="0.0" width="920.0" height="900.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">流式 KWS 的亚 8 比特量化：改分布去适配硬件，不是改硬件迁就分布</text>
+<line x1="36.0" y1="60.0" x2="720.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 常驻端侧的商用约束：三条显性 + 三条研究界普遍忽略的隐性</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">显性三重：模型体积 · 运行时内存 · 功耗（用 CPU 周期数代理）同时压，准确率不能掉。生产基线是 250K 参数无状态 FFN（Alexa 生产形态）</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">隐性三条：(a) 亚 8 比特要硬件指令集真支持——不是软件存成 4 位就算落地；(b) 必须流式，每帧即时出后验，不能攒批；(c) 不能用可损坏内存——递归状态一旦被污染唤醒整体失效</text>
+<rect x="36.0" y="152.0" width="848.0" height="50.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="182.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">无状态 FFN 自愈</text>
+<text x="185.0" y="173.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">第 (c) 条直接决定架构：基线无递归状态，某帧异常下一帧从头开始；</text>
+<text x="185.0" y="191.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">RNN 状态被污染会一直残留——正好踩中红线。81 帧滑窗即可出判决</text>
+<rect x="36.0" y="210.0" width="848.0" height="50.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="240.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">NEON 的 8 比特地板</text>
+<text x="185.0" y="231.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">128 位 NEON 寄存器装 16 个 int8 / 8 个 int16 / 4 个 fp32；但 MAC 乘累加</text>
+<text x="185.0" y="249.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">最小容器是 8 位——权重压到 4/5 位不给更快指令、不省运行时内存</text>
+<rect x="36.0" y="268.0" width="848.0" height="50.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="298.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">亚 8 位收益在哪</text>
+<text x="185.0" y="289.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">通用芯片上收益是间接的：给累加留溢出余量 · 允许低精度累加器 ·</text>
+<text x="185.0" y="307.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">缩小 OTA 分发体积。直接内存红利要靠专用加速器（MAX78000 / NDP120）</text>
+<text x="36.0" y="336.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 量化计算图：gain 放 MAC 外面，整数域跑满 + 两阶段训练</text>
+<rect x="36.0" y="352.0" width="272.0" height="210.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="172.0" y="374.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">生产基线（250K 参数）</text>
+<text x="52.0" y="396.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">瓶颈 FFN，层尺寸 {87,400,87,400,87,400}</text>
+<text x="52.0" y="411.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">全部隐藏层配 BN + ReLU，二分类输出</text>
+<text x="52.0" y="427.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="442.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">LFBE 20 维 · 25ms 窗 / 10ms 移 · 81 帧输入</text>
+<text x="52.0" y="458.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">时间 3 倍下采样（步长约 30ms）</text>
+<text x="52.0" y="473.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="489.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练时唤醒词窗口内中心对齐→后验峰</text>
+<text x="52.0" y="504.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">位置固定，WMA 平滑+阈值才有对齐前提</text>
+<text x="52.0" y="520.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="535.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Adam · 训练 500K 次更新（基线）</text>
+<rect x="324.0" y="352.0" width="272.0" height="210.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="460.0" y="374.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一层的三步量化链</text>
+<text x="340.0" y="396.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">y_q ← α_q(W_q·x_q + b_q)</text>
+<text x="340.0" y="411.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  内积在纯整数域，标量增益乘在外面</text>
+<text x="340.0" y="427.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="340.0" y="442.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">y_q^φ ← q_z(ReLU(y_q))   激活量化</text>
+<text x="340.0" y="458.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">y_q^φψ ← q_z(BN(y_q^φ))  BN 量化</text>
+<text x="340.0" y="473.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="340.0" y="489.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">整条链路没有任何浮点逐元素运算</text>
+<text x="340.0" y="504.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——这是「全组件量化」的数学含义</text>
+<text x="340.0" y="520.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="340.0" y="535.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">若每个权重带自己的缩放→SIMD 打散</text>
+<text x="340.0" y="551.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">成逐元素乘法，吞吐归零（XNOR 一脉）</text>
+<rect x="612.0" y="352.0" width="272.0" height="210.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="748.0" y="374.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段训练</text>
+<text x="628.0" y="396.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">阶段 1：tanh 权重分布整形</text>
+<text x="628.0" y="411.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  W_q ← q_z(tanh(W))，N(0,σ_t²) 初始化</text>
+<text x="628.0" y="427.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  + 正则 λ_σ(σ_w−σ_t)² + λ_μμ_w²</text>
+<text x="628.0" y="442.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="628.0" y="458.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">阶段 2：对其余全部组件线性量化</text>
+<text x="628.0" y="473.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  gain / bias / BN 四套 / 激活 / 输入</text>
+<text x="628.0" y="489.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  1 个 epoch（35K 次更新）重估参数</text>
+<text x="628.0" y="504.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="628.0" y="520.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">量化函数离散、梯度≈0 → STE 直通</text>
+<text x="628.0" y="535.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="628.0" y="551.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么分两段：误差归因可追溯 + 稳定骨干托底</text>
+<text x="36.0" y="592.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 四个技术点：全部是「改造数值分布去适配硬件」</text>
+<rect x="36.0" y="608.0" width="420.0" height="74.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="50.0" y="627.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① tanh 权重整形</text>
+<text x="50.0" y="644.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">高斯权重 vs 线性量化器错配：九成权重</text>
+<text x="50.0" y="657.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">挤在零附近窄带只分到少数码字；tanh</text>
+<text x="50.0" y="670.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">把分布压扁成近似 U(−1,1)，码字等载</text>
+<rect x="464.0" y="608.0" width="420.0" height="74.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="478.0" y="627.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② BN 缩放因子 C_BN</text>
+<text x="478.0" y="644.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">x、μ_B、σ_B² 同除 C_BN 再进量化器——</text>
+<text x="478.0" y="657.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">代数恒等归一化结果不变，但每个数</text>
+<text x="478.0" y="670.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">被压进窄动态范围，分辨率提高</text>
+<rect x="36.0" y="690.0" width="420.0" height="74.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="50.0" y="709.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 激活有界化+算子重排</text>
+<text x="50.0" y="726.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">ReLU 无界→clipped ReLU（选型胜 sigmoid/</text>
+<text x="50.0" y="739.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">tanh/GeLU/SiLU）；交换顺序 dense→BN</text>
+<text x="50.0" y="752.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→clip，让 clip 作用在归一化的稳定量上</text>
+<rect x="464.0" y="690.0" width="420.0" height="74.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="478.0" y="709.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">④ 输入量化</text>
+<text x="478.0" y="726.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">LFBE 先做全局均值方差归一化，再除</text>
+<text x="478.0" y="739.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">C_input 后线性量化——同款「先缩动态</text>
+<text x="478.0" y="752.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">范围再进量化器」手法</text>
+<rect x="36.0" y="786.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="812.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.5%</text>
+<text x="130.0" y="832.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">全 8 比特相对退化（4 比特档 8.7%）</text>
+<text x="298.0" y="812.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.65×</text>
+<text x="298.0" y="832.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CPU 37.6→10.3 MCPS</text>
+<text x="466.0" y="812.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−75%</text>
+<text x="466.0" y="832.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">内存 912→228 KB</text>
+<text x="634.0" y="812.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4–7×</text>
+<text x="634.0" y="832.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">加速器投影内存缩减</text>
+<text x="802.0" y="812.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−0.4%</text>
+<text x="802.0" y="832.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">二值档追平基线（调 lr 后）</text>
+<text x="36.0" y="870.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Amazon Alexa 生产数据：训练 26K 小时（远场设备+近场手机混合）· VAL 4K 小时 · TEST 4K 小时（更广商品设备，测跨设备泛化）；指标 = DET 曲线上基线工作点 FRR 处的相对 FDR 退化</text>
+</svg>
+<div class="cap"><b>图1 · 机制全景</b>：上半是六条商用约束与 NEON 8 比特地板，中段是生产基线、三步量化链与两阶段训练，下半是四个技术点速览（tanh 整形 / C_BN 缩放 / 激活有界化+算子重排 / 输入量化）。</div>
+</div>
+
+<h2><span class="no">§02</span>方法：改造分布，适配硬件</h2>
+<div class="h2sub">gain 外置的整数 MAC · tanh 概率积分摊平 · 代数恒等缩放</div>
+
+<div class="formula">
+<div class="f">y_q   ← α_q(W_q · x_q + b_q)          # 整数域 dense，gain 乘在外面
+y_q^φ ← q_z( ReLU(y_q) )              # 激活量化（实测选 clipped ReLU）
+y_q^φψ← q_z( BN(y_q^φ) )              # BN 量化（带 C_BN 缩放）</div>
+<div class="why"><b>人话</b>：三步恰好对应原网络的计算顺序，整条链路没有任何浮点逐元素运算——这是「全组件量化」的数学含义。gain 若放进 MAC 里（每权重各自缩放），向量化整数乘累加被打散成逐元素乘法，SIMD 吞吐归零。</div>
+</div>
+
+<div class="formula">
+<div class="f">W_q ← q_z( tanh(W) )    ·    初始化 W ~ N(0, σ_t²)
+正则: λ_σ(σ_w − σ_t)² + λ_μ·μ_w²</div>
+<div class="why"><b>人话</b>：若 W 服从合适方差的高斯，tanh(W) 的分布近似 U(−1,1)——高斯过 tanh 这个概率积分恰好把钟形摊平，每个码字承载的权重质量近似相等。只在量化时刻套 tanh 不够（零区陡峭挤压、饱和区复用码字），要训练中就用目标分布初始化+正则把权重「养」成甜点形状。</div>
+</div>
+
+<div class="formula">
+<div class="f">x_norm = (x − μ_B)/√σ_B² = (x/C_BN − μ_B/C_BN)/√(σ_B²/C_BN²)
+x_norm_q ← ( q_z(x/C_BN) − q_z(μ_B/C_BN) ) / √q_z(σ_B²/C_BN²)</div>
+<div class="why"><b>人话</b>：分子分母同除 C_BN（分母在根号内除平方），归一化的数学结果一个字不变——但 μ_B、σ_B² 这类动态范围大且训练中持续漂移的值被压进窄区间，量化分辨率随之提高。这是「把数值搬进量化器甜点区、又不改网络函数」的标准手法，与 tanh 异曲同工。</div>
+</div>
+
+<div class="cards">
+<div class="card acc">
+<h3>激活：clipped ReLU + 算子重排</h3>
+<p>ReLU 正半轴无界，线性量化器被迫覆盖大值域导致单位分辨率极差。系统试了 clipped ReLU / sigmoid / tanh / GeLU / SiLU：clipped ReLU 胜出；sigmoid/tanh 反而更差（梯度饱和要更多更新）。同时把 dense→ReLU→BN 交换成 dense→BN→clipped ReLU——clip 作用在归一化后的稳定量上，阈值稳健；块输出有界，恰好对齐 8 比特无符号罐。</p>
+</div>
+<div class="card acc">
+<h3>两阶段训练的用意</h3>
+<p>阶段 1 只量化权重（tanh 整形效果可单独测量）；阶段 2 对其余组件线性量化+1 epoch（35K 次更新）重估。两层动机：误差归因可追溯——商用发布决策（压到几比特、量化哪些组件）需要每步代价的证据链；权重整形扰动训练动力学，需要全精度组件构成的稳定骨干托底。</p>
+</div>
+<div class="card">
+<h3>输入量化：第三次同款手法</h3>
+<p>LFBE 特征先做全局均值方差归一化，再除 C_input 后线性量化——与 BN 缩放同源：先缩小动态范围，再进量化器。</p>
+</div>
+<div class="card">
+<h3>验证口径的讲究</h3>
+<p>DET 曲线上报告「基线工作点 FRR 处的相对 FDR 退化」：两个错误代价极不对称（误拒伤可用性、误报伤信任与云端成本），固定 FRR 锚点比 FDR 才公平；相对归一化让不同规模模型的数字可直接横比。WMA 平滑参数在 held-out 数据上调，防泄漏。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：把钟形压平的 tanh · 代数恒等的 C_BN · 两个排序</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="198.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">tanh 权重分布整形</text>
+<rect x="48.0" y="92.0" width="310.0" height="170.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="70.0" y1="242.0" x2="190.00" y2="242.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="130.0" y1="242.0" x2="130.00" y2="146.00" stroke="#d8d8d0" stroke-width="1" stroke-dasharray="2,2"/>
+<line x1="72.8" y1="241.9" x2="75.66" y2="241.79" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="75.7" y1="241.8" x2="78.52" y2="241.61" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="78.5" y1="241.6" x2="81.38" y2="241.30" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="81.4" y1="241.3" x2="84.24" y2="240.78" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="84.2" y1="240.8" x2="87.10" y2="239.95" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="87.1" y1="239.9" x2="89.96" y2="238.65" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="90.0" y1="238.6" x2="92.82" y2="236.71" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="92.8" y1="236.7" x2="95.68" y2="233.93" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="95.7" y1="233.9" x2="98.54" y2="230.10" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="98.5" y1="230.1" x2="101.40" y2="225.02" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="101.4" y1="225.0" x2="104.26" y2="218.60" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="104.3" y1="218.6" x2="107.12" y2="210.81" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="107.1" y1="210.8" x2="109.98" y2="201.81" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="110.0" y1="201.8" x2="112.84" y2="191.93" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="112.8" y1="191.9" x2="115.70" y2="181.70" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="115.7" y1="181.7" x2="118.56" y2="171.80" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="118.6" y1="171.8" x2="121.42" y2="162.98" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="121.4" y1="163.0" x2="124.28" y2="156.01" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="124.3" y1="156.0" x2="127.14" y2="151.54" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="127.1" y1="151.5" x2="130.00" y2="150.00" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="130.0" y1="150.0" x2="132.86" y2="151.54" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="132.9" y1="151.5" x2="135.72" y2="156.01" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="135.7" y1="156.0" x2="138.58" y2="162.98" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="138.6" y1="163.0" x2="141.44" y2="171.80" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="141.4" y1="171.8" x2="144.30" y2="181.70" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="144.3" y1="181.7" x2="147.16" y2="191.93" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="147.2" y1="191.9" x2="150.02" y2="201.81" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="150.0" y1="201.8" x2="152.88" y2="210.81" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="152.9" y1="210.8" x2="155.74" y2="218.60" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="155.7" y1="218.6" x2="158.60" y2="225.02" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="158.6" y1="225.0" x2="161.46" y2="230.10" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="161.5" y1="230.1" x2="164.32" y2="233.93" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="164.3" y1="233.9" x2="167.18" y2="236.71" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="167.2" y1="236.7" x2="170.04" y2="238.65" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="170.0" y1="238.6" x2="172.90" y2="239.95" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="172.9" y1="239.9" x2="175.76" y2="240.78" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="175.8" y1="240.8" x2="178.62" y2="241.30" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="178.6" y1="241.3" x2="181.48" y2="241.61" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="181.5" y1="241.6" x2="184.34" y2="241.79" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="184.3" y1="241.8" x2="187.20" y2="241.89" stroke="#c0392b" stroke-width="1.6"/>
+<line x1="230.0" y1="242.0" x2="338.00" y2="242.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="230.0" y1="184.0" x2="230.00" y2="242.00" stroke="#0b6e52" stroke-width="1.6"/>
+<line x1="230.0" y1="184.0" x2="338.00" y2="184.00" stroke="#0b6e52" stroke-width="1.6"/>
+<line x1="338.0" y1="184.0" x2="338.00" y2="242.00" stroke="#0b6e52" stroke-width="1.6"/>
+<line x1="200.0" y1="212.0" x2="216.00" y2="212.00" stroke="#8a93a5" stroke-width="1.2"/>
+<text x="208.0" y="202.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">tanh</text>
+<text x="130.0" y="256.0" font-size="8.5" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">近高斯权重</text>
+<text x="130.0" y="268.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">零附近挤 9 成</text>
+<text x="284.0" y="256.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">tanh 后 ≈ U(−1,1)</text>
+<text x="284.0" y="268.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每个码字等载</text>
+<text x="203.0" y="266.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">码字轴（线性量化器均匀铺满值域）：钟形 → 中间几个码字过载、长尾码字浪费；</text>
+<text x="203.0" y="278.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">整形后每个码字承载权重质量近似相等，量化误差最小</text>
+<rect x="48.0" y="288.0" width="310.0" height="96.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="62.0" y="308.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练中「养」出甜点形状，而非量化时才套 tanh：</text>
+<text x="62.0" y="323.5" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 初始化 N(0, σ_t²)：高斯过 tanh 的概率积分恰好摊平</text>
+<text x="62.0" y="339.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 正则 λ_σ(σ_w−σ_t)² + λ_μμ_w² 全程锁住分布不漂</text>
+<text x="62.0" y="354.5" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 消融：5 比特权重退化 7.4%（带 tanh）vs 12.3%（不带）</text>
+<text x="556.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">BN 全四套参数量化：缩放因子 C_BN</text>
+<rect x="396.0" y="92.0" width="436.0" height="130.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="410.0" y="112.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">BN 四套参数（γ β 可训练 · μ_B σ_B² 滑动估计）全部量化——</text>
+<text x="410.0" y="125.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">任何一套留浮点，最热路径就要浮点单元，整数算力优势漏光</text>
+<text x="410.0" y="139.6" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="410.0" y="153.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">难点：μ_B、σ_B² 动态范围大且训练中持续漂移，固定位数直接量化分辨率差</text>
+<text x="410.0" y="167.2" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="410.0" y="181.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">x_norm = (x/C − q(μ_B/C)) / √q(σ_B²/C²)   ← 分子分母同除 C_BN</text>
+<text x="410.0" y="194.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">代数恒等：归一化结果不变，但进量化器的数全被压进窄动态范围</text>
+<text x="410.0" y="208.6" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="410.0" y="222.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">消融：带缩放 5.3% vs 无缩放 9.0% —— 一个因子回收 3.7pp（杠杆最高）</text>
+<text x="556.0" y="248.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两个排序决定成败</text>
+<rect x="396.0" y="260.0" width="436.0" height="124.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="410.0" y="280.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">算子序：dense→BN→clipped ReLU（交换了原来的 ReLU→BN）</text>
+<text x="410.0" y="294.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">clip 作用在 BN 归一化后的稳定量上（零均值、方差受 γ 控制），阈值稳健；</text>
+<text x="410.0" y="307.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">块输出 = 有界输出，恰好对齐 8 比特无符号罐。若 ReLU 在前，clip 要作用在</text>
+<text x="410.0" y="320.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">未归一化、训练中尺度会漂的 dense 输出上，阈值脆弱</text>
+<text x="410.0" y="340.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">激活选型：clipped ReLU 胜出 · sigmoid/tanh 更差（梯度饱和需更多更新）</text>
+<text x="410.0" y="354.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· GeLU / SiLU 无确定性结论 · gain 排在 MAC 外面（每层一个标量）</text>
+<text x="410.0" y="368.0" font-size="8.8" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">哲学：让每个量化器面对的都是被规训过的分布</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：权重侧的整形——高斯过 tanh 恰好摊平成均匀分布，训练全程用正则锁住。右：BN 侧的缩放与排序——恒等变换搬窄动态范围 + clip 前置到归一化之后，都是不改网络函数只改数值分布</text>
+</svg>
+<div class="cap"><b>图2 · 机制解剖</b>：左是 tanh 整形的分布图景（钟形 → 均匀，训练全程用正则锁住）；右上是 BN 的 C_BN 缩放（代数恒等搬窄动态范围），右下是两个决定成败的排序（算子序 dense→BN→clip、gain 在 MAC 外）。</div>
+</div>
+
+<h2><span class="no">§03</span>实验：没有悬崖的压缩曲线</h2>
+<div class="h2sub">26K 小时生产数据 · TEST 4K 小时 · NEON 实测</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果与消融：压缩曲线上没有悬崖，代价逐组件可追溯</text>
+<line x1="36.0" y1="56.0" x2="540.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="250.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">模型矩阵（TEST · 相对 FDR 退化）</text>
+<line x1="56.0" y1="248.0" x2="440.00" y2="248.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="52.0" y="251.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<line x1="56.0" y1="215.5" x2="440.00" y2="215.50" stroke="#eef0ec" stroke-width="1"/>
+<text x="52.0" y="218.5" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">2</text>
+<line x1="56.0" y1="183.0" x2="440.00" y2="183.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="52.0" y="186.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">5</text>
+<line x1="56.0" y1="150.5" x2="440.00" y2="150.50" stroke="#eef0ec" stroke-width="1"/>
+<text x="52.0" y="153.5" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">8</text>
+<line x1="56.0" y1="118.0" x2="440.00" y2="118.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="52.0" y="121.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">10</text>
+<rect x="72.0" y="248.0" width="56.0" height="0.0" rx="4" fill="#8a93a5"/>
+<text x="100.0" y="243.0" font-size="8.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<text x="100.0" y="262.0" font-size="7.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">M0 全精度</text>
+<text x="100.0" y="273.0" font-size="7.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="100.0" y="289.0" font-size="7.8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">37.6</text>
+<text x="100.0" y="300.0" font-size="7.8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">912</text>
+<rect x="146.0" y="207.7" width="56.0" height="40.3" rx="4" fill="#9fc8b8"/>
+<text x="174.0" y="202.7" font-size="8.8" fill="#9fc8b8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.1</text>
+<text x="174.0" y="262.0" font-size="7.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">M1 w8·p</text>
+<text x="174.0" y="273.0" font-size="7.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">8·a16</text>
+<text x="174.0" y="289.0" font-size="7.8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">18.8</text>
+<text x="174.0" y="300.0" font-size="7.8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">228</text>
+<rect x="220.0" y="202.5" width="56.0" height="45.5" rx="4" fill="#0b6e52"/>
+<text x="248.0" y="197.5" font-size="8.8" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.5</text>
+<text x="248.0" y="262.0" font-size="7.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">M2 全 8 </text>
+<text x="248.0" y="273.0" font-size="7.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">比特</text>
+<text x="248.0" y="289.0" font-size="7.8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10.3</text>
+<text x="248.0" y="300.0" font-size="7.8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">228</text>
+<rect x="294.0" y="151.8" width="56.0" height="96.2" rx="4" fill="#7fb69f"/>
+<text x="322.0" y="146.8" font-size="8.8" fill="#7fb69f" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">7.4</text>
+<text x="322.0" y="262.0" font-size="7.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">M3 权重 5</text>
+<text x="322.0" y="273.0" font-size="7.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif"> 比特</text>
+<text x="322.0" y="289.0" font-size="7.8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10.3</text>
+<text x="322.0" y="300.0" font-size="7.8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">142</text>
+<rect x="368.0" y="134.9" width="56.0" height="113.1" rx="4" fill="#b8d8c8"/>
+<text x="396.0" y="129.9" font-size="8.8" fill="#b8d8c8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">8.7</text>
+<text x="396.0" y="262.0" font-size="7.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">M4 权重 4</text>
+<text x="396.0" y="273.0" font-size="7.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif"> 比特</text>
+<text x="396.0" y="289.0" font-size="7.8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10.3</text>
+<text x="396.0" y="300.0" font-size="7.8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">114</text>
+<text x="52.0" y="316.0" font-size="7.5" fill="#33507a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">MCPS→</text>
+<text x="52.0" y="327.0" font-size="7.5" fill="#8a5a1a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">KB→</text>
+<text x="250.0" y="106.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">柱高=退化% · 柱下蓝字=CPU(MCPS) · 橙字=模型大小(KB)</text>
+<text x="60.0" y="340.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：全 8 比特只付 3.5%；激活 16→8 仅 +0.4pp；权重 8→4 仍平缓</text>
+<text x="60.0" y="353.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">M2/M3/M4 的 CPU 与内存相同——NEON 8 比特地板：亚 8 位权重</text>
+<text x="60.0" y="366.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不换周期不换内存，换来的是溢出余量 + OTA 分发体积（142/114KB）</text>
+<text x="60.0" y="379.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">内存 912→228KB（−75%）：运行时内存=模型大小，无状态流式 FFN 红利</text>
+<rect x="60.0" y="392.0" width="380.0" height="48.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="250.0" y="410.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">二值档（表5）：扩参数量换容量 + 末期调小学习率</text>
+<text x="250.0" y="424.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">M5（2× 参数·混合 1/5 比特）0.4% · M6（6× 参数·全 1 比特）−0.4%</text>
+<text x="250.0" y="436.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">恒定学习率时 14.0%/6.2% → 调整回收 13.6/6.6pp；加速器投影省 86%/78%</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融阶梯：代价逐组件可追溯</text>
+<rect x="500.0" y="92.0" width="324.0" height="122.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="512.0" y="110.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">逐组件加到 8 比特（表4 · 全 8 比特）</text>
+<text x="512.0" y="128.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">只重量化</text>
+<rect x="600.0" y="119.0" width="83.6" height="10.0" rx="5" fill="#9fc8b8"/>
+<text x="687.6" y="128.0" font-size="8" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.8</text>
+<text x="512.0" y="144.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">+bias/gain</text>
+<rect x="600.0" y="135.0" width="103.4" height="10.0" rx="5" fill="#9fc8b8"/>
+<text x="707.4" y="144.0" font-size="8" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4.7</text>
+<text x="512.0" y="160.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">+输入激活</text>
+<rect x="600.0" y="151.0" width="114.4" height="10.0" rx="5" fill="#7fb69f"/>
+<text x="718.4" y="160.0" font-size="8" fill="#7fb69f" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5.2</text>
+<text x="512.0" y="176.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">+BN（带缩放）</text>
+<rect x="600.0" y="167.0" width="116.6" height="10.0" rx="5" fill="#0b6e52"/>
+<text x="720.6" y="176.0" font-size="8" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5.3</text>
+<text x="512.0" y="196.0" font-size="8.3" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">BN 无缩放直接量化 = 9.0% ← 缩放一项回收 3.7pp</text>
+<rect x="500.0" y="224.0" width="324.0" height="108.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="512.0" y="242.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">不对称的墙（图2 + 消融3）</text>
+<text x="512.0" y="258.0" font-size="8.3" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">权重 / 静态参数：8→5 比特只 +3.0pp，可以继续压</text>
+<text x="512.0" y="271.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（训练中能被整形到量化器甜点形状）</text>
+<text x="512.0" y="284.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="512.0" y="297.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">激活 / 输入：8→5 比特 DET 整条曲线崩掉——8 比特</text>
+<text x="512.0" y="310.0" font-size="8.3" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">就是墙（分布随输入逐帧漂移，只能间接规训）</text>
+<text x="512.0" y="323.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="512.0" y="336.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">全模型的比特下限被激活卡死，权重侧单飞没用</text>
+<rect x="500.0" y="342.0" width="324.0" height="98.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="662.0" y="360.0" font-size="9" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">二值模型的学习率敏感性（表5）</text>
+<text x="512.0" y="376.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Adam 恒定 lr：末期大步长让权重符号在临界点反复翻转，</text>
+<text x="512.0" y="389.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">量化网络与影子权重脱节 → M5 掉 14.0%</text>
+<text x="512.0" y="402.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="512.0" y="415.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">仅把阶段 1 末尾若干次更新的 lr 手动调小：让符号模式</text>
+<text x="512.0" y="428.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">先沉淀再进阶段 2 → 0.4% / −0.4%（追平基线）</text>
+<text x="36.0" y="458.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：所有数字为 TEST 集相对 FDR 退化（基线 M0=0.0）；CPU 为 ARM NEON 实测 MCPS，内存/模型大小为实测；加速器为数据手册投影。生产数据 26K 小时训练 · 4K 小时评估</text>
+</svg>
+<div class="cap"><b>图3 · 主结果与消融</b>：左是模型矩阵（柱高=相对退化，柱下蓝字=MCPS、橙字=模型 KB）与二值档；右是逐组件消融阶梯、激活/权重不对称的墙、二值模型的学习率敏感性。</div>
+</div>
+<table class="tb">
+<tr><th>模型</th><th>比特配置</th><th>相对 FDR 退化</th><th>CPU (MCPS)</th><th>运行时内存 / 模型</th></tr>
+<tr><td>M0 基线</td><td>全 32 比特</td><td>0.0%</td><td>37.6</td><td>912 / 912 KB</td></tr>
+<tr><td>M1</td><td>权重 8 · 参数 8 · 激活输入 16</td><td>3.1%</td><td>18.8</td><td>228 / 228 KB</td></tr>
+<tr class="hl"><td>M2 全 8 比特 ★</td><td>全部 8 比特</td><td>3.5%</td><td>10.3</td><td>228 / 228 KB</td></tr>
+<tr><td>M3</td><td>权重 5 · 其余 8</td><td>7.4%</td><td>10.3</td><td>228 / 142 KB</td></tr>
+<tr><td>M4</td><td>权重 4 · 其余 8</td><td>8.7%</td><td>10.3</td><td>228 / 114 KB</td></tr>
+</table>
+<div class="tldr" style="margin-top:14px;">
+<div class="tt">读表要点</div>
+<li>M0→M1 一口气付 3.1%（同时含权重 32→8、参数 32→8、激活 32→16 三重压缩）；激活 16→8 只再 +0.4pp；权重 8→4 到 8.7%——<b>整条曲线没有悬崖</b>，两阶段 QAT+分布整形的直接成果。</li>
+<li>CPU 的两段收益来源不同：M0→M1 是 32→8/16 比特参数（省 50%）；M1→M2 是 128 位寄存器装 8 个 int8 吞吐翻倍（再省 45%）。M2→M4 的 CPU 纹丝不动——<b>NEON 8 比特地板</b>。</li>
+<li>运行时内存 = 模型大小：无状态流式 FFN 没有递归状态没有大缓冲，内存故事干净（912→228KB，−75%）。M3/M4 权重已是 5/4 位内存却不变——同一块地板。</li>
+<li>那为什么还要亚 8 位权重？给 16 路累加留溢出余量、允许更低精度累加器、缩小 OTA 分发体积（142/114KB）；真吃内存红利要换加速器——投影 912/128≈7.1×、912/198≈4.6×，即摘要的「4 到 7 倍」。</li>
+<li>逐组件阶梯（全 8 比特）：只重量化 3.8% → +bias/gain 4.7% → +输入激活 5.2% → +BN（带缩放）5.3%——每层边际代价 &lt;1pp，「全组件 8 比特」几乎免费；BN 无缩放直接量化 = 9.0%。</li>
+</div>
+
+<h2><span class="no">§04</span>贡献</h2>
+<div class="h2sub">五点：从算法到系统级账本</div>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>两阶段全组件亚 8 比特 QAT 算法</b>：阶段 1 tanh 权重分布整形（适配 Strom 等），阶段 2 对 gain、bias、BN 四套、激活、输入做线性量化——覆盖了此前工作普遍留浮点的组件。</p></div>
+<div class="row"><div class="n">2</div><p><b>生产规模数据上与全精度工作点打平</b>：全 8 比特仅 3.5% 相对退化、4 比特权重 8.7%；二值权重加扩容模型在学习率调整后 0.4%/−0.4%。</p></div>
+<div class="row"><div class="n">3</div><p><b>真实指令集上的系统级收益账本</b>：NEON 实测 CPU 37.6→10.3 MCPS、内存 912→228KB、模型最小 114KB；并讲清「亚 8 比特权重在通用芯片换不到 CPU/内存、换得到溢出余量与分发体积」这个反直觉结论。</p></div>
+<div class="row"><div class="n">4</div><p><b>可直接抄的工程配方</b>：BN 动态范围缩放量化（9.0%→5.3%）、激活选型结论（clipped ReLU 胜出）、算子顺序要交换（dense→BN→clip）。</p></div>
+<div class="row"><div class="n">5</div><p><b>二值权重的落地投影</b>：M5/M6 在 86.0%/78.3% 内存缩减下保持精度，验证 1 比特权重 KWS 在扩参数量补偿后可用。</p></div>
+</div>
+
+<h2><span class="no">§05</span>局限与判断</h2>
+<div class="h2sub">投影不等于实测 · 零外部对比 · FFN 之外未验证</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 亚 8 比特在通用 NEON 无 CPU/内存收益（M2/M3/M4 同为 10.3</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  MCPS · 228KB），真要吃红利必须换专用加速器——而后者只有投影</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 激活与输入的量化下限是 8 比特（图2），与权重侧 tanh 不对称，</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  全模型比特下限被激活卡死</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 二值档依赖参数量扩张：要 2×/6× 参数（500K/1.5M）才追平，</text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  训练与重估成本更高，收益依赖加速器真能按比特存权重</text>
+<text x="72.0" y="238.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 手工超参一堆：σ_t · λ_σ/λ_μ · clip 阈值 · C_BN/C_input · lr 调整</text>
+<text x="72.0" y="265.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  时机幅度，论文均未报告数值，复现要自己重新搜参</text>
+<text x="72.0" y="278.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 只在 FFN 上验证：TC-ResNet/BC-ResNet 类卷积架构的权重分布</text>
+<text x="72.0" y="292.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  与激活统计不同，是否同样有效存疑</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验边界 + 延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 零外部对比：所有表格只与自家全精度基线比，未与 Mishchenko</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  等低比特 KWS QAT 在可比数据上对垒，「更优」无从判断</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 加速器收益是纸面投影（MAX78000/NDP120 数据手册），未实测</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  延迟/功耗/精度漂移（专用硬件舍入语义可能不同）</text>
+<text x="536.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 功耗用 CPU 周期代理，无实测能量；唤醒词内容/配比/语言封闭</text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 单次训练无方差报告：−0.4% 这种数字的统计波动不明</text>
+<text x="536.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· M5 的混合精度选层（首二层+末层 5 比特）无消融佐证</text>
+<text x="536.0" y="238.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸：激活侧分布整形（LSQ 类）推激活下限；按层敏感度自动</text>
+<text x="536.0" y="265.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">分配比特；NDP120 真机验证；外推到时序卷积/流式 attention；</text>
+<text x="536.0" y="278.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">与蒸馏/低秩正交叠加</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：量化器（硬件）不能动，就动分布——tanh 整形、C_BN 缩放、算子重排全是「不改网络函数只改数值分布」的同族手法；每压一档都要重新核对硬件的真实最小容器</text>
+</svg>
+<div class="cap"><b>图4 · 边界与延伸</b>：左技术边界（NEON 无收益、激活 8 位墙、二值靠扩容、超参不公开、仅 FFN），右实验边界（零外部对比、加速器纸面投影、功耗代理指标、无方差）+ 延伸方向。</div>
+</div>
+<div class="judge">
+<div class="jt">可迁移判断</div>
+<p>↳ <b>量化器不能动，就动分布</b>：tanh 整形、C_BN 缩放、算子重排全是同族手法——不改网络函数、只改数值分布去适配硬件的均匀格点。遇到「量化掉点」先看分布与量化器错配在哪，而不是急着加比特。</p>
+<p>↳ <b>每压一档都要重新核对硬件的最小容器</b>：NEON 的 8 比特 MAC 地板让 4/5 位权重白压——比特数的收益以指令集真实支持为前提，纸面压缩率不等于系统收益。</p>
+<p>↳ <b>静态可整形，动态只能间接规训</b>：权重能在训练中被「养」成量化器喜欢的形状，激活的分布随输入逐帧漂移——这解释了两者量化下限的不对称，也提示下一步该做激活侧的分布整形（LSQ 类）。</p>
+<p>↳ <b>二值模型的精度挑战可能部分在训练日程而非方法本身</b>：末期大步长让权重符号在临界点反复翻转，仅调小最后若干次更新的学习率就回收 13.6pp——调参的边际收益大到必须先排除再谈方法论。</p>
+</div>
+
+<div class="foot">
+<a class="pill" href="https://arxiv.org/abs/2207.06920">arXiv 2207.06920 ↗</a>
+<a class="pill ghost" href="../index.html">← 返回总目录</a>
+</div>
+<div class="foot-note">笔记与可视化页基于 arXiv v2 整理 · 生产数据不可复现，唤醒词内容/配比未公开 · 2022 №36 · 179+/305</div>
+</div>
+</body>
+</html>
