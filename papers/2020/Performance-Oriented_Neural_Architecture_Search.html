@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>性能预测器：还没训就猜准不准，给 NAS 装上望远镜 | 论文精读 2020 №19</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.22em;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:14px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.sub{font-size:17px;color:var(--ink2);margin-bottom:22px;font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.chip{font-size:12.5px;padding:5px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2);font-weight:600}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink2);margin-bottom:40px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:10px;vertical-align:-6px}
+h2{font-size:24px;font-weight:800;margin-bottom:18px;letter-spacing:.01em}
+h3{font-size:17px;font-weight:700;margin:26px 0 10px}
+p{margin-bottom:14px;color:#2c3646}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:.14em;margin-bottom:10px}
+.tldr li{list-style:none;padding-left:22px;position:relative;margin-bottom:8px;color:#2c3646;font-size:15px}
+.tldr li::before{content:"◆";position:absolute;left:2px;color:var(--acc);font-size:10px;top:7px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px}
+.card h4{font-size:15px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13.5px;color:var(--ink2);margin-bottom:0}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h4{color:var(--dk)}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4}
+.card.bad h4{color:var(--warn)}
+.fig{margin:26px 0}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:9px;text-align:center}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 22px;margin:16px 0;font-size:15px}
+.formula .f{font-family:"SF Mono",Consolas,"Liberation Mono",monospace;font-size:14.5px;color:var(--ink);background:#f4f4ef;border-radius:8px;padding:10px 16px;margin-bottom:8px;overflow-x:auto;white-space:pre-wrap}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;margin:16px 0}
+table.tb th{background:#eff1ec;color:var(--ink);font-weight:700;text-align:left;padding:10px 14px;border-bottom:2px solid var(--line);font-size:13px}
+table.tb td{padding:9px 14px;border-bottom:1px solid #f0f0ea;color:#2c3646;vertical-align:top}
+table.tb tr:last-child td{border-bottom:none}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.contrib{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:18px 0}
+.contrib .row{display:flex;gap:14px;margin-bottom:12px;align-items:flex-start}
+.contrib .row:last-child{margin-bottom:0}
+.contrib .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lt);color:var(--dk);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.contrib .row p{margin:0;font-size:14px;color:#2c3646}
+.judge{background:#fdf8f0;border:1px solid #eadfc8;border-radius:12px;padding:20px 24px;margin:18px 0}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:#5a4a2f;margin-bottom:10px;font-weight:600}
+.judge .rw{font-size:13.5px;color:#7a6a4a;padding-left:18px;position:relative;margin-bottom:9px}
+.judge .rw::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-size:12px;padding:4px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink3);font-weight:600}
+.foot-note{font-size:12px;color:var(--ink3);width:100%;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2020 №19</div>
+<h1 class="hero">性能预测器：还没训就猜准不准——<span class="g">给 NAS 装上望远镜</span></h1>
+<div class="sub">Performance-Oriented Neural Architecture Search —— Trinity College Dublin 用代理模型替代「训后评估」，KWS 搜索成本降一个数量级</div>
+<div class="chips">
+<span class="chip acc">代理模型</span><span class="chip">性能预测器</span><span class="chip">架构编码</span><span class="chip">迭代细化</span><span class="chip">贝叶斯式搜索</span>
+</div>
+<div class="meta">
+<b>Trinity College Dublin · arXiv 2001.02976（2020.01）</b><br>
+问题：NAS 每个候选都要完整训练评估——数千候选 = 数百上千 GPU 小时 · 方法：架构编码成向量 + MLP/随机森林回归器预测性能 + 预测-验证-入库的迭代飞轮<br>
+一句话：从「训练所有候选」变成「训练数十个 + 预测海量个」——真训架构数砍一个数量级，发现质量与手工设计相当或更优。
+</div>
+
+<section>
+<span class="no">01</span><h2>问题：训后评估卡死了 NAS</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>NAS 的核心瓶颈不在搜索算法而在<b>评估</b>：每个候选架构都要完整训练几小时，数千候选意味着数百上千 GPU 小时——这个范式让 NAS 在实际工程里难以落地。</li>
+<li>代理模型思路：学一个「<b>架构描述 → 性能</b>」的回归器——架构先变成数值向量（每层的操作类型 one-hot + 核大小/通道数 + 连接位），MLP 或随机森林吃向量吐预测分。</li>
+<li>冷启动悖论有解：先随机训 <b>50–100 个架构</b>打底；之后每轮只对代理选出的 Top-K 做完整训练，新数据回灌让代理<b>越用越准</b>（5–10 轮迭代）。</li>
+<li>代价与风险：数据稀疏区域的预测接近瞎猜——可能错过黑马架构；这是所有学习式代理的共同弱点。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">性能预测器：还没训就猜准不准——给 NAS 装上望远镜</text>
+<line x1="36.0" y1="60.0" x2="640.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① NAS 的老瓶颈：评估一个架构 = 完整训练一遍</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">搜索空间动辄数千至百万候选，每个训练几小时——完整搜索数百上千 GPU 小时，「训后评估」范式卡死了实用性</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">思路：如果「架构描述 → 性能」的映射可以学出来，海量候选只需预测、少量候选才真训</text>
+<rect x="36.0" y="152.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="181.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训后评估范式</text>
+<text x="215.0" y="181.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每个候选都完整训练再测——算力随候选数线性爆炸</text>
+<rect x="36.0" y="208.0" width="848.0" height="48.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="237.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">代理模型思路</text>
+<text x="215.0" y="237.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">学一个「图纸 → 成绩」的回归器——未训先测，快几个数量级</text>
+<rect x="36.0" y="264.0" width="848.0" height="48.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="293.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">冷启动悖论</text>
+<text x="215.0" y="293.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练代理模型本身也需要「架构+真实成绩」数据——先训谁？</text>
+<text x="36.0" y="296.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 三件套：架构编码 + 代理回归 + 迭代细化</text>
+<rect x="36.0" y="312.0" width="416.0" height="190.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="334.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">架构编码</text>
+<text x="52.0" y="358.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 每层信息 → 固定维向量：</text>
+<text x="52.0" y="373.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  操作类型（卷积/池化）· 参数配置</text>
+<text x="52.0" y="388.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （核大小 · 通道数）· 连接模式（跳跃）</text>
+<text x="52.0" y="403.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 离散选择用 one-hot 或嵌入编码</text>
+<text x="52.0" y="418.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 所有层的编码拼接 = 架构描述向量</text>
+<text x="52.0" y="433.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="448.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「架构变成一行数字」——回归器才吃得下</text>
+<rect x="468.0" y="312.0" width="416.0" height="190.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="676.0" y="334.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">代理模型 + 迭代细化</text>
+<text x="484.0" y="358.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 回归器：MLP / 随机森林——简单够用</text>
+<text x="484.0" y="373.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输入编码向量 · 输出预测性能（准确率）</text>
+<text x="484.0" y="388.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="403.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练集 =（架构, 真实成绩）对</text>
+<text x="484.0" y="418.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 随搜索推进，新评估的架构不断入库——</text>
+<text x="484.0" y="433.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  代理越用越准（迭代细化）</text>
+<text x="484.0" y="448.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="463.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">冷启动解法：先随机训 50–100 个架构打底</text>
+<text x="36.0" y="528.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 搜索主循环：预测海选 + 少量真训</text>
+<rect x="36.0" y="548.0" width="156.0" height="58.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="114.0" y="570.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">采样</text>
+<text x="114.0" y="589.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">随机训 50–100 个</text>
+<line x1="192.0" y1="577.0" x2="208.00" y2="577.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="208.0" y="548.0" width="156.0" height="58.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="286.0" y="570.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训代理</text>
+<text x="286.0" y="589.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">拟合编码→性能</text>
+<line x1="364.0" y1="577.0" x2="380.00" y2="577.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="380.0" y="548.0" width="156.0" height="58.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="458.0" y="570.0" font-size="9.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">海选</text>
+<text x="458.0" y="589.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">预测全部候选</text>
+<line x1="536.0" y1="577.0" x2="552.00" y2="577.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="552.0" y="548.0" width="156.0" height="58.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="630.0" y="570.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">真训 Top-K</text>
+<text x="630.0" y="589.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">验证预测</text>
+<line x1="708.0" y1="577.0" x2="724.00" y2="577.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="724.0" y="548.0" width="156.0" height="58.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="802.0" y="570.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">入库</text>
+<text x="802.0" y="589.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">更新代理再循环</text>
+<text x="52.0" y="630.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">贵的操作（完整训练）只发生在采样和 Top-K 验证——中间的海选全部由代理秒级完成</text>
+<rect x="36.0" y="640.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="666.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">数十–数百</text>
+<text x="130.0" y="686.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">真训架构数（vs 数千）</text>
+<text x="298.0" y="666.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一个数量级</text>
+<text x="298.0" y="686.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">总搜索成本下降</text>
+<text x="466.0" y="666.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">50–100</text>
+<text x="466.0" y="686.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">初始采样架构数</text>
+<text x="634.0" y="666.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5–10 轮</text>
+<text x="634.0" y="686.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">迭代次数</text>
+<text x="802.0" y="666.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">高相关</text>
+<text x="802.0" y="686.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">预测 vs 真实性能</text>
+<text x="36.0" y="724.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Trinity College Dublin · arXiv 2001.02976（2020.01）；GSC 数据集 · 卷积/池化/跳跃搜索空间</text>
+</svg>
+<div class="cap">图 1 · 全景：训后评估瓶颈 → 编码 + 代理 + 迭代三件套 → 搜索主循环 → 核心数字带</div>
+</section>
+
+<section>
+<span class="no">02</span><h2>机制：飞轮与它的副作用</h2>
+<p>迭代细化是个典型的<b>飞轮</b>：代理预测越准 → 选出的 Top-K 越靠谱 → 拿到的真实成绩越有价值 → 新数据让代理又更准。但飞轮有个内生的副作用——采样会持续向「验证过的高分区域」聚集，<b>没人去过的角落越来越稀疏</b>，那里的预测可靠性持续下降。探索/利用的平衡（主动学习视角）是这类方法的隐藏课题。</p>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：架构怎么变向量 · 迭代为什么越来越准</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">架构编码流水线</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="62.0" y="112.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一个架构的「身份证」</text>
+<rect x="68.0" y="124.0" width="300.0" height="20.0" rx="4" fill="#eef6f1" stroke="#dde2e9" stroke-width="1"/>
+<text x="78.0" y="138.0" font-size="7.8" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">层1: DSConv 3×3, 64ch</text>
+<rect x="68.0" y="150.0" width="300.0" height="20.0" rx="4" fill="#e8edf5" stroke="#dde2e9" stroke-width="1"/>
+<text x="78.0" y="164.0" font-size="7.8" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">层2: MaxPool 2×2</text>
+<rect x="68.0" y="176.0" width="300.0" height="20.0" rx="4" fill="#fffaf4" stroke="#dde2e9" stroke-width="1"/>
+<text x="78.0" y="190.0" font-size="7.8" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">层3: Conv 5×5, 128ch + skip</text>
+<rect x="68.0" y="202.0" width="300.0" height="20.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="78.0" y="216.0" font-size="7.8" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">…</text>
+<line x1="218.0" y1="236.0" x2="218.00" y2="252.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="108.0" y="254.0" width="220.0" height="20.0" rx="4" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="218.0" y="268.0" font-size="7.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">[0,1,1,0, 3, 64, 0,1,0, …] 拼接向量</text>
+<text x="62.0" y="292.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ one-hot 操作类型 + 数值参数 + 连接位</text>
+<text x="62.0" y="306.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ MLP 回归器吃向量，吐预测准确率</text>
+<text x="62.0" y="326.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">编码方案的取舍：简单编码（MLP 够用）vs</text>
+<text x="62.0" y="340.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">大空间（需更多初始数据 + 更强编码）</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">迭代细化的飞轮</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="496.0" y="112.0" width="290.0" height="40.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="641.0" y="129.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 代理预测全空间</text>
+<text x="641.0" y="144.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">秒级海选</text>
+<line x1="641.0" y1="152.0" x2="641.00" y2="162.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="496.0" y="162.0" width="290.0" height="40.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="641.0" y="179.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 真训 Top-K 验证</text>
+<text x="641.0" y="194.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">拿到真实成绩</text>
+<line x1="641.0" y1="202.0" x2="641.00" y2="212.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="496.0" y="212.0" width="290.0" height="40.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="641.0" y="229.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 新数据入库</text>
+<text x="641.0" y="244.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">训练集+K 条</text>
+<line x1="641.0" y1="252.0" x2="641.00" y2="262.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="496.0" y="262.0" width="290.0" height="40.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="641.0" y="279.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">④ 代理重训</text>
+<text x="641.0" y="294.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">预测更准</text>
+<text x="450.0" y="314.0" font-size="8.2" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="326.8" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">飞轮效应：预测越准 → 选的 Top-K 越靠谱 →</text>
+<text x="450.0" y="339.6" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">新数据越有价值 → 代理又更准——</text>
+<text x="450.0" y="352.4" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「验证过的高分区域」被持续加密采样</text>
+<text x="450.0" y="365.2" font-size="8.2" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="378.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">副作用：数据稀疏区域（没人去验证的角落）</text>
+<text x="450.0" y="390.8" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">预测可靠性低——探索/利用要平衡</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：架构逐层编码成拼接向量（one-hot 操作 + 数值参数 + 连接位），回归器从此可以「读图纸」。右：预测-验证-入库-重训的飞轮让代理越用越准，但也让采样向高分区域聚集——稀疏区预测变弱</text>
+</svg>
+<div class="cap">图 2 · 机制解剖：架构逐层编码成拼接向量 · 迭代飞轮与其稀疏区副作用</div>
+<div class="formula">
+<div class="f">编码:   arch → [one-hot(op₁), k₁, c₁, skip₁, …, one-hot(op_L), k_L, c_L, skip_L]
+代理:   acĉ = MLP / RandomForest(编码向量)          ← 秒级，替代小时级训练
+循环:   预测全空间 → 真训 Top-K → (arch, acc) 入库 → 重训代理 → 下一轮</div>
+<div class="why"><b>人话：</b>把网络结构写成一行「身份证号」，回归器学会了从号码猜成绩——先花小钱（训几十个）教会它大概，然后它替你把几万个候选都「面试」一遍，只有最有希望的几个才发「录用通知」（真训验证）。</div>
+</div>
+<p><b>编码方案的取舍</b>值得注意：简单编码（固定层描述 + one-hot）配 MLP 就够用；但搜索空间一大，同样 50–100 个初始样本就罩不住了——空间维度与初始数据量要匹配，这是使用这类方法前要先算的账。</p>
+</section>
+
+<section>
+<span class="no">03</span><h2>结果：预测够准，成本砍十倍</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：预测够准，成本降一个数量级</text>
+<line x1="36.0" y1="56.0" x2="540.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">预测 vs 真实（示意）</text>
+<rect x="56.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="116.0" y1="248.0" x2="416.00" y2="248.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="116.0" y1="118.0" x2="116.00" y2="248.00" stroke="#d8d8d0" stroke-width="1"/>
+<text x="416.0" y="260.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">真实准确率 →</text>
+<text x="110.0" y="124.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">预测</text>
+<circle cx="148.9" cy="245.4" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="240.3" cy="190.8" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="179.3" cy="235.7" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="201.6" cy="200.8" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="181.4" cy="210.3" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="304.9" cy="172.7" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="274.6" cy="180.2" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="245.0" cy="183.1" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="168.3" cy="244.0" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="371.6" cy="139.0" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="193.6" cy="221.0" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="233.6" cy="179.3" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="196.5" cy="224.2" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="286.4" cy="173.3" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="374.9" cy="129.6" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="231.3" cy="209.6" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="346.7" cy="139.1" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="153.3" cy="222.7" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="354.4" cy="141.9" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="198.4" cy="200.7" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="321.2" cy="164.7" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="299.8" cy="173.5" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="155.9" cy="237.1" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="226.2" cy="204.3" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="301.2" cy="161.6" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<circle cx="376.7" cy="126.4" r="3.4" fill="#0b6e52" opacity="0.7"/>
+<line x1="124.0" y1="240.0" x2="408.00" y2="126.00" stroke="#d97a2b" stroke-width="1.8"/>
+<text x="356.0" y="140.0" font-size="8.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">y = x</text>
+<text x="72.0" y="272.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 高相关：主对角线附近密集</text>
+<text x="72.0" y="285.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 稀疏区（角落）散得更开——没人去过的地方</text>
+<text x="72.0" y="298.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  代理只能瞎猜</text>
+<text x="72.0" y="311.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 迭代轮次推进 → 点集向高分区间加密</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两本账：成本与迭代</text>
+<rect x="500.0" y="92.0" width="324.0" height="122.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="112.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">真训架构数（示意）</text>
+<text x="514.0" y="140.0" font-size="8.3" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">暴力搜索</text>
+<rect x="590.0" y="128.0" width="210.0" height="16.0" rx="4" fill="#c9d8e8"/>
+<text x="804.0" y="140.0" font-size="8" fill="#c9d8e8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">×10</text>
+<text x="514.0" y="176.0" font-size="8.3" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">代理 NAS ★</text>
+<rect x="590.0" y="164.0" width="21.0" height="16.0" rx="4" fill="#0b6e52"/>
+<text x="615.0" y="176.0" font-size="8" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">×1</text>
+<text x="514.0" y="202.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">同一量级 GSC 搜索：数千架构 → 数十到数百</text>
+<rect x="500.0" y="224.0" width="324.0" height="118.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="244.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">发现质量随迭代爬升</text>
+<line x1="560.0" y1="318.0" x2="760.00" y2="318.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="582.2" y1="282.0" x2="604.44" y2="274.80" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="604.4" y1="274.8" x2="648.89" y2="267.00" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="648.9" y1="267.0" x2="693.33" y2="262.80" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="693.3" y1="262.8" x2="737.78" y2="261.30" stroke="#0b6e52" stroke-width="1.8"/>
+<circle cx="582.2" cy="282.0" r="3" fill="#0b6e52"/>
+<circle cx="604.4" cy="274.8" r="3" fill="#0b6e52"/>
+<circle cx="648.9" cy="267.0" r="3" fill="#0b6e52"/>
+<circle cx="693.3" cy="262.8" r="3" fill="#0b6e52"/>
+<circle cx="737.8" cy="261.3" r="3" fill="#0b6e52"/>
+<text x="660.0" y="330.0" font-size="7.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">迭代轮 →</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：散点/条形/曲线为笔记定性记录的示意（arXiv 2001.02976），具体数值回对原文；GSC 数据集 · 与手工架构同预算对比</text>
+</svg>
+<div class="cap">图 3 · 主结果（定性）：预测-真实相关性 · 成本对比 · 迭代收益曲线</div>
+<table class="tb">
+<tr><th>维度</th><th>结果</th><th>解读</th></tr>
+<tr class="hl"><td>预测-真实相关性</td><td>较高（密集区）</td><td>主对角线附近聚集，海选排序可靠</td></tr>
+<tr class="hl"><td>真训架构数</td><td>数十–数百（vs 数千）</td><td>总搜索成本降约一个数量级</td></tr>
+<tr><td>发现质量</td><td>与手工相当或更优</td><td>GSC 上验证</td></tr>
+<tr><td>迭代收益</td><td>逐轮爬升</td><td>代理越准，发现越好——飞轮真实转动</td></tr>
+<tr><td>稀疏区可靠性</td><td>低</td><td>数据没覆盖的角落接近瞎猜</td></tr>
+</table>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>与 #12 MicroNets 的对照最有启发。</b>MicroNets 预测<b>延迟</b>：确定性关系（纯 CPU 上操作数线性），一个统计量就够；本文预测<b>准确率</b>：高度随机（训练动力学、初始化、数据顺序全在起作用），必须用学习式回归 + 真实数据回灌——预测目标的「可预测性」决定代理的形态。</p></div>
+<div class="row"><div class="n">2</div><p><b>迭代曲线是飞轮的证据。</b>发现架构的质量随轮次单调爬升且渐趋饱和——说明收益确实来自「代理变准」而不是随机撞大运；饱和点也提示了何时该停止（多训一轮的边际收益 vs 成本）。</p></div>
+<div class="row"><div class="n">3</div><p><b>2020 NAS 四路会师于此。</b>#2/#16（DARTS 权重共享：梯度当预测器）、#12（操作数当延迟代理）、本文（回归器当准确率代理）——四条路线都在回答同一问题「怎么不训就估性能」，代价与可靠性各占一段光谱。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">04</span><h2>边界：代理的先天短板</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 冷启动成本仍在：初始 50–100 个架构的完整训练</text>
+<text x="72.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  是绕不开的前期投入</text>
+<text x="72.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 稀疏区预测不可靠：训练数据覆盖不足的角落里，</text>
+<text x="72.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  代理给的分接近瞎猜——可能错过黑马架构</text>
+<text x="72.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 搜索空间仍靠领域知识：候选池定义与 DARTS 系</text>
+<text x="72.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  一样是强先验</text>
+<text x="72.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 对比不足：与 DARTS / ENAS 等同期方法的系统</text>
+<text x="72.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  比较缺失——「便宜了多少」缺硬对照</text>
+<text x="72.0" y="240.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无跨空间迁移：一个空间上训的代理换个空间作废</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸 + 系列坐标</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 零成本 NAS：参数量/FLOPs/梯度信息当评分</text>
+<text x="536.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 跨搜索空间的代理迁移</text>
+<text x="536.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 可微分 NAS × 代理的混合搜索</text>
+<text x="536.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多目标代理：精度+延迟+能耗一起预测</text>
+<text x="536.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系列坐标（2020 NAS 四路会师）：</text>
+<text x="536.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #2 AutoKWS：DARTS 权重共享——梯度即预测器</text>
+<text x="536.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #16 NAS-KWS：DARTS + 空洞卷积</text>
+<text x="536.0" y="240.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #12 MicroNets：操作数预测延迟（确定性线性）</text>
+<text x="536.0" y="254.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文：学习式预测准确率（随机性回归）</text>
+<text x="536.0" y="268.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 四条路线回答同一问题：「怎么不训就估性能」</text>
+<text x="536.0" y="281.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——代价与可靠性的光谱从左到右排开</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：昂贵评估的黑盒优化，先花小钱训一个「评估代理」再海选——预测目标越确定（延迟）代理越简单可靠，越随机（准确率）越需要迭代细化与真实数据回灌；警惕代理在数据稀疏区的过度自信</text>
+</svg>
+<div class="cap">图 4 · 边界与延伸：冷启动成本 · 稀疏区不可靠 · 无跨空间迁移 · 对比不足</div>
+<div class="cards">
+<div class="card bad"><h4>冷启动成本仍在</h4><p>初始 50–100 个架构的完整训练是绕不开的前期投入——「便宜」是相对暴力搜索的便宜。</p></div>
+<div class="card bad"><h4>稀疏区预测不可靠</h4><p>训练数据覆盖不足的角落里代理给的分接近瞎猜——黑马架构（怪但强的结构）最容易被漏掉。</p></div>
+<div class="card bad"><h4>无跨空间迁移</h4><p>一个搜索空间上训的代理换个空间就作废——每次新搜索的初始投入要重付。</p></div>
+<div class="card"><h4>对比不足</h4><p>与 DARTS/ENAS 等同期方法的系统比较缺失——「便宜了多少」缺硬对照，只能看相对量级。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">05</span><h2>可迁移的判断</h2>
+<div class="judge">
+<div class="jt">JUDGMENTS · 能带走的三条</div>
+<p>① 昂贵评估的优化问题，先训一个「评估代理」再海选。</p>
+<div class="rw">凡是单次评估要小时级的场景（架构搜索、超参调优、A/B 候选筛选），代理模型 + 真实验证的循环几乎总能砍一个数量级——前提是评估目标有可学的规律可循。</div>
+<p>② 预测目标的可预测性，决定代理的形态。</p>
+<div class="rw">确定性目标（延迟、内存）用简单统计量（#12 的操作数）；随机性目标（准确率）用学习式回归 + 迭代回灌（本文）——先判断目标在谱上的位置，再选代理，不要上来就训神经网络。</div>
+<p>③ 学习式代理必然偏科：它只会优化「见过的地方」。</p>
+<div class="rw">飞轮让采样向高分区域聚集，稀疏区成为盲区——用代理做搜索时要显式保留探索预算（随机采样、不确定性采样），否则找到的是「代理认为的好」而非「真的好」。</div>
+</div>
+<p><b>系列坐标</b>：2020 年 NAS×KWS 的第四条路线——#2 AutoKWS、#16 NAS-KWS 走 DARTS（权重共享隐式预测性能），#12 MicroNets 用操作数预测延迟（确定性代理），本文用回归器预测准确率（学习式代理）——四条路线合起来，恰好把「性能预测」这个 NAS 核心问题的解空间铺开了一遍。</p>
+</section>
+
+<div class="foot">
+<span class="pill">arXiv 2001.02976</span><span class="pill">代理模型</span><span class="pill">架构编码</span><span class="pill">成本 −一个数量级</span>
+<div class="foot-note">本页散点/条形/曲线为笔记定性记录的示意，具体数值以原文为准 · 本页为可视化精读笔记，图表由 SVG 重绘</div>
+</div>
+
+</div>
+</body>
+</html>
