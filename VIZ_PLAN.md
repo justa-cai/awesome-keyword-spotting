@@ -1,7 +1,7 @@
 # 可视化精读改写计划（VIZ_PLAN）
 
 按年份倒序把全部论文笔记重写为自包含 HTML+SVG 可视化精读页。每篇：读笔记 → python 生成 4 张 SVG → 注入统一模板 HTML → 校验 → 截图自查 → 提交推送。
-**总进度：227 / 305**
+**总进度：228 / 305**
 
 ## 2026（24 篇）
 **进度：24 / 24**
@@ -243,7 +243,7 @@
 - [⬜] Zero-Shot Federated Learning with New Classes for Audio Classification
 
 ## 2020（29 篇）
-**进度：13 / 29**
+**进度：14 / 29**
 
 - [x] A Depthwise Separable Convolutional Neural Network for Keyword Spotting on an Embedded System
 - [⬜] AutoKWS: Keyword Spotting with Differentiable Architecture Search
@@ -258,7 +258,7 @@
 - [x] Metric Learning for Keyword Spotting
 - [x] MicroNets: Neural Network Architectures for Deploying TinyML Applications on Commodity Microcontrollers
 - [x] Mining Effective Negative Training Samples for Keyword Spotting
-- [⬜] Multi-Task Learning for Speaker Verification and Voice Trigger Detection
+- [x] Multi-Task Learning for Speaker Verification and Voice Trigger Detection
 - [⬜] Multi-Task Network for Noise-Robust Keyword Spotting and Speaker Verification using CTC-based Soft VAD and Global Query Attention
 - [⬜] Neural Architecture Search for Keyword Spotting
 - [⬜] Neural ODE with Temporal Convolution and Time Delay Neural Networks for Small-Footprint Keyword Spotting
