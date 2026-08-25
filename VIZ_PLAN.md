@@ -1,9 +1,11 @@
-# 可视化精读页计划（VIZ_PLAN）
+# 可视化精读改写计划（VIZ_PLAN）
 
-全量清单与进度真源。每完成一页重新生成。
-**进度：175 / 305**
+按年份倒序把全部论文笔记重写为自包含 HTML+SVG 可视化精读页。每篇：读笔记 → python 生成 4 张 SVG → 注入统一模板 HTML → 校验 → 截图自查 → 提交推送。
+**总进度：176 / 305**
 
-## 2026（24 / 24 ✅）
+## 2026（24 篇）
+**进度：24 / 24**
+
 - [✅] A Multiplication-Free Feature Extractor for Signal Classification: Keyword Spotting Case Study（面向信号分类的无乘法特征提取器：关键词检测案例研究）
 - [✅] BEST-STD 2.0：面向口语词检索的均衡高效语音分词器
 - [✅] Cumsum-Composable Phase Transport：用前缀和可组合的相位传输构建低成本流式关键词检测
@@ -29,7 +31,9 @@
 - [✅] ProKWS: Personalized Keyword Spotting via Collaborative Learning of Phonemes and Prosody
 - [✅] Scalable Keyword Spotting via Modular Network Expansion：冻结整个基座、外挂轻量扩展分支的端侧唤醒词无损扩容
 
-## 2025（36 / 36 ✅）
+## 2025（36 篇）
+**进度：36 / 36**
+
 - [✅] ASAP-FE：面向边缘处理器多通道关键词检出的节能特征提取前端
 - [✅] 免乘法器 MFCC 特征提取器的低功耗关键词检测芯片（A Low-Power Keyword Spotting Chip with Multiplier-Free MFCC Feature Extractor）
 - [✅] AdaKWS: Towards Robust Keyword Spotting with Test-Time Adaptation（面向鲁棒关键词检出的测试时自适应方法）
@@ -67,7 +71,9 @@
 - [✅] TsetlinKWS：65nm 工艺下 16.58µW、0.63mm² 的状态驱动卷积 Tsetlin Machine 关键词检测加速器
 - [✅] Vocal Tract Length Warped Features for Spoken Keyword Spotting（声道长度规整特征用于关键词检测）深读笔记
 
-## 2024（44 / 44 ✅）
+## 2024（44 篇）
+**进度：44 / 44**
+
 - [✅] KWS-Whisper：用开放词表关键词检测增强 Whisper 的多任务训练方法
 - [✅] 对抗训练最小化关键词检测中的TTS数据过拟合（Adversarial Training of Keyword Spotting to Minimize TTS Data Overfitting）
 - [✅] 通过端侧可学习的用户语音特征增强关键词检测
@@ -113,7 +119,9 @@
 - [✅] Utilizing TTS Synthesized Data for Efficient Development of Keyword Spotting Model（利用 TTS 合成数据高效开发关键词检测模型）
 - [✅] Wake Word and Speech Recognition Application on Edge Device: A Case of Improving the Electric Wheelchair（边缘设备上的唤醒词与语音识别应用：改进电动轮椅的案例研究）
 
-## 2023（40 / 41 ）
+## 2023（41 篇）
+**进度：40 / 41**
+
 - [✅] A 3.8μW 10 关键词抗噪关键词检出处理器：对称压缩三值权重神经网络
 - [✅] 少神经元神经形态关键词检测的时间编码器对比：TDE 与双突触 E-I 元件
 - [✅] Automatic Audio Feature Extraction for Keyword Spotting：用卷积自编码器替换梅尔家族特征提取
@@ -156,7 +164,9 @@
 - [✅] VE-KWS：视觉模态增强的端到端关键词检测
 - [⬜] VIC-KD：方差-不变性-协方差知识蒸馏，让关键词检测更能抵御对抗攻击
 
-## 2022（31 / 42 ）
+## 2022（42 篇）
+**进度：32 / 42**
+
 - [✅] AB/BA Analysis: A Framework for Estimating Keyword Spotting Recall Improvement While Maintaining Audio Privacy
 - [✅] 23 μW 关键词检测芯片：基于环形振荡器的时域特征提取
 - [✅] A Fast Network Exploration Strategy to Profile Low Energy Consumption for Keyword Spotting
@@ -188,7 +198,7 @@
 - [✅] Personalized Keyword Spotting through Multi-task Learning（基于多任务学习的个性化关键词检测）
 - [✅] Production Federated Keyword Spotting via Distillation, Filtering, and Joint Federated-Centralized Training
 - [✅] Progressive Continual Learning for Spoken Keyword Spotting
-- [⬜] QbyE-MLPMixer：基于 MLPMixer 的示例查询式开放词表关键词检测
+- [✅] QbyE-MLPMixer：基于 MLPMixer 的示例查询式开放词表关键词检测
 - [⬜] Rainbow Keywords: Efficient Incremental Learning for Online Spoken Keyword Spotting
 - [⬜] Small Footprint Multi-channel ConvMixer for Keyword Spotting with Centroid Based Awareness
 - [⬜] Split Federated Learning on Micro-controllers: A Keyword Spotting Showcase（微控制器上的分割联邦学习：一个关键词识别案例）
@@ -200,7 +210,9 @@
 - [⬜] WakeUpNet：基于移动版 Transformer 的端到端流式语音唤醒框架
 - [⬜] Wake Word Detection Based on Res2Net（基于 Res2Net 的唤醒词检测模型）
 
-## 2021（0 / 28 ）
+## 2021（28 篇）
+**进度：0 / 28**
+
 - [⬜] AUC Optimization for Robust Small-footprint Keyword Spotting with Limited Training Data
 - [⬜] A Separable Temporal Convolution Neural Network with Attention for Small-Footprint Keyword Spotting
 - [⬜] A Streaming End-to-End Framework For Spoken Language Understanding
@@ -230,7 +242,9 @@
 - [⬜] WaveSense: Efficient Temporal Convolutions with Spiking Neural Networks for Keyword Spotting
 - [⬜] Zero-Shot Federated Learning with New Classes for Audio Classification
 
-## 2020（0 / 29 ）
+## 2020（29 篇）
+**进度：0 / 29**
+
 - [⬜] A Depthwise Separable Convolutional Neural Network for Keyword Spotting on an Embedded System
 - [⬜] AutoKWS: Keyword Spotting with Differentiable Architecture Search
 - [⬜] Depthwise Separable Convolutional ResNet with Squeeze-and-Excitation Blocks for Small-footprint Keyword Spotting
@@ -261,7 +275,9 @@
 - [⬜] Very Fast Keyword Spotting System with Real Time Factor Below 0.01
 - [⬜] WSRNet: Joint Spotting and Recognition of Handwritten Words
 
-## 2019（0 / 22 ）
+## 2019（22 篇）
+**进度：0 / 22**
+
 - [⬜] A Monaural Speech Enhancement Method for Robust Small-Footprint Keyword Spotting
 - [⬜] Adversarial Detection in Speech: A Classification Approach
 - [⬜] Channel Pruned and Weight Binarized Neural Networks for Keyword Spotting
@@ -285,7 +301,9 @@
 - [⬜] Ternary Hybrid Neural-Tree Networks for Highly Constrained IoT Applications
 - [⬜] Training Keyword Spotting Systems with Reverberant Speech
 
-## 2018（0 / 23 ）
+## 2018（23 篇）
+**进度：0 / 23**
+
 - [⬜] ASR-free CNN-DTW Keyword Spotting using Multilingual Bottleneck Features for Almost Zero-Resource Languages
 - [⬜] An Empirical Evaluation of Generic Convolutional and Recurrent Networks for Sequence Modeling
 - [⬜] Attention-based End-to-End Models for Small-Footprint Keyword Spotting
@@ -310,7 +328,9 @@
 - [⬜] Weight-Importance Sparse Training in Keyword Spotting
 - [⬜] Zero-shot Keyword Spotting for Visual Speech Recognition in-the-wild
 
-## others（0 / 16 ）
+## others（16 篇）
+**进度：0 / 16**
+
 - [⬜] An End-to-End Architecture for Keyword Spotting and Voice Activity Detection
 - [⬜] Cascade Architecture for Keyword Spotting on Mobile Devices
 - [⬜] Compressed Time-Delay Neural Network for Small-Footprint Keyword Spotting
@@ -327,4 +347,3 @@
 - [⬜] Streaming End-to-End Speech Recognition and Keyword Spotting Using Sequence-to-Sequence Models
 - [⬜] Structured Transforms for Small-Footprint Deep Learning
 - [⬜] Trainable Frontend for Robust and Far-Field Keyword Spotting
-
