@@ -1,7 +1,7 @@
 # 可视化精读改写计划（VIZ_PLAN）
 
 按年份倒序把全部论文笔记重写为自包含 HTML+SVG 可视化精读页。每篇：读笔记 → python 生成 4 张 SVG → 注入统一模板 HTML → 校验 → 截图自查 → 提交推送。
-**总进度：178 / 305**
+**总进度：179 / 305**
 
 ## 2026（24 篇）
 **进度：24 / 24**
@@ -165,7 +165,7 @@
 - [⬜] VIC-KD：方差-不变性-协方差知识蒸馏，让关键词检测更能抵御对抗攻击
 
 ## 2022（42 篇）
-**进度：34 / 42**
+**进度：35 / 42**
 
 - [x] AB/BA Analysis: A Framework for Estimating Keyword Spotting Recall Improvement While Maintaining Audio Privacy
 - [x] 23 μW 关键词检测芯片：基于环形振荡器的时域特征提取
