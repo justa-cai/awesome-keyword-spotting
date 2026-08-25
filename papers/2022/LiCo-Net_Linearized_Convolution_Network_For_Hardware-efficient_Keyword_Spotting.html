@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiCo-Net：硬件高效的线性化卷积关键词检测</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 15.5px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  table.tb { width: 100%; border-collapse: collapse; margin: 18px 0; background: var(--card);
+    border-radius: 12px; overflow: hidden; font-size: 13.8px; }
+  table.tb th { background: var(--acc-lt); color: var(--acc-dk); font-weight: 700;
+    padding: 10px 12px; text-align: left; }
+  table.tb td { padding: 9px 12px; border-top: 1px solid var(--line); color: var(--ink2); }
+  table.tb td b { color: var(--ink); }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №26</div>
+  <h1 class="hero">同样的乘加，在芯片上兑换的周期<br>差三倍：<span class="g">训练用卷积，推理全线性</span></h1>
+  <div class="chips">
+    <span class="chip">LiCo-Net · Meta AI · arXiv 2211.04635</span>
+    <span class="chip">流式卷积 → 线性层等价转换</span>
+    <span class="chip">Cadence HiFi4 · int8 周期实测</span>
+    <span class="chip">「hey operator」· 95K 语句</span>
+  </div>
+  <div class="meta">学术界以 MACs 论英雄，但 ML 算子在低功耗处理器上呈异构效率剖面——LiCo-Net 的赌注不是计算量，是计算量在芯片上的兑换率：命题 1 保证转换零精度损失。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>立论</b>：理论 MACs「往往不能解读为真实硬件效率」——同样 1 次乘加，卷积算子和全连接在真实芯片上的周期完全不同；反直觉现象：MACs 更高的 MLP 可能比 MACs 更低的 CNN 更快。</li>
+      <li><b>三条经验事实</b>：int8 比 float 省算力；线性层比其他层类型更高效（被处理器厂商几十年手工优化、吃满 SIMD）；卷积建模能力强——双阶段设计让每阶段各用各的最优形态。</li>
+      <li><b>命题 1</b>：流式 CNN 可等价转 MLP ⟺ 第一层步长 = chunk 大小（输入长锁定为核宽 K，卷积退化为一次矩阵向量乘）+ 其余层步长 1（逐点卷积天然线性）。</li>
+      <li><b>零精度损失</b>：转换只是权重 reshape + 输入展平——部署后的线性网与训练时的卷积网在数学上是同一个函数，根本区别于蒸馏/剪枝/低秩这类有损压缩。</li>
+      <li><b>LiCo-Block</b>：大核扩张卷积（时序上下文只混合一次）+ 两层逐点卷积（纯通道混合）+ ReLU；s=1 时加残差（s&gt;1 时间维下采样形状不对齐）。统一视角：MLP 是 LiCo-Net 在 L=1、K=21 的退化特例。</li>
+      <li><b>硬件实测</b>：HiFi4 周期精确模拟器——相近 MACs 与步长下比 SVDF 快 1.5–1.8×（周期降约 40%）；兑换率 SVDF 1.68 cyc/MAC vs LiCo 0.98 vs MLP 0.51——同 MACs 不同算子差 3 倍以上。</li>
+      <li><b>步长语义</b>：s = 推理频率（10ms 特征下 s=3 每 30ms 推一次）——MIPS = 单次周期 × 频率，大 LiCo 9.36→3.12；单次推理周期几乎不随步长变（收益全在持续负载/功耗维度）。</li>
+      <li><b>精度侧</b>：大步长对所有模型几乎无损（1.1s 外部解码平滑窗——30ms 决策粒度相对关键词时长足够稠密）；小模型 s=3 时小 LiCo 反超小 SVDF（0.025 FA/Hr 处 FRR 2%→1.2%）。</li>
+      <li><b>性价比最优点</b>：小 LiCo-Net + stride=3——61,154 周期 / 2.01 MIPS，精度还优于同设定 SVDF。</li>
+      <li><b>边界</b>：HiFi4 单核绑定（「另一颗芯片上差距可能不同」）；命题 1 锁死架构自由度（多尺度/池化/空洞不可用）；vs MLP 仍有 2× 周期差；单唤醒词内部数据不可复现；基线只 SVDF/MLP；全模拟器无真机功耗。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：算子类型决定每 MAC 的真实周期数</h2>
+  <div class="h2sub">四类 KWS 方案的「建模能力 vs 硬件亲和」两难</div>
+  <p class="lead">KWS 是设备里唯一 24×7 不间断烧电烧算力的神经网络。MLP 硬件友好但容量上限低；RNN 对常驻流式数据预测不稳定、非线性算子低效且对静态 int8 量化脆弱；CNN 量化友好性能高但开销太大；流式 CNN（SVDF/S1DCNN）把 MACs 压小了——但优化的仍是卷积类算子，而卷积恰是 DSP 上效率低于预期的算子，算子异质性的开销只是被 MACs 数字掩盖。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>RNN 的两条死刑</h4>
+      <p>对前一时刻状态的依赖是「非确定的」——常驻流式数据上预测不稳定；内部非线性算子在低功耗硬件上效率低，且对静态 int8 量化很脆弱——对常开系统，量化后性能崩塌几乎是死刑。</p>
+    </div>
+    <div class="card bad">
+      <h4>SVDF 的隐藏开销</h4>
+      <p>SVDF 块内仍是「矩阵分解 + 记忆维深度卷积 + 瓶颈层」的混合体——算子异质性带来的每 MAC 周期差没有被消除；Table 1 里 SVDF 在 stride=3 时 MACs 反而升高（90.7→111.2K），机理未解释。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：命题 1 + LiCo-Block + 双阶段</h2>
+  <div class="h2sub">一座可证明等价的桥</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 980">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="980.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LiCo-Net：训练用卷积，推理全线性——数学上严格等价</text>
+<line x1="36.0" y1="60.0" x2="600.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 立论：MACs ≠ 硬件效率</text>
+<rect x="36.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">算子的异构效率剖面</text>
+<text x="52.0" y="142.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">理论计算量「往往不能解读为真实硬件效率」——同样 1 次</text>
+<text x="52.0" y="154.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  乘加，卷积算子与全连接在真实芯片上的周期完全不同</text>
+<text x="52.0" y="166.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">卷积硬件效率常低于预期；线性算子被厂商几十年手工优化</text>
+<text x="52.0" y="178.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  能吃满 SIMD 全吞吐</text>
+<text x="52.0" y="190.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">反直觉：MACs 更高的 MLP 可能比 MACs 更低的 CNN 更快</text>
+<text x="52.0" y="202.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——「以 MACs 论英雄」的端侧设计范式需要重写</text>
+<rect x="474.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三条经验事实 = 全部设计出发点</text>
+<text x="490.0" y="142.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">硬件侧：① 相同计算量下 int8 比 float 省算力</text>
+<text x="490.0" y="154.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② 线性层通常比其他层类型更高效</text>
+<text x="490.0" y="166.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">建模侧：③ 卷积建模能力强（权重沿时间共享、</text>
+<text x="490.0" y="178.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  平移等变、训练基础设施成熟）</text>
+<text x="490.0" y="190.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="202.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 双阶段：训练用卷积（吃 ③），推理全线性（吃 ①②），</text>
+<text x="490.0" y="214.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  中间靠数学等价保证函数完全一致</text>
+<text x="36.0" y="212.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 命题 1：流式卷积 → 线性层的等价转换条件</text>
+<rect x="36.0" y="226.0" width="414.0" height="158.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="250.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">当输入长度 = 核宽时，卷积 = 线性层（式 4）</text>
+<text x="52.0" y="272.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">流式场景天然配合：chunk 大小 t = 步长 s 时，每块输入 =</text>
+<text x="52.0" y="283.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  (K−s) 帧历史 + s 帧新数据，长度恰为 K = 核宽——</text>
+<text x="52.0" y="294.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  卷积退化为一次纯矩阵向量乘（W 重排，X 展平）</text>
+<text x="52.0" y="305.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="316.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">命题 1：流式 CNN 可等价转 MLP ⟺</text>
+<text x="52.0" y="327.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  (1) 第一层步长 s₁ = chunk 大小 t（锁定输入长 = 核宽）</text>
+<text x="52.0" y="338.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  (2) 其余所有层步长 = 1（帧率不变，逐点卷积天然线性）</text>
+<text x="52.0" y="349.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="360.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">性质：纯 reshape + 展平——零近似零精度损失，</text>
+<text x="52.0" y="371.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  根本区别于蒸馏/剪枝/低秩这类有损压缩</text>
+<rect x="474.0" y="226.0" width="414.0" height="158.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="490.0" y="250.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">流式 = 内部状态 + 小块新输入（图 1）</text>
+<text x="490.0" y="272.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">非流式滑窗：相邻窗 window−shift 的重叠反复参与计算</text>
+<text x="490.0" y="283.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">流式：历史 K−s 帧维护为内部状态 + 每次只算 s 帧新数据</text>
+<text x="490.0" y="294.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——重叠部分的重复计算被彻底消灭</text>
+<text x="490.0" y="305.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="316.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">步长 s 的工程语义 = 推理频率：10ms 特征下 s=1 每帧推</text>
+<text x="490.0" y="327.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  一次，s=3 每 30ms 一次——更低频率更省算力可能更高延迟</text>
+<text x="490.0" y="338.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="349.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练态（流式卷积）与推理态（int8 线性链）分离：</text>
+<text x="490.0" y="360.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  建模友好与硬件友好从互斥选项解耦成正交自由度</text>
+<text x="36.0" y="390.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ LiCo-Block：为「可线性化」量身定做的瓶颈三明治</text>
+<rect x="36.0" y="406.0" width="148.0" height="88.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="110.0" y="430.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">核卷积 K×e↑</text>
+<text x="110.0" y="450.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">核宽 K&gt;1，通道按 e&</text>
+<text x="110.0" y="462.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">gt;1 扩张</text>
+<text x="110.0" y="474.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">时序上下文只混合一次</text>
+<line x1="184.0" y1="450.0" x2="198.0" y2="450.0" stroke="#8a93a5" stroke-width="1.8" marker-end="url(#ar)"/>
+<rect x="216.0" y="406.0" width="148.0" height="88.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="290.0" y="430.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">逐点卷积 ×2</text>
+<text x="290.0" y="450.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">核宽 1，纯通道混合</text>
+<text x="290.0" y="474.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">任何输入长度天然线性</text>
+<line x1="364.0" y1="450.0" x2="378.0" y2="450.0" stroke="#8a93a5" stroke-width="1.8" marker-end="url(#ar)"/>
+<rect x="396.0" y="406.0" width="148.0" height="88.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="470.0" y="430.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ReLU</text>
+<text x="470.0" y="450.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">层间非线性</text>
+<line x1="544.0" y1="450.0" x2="558.0" y2="450.0" stroke="#8a93a5" stroke-width="1.8" marker-end="url(#ar)"/>
+<rect x="516.0" y="406.0" width="136.0" height="88.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="584.0" y="430.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">残差（仅 s=1）</text>
+<text x="584.0" y="450.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">s&gt;1 时间维下采样</text>
+<text x="584.0" y="474.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">形状不对齐无法建捷径</text>
+<line x1="652.0" y1="450.0" x2="666.0" y2="450.0" stroke="#8a93a5" stroke-width="1.8" marker-end="url(#ar)"/>
+<rect x="736.0" y="406.0" width="136.0" height="88.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="804.0" y="430.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">× L 块 + 线性分类器</text>
+<text x="804.0" y="450.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">大：5 块 e=6 K=5 w=</text>
+<text x="804.0" y="462.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">32</text>
+<text x="804.0" y="474.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">小：5 块 e=4 K=4 w=</text>
+<text x="804.0" y="486.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">16</text>
+<text x="460.0" y="514.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">统一视角：基线 MLP（21 帧输入 + 两隐层）恰好等价于一个核宽 21 的单 LiCo-Block——MLP 是 LiCo-Net 在 L=1、K=21 的退化特例</text>
+<text x="460.0" y="530.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么扩张因子：逐点卷积参数效率高但单层表达有限——先撑宽（32→192）再做非线性，用极少参数买表达能力（倒瓶颈思路的 KWS 流式移植）</text>
+<rect x="36.0" y="560.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="586.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1.5~1.8×</text>
+<text x="130.0" y="606.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">vs SVDF 实测提速（HiFi4）</text>
+<text x="298.0" y="586.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−40%</text>
+<text x="298.0" y="606.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">周期数（摘要口径，对 SVDF）</text>
+<text x="466.0" y="586.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<text x="466.0" y="606.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">转换精度损失（纯 reshape）</text>
+<text x="634.0" y="586.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3×+</text>
+<text x="634.0" y="606.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">同 MACs 不同算子的周期差</text>
+<text x="802.0" y="586.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.12</text>
+<text x="802.0" y="606.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">大模型 s=3 的 MIPS（s=1 是 9.36）</text>
+<text x="36.0" y="644.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据：Meta 内部「hey operator」——正样本 95K 条（训练 84,354/10,047 说话人，测试 10,765/1,202，说话人无关划分）+ 多语言负样本 306h/194h；40 维 LMEL；11 类目标（9 子词+SIL+FILLER）；Cadence HiFi4（NXP i.MX RT600）周期精确模拟器</text>
+</svg>
+    <p class="cap"><b>图1 · 机制全景</b>：MACs ≠ 硬件效率的立论与三条经验事实；命题 1 的等价转换条件与流式内部状态；LiCo-Block 瓶颈三明治及「MLP 是 L=1、K=21 退化特例」的统一视角。</p>
+  </div>
+  </div>
+  <div class="formula">
+    <div class="f">当 t = s：X^(j) = [历史 K−s 帧 ‖ s 帧新数据]，长度 = K = 核宽 → Y^(j) = linear(X̃^(j), W̃)</div>
+    <div class="why"><b>人话（式 4 + 命题 1）</b>：流式场景提供了天然配合——chunk 大小等于步长时每块输入恰好一个核宽长，卷积每块只产生一个输出位置，于是「卷积」退化为一次纯矩阵向量乘。流式本身还消灭了滑窗推理的重复计算：相邻窗 window−shift 的重叠反复参与计算，而「内部状态 + 小块新输入」等价产出输出。</div>
+  </div>
+  <p class="sub"><b>为什么第一层才用大核</b>：时序上下文的混合只需要发生一次，放在入口把 K 帧声学上下文编码进单帧表示，后续层就能全部用核宽 1 的逐点卷积——命题 1 的条件 2 自然满足。<b>为什么扩张因子</b>：先撑宽（32→192）再做非线性，等效于在瓶颈预算内加大隐藏层宽度——移动端倒瓶颈思路的 KWS 流式移植。</p>
+
+  <h2><span class="no">§03</span>实验：HiFi4 周期精确模拟器</h2>
+  <div class="h2sub">所有模型统一 int8 量化、优化内核（深度卷积 SIMD）保证公平</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 450">
+<rect x="0.0" y="0.0" width="880.0" height="450.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Table 1 核心：周期数 / MACs 兑换率（大模型 · HiFi4 实测）</text>
+<line x1="36.0" y1="56.0" x2="560.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="245.0" y="94.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">每 MAC 兑换的周期数（按 Table 1 反推）</text>
+<rect x="110.0" y="116.0" width="201.6" height="40.0" rx="6" fill="#c0392b"/>
+<text x="319.6" y="142.0" font-size="11" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1.68 cyc/MAC</text>
+<text x="104.0" y="142.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">SVDF（混合算子）</text>
+<rect x="110.0" y="178.0" width="117.6" height="40.0" rx="6" fill="#0b6e52"/>
+<text x="235.6" y="204.0" font-size="11" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.98 cyc/MAC</text>
+<text x="104.0" y="204.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">LiCo-Net（全线性）</text>
+<rect x="110.0" y="240.0" width="61.2" height="40.0" rx="6" fill="#33507a"/>
+<text x="179.2" y="266.0" font-size="11" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.51 cyc/MAC</text>
+<text x="104.0" y="266.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">MLP（纯线性）</text>
+<rect x="110.0" y="296.0" width="320.0" height="30.0" rx="6" fill="#eef6f1"/>
+<text x="270.0" y="316.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">同样的乘加，落在不同算子里差 3 倍以上</text>
+<text x="680.0" y="94.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单次推理周期数（表 1 原文）</text>
+<rect x="530.0" y="112.0" width="69.0" height="22.0" rx="3" fill="#33507a"/>
+<text x="605.0" y="127.0" font-size="8.5" fill="#33507a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">48,891</text>
+<text x="524.0" y="127.0" font-size="9" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">MLP · s=1</text>
+<text x="795.0" y="127.0" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">96K</text>
+<rect x="530.0" y="146.0" width="69.5" height="22.0" rx="3" fill="#33507a"/>
+<text x="605.5" y="161.0" font-size="8.5" fill="#33507a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">49,258</text>
+<text x="524.0" y="161.0" font-size="9" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">MLP · s=3</text>
+<text x="795.0" y="161.0" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">96K</text>
+<rect x="530.0" y="180.0" width="132.2" height="22.0" rx="3" fill="#0b6e52"/>
+<text x="668.2" y="195.0" font-size="8.5" fill="#0b6e52" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">93,622</text>
+<text x="524.0" y="195.0" font-size="9" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">LiCo · s=1</text>
+<text x="795.0" y="195.0" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">95K</text>
+<rect x="530.0" y="214.0" width="133.5" height="22.0" rx="3" fill="#0b6e52"/>
+<text x="669.5" y="229.0" font-size="8.5" fill="#0b6e52" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">94,556</text>
+<text x="524.0" y="229.0" font-size="9" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">LiCo · s=3</text>
+<text x="795.0" y="229.0" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">95K</text>
+<rect x="530.0" y="248.0" width="215.2" height="22.0" rx="3" fill="#c0392b"/>
+<text x="751.2" y="263.0" font-size="8.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">152,458</text>
+<text x="524.0" y="263.0" font-size="9" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">SVDF · s=1</text>
+<text x="795.0" y="263.0" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">91K</text>
+<rect x="530.0" y="282.0" width="239.9" height="22.0" rx="3" fill="#c0392b"/>
+<text x="775.9" y="297.0" font-size="8.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">169,922</text>
+<text x="524.0" y="297.0" font-size="9" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">SVDF · s=3</text>
+<text x="795.0" y="297.0" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">111K</text>
+<text x="795.0" y="102.0" font-size="8.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">MACs</text>
+<text x="36.0" y="418.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：LiCo 与 MLP 的周期数几乎不随步长变（单次推理 = 状态+新块，步长只降频率）；SVDF 的 MACs 在 s=3 反而升高（90.7→111.2K，机理论文未解释）；MIPS = 单次周期 × 推理频率——大 LiCo 9.36（s=1）→ 3.12（s=3）</text>
+</svg>
+    <p class="cap"><b>图2 · Table 1 核心</b>：每 MAC 兑换周期数（SVDF 1.68 vs LiCo 0.98 vs MLP 0.51——同 MACs 差 3 倍以上）；六组单次推理周期数——LiCo 与 MLP 几乎不随步长变，SVDF 的 MACs 在 s=3 反而升高。</p>
+  </div>
+  </div>
+  <table class="tb">
+    <tr><th>大模型 · stride=1</th><th>参数量</th><th>MACs</th><th>周期数</th><th>MIPS</th><th>兑换率</th></tr>
+    <tr><td>MLP</td><td>96.7K</td><td>96.3K</td><td>48,891</td><td>4.88</td><td>0.51 cyc/MAC</td></tr>
+    <tr class="hl"><td><b>LiCo-Net</b></td><td><b>96.6K</b></td><td>95.3K</td><td><b>93,622</b></td><td><b>9.36</b></td><td><b>0.98</b></td></tr>
+    <tr><td>SVDF</td><td>92K</td><td>90.7K</td><td>152,458</td><td>15.2</td><td>1.68 cyc/MAC</td></tr>
+  </table>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">步长消融：MIPS 降 3 倍几乎无损（图 3 + 表 1）</text>
+<line x1="36.0" y1="56.0" x2="460.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="260.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">推理频率换持续负载（大模型）</text>
+<rect x="160.0" y="114.0" width="175.5" height="26.0" rx="4" fill="#0b6e52" opacity="0.55"/>
+<text x="341.5" y="132.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">s=1：9.36 MIPS</text>
+<rect x="160.0" y="144.0" width="58.5" height="26.0" rx="4" fill="#0b6e52"/>
+<text x="224.5" y="162.0" font-size="9.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">s=3：3.12 MIPS</text>
+<text x="154.0" y="146.0" font-size="10.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LiCo-Net</text>
+<rect x="160.0" y="188.0" width="285.0" height="26.0" rx="4" fill="#c0392b" opacity="0.55"/>
+<text x="451.0" y="206.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">s=1：15.20 MIPS</text>
+<rect x="160.0" y="218.0" width="105.0" height="26.0" rx="4" fill="#c0392b"/>
+<text x="271.0" y="236.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">s=3：5.60 MIPS</text>
+<text x="154.0" y="220.0" font-size="10.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SVDF</text>
+<rect x="160.0" y="262.0" width="91.5" height="26.0" rx="4" fill="#33507a" opacity="0.55"/>
+<text x="257.5" y="280.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">s=1：4.88 MIPS</text>
+<rect x="160.0" y="292.0" width="30.4" height="26.0" rx="4" fill="#33507a"/>
+<text x="196.4" y="310.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">s=3：1.62 MIPS</text>
+<text x="154.0" y="294.0" font-size="10.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MLP</text>
+<text x="260.0" y="340.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">MIPS ≈ 按 3 倍反比下降（推理频率 100→33.3 次/秒）</text>
+<rect x="540.0" y="86.0" width="304.0" height="160.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="692.0" y="106.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">精度侧发现（图 3 DET）</text>
+<text x="554.0" y="126.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 大步长对所有模型性能几乎没有影响——「用更大</text>
+<text x="554.0" y="140.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  步长换计算效率而无需牺牲性能」（原文）</text>
+<text x="554.0" y="154.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 机理：1.1s 外部解码平滑窗——30ms 决策粒度相对</text>
+<text x="554.0" y="168.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  关键词数百毫秒时长足够稠密</text>
+<text x="554.0" y="182.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 小模型 s=3：小 LiCo 反超小 SVDF——0.025 FA/Hr</text>
+<text x="554.0" y="196.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  工作点 FRR 2% → 1.2%（小参数量下建模功力更足）</text>
+<text x="554.0" y="210.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SVDF 与 LiCo 多数设定相当；两者都显著超越 MLP</text>
+<text x="554.0" y="224.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （纯 MLP 容量不足坐实）</text>
+<rect x="540.0" y="258.0" width="304.0" height="70.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="692.0" y="278.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">性价比最优点</text>
+<text x="692.0" y="296.0" font-size="10" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">小 LiCo-Net + stride=3：</text>
+<text x="692.0" y="312.0" font-size="9.5" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">61,154 周期 / 2.01 MIPS，精度优于同设定 SVDF</text>
+<text x="36.0" y="418.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注意：大模型组参数刻意对齐（96.7K / 92K / 96.6K）；小 MLP 50.3K 是另两家近两倍（论文承认，用作「MLP 算子少所以快」的论据）——小模型组三方对比不够干净</text>
+</svg>
+    <p class="cap"><b>图3 · 步长消融与精度侧</b>：MIPS ≈ 按 3 倍反比下降（推理频率 100→33.3 次/秒）；大步长几乎无损的机理（1.1s 外部解码平滑窗）；小 LiCo+stride=3 是性价比最优点。</p>
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 硬件绑定强：全部周期来自 HiFi4 单核模拟器——论文自认</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「算子效率高度依赖硬件设计，另一颗芯片上差距可能不同」</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 命题 1 锁死架构自由度：除第一层外步长必须 1——多尺度</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  下采样 / 池化 / 空洞卷积要么不可用要么需改造</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 双态工件一致性：部署线性网是训练卷积网的重排产物，须严格</text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  同步版本；量化在重排前后做是否引入数值差异未验证</text>
+<text x="72.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （训练后量化还是 QAT 也未报告）</text>
+<text x="72.0" y="251.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="265.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· vs MLP 仍有 2 倍周期差：极端功耗 + 可接受精度损失时</text>
+<text x="72.0" y="278.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  纯 MLP 更省——LiCo 定位是「精度敏感时的最优折中」</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验设计边界</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 单唤醒词「hey operator」+ Meta 内部 95K 语句——无公开</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  基准（GSC），不可复现不可与文献对表</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 基线只 SVDF 与 MLP：TC-ResNet / MatchboxNet / BC-ResNet</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  等同期流式 CNN 均未进场——「优于流式 CNN 家族」存疑</text>
+<text x="536.0" y="197.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 精度证据薄：DET 曲线 + 一个工作点读数，无 AUC 无方差</text>
+<text x="536.0" y="224.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全部依赖指令集模拟器：无真机功耗/延迟/内存峰值占用</text>
+<text x="536.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （对 MCU，SRAM 往往是比周期更硬的约束）</text>
+<text x="536.0" y="265.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="278.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 架构超参消融（块数 L / e / K / 残差 / chunk 扫描）未报告</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：端侧模型的效率 = MACs × 算子兑换率——先在目标芯片上 profiling 兑换率，再决定压哪个量；「重写算子类」的架构级路线零精度损失且与量化正交</text>
+</svg>
+    <p class="cap"><b>图4 · 边界与延伸</b>：HiFi4 单核绑定、命题 1 锁死架构自由度、双态工件一致性、vs MLP 仍 2× 周期差；单唤醒词内部数据、基线覆盖窄、全模拟器无真机指标等实验边界。</p>
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：四条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>流式 CNN → MLP 的等价转换通路及数学条件</b>：第一层步长 = chunk、其余步长 1——既是本文的定理，也是任何流式模型可复用的改造准则。</p></div>
+    <div class="row"><div class="n">2</div><p><b>LiCo-Block 与 LiCo-Net</b>：可线性化的高容量瓶颈三明治——HiFi4 上比 SVDF 快 1.5–1.8× 且检测性能持平。</p></div>
+    <div class="row"><div class="n">3</div><p><b>坐实「MACs ≠ 硬件效率」</b>：同 MACs 下不同算子类 3 倍以上周期兑换率差异——端侧模型设计的算子级方法论纠偏。</p></div>
+    <div class="row"><div class="n">4</div><p><b>双阶段部署范式</b>：卷积态训练 / 线性态推理，建模友好与硬件友好解耦为正交自由度，零精度损失——可推广到其他常驻语音任务。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">经验结论而非普适定律</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>硬件绑定 + 架构锁死</h4>
+      <p>全部周期来自 HiFi4 单核模拟器——「线性算子更快」应视为该芯片上的经验结论；命题 1 要求除第一层外步长全 1——多尺度下采样、池化、空洞卷积要么不可用要么需改造，代价未讨论。</p>
+    </div>
+    <div class="card bad">
+      <h4>双态工件一致性</h4>
+      <p>部署线性网是训练卷积网的重排产物，须严格同步版本；量化在重排前后是否引入数值差异未验证（训练后量化还是 QAT 也未报告——直接影响可复现的精度与周期数）。</p>
+    </div>
+    <div class="card bad">
+      <h4>定位不是绝对最低功耗</h4>
+      <p>vs MLP 仍有约 2 倍周期差——极端功耗场景且能接受精度损失时纯 MLP 更省；LiCo-Net 是「精度敏感时的最优折中」。</p>
+    </div>
+    <div class="card bad">
+      <h4>验证范围窄</h4>
+      <p>单唤醒词 + Meta 内部数据（无 GSC 公开基准、不可复现）；基线只 SVDF 与 MLP（TC-ResNet/MatchboxNet/BC-ResNet 未进场）；精度证据只有 DET 曲线 + 一个工作点读数（无 AUC 无方差）；全模拟器无真机功耗/延迟/内存峰值（对 MCU，SRAM 往往是比周期更硬的约束）；架构超参消融未报告。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>端侧模型的真实效率 = MACs × 算子兑换率——先在目标芯片上 profiling 兑换率再决定压哪个量；「每 MAC 真实周期数」应是一等公民的设计约束。</li>
+      <li>「重写算子类」是有别于压缩数值的另一条路线：零精度损失、与量化正交可叠加——架构级的等价变换比有损压缩更干净。</li>
+      <li>训练形态与部署形态可以解耦：各用各的最优（建模友好 vs 硬件友好），中间靠数学等价衔接——前提是转换条件被严格刻画（命题 1 式的「当且仅当」）。</li>
+      <li>推理频率是独立于模型大小的效率旋钮：步长换 MIPS 几乎不伤精度——决策粒度只要相对目标事件的时长足够稠密。</li>
+      <li>基线对比要同 MACs 更要同算子类：混合算子的开销会被 MACs 数字掩盖——报告每 MAC 周期数才能暴露真实差距。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2211.04635" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="LiCo-Net_Linearized_Convolution_Network_For_Hardware-efficient_Keyword_Spotting.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
