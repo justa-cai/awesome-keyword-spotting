@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>单通道增强 × KWS 联合训练：不是洗干净，是留下判别要用的东西 | 论文精读 2019 №2</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.22em;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:14px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.sub{font-size:17px;color:var(--ink2);margin-bottom:22px;font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.chip{font-size:12.5px;padding:5px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2);font-weight:600}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink2);margin-bottom:40px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:10px;vertical-align:-6px}
+h2{font-size:24px;font-weight:800;margin-bottom:18px;letter-spacing:.01em}
+h3{font-size:17px;font-weight:700;margin:26px 0 10px}
+p{margin-bottom:14px;color:#2c3646}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:.14em;margin-bottom:10px}
+.tldr li{list-style:none;padding-left:22px;position:relative;margin-bottom:8px;color:#2c3646;font-size:15px}
+.tldr li::before{content:"◆";position:absolute;left:2px;color:var(--acc);font-size:10px;top:7px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px}
+.card h4{font-size:15px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13.5px;color:var(--ink2);margin-bottom:0}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h4{color:var(--dk)}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4}
+.card.bad h4{color:var(--warn)}
+.fig{margin:26px 0}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:9px;text-align:center}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 22px;margin:16px 0;font-size:15px}
+.formula .f{font-family:"SF Mono",Consolas,"Liberation Mono",monospace;font-size:14.5px;color:var(--ink);background:#f4f4ef;border-radius:8px;padding:10px 16px;margin-bottom:8px;overflow-x:auto;white-space:pre-wrap}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;margin:16px 0}
+table.tb th{background:#eff1ec;color:var(--ink);font-weight:700;text-align:left;padding:10px 14px;border-bottom:2px solid var(--line);font-size:13px}
+table.tb td{padding:9px 14px;border-bottom:1px solid #f0f0ea;color:#2c3646;vertical-align:top}
+table.tb tr:last-child td{border-bottom:none}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.contrib{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:18px 0}
+.contrib .row{display:flex;gap:14px;margin-bottom:12px;align-items:flex-start}
+.contrib .row:last-child{margin-bottom:0}
+.contrib .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lt);color:var(--dk);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.contrib .row p{margin:0;font-size:14px;color:#2c3646}
+.judge{background:#fdf8f0;border:1px solid #eadfc8;border-radius:12px;padding:20px 24px;margin:18px 0}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:#5a4a2f;margin-bottom:10px;font-weight:600}
+.judge .rw{font-size:13.5px;color:#7a6a4a;padding-left:18px;position:relative;margin-bottom:9px}
+.judge .rw::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-size:12px;padding:4px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink3);font-weight:600}
+.foot-note{font-size:12px;color:var(--ink3);width:100%;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2019 №2</div>
+<h1 class="hero">单通道增强 × KWS 联合训练：<span class="g">不是洗干净，是留下判别要用的东西</span></h1>
+<div class="sub">A Monaural Speech Enhancement Method for Robust Small-Footprint KWS —— 内蒙古大学：CRN 增强前端被 KWS 的梯度重新教育</div>
+<div class="chips">
+<span class="chip acc">联合训练</span><span class="chip">单通道语音增强</span><span class="chip">CRN 卷积循环网络</span><span class="chip">Mel 频谱</span><span class="chip">噪声鲁棒</span>
+</div>
+<div class="meta">
+<b>内蒙古大学（顾悦 / 杜志浩 / 张辉 / 张雪亮）· arXiv 1906.08415（2019.06）</b><br>
+问题：两阶段设计里增强优化 SNR/PESQ 而非 KWS 判别性，过度抑制的失真单向传播 · 方法：CRN 增强（编码卷积→LSTM/GRU→转置卷积解码）+ 可学习特征变换块 + CNN 后端，以 KWS 交叉熵端到端联训<br>
+一句话：增强网络的新目标从「听感干净」换成「唤醒词可分」——噪声下 KWS 准确率显著超过两阶段；Mel 输入优于功率谱；预训练+微调优于从头联训。
+</div>
+
+<section>
+<span class="no">01</span><h2>问题：增强前端在帮倒忙</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>传统抗噪 KWS 是「增强前端 + KWS 后端」<b>各自为政</b>：前端优化 SNR/PESQ 等通用音质指标——客观分数更好，判别性信息可能反而被洗掉。</li>
+<li>三宗罪：<b>独立优化次优</b>（通用音质 ≠ KWS 判别性）、<b>误差传播</b>（过度抑制的语音失真传给后端、无梯度可纠正）、<b>单通道算力账</b>（一个麦克风便宜，但增强网络不能贵）。</li>
+<li>联合训练的解法：CRN 增强 + <b>特征变换块</b>（梯度桥）+ CNN 后端级联，用 <b>KWS 交叉熵</b>端到端优化——增强网络学会保留判别要用的声学细节。</li>
+<li>两个附带结论：<b>Mel 频谱图优于功率谱图</b>（听觉对齐 + 低维度双赢）；<b>预训练+联合微调优于从头联训</b>（降噪先验值得单独喂一次）。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">增强前端为 KWS 打工：不是洗干净，是留下判别要用的东西</text>
+<line x1="36.0" y1="60.0" x2="700.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 两阶段设计的三个坑</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">传统抗噪 KWS = 「语音增强前端 + KWS 后端」各自为政——前端优化 SNR/PESQ，不是优化唤醒词检测</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">单通道（monaural）增强只要一个麦克风——适合边缘设备，但增强效果与计算量要平衡</text>
+<rect x="36.0" y="152.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="181.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">独立优化次优</text>
+<text x="215.0" y="181.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">增强按「通用音质」优化——客观指标更好，判别性信息可能反而被洗掉</text>
+<rect x="36.0" y="208.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="237.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">误差传播</text>
+<text x="215.0" y="237.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">过度抑制造成的语音失真传给后端，且无梯度可回传纠正</text>
+<rect x="36.0" y="264.0" width="848.0" height="48.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="293.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单通道的算力账</text>
+<text x="215.0" y="293.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">一个麦克风低成本，但增强网络本身不能太贵</text>
+<text x="36.0" y="296.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 三件套：CRN 增强 + 特征变换 + CNN 后端</text>
+<rect x="36.0" y="316.0" width="250.0" height="150.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="161.0" y="340.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CRN 增强前端</text>
+<text x="52.0" y="364.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 编码器：卷积提带噪特征</text>
+<text x="52.0" y="379.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 循环层：LSTM/GRU 建模</text>
+<text x="52.0" y="394.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  语音与噪声的时变性</text>
+<text x="52.0" y="409.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 解码器：转置卷积重构</text>
+<text x="52.0" y="424.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  增强频谱</text>
+<text x="52.0" y="439.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="454.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 参数省 · 单通道 · 端侧友好</text>
+<rect x="316.0" y="316.0" width="250.0" height="150.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="441.0" y="340.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">特征变换块</text>
+<text x="332.0" y="364.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 连接前端与后端的桥</text>
+<text x="332.0" y="379.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 增强频谱 → KWS 输入格式</text>
+<text x="332.0" y="394.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="332.0" y="409.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 可学习的变换——信息传递</text>
+<text x="332.0" y="424.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  更高效</text>
+<text x="332.0" y="439.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="332.0" y="454.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 关键作用：梯度从这里回传，</text>
+<text x="332.0" y="469.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  前端才学得会「为 KWS 服务」</text>
+<rect x="596.0" y="316.0" width="288.0" height="150.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="740.0" y="340.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN KWS 后端</text>
+<text x="612.0" y="364.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 标准小足迹 CNN</text>
+<text x="612.0" y="379.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 卷积+池化提特征</text>
+<text x="612.0" y="394.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全连接输出关键词概率</text>
+<text x="612.0" y="409.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="612.0" y="424.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 损失：交叉熵</text>
+<text x="612.0" y="439.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="612.0" y="454.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 它的损失是全系统的</text>
+<text x="612.0" y="469.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  唯一优化目标</text>
+<text x="36.0" y="486.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 联合训练：让梯度打通前后端</text>
+<rect x="36.0" y="502.0" width="848.0" height="78.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="526.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">前向：带噪 Mel 频谱 → CRN 增强 → 特征变换 → CNN 分类 → 关键词预测</text>
+<text x="52.0" y="542.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">反向：KWS 交叉熵损失穿过变换块直达增强前端——增强网络学会保留「判别最有用」的信息</text>
+<text x="52.0" y="558.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练策略：先独立预训练增强前端 → 级联 → 端到端联合微调（比从头联训收敛快且更好）</text>
+<rect x="36.0" y="612.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="638.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">显著提升</text>
+<text x="130.0" y="658.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声下 KWS 准确率 vs 两阶段</text>
+<text x="298.0" y="638.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Mel > 功率谱</text>
+<text x="298.0" y="658.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">联合框架的输入选择</text>
+<text x="466.0" y="638.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">预训练+微调</text>
+<text x="466.0" y="658.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">优于从头联合训练</text>
+<text x="634.0" y="638.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单麦克风</text>
+<text x="634.0" y="658.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">monaural 低硬件门槛</text>
+<text x="802.0" y="638.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">保判别细节</text>
+<text x="802.0" y="658.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">增强学到的新目标</text>
+<text x="36.0" y="696.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">内蒙古大学（顾悦 / 杜志浩 / 张辉 / 张雪亮）· arXiv 1906.08415（2019.06）；Mel 频谱输入 · 卷积循环增强网络 · 端到端联合优化</text>
+</svg>
+<div class="cap">图 1 · 全景：两阶段三坑 → CRN + 变换块 + CNN 三件套 → 联合训练流程 → 核心数字带</div>
+</section>
+
+<section>
+<span class="no">02</span><h2>机制：梯度改写增强的目标函数</h2>
+<p>联合训练改变的不是增强网络的架构而是它的<b>目标函数</b>：两阶段里它追 SNR（把噪声压到最低，连带判别细节一起洗掉）；级联后它追交叉熵（保留对唤醒词判别有用的声学细节，哪怕听感上「不够干净」）。特征变换块是关键枢纽——<b>KWS 的梯度从这里回传</b>，前端才收得到「后端要什么」的信号。</p>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：梯度怎么改写增强的目标 · Mel 为什么赢</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段 vs 联合的目标差</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="62.0" y="114.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段：增强追求「干净」</text>
+<text x="68.0" y="132.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 目标 = SNR / PESQ 等通用音质</text>
+<text x="68.0" y="146.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 过度抑制：连判别性细节一起洗掉</text>
+<text x="68.0" y="160.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （爆破音瞬态 · 共振峰微结构）</text>
+<text x="68.0" y="174.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 失真单向传播，后端只能硬吃</text>
+<text x="62.0" y="200.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">联合：增强追求「可分」</text>
+<text x="68.0" y="218.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 目标 = KWS 交叉熵（最终指标）</text>
+<text x="68.0" y="232.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 增强网络保留判别要用的声学细节</text>
+<text x="68.0" y="246.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  哪怕听感上「不够干净」</text>
+<text x="68.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 误差不再是单向传播——</text>
+<text x="68.0" y="274.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  梯度把后端的不满反馈给前端</text>
+<text x="62.0" y="300.0" font-size="8.6" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">与 #18「优化终端指标」同一哲学：</text>
+<text x="62.0" y="316.0" font-size="8.6" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">别让中间组件优化自己的小目标</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Mel vs 功率谱 · 训练策略</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="450.0" y="114.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么 Mel 频谱图赢功率谱图：</text>
+<text x="450.0" y="128.0" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="142.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 更符合人耳听觉特性——对 KWS</text>
+<text x="450.0" y="156.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  任务历来更有效</text>
+<text x="450.0" y="170.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 维度更低——下游计算量直接省</text>
+<text x="450.0" y="184.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 实测在联合框架里性能也更好</text>
+<text x="450.0" y="198.0" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="212.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练策略的两步走：</text>
+<text x="450.0" y="226.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">① 独立增强数据上预训练 CRN</text>
+<text x="450.0" y="240.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   ——先学会大概的降噪本事</text>
+<text x="450.0" y="254.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② 级联后以 KWS 损失联合微调</text>
+<text x="450.0" y="268.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   ——再学会「为唤醒词服务」</text>
+<text x="450.0" y="282.0" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="296.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">从头联训收敛慢且差——降噪的</text>
+<text x="450.0" y="310.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">先验知识值得单独喂一次</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：两阶段优化「音质」，联合优化「可分性」——增强网络的新目标是保留判别细节而非最大 SNR；这与 #18「优化终端指标」是同一哲学。右：Mel 的听觉对齐与低维度双赢；预训练+微调的两步优于从头联训</text>
+</svg>
+<div class="cap">图 2 · 机制解剖：两阶段 vs 联合的目标差 · Mel 赢功率谱的原因 · 两步训练策略</div>
+<div class="formula">
+<div class="f">前向:  带噪 Mel → CRN(编码卷积→LSTM→转置卷积) → 变换块 → CNN → P(关键词)
+损失:  L = CE(KWS 输出)               ← 唯一目标——不再有 SNR/PESQ 项
+反向:  ∂L/∂θ_CRN ≠ 0                 ← 梯度穿过变换块, 增强前端被重新教育
+训练:  ① CRN 独立预训练 → ② 级联联合微调（快于且优于从头联训）</div>
+<div class="why"><b>人话：</b>原来保洁阿姨按「看起来干净」打扫，把主人办案用的线索也当垃圾扔了；现在让侦探（KWS 后端）直接给阿姨打分——什么东西要留下、什么可以扫走，按办案需要来。</div>
+</div>
+<p>这与 <b>#18（Optimize What Matters）是同一哲学的两种落点</b>：#18 打通的是 HMM 解码器（检测分当损失），本文打通的是增强前端（降噪为判别服务）——共同的信条：别让中间组件优化自己的小目标。</p>
+</section>
+
+<section>
+<span class="no">03</span><h2>结果：目标对齐的增益</h3>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：噪声下的差距与增强学到了什么</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声环境 KWS 准确率（示意）</text>
+<line x1="52.0" y1="262.0" x2="456.00" y2="262.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="265.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">65</text>
+<line x1="52.0" y1="227.0" x2="456.00" y2="227.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="230.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">72</text>
+<line x1="52.0" y1="192.0" x2="456.00" y2="192.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="195.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">79</text>
+<line x1="52.0" y1="157.0" x2="456.00" y2="157.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="160.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">86</text>
+<line x1="52.0" y1="122.0" x2="456.00" y2="122.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="125.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">93</text>
+<rect x="96.0" y="227.0" width="92.0" height="35.0" rx="4" fill="#c9d8e8"/>
+<text x="142.0" y="221.0" font-size="8.8" fill="#c9d8e8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~72</text>
+<text x="142.0" y="276.0" font-size="6.9" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">无增强</text>
+<rect x="224.0" y="167.0" width="92.0" height="95.0" rx="4" fill="#9fc8b8"/>
+<text x="270.0" y="161.0" font-size="8.8" fill="#9fc8b8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~84</text>
+<text x="270.0" y="276.0" font-size="6.9" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段（独立增</text>
+<text x="270.0" y="286.0" font-size="6.9" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">强）</text>
+<rect x="352.0" y="132.0" width="92.0" height="130.0" rx="4" fill="#0b6e52"/>
+<text x="398.0" y="126.0" font-size="8.8" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~91</text>
+<text x="398.0" y="276.0" font-size="6.9" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">联合训练 ★</text>
+<text x="256.0" y="106.0" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">联合 > 两阶段 > 无增强——增益来自「目标对齐」不是「增强更强」</text>
+<text x="56.0" y="312.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="56.0" y="326.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 联合训练显著优于两阶段独立系统</text>
+<text x="56.0" y="339.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 增强前端保留更多 KWS 有用的声学细节</text>
+<text x="56.0" y="352.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 增益的来源：优化目标从 SNR 换成交叉熵</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两个附带结论</text>
+<rect x="500.0" y="92.0" width="324.0" height="122.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="112.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">输入选择</text>
+<text x="514.0" y="137.0" font-size="8.3" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">功率谱图</text>
+<rect x="610.0" y="126.0" width="99.0" height="14.0" rx="4" fill="#a8bcd4"/>
+<text x="514.0" y="169.0" font-size="8.3" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Mel 频谱图 ★</text>
+<rect x="610.0" y="158.0" width="162.0" height="14.0" rx="4" fill="#0b6e52"/>
+<text x="514.0" y="202.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">更低维度 + 听觉对齐——双赢</text>
+<rect x="500.0" y="224.0" width="324.0" height="118.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="244.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练策略</text>
+<text x="514.0" y="269.0" font-size="8.3" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">从头联训</text>
+<rect x="610.0" y="258.0" width="111.6" height="14.0" rx="4" fill="#a8bcd4"/>
+<text x="514.0" y="301.0" font-size="8.3" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">预训练+微调 ★</text>
+<rect x="610.0" y="290.0" width="165.6" height="14.0" rx="4" fill="#0b6e52"/>
+<text x="514.0" y="334.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">先学降噪先验，再学服务唤醒词</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：条形为笔记定性记录的示意（arXiv 1906.08415），具体数值回对原文；Mel 频谱输入 · 卷积循环增强 · 噪声场景 KWS 准确率评估</text>
+</svg>
+<div class="cap">图 3 · 主结果（定性）：噪声下三种配置对比 · 输入选择与训练策略两个附带结论</div>
+<table class="tb">
+<tr><th>对比</th><th>结论</th><th>解读</th></tr>
+<tr class="hl"><td>联合 vs 两阶段</td><td>噪声下显著更优</td><td>增益来自目标对齐，不是「增强更强」</td></tr>
+<tr><td>增强学到的</td><td>保留 KWS 有用细节</td><td>不再单纯最大化 SNR</td></tr>
+<tr><td>Mel vs 功率谱</td><td>Mel 更好</td><td>听觉对齐 + 维度低省计算</td></tr>
+<tr><td>预训练+微调 vs 从头联训</td><td>前者收敛快且更好</td><td>降噪先验值得单独喂一次</td></tr>
+</table>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>「增益来自目标对齐」是本文最有价值的洞察。</b>两阶段与联合用的增强网络容量相当——差别只在优化目标；这说明传统增强前端的瓶颈不是能力而是方向，端到端联训只是把方向掰对了。</p></div>
+<div class="row"><div class="n">2</div><p><b>特征变换块常被一笔带过但不可或缺。</b>它是梯度的通道——没有这个可学习的桥，级联就退化成硬拼接；「桥接层设计」是所有级联端到端系统的共同课题。</p></div>
+<div class="row"><div class="n">3</div><p><b>预训练+微调的两步走了后续被反复复用。</b>先在独立任务上学先验（降噪），再以最终目标联训——这个模板与 #25（TTS 数据）、联邦个性化等场景同构：冷启动用先验，精调用终端目标。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">04</span><h2>边界：联训不是免费午餐</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 预训练依赖：增强前端要先独立预训练——</text>
+<text x="72.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  训练流程多一个阶段 + 多一份数据需求</text>
+<text x="72.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 非平稳噪声未验：突发噪声 · 多人同时说话</text>
+<text x="72.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  的场景没测——单通道增强的固有局限仍在</text>
+<text x="72.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 变换块的参数开销：桥接层增加整体参数量</text>
+<text x="72.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  与计算——端侧预算要重新核</text>
+<text x="72.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 「显著提升」多为定性转述——具体分贝条件</text>
+<text x="72.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  与词表下的量化数据回对原文</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸 + 系列坐标</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 免预训练的从零端到端</text>
+<text x="536.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多任务损失：KWS 损失 + 增强质量指标</text>
+<text x="536.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 轻量增强网络（U-Net 系）</text>
+<text x="536.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 扩展到多通道增强 + KWS</text>
+<text x="536.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系列坐标（「前端为 KWS 服务」家族）：</text>
+<text x="536.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #6 滤波器组学习（2020）：前端算子可学</text>
+<text x="536.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #15 软 VAD（2020）：前端加权抗噪</text>
+<text x="536.0" y="240.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2021 隐式 AEC：前端消回声</text>
+<text x="536.0" y="254.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· trainable frontend（others）：可训练前端</text>
+<text x="536.0" y="268.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文（2019）：前端增强 + 梯度回传——</text>
+<text x="536.0" y="281.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  家族里最早的「级联端到端」形态</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：管线里的每个中间组件都该为最终指标负责——能打通梯度就把它们级联进端到端；「组件自己的好指标」与「系统的好结果」不是一回事，前者常以后者为代价</text>
+</svg>
+<div class="cap">图 4 · 边界与延伸：预训练依赖 · 非平稳噪声未验 · 变换块开销 + 「前端为 KWS 服务」家族坐标</div>
+<div class="cards">
+<div class="card bad"><h4>预训练依赖</h4><p>增强前端要先独立预训练——训练流程多一个阶段、多一份数据需求；免预训练的从零端到端是后续方向。</p></div>
+<div class="card bad"><h4>非平稳噪声未验</h4><p>突发噪声、多人同时说话的场景没测——单通道增强的固有局限仍在，竞争语音是单麦的天敌。</p></div>
+<div class="card bad"><h4>变换块开销</h4><p>桥接层增加整体参数量与计算——端侧预算要重新核；轻量化（U-Net 系）是改进方向。</p></div>
+<div class="card"><h4>量化数据回对原文</h4><p>「显著提升」多为定性转述——具体信噪比条件与词表下的数字要看原文表格。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">05</span><h2>可迁移的判断</h2>
+<div class="judge">
+<div class="jt">JUDGMENTS · 能带走的三条</div>
+<p>① 管线里的每个中间组件都该为最终指标负责。</p>
+<div class="rw">增强前端优化 SNR、检测层优化帧精度、解码器优化路径分——各自小目标的局部最优加起来常是系统的次优；能打通梯度就把组件级联进端到端，让终端损失统一指挥。</div>
+<p>② 「组件自己的好指标」与「系统的好结果」不是一回事。</p>
+<div class="rw">PESQ 更高 ≠ 唤醒更准——中间指标只能当代理，一旦可优化就会牺牲真实目标（Goodhart 定律的工程版）；评估组件要看它对终端指标的边际贡献。</div>
+<p>③ 先验预训练 + 终端微调是级联系统的稳妥起步。</p>
+<div class="rw">从零联训冷启动慢且易塌——先用独立任务喂出组件的基本功（降噪先验），再级联微调对齐目标；这个两步模板在数据合成、联邦、多任务场景反复出现。</div>
+</div>
+<p><b>系列坐标</b>：「前端为 KWS 服务」家族的最早级联形态——本文（2019）增强前端 + 梯度回传；后续 #6 滤波器组学习（前端算子可学）、#15 软 VAD（前端加权抗噪）、2021 年隐式 AEC（前端消回声）、trainable frontend（others）——前端从「固定的预处理」逐步演化为「可学习、可问责的管线成员」，本文是这个演化的起点之一。</p>
+</section>
+
+<div class="foot">
+<span class="pill">arXiv 1906.08415</span><span class="pill">内蒙古大学</span><span class="pill">CRN 增强</span><span class="pill">联合训练</span>
+<div class="foot-note">本页条形为笔记定性记录的示意，具体数值以原文为准 · 本页为可视化精读笔记，图表由 SVG 重绘</div>
+</div>
+
+</div>
+</body>
+</html>
