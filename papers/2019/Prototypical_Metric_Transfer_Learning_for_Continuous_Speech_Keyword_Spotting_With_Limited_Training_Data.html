@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>连续语音找词：haystack 里找针，针还不到 1% | 论文精读 2019 №12</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.22em;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:14px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.sub{font-size:17px;color:var(--ink2);margin-bottom:22px;font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.chip{font-size:12.5px;padding:5px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2);font-weight:600}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink2);margin-bottom:40px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:10px;vertical-align:-6px}
+h2{font-size:24px;font-weight:800;margin-bottom:18px;letter-spacing:.01em}
+h3{font-size:17px;font-weight:700;margin:26px 0 10px}
+p{margin-bottom:14px;color:#2c3646}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:.14em;margin-bottom:10px}
+.tldr li{list-style:none;padding-left:22px;position:relative;margin-bottom:8px;color:#2c3646;font-size:15px}
+.tldr li::before{content:"◆";position:absolute;left:2px;color:var(--acc);font-size:10px;top:7px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px}
+.card h4{font-size:15px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13.5px;color:var(--ink2);margin-bottom:0}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h4{color:var(--dk)}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4}
+.card.bad h4{color:var(--warn)}
+.fig{margin:26px 0}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:9px;text-align:center}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 22px;margin:16px 0;font-size:15px}
+.formula .f{font-family:"SF Mono",Consolas,"Liberation Mono",monospace;font-size:14.5px;color:var(--ink);background:#f4f4ef;border-radius:8px;padding:10px 16px;margin-bottom:8px;overflow-x:auto;white-space:pre-wrap}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;margin:16px 0}
+table.tb th{background:#eff1ec;color:var(--ink);font-weight:700;text-align:left;padding:10px 14px;border-bottom:2px solid var(--line);font-size:13px}
+table.tb td{padding:9px 14px;border-bottom:1px solid #f0f0ea;color:#2c3646;vertical-align:top}
+table.tb tr:last-child td{border-bottom:none}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.contrib{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:18px 0}
+.contrib .row{display:flex;gap:14px;margin-bottom:12px;align-items:flex-start}
+.contrib .row:last-child{margin-bottom:0}
+.contrib .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lt);color:var(--dk);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.contrib .row p{margin:0;font-size:14px;color:#2c3646}
+.judge{background:#fdf8f0;border:1px solid #eadfc8;border-radius:12px;padding:20px 24px;margin:18px 0}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:#5a4a2f;margin-bottom:10px;font-weight:600}
+.judge .rw{font-size:13.5px;color:#7a6a4a;padding-left:18px;position:relative;margin-bottom:9px}
+.judge .rw::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-size:12px;padding:4px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink3);font-weight:600}
+.foot-note{font-size:12px;color:var(--ink3);width:100%;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2019 №12</div>
+<h1 class="hero">连续语音找词：haystack 里找针，<span class="g">针还不到 1%</span></h1>
+<div class="sub">Prototypical Metric Transfer Learning for Continuous Speech KWS —— 原型 + 度量 + 迁移三件套，少样本 CSKS 的最早组合框架之一</div>
+<div class="chips">
+<span class="chip acc">连续语音 KWS</span><span class="chip">原型网络</span><span class="chip">度量学习</span><span class="chip">迁移学习</span><span class="chip">F1 +&gt;10%</span>
+</div>
+<div class="meta">
+<b>Seth / Kumar / Srivastava · arXiv 1901.03860（2019.01）</b><br>
+任务：连续对话流中检测嵌入关键词（CSKS）——训练数据稀缺 + 关键词帧占比 &lt;1% 的极端不平衡 · 方法：原型网络（支持集均值原型 + 距离分类）+ 度量学习损失（类内紧/类间开）+ 预训练迁移<br>
+一句话：组合框架 F1 超简单基线 10%+——原型管分类、度量管空间、迁移管起点，三技分工不是堆叠。
+</div>
+
+<section>
+<span class="no">01</span><h2>问题：CSKS 比孤立 KWS 难一个维度</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>传统 KWS 研究在<b>切好的孤立片段</b>上做分类（「这段是哪个词」）；真实更有价值的是 <b>CSKS</b>——连续对话流里检测嵌入的关键词（「有没有、在哪」），是<b>开放集检测</b>而非封闭集分类。</li>
+<li>两个核心挑战：<b>训练数据稀缺</b>（连续语音关键词标注昂贵、少样本）+ <b>极端类别不平衡</b>（关键词帧 &lt;1%——标准分类器学「全预测非关键词」就能拿 99% 准确率而 F1=0）。</li>
+<li>三件套解法：<b>原型网络</b>（支持集均值立原型、距离分类——少样本的有效机制）、<b>度量学习损失</b>（拉近同类推开异类——空间结构）、<b>迁移学习</b>（预训练声学模型打底——强起点）。</li>
+<li>组合 F1 <b>超简单基线 10%+</b>；原型+度量 &gt; 仅原型（度量损失的独立贡献）；迁移比从头训练收敛快且终态高。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">连续语音找词： haystack 里找针，针还不到 1%</text>
+<line x1="36.0" y1="60.0" x2="620.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① CSKS：比孤立 KWS 难一个维度的任务</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">孤立 KWS：切好的短片段分类——「这段是哪个词」；CSKS：连续对话流里检测嵌入的关键词——「有没有、在哪」</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">封闭集分类 vs 开放集检测——任务性质根本不同，孤立 KWS 的套路不能直接搬</text>
+<rect x="36.0" y="152.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="181.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练数据稀缺</text>
+<text x="215.0" y="181.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">连续语音的关键词标注昂贵——可用样本可能极少（少样本场景）</text>
+<rect x="36.0" y="208.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="237.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">极端类别不平衡</text>
+<text x="215.0" y="237.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词帧占比 < 1%——标准分类器倾向全预测非关键词</text>
+<rect x="36.0" y="264.0" width="848.0" height="48.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="293.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">任务性质变化</text>
+<text x="215.0" y="293.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">封闭集分类 → 开放集检测——「在哪」比「是哪个」难</text>
+<text x="36.0" y="296.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 三件套：原型 + 度量 + 迁移</text>
+<rect x="36.0" y="312.0" width="272.0" height="190.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="172.0" y="334.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">原型网络</text>
+<text x="52.0" y="358.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· p_c = mean(f_φ(x_i)),</text>
+<text x="52.0" y="373.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  x_i ∈ 支持集 S_c</text>
+<text x="52.0" y="388.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 分类 = 到各原型的距离</text>
+<text x="52.0" y="403.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  softmax(-d(f(x), p_c))</text>
+<text x="52.0" y="418.0" font-size="8.7" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="433.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 少样本场景的有效分类</text>
+<text x="52.0" y="448.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  机制——每类几条即可立原型</text>
+<text x="52.0" y="463.0" font-size="8.7" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="478.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">管「怎么分」</text>
+<rect x="324.0" y="312.0" width="272.0" height="190.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="460.0" y="334.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">度量学习损失</text>
+<text x="340.0" y="358.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 拉近同类：同关键词嵌入</text>
+<text x="340.0" y="373.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  互相靠近</text>
+<text x="340.0" y="388.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 推开异类：不同关键词嵌入</text>
+<text x="340.0" y="403.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  互相远离</text>
+<text x="340.0" y="418.0" font-size="8.7" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="340.0" y="433.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 补充原型损失——类内更紧凑</text>
+<text x="340.0" y="448.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  · 类间更可分</text>
+<text x="340.0" y="463.0" font-size="8.7" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="340.0" y="478.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">管「空间好不好」</text>
+<rect x="612.0" y="312.0" width="272.0" height="190.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="748.0" y="334.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">迁移学习</text>
+<text x="628.0" y="358.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 大规模语音预训练模型</text>
+<text x="628.0" y="373.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  作为嵌入网初始化</text>
+<text x="628.0" y="388.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 通用声学表示打底——</text>
+<text x="628.0" y="403.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  少样本的强起点</text>
+<text x="628.0" y="418.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· CSKS 任务微调适配</text>
+<text x="628.0" y="433.0" font-size="8.7" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="628.0" y="448.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 从头训练收敛快且终态高</text>
+<text x="628.0" y="463.0" font-size="8.7" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="628.0" y="478.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">管「起点高不高」</text>
+<text x="36.0" y="534.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 协同效应：三技各打一个靶</text>
+<rect x="36.0" y="550.0" width="848.0" height="62.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="574.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">原型管少样本分类 · 度量管嵌入空间结构 · 迁移管数据不足的起点——三者不是堆叠，是分工</text>
+<text x="52.0" y="591.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">共同应对 CSKS 的双重挑战：数据稀缺（原型+迁移）+ 类别不平衡（度量的可分性）</text>
+<rect x="36.0" y="646.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="672.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">F1 +>10%</text>
+<text x="130.0" y="692.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">vs 简单 KWS 基线</text>
+<text x="298.0" y="672.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">组合 > 单独</text>
+<text x="298.0" y="692.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">原型+度量 > 仅原型</text>
+<text x="466.0" y="672.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">更快收敛</text>
+<text x="466.0" y="692.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">迁移 vs 从头训练</text>
+<text x="634.0" y="672.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">对话语音</text>
+<text x="634.0" y="692.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">连续流场景验证</text>
+<text x="802.0" y="672.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">少样本范式</text>
+<text x="802.0" y="692.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 的早期引入</text>
+<text x="36.0" y="730.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Seth / Kumar / Srivastava · arXiv 1901.03860（2019.01）；连续对话语音 · 有限关键词集 · F1 评估 · 与简单 KWS 基线对照</text>
+</svg>
+<div class="cap">图 1 · 全景：CSKS 的任务性质与双挑战 → 三件套分工 → 协同效应 → 核心数字带</div>
+</section>
+
+<section>
+<span class="no">02</span><h2>机制：不平衡的几何解法</h2>
+<p>把嵌入空间画出来就明白这个任务的形状：<b>关键词是两个紧簇</b>（每类几条样本抱团，原型是中心），<b>非关键词是海量散布的灰云</b>——任务不是「把灰点分对」，而是<b>把词簇从灰云里拉出来</b>。度量学习整理这个几何（类内紧 + 类间开 + 与灰云拉开），原型给出分类锚点，迁移提供初始的好几何。</p>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：不平衡的几何解法 · 三技分工图</text>
+<line x1="36.0" y1="56.0" x2="540.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">嵌入空间（示意）</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<circle cx="129.1" cy="138.7" r="3.5" fill="#0b6e52"/>
+<circle cx="125.0" cy="149.0" r="3.5" fill="#0b6e52"/>
+<circle cx="118.0" cy="159.9" r="3.5" fill="#0b6e52"/>
+<circle cx="137.1" cy="152.3" r="3.5" fill="#0b6e52"/>
+<path d="M 138 136 l -6 11 l 12 0 z" fill="#0b6e52"/>
+<text x="138.0" y="176.0" font-size="8" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词 A</text>
+<circle cx="297.5" cy="134.2" r="3.5" fill="#33507a"/>
+<circle cx="294.8" cy="133.8" r="3.5" fill="#33507a"/>
+<circle cx="304.5" cy="133.3" r="3.5" fill="#33507a"/>
+<circle cx="292.6" cy="138.4" r="3.5" fill="#33507a"/>
+<path d="M 298 116 l -6 11 l 12 0 z" fill="#33507a"/>
+<text x="298.0" y="156.0" font-size="8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词 B</text>
+<circle cx="142.4" cy="216.4" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="142.7" cy="258.8" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="192.9" cy="276.0" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="304.8" cy="247.3" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="114.8" cy="275.5" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="292.0" cy="245.6" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="265.7" cy="236.9" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="335.0" cy="285.0" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="301.8" cy="295.9" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="150.9" cy="259.1" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="285.5" cy="282.1" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="193.4" cy="222.5" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="257.1" cy="219.4" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="278.4" cy="210.6" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="210.7" cy="253.2" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="120.3" cy="253.2" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="223.0" cy="243.2" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="330.0" cy="287.9" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="328.4" cy="232.0" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="95.0" cy="243.9" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="118.7" cy="273.5" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="159.0" cy="221.6" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="164.6" cy="246.3" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="286.6" cy="251.5" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="169.3" cy="271.0" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="100.2" cy="228.8" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="273.6" cy="277.7" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="115.4" cy="216.0" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="224.6" cy="269.1" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<circle cx="92.4" cy="249.3" r="2.8" fill="#c9cfc8" opacity="0.7"/>
+<text x="223.0" y="316.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">灰色 = 非关键词帧（海量·散布）</text>
+<text x="223.0" y="330.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">关键不是分对灰点——是把非关键词推开</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">不平衡为什么难 + 怎么破</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="450.0" y="114.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"><1% 帧是关键词意味着什么：</text>
+<text x="450.0" y="127.8" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="141.6" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 标准分类器学「全预测非关键词」</text>
+<text x="450.0" y="155.4" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  就能拿 99% 准确率——但 F1 = 0</text>
+<text x="450.0" y="169.2" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 准确率在此彻底失真——必须看 F1</text>
+<text x="450.0" y="183.0" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="196.8" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">度量学习的破法：</text>
+<text x="450.0" y="210.6" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 不是「分类」而是「整理空间」——</text>
+<text x="450.0" y="224.4" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  关键词各自抱团 + 与非关键词云拉开</text>
+<text x="450.0" y="238.2" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 原型代表类中心——新样本看距离</text>
+<text x="450.0" y="252.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 极端不平衡下，几何可分性比决策边界</text>
+<text x="450.0" y="265.8" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  更稳健</text>
+<text x="450.0" y="279.6" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="293.4" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">迁移学习的破法：</text>
+<text x="450.0" y="307.2" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 预训练嵌入自带声学结构——少样本</text>
+<text x="450.0" y="321.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  不用从零学「语音长什么样」</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：关键词是两个紧簇（原型=三角），非关键词是海量散布的灰云——任务是把词簇从灰云里拉出来。右：不平衡下准确率失真（全负也 99%），几何可分性才是稳健的目标</text>
+</svg>
+<div class="cap">图 2 · 机制解剖：嵌入空间的形状 · 极端不平衡为什么难以及怎么破</div>
+<div class="formula">
+<div class="f">原型:  p_c = (1/|S_c|)·Σ f_φ(x_i)            ← 支持集均值
+分类:  p(y=c|x) = softmax(−d(f_φ(x), p_c))    ← 距离就近
+度量:  L_metric 拉近同类 · 推开异类            ← 空间结构(与原型损失互补)
+迁移:  f_φ ← 预训练声学模型初始化 → CSKS 微调   ← 少样本的强起点</div>
+<div class="why"><b>人话：</b>先借用别人练好的「耳朵」（预训练迁移），再用几何规则整理空间（度量学习）——同样的词挤在一起、不同的词分开、背景噪声甩远；每个词挂一个中心牌（原型），新来的音频看离哪个牌近。</div>
+</div>
+<p><b>为什么几何可分性比决策边界稳健</b>：极端不平衡下，分类器的决策边界会被负类淹没（学出「全负」的平凡解）；而度量学习的目标是空间结构——正类抱团的几何不受负类数量级的影响，<b>不平衡对「整理空间」的伤害远小于对「画边界」</b>。</p>
+</section>
+
+<section>
+<span class="no">03</span><h2>结果：三技贡献可分解</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：三技的贡献分解</text>
+<line x1="36.0" y1="56.0" x2="500.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">F1 阶梯（示意）</text>
+<line x1="52.0" y1="262.0" x2="456.00" y2="262.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="265.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">55</text>
+<line x1="52.0" y1="227.0" x2="456.00" y2="227.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="230.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">62</text>
+<line x1="52.0" y1="192.0" x2="456.00" y2="192.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="195.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">69</text>
+<line x1="52.0" y1="157.0" x2="456.00" y2="157.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="160.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">76</text>
+<line x1="52.0" y1="122.0" x2="456.00" y2="122.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="125.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">83</text>
+<rect x="82.0" y="227.0" width="72.0" height="35.0" rx="4" fill="#c9d8e8"/>
+<text x="118.0" y="221.0" font-size="8.5" fill="#c9d8e8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">62</text>
+<text x="118.0" y="276.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">简单 KWS</text>
+<text x="118.0" y="286.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif"> 基线</text>
+<rect x="178.0" y="197.0" width="72.0" height="65.0" rx="4" fill="#9fc8b8"/>
+<text x="214.0" y="191.0" font-size="8.5" fill="#9fc8b8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">68</text>
+<text x="214.0" y="276.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">+ 迁移学习</text>
+<rect x="274.0" y="167.0" width="72.0" height="95.0" rx="4" fill="#5d9c85"/>
+<text x="310.0" y="161.0" font-size="8.5" fill="#5d9c85" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">74</text>
+<text x="310.0" y="276.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">+ 原型网络</text>
+<rect x="370.0" y="147.0" width="72.0" height="115.0" rx="4" fill="#0b6e52"/>
+<text x="406.0" y="141.0" font-size="8.5" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">78</text>
+<text x="406.0" y="276.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">三件套全开 </text>
+<text x="406.0" y="286.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">★</text>
+<text x="256.0" y="106.0" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">总增益 >10% F1——各组件独立贡献可分解（示意量级）</text>
+<text x="56.0" y="316.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="56.0" y="330.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 组合 >10% F1：综合框架在少样本 CSKS 的有效性</text>
+<text x="56.0" y="343.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 原型+度量 > 仅原型：度量损失对空间的额外贡献</text>
+<text x="56.0" y="356.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 迁移 vs 从头：收敛更快且终态更高</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系位置：先行者</text>
+<rect x="500.0" y="92.0" width="324.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="112.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">本文（2019.01）在小样本 KWS 谱系里</text>
+<text x="514.0" y="125.8" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">是最早的一批：</text>
+<text x="514.0" y="139.6" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="153.4" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2020 #7 ProtoNet（UNC）同年稍晚——</text>
+<text x="514.0" y="167.2" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  孤立 KWS 的情景训练版</text>
+<text x="514.0" y="181.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2020 #11 度量学习（Naver）——</text>
+<text x="514.0" y="194.8" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  代理损失 + 角度边际的深化</text>
+<text x="514.0" y="208.6" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2021 XLSR 少样本——预训练特征</text>
+<text x="514.0" y="222.4" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  + 原型（本文「迁移」路线的延伸）</text>
+<text x="514.0" y="236.2" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="250.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">本文的独特点：CSKS 视角</text>
+<text x="514.0" y="263.8" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 不在切好的片段上做——直接在</text>
+<text x="514.0" y="277.6" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  连续对话流里检测</text>
+<text x="514.0" y="291.4" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 把「少样本 + 不平衡」并题处理——</text>
+<text x="514.0" y="305.2" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  度量学习的双重角色</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：阶梯为笔记定性记录的示意（arXiv 1901.03860 · 论文报告组合 F1 +>10%），具体数值回对原文；连续对话语音 · 有限关键词集 · F1 评估</text>
+</svg>
+<div class="cap">图 3 · 主结果（定性）：F1 阶梯 · 少样本 KWS 谱系里的先行者位置</div>
+<table class="tb">
+<tr><th>对比</th><th>结论</th><th>归因</th></tr>
+<tr class="hl"><td>组合 vs 简单基线</td><td>F1 +&gt;10%</td><td>综合框架在少样本 CSKS 的有效性</td></tr>
+<tr class="hl"><td>原型+度量 vs 仅原型</td><td>更优</td><td>度量损失对嵌入空间的独立贡献</td></tr>
+<tr><td>迁移 vs 从头训练</td><td>收敛快 + 终态高</td><td>预训练声学知识的价值</td></tr>
+</table>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>CSKS 视角是本文的独特点。</b>2020 年的 ProtoNet（#7）与度量学习（#11）都在切好的孤立片段上做；本文直接在<b>连续对话流</b>里检测——更贴近真实部署（设备听到的是连续音频，不是切好的词段）。</p></div>
+<div class="row"><div class="n">2</div><p><b>「迁移 + 度量」是少样本任务的标准起手式。</b>起点靠迁移（不从零学「语音长什么样」）、结构靠度量（整理空间）、分类靠原型（轻量锚点）——这个三段式在后续少样本 KWS（2021 XLSR 等被验证得最充分）里反复重现。</p></div>
+<div class="row" style="margin-bottom:0"><div class="n">3</div><p><b>F1 而非准确率是这类任务的唯一诚实指标。</b>&lt;1% 正例下准确率完全失真——本文选 F1 是对任务性质的正确响应；所有极端不平衡任务（欺诈检测、罕见事件）都该从这里开始。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">04</span><h2>边界：三件套各自的软肋</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 预训练依赖：迁移效果取决于预训练模型与目标</text>
+<text x="72.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  任务的声学匹配度——域差大时迁移可能不佳</text>
+<text x="72.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 词汇量扩展限制：原型计算成本随类别数线性</text>
+<text x="72.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  增长——数百词的大词表可能扩展不动</text>
+<text x="72.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 支持集构建敏感：推理时每词要建支持集——</text>
+<text x="72.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  大小与组成影响检测性能</text>
+<text x="72.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 评估规模有限：对话语音的有限词集——大规模</text>
+<text x="72.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  真实对话数据的部署价值未验</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸 + 系列坐标</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 动态支持集——按输入自适应选样本</text>
+<text x="536.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 注意力原型——替代简单平均</text>
+<text x="536.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 在线/增量——推理中动态加词</text>
+<text x="536.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 声学场景自适应的度量空间</text>
+<text x="536.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 大规模真实对话数据验证</text>
+<text x="536.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系列坐标（少样本 KWS 的时间线）：</text>
+<text x="536.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文（2019.01）：CSKS + 三件套——</text>
+<text x="536.0" y="240.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  最早的组合框架之一</text>
+<text x="536.0" y="254.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2020 #7 ProtoNet：孤立 KWS 情景训练</text>
+<text x="536.0" y="268.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2020 #11 度量学习：代理+角度边际</text>
+<text x="536.0" y="281.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2021 XLSR：预训练特征+原型</text>
+<text x="536.0" y="295.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2026 EdgeSpot：高效少样本落地</text>
+<text x="536.0" y="309.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 主线：嵌入空间的质量步步升级</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：极端不平衡（<1% 正例）下，准确率失真、几何可分性才是稳健目标——先问「正例占多少」再选指标；预训练+度量是少样本任务的标准起手式：起点靠迁移、结构靠度量、分类靠原型</text>
+</svg>
+<div class="cap">图 4 · 边界与延伸：预训练域差 · 词汇量扩展 · 支持集敏感 + 少样本 KWS 时间线</div>
+<div class="cards">
+<div class="card bad"><h4>预训练依赖</h4><p>迁移效果取决于预训练模型与目标任务的声学匹配度——域差大时迁移可能不佳，起点反成负担。</p></div>
+<div class="card bad"><h4>词汇量扩展限制</h4><p>原型计算成本随类别数线性增长——数百词的大词表可能扩展不动（与 #11 检索开销同款问题）。</p></div>
+<div class="card bad"><h4>支持集敏感</h4><p>推理时每词要建支持集——大小与组成影响性能；动态支持集构建是明确的改进方向。</p></div>
+<div class="card"><h4>评估规模有限</h4><p>对话语音的有限词集——大规模真实对话数据的部署价值未验。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">05</span><h2>可迁移的判断</h2>
+<div class="judge">
+<div class="jt">JUDGMENTS · 能带走的三条</div>
+<p>① 极端不平衡下，准确率失真，几何可分性才是稳健目标。</p>
+<div class="rw">&lt;1% 正例时「全预测负」就有 99% 准确率——先问「正例占多少」再选指标（F1/PR-AUC）；再把目标从「画决策边界」改成「整理空间」——度量学习对不平衡的抵抗力天然更强。</div>
+<p>② 预训练 + 度量是少样本任务的标准起手式。</p>
+<div class="rw">起点靠迁移、结构靠度量、分类靠原型——三段式各管一段、可独立替换升级（后来 XLSR 把「迁移」换成更强预训练，收益立现）；从零训练少样本模型等于放弃前人全部声学知识。</div>
+<p>③ 任务性质决定方法：封闭集分类 vs 开放集检测要分开处理。</p>
+<div class="rw">「这段是哪个词」与「这段流里有没有词、在哪」是不同任务——切好片段的分类指标不能代表连续流的检测能力；做检测研究先在真实连续流上评估（CSKS 视角），否则结论外推有险。</div>
+</div>
+<p><b>系列坐标</b>：少样本 KWS 时间线的最早节点之一——本文（2019.01）把原型+度量+迁移的组合带进 CSKS；2020 年 #7 ProtoNet（孤立片段情景训练）与 #11 度量学习（代理损失+角度边际）相继深化，2021 年 XLSR 把「迁移」一环升级到强预训练，2026 年 EdgeSpot 落地端侧——谱系主线是<b>嵌入空间质量的持续升级</b>，本文是最早把这条线串起来的一批工作。</p>
+</section>
+
+<div class="foot">
+<span class="pill">arXiv 1901.03860</span><span class="pill">CSKS 连续语音</span><span class="pill">原型 + 度量 + 迁移</span><span class="pill">F1 +&gt;10%</span>
+<div class="foot-note">本页阶梯为笔记定性记录的示意（论文报告组合 F1 +&gt;10%），具体数值以原文为准 · 本页为可视化精读笔记，图表由 SVG 重绘</div>
+</div>
+
+</div>
+</body>
+</html>
