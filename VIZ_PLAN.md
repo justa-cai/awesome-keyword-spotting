@@ -1,7 +1,7 @@
 # 可视化精读页计划（VIZ_PLAN）
 
 全量清单与进度真源。每完成一页重新生成。
-**进度：173 / 305**
+**进度：174 / 305**
 
 ## 2026（24 / 24 ✅）
 - [✅] A Multiplication-Free Feature Extractor for Signal Classification: Keyword Spotting Case Study（面向信号分类的无乘法特征提取器：关键词检测案例研究）
@@ -156,7 +156,7 @@
 - [✅] VE-KWS：视觉模态增强的端到端关键词检测
 - [⬜] VIC-KD：方差-不变性-协方差知识蒸馏，让关键词检测更能抵御对抗攻击
 
-## 2022（29 / 42 ）
+## 2022（30 / 42 ）
 - [✅] AB/BA Analysis: A Framework for Estimating Keyword Spotting Recall Improvement While Maintaining Audio Privacy
 - [✅] 23 μW 关键词检测芯片：基于环形振荡器的时域特征提取
 - [✅] A Fast Network Exploration Strategy to Profile Low Energy Consumption for Keyword Spotting
@@ -186,7 +186,7 @@
 - [✅] On the Efficiency of Integrating Self-Supervised Learning and Meta-Learning for User-Defined Few-Shot Keyword Spotting
 - [✅] PBSM：基于音高提升与声音掩蔽的关键词检测后门攻击
 - [✅] Personalized Keyword Spotting through Multi-task Learning（基于多任务学习的个性化关键词检测）
-- [⬜] Production Federated Keyword Spotting via Distillation, Filtering, and Joint Federated-Centralized Training
+- [✅] Production Federated Keyword Spotting via Distillation, Filtering, and Joint Federated-Centralized Training
 - [⬜] Progressive Continual Learning for Spoken Keyword Spotting
 - [⬜] QbyE-MLPMixer：基于 MLPMixer 的示例查询式开放词表关键词检测
 - [⬜] Rainbow Keywords: Efficient Incremental Learning for Online Spoken Keyword Spotting

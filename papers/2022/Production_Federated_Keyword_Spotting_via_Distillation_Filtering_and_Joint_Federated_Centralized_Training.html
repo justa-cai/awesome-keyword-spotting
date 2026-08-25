@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google 生产级联邦 KWS：蒸馏 + 过滤 + 联合训练</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №30</div>
+  <h1 class="hero">30 万设备上的联邦训练：<br>隐私和性能<span class="g">不矛盾</span></h1>
+  <div class="chips">
+    <span class="chip">Interspeech 2022 · Google</span>
+    <span class="chip">联邦蒸馏 + 置信度过滤 + 联合训练</span>
+    <span class="chip">300K 客户端 · 每天 6,000 轮 FL</span>
+    <span class="chip">SVDF 320K · 在线 A/B 数百万设备</span>
+  </div>
+  <div class="meta">「Hey Google」跑在全球超 10 亿设备上——真实用户数据的多样性任何实验室集都比不了，但语音含私人对话/医疗/金融信息。本文是首个在生产环境部署 FL 训练 KWS 的完整方案。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>三个核心问题</b>：标签缺失（设备缓存音频无人工标注——设备只知道「自己检测到了」可能误检、「用户说了没响应」可能漏检）；标签噪声（教师对边缘样本的软标签可能错——越训越差）；域不匹配（缓存大量是「系统接受」的音频、缺被拒绝的——非关键词和极端噪声域缺席）。</li>
+      <li><b>三件套一一对应</b>：联邦蒸馏管标签缺失——服务器用集中式标注数据训教师，对缓存音频生成软标签（含类别间相似度信息），经安全聚合分发，设备用 KL 散度本地训练。</li>
+      <li><b>置信度过滤管标签噪声</b>：巧妙利用系统自然产生的用户反馈信号——服务器拒绝（二次验证拒了 → 可能误检）、重试信号（2 秒内重说 → 前一次可能漏检）、说话人 ID 不匹配；任一触发即排除；保守过滤宁丢正确样本也要低假阳性。</li>
+      <li><b>联合训练管域不匹配</b>：FL 轮（真实用户分布）与集中式轮（公开数据 + 模拟增强，不涉隐私）交替进行（如每 5 轮 FL + 1 轮集中式）——集中式补「明确的非关键词」「极端噪声」「静音」这些设备端不缓存的域。</li>
+      <li><b>规模</b>：约 300,000 客户端、每客户端中位 175 个样本（约 1.7s）、总量约 5,250 万——每天约 6,000 轮 FL，远超学术 FL 的数百到数千客户端模拟规模。</li>
+      <li><b>标签准确性验证</b>：117 名专业标注员 × 11,908 样本（每人独立标、3 人多数投票，Kappa &gt; 0.85）——过滤后标签准确率比未过滤高约 15–20 个百分点。</li>
+      <li><b>性能</b>：离线固定 FPR=0.1% 下 TPR 比纯集中式高约 3–5%（整体相同误检率下检测率相对提升约 5–10%）；在线 A/B（数百万设备数周）误唤醒率相对降约 10–15%、漏检率降约 5–8%、用户满意度显著提升。</li>
+      <li><b>消融</b>：蒸馏去软标签 → 难例 −3~5%；不过滤 → 假阳性率增加（低质量标签学出错误边界）；去集中式轮 → 非典型噪声 −2~3%。</li>
+      <li><b>隐私机制</b>：所有用户数据留设备端，仅上传梯度（安全聚合下服务器无法反推个体梯度）；教师软标签加密分发；运行在 DP 框架下。</li>
+      <li><b>边界</b>：需要大用户基数（新兴助手可能不够）；设备端只支持简单增强；每轮约 1.3MB 通信；Non-IID 收敛慢；DP 预算 ε 未报；缺同规模集中式公平对比。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：无标签的设备端数据怎么用</h2>
+  <div class="h2sub">标准 FL 假设设备端有标签——KWS 场景根本不成立</div>
+  <p class="lead">联邦学习允许设备端训练、只上传梯度，从根本上保护隐私——但标准 FL 假设设备端数据有标签（图像分类里用户行为可当标签）。KWS 设备端缓存的音频片段没有人工标注：设备只知道「自己检测到了关键词」（可能是误检）或「用户说了唤醒词但没响应」（可能是漏检），无法确定音频的真实类别。此外真实用户数据的价值恰恰在多样性——数百种环境噪声、各年龄段说话人、口袋里/桌上/远处的设备位置——这种多样性是任何实验室录制集都无法比拟的。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>集中式训练的合规风险</h4>
+      <p>语音可能含私人对话、医疗、金融、个人身份信息——GDPR/CCPA 下上传原始音频有严重法律风险；即使匿名化（去设备 ID），原始音频仍可能通过声纹识别关联到特定个人；在 Google 规模下任何隐私事件的影响都是灾难性的。</p>
+    </div>
+    <div class="card bad">
+      <h4>设备端训练的硬限制</h4>
+      <p>移动设备计算存储有限——只能做简单增强（SpecAugment），无法执行噪声混合、房间混响模拟这类复杂操作；训练须在数分钟内完成（用户随时在用设备）。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：三件套 + 隐私机制</h2>
+  <div class="h2sub">每件解决一个核心问题，形成端到端联邦方案</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 980">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="980.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Google 生产级联邦 KWS：10 亿设备上的隐私训练</text>
+<line x1="36.0" y1="60.0" x2="520.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 三个核心问题</text>
+<rect x="36.0" y="100.0" width="848.0" height="54.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标签缺失</text>
+<text x="140.0" y="122.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">设备缓存音频无人工标签——设备只知道「自己检测到了」</text>
+<text x="140.0" y="140.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（可能误检）或「用户说了没响应」（可能漏检）</text>
+<rect x="36.0" y="162.0" width="848.0" height="54.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="184.0" font-size="11.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标签噪声</text>
+<text x="140.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">教师模型对边缘样本（极端噪声/特殊口音/儿童语音）</text>
+<text x="140.0" y="202.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">的软标签可能错——错误标签越训越差</text>
+<rect x="36.0" y="224.0" width="848.0" height="54.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="246.0" font-size="11.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">域不匹配</text>
+<text x="140.0" y="246.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">缓存大量是「系统接受」的音频、缺「被拒绝」的——</text>
+<text x="140.0" y="264.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">非关键词和极端噪声域在训练分布里缺席</text>
+<text x="460.0" y="292.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">背景：真实用户数据的多样性（数百种噪声/口音/年龄/设备位置）是实验室数据无法比拟的——但语音含私人对话/医疗/金融信息，GDPR/CCPA 下集中上传有合规风险</text>
+<text x="36.0" y="290.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 三件套：蒸馏管标签缺失 · 过滤管标签噪声 · 联合训练管域不匹配</text>
+<rect x="36.0" y="306.0" width="280.0" height="170.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="176.0" y="328.0" font-size="12.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 联邦蒸馏</text>
+<text x="52.0" y="352.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">服务器：集中式标注数据训练教师 T_θ</text>
+<text x="52.0" y="364.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（可以是更强的架构）</text>
+<text x="52.0" y="377.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="389.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">教师对缓存音频生成软标签（softmax/τ）：</text>
+<text x="52.0" y="402.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  [0.02, 0.85, 0.10, 0.03]——含类别间相似度</text>
+<text x="52.0" y="414.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="427.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">软标签经安全聚合分发 → 设备用 KL 散度</text>
+<text x="52.0" y="439.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  本地训练 → 梯度上传 FedAvg</text>
+<rect x="336.0" y="306.0" width="280.0" height="170.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="476.0" y="328.0" font-size="12.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 置信度过滤</text>
+<text x="352.0" y="352.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">利用系统自然产生的用户反馈信号：</text>
+<text x="352.0" y="363.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="352.0" y="374.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 服务器拒绝：设备检测后服务器二次验证</text>
+<text x="352.0" y="385.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  拒绝 → 设备端可能是误检</text>
+<text x="352.0" y="396.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 重试信号：2 秒内重复说唤醒词 → 前一次</text>
+<text x="352.0" y="407.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  可能是漏检</text>
+<text x="352.0" y="418.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 说话人 ID：缓存说话人与注册用户不匹配</text>
+<text x="352.0" y="429.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  → 可靠性降低</text>
+<text x="352.0" y="440.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="352.0" y="451.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">任一信号触发 → 标记低置信度排除出训练；</text>
+<text x="352.0" y="462.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">保守过滤：宁丢正确样本也要低假阳性</text>
+<rect x="636.0" y="306.0" width="248.0" height="170.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="760.0" y="328.0" font-size="12" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 联合联邦-集中式训练</text>
+<text x="652.0" y="352.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FL 轮：数千设备梯度 FedAvg</text>
+<text x="652.0" y="363.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （真实用户分布/个性化噪声）</text>
+<text x="652.0" y="374.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">集中式轮：公开数据 + 模拟增强</text>
+<text x="652.0" y="385.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （完整域覆盖，不涉隐私）</text>
+<text x="652.0" y="396.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="652.0" y="407.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">交替进行（如每 5 轮 FL + 1 轮集中式），</text>
+<text x="652.0" y="418.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">更新作用于同一全局 θ</text>
+<text x="652.0" y="429.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="652.0" y="440.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">集中式补的域：明显非关键词（设备端</text>
+<text x="652.0" y="451.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">直接拒绝不缓存）、极端噪声、静音片段</text>
+<text x="36.0" y="486.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 模型与隐私机制</text>
+<rect x="36.0" y="500.0" width="414.0" height="96.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="524.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段堆叠 SVDF（约 320K 参数）</text>
+<text x="52.0" y="544.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">W ≈ U·V（r ≪ min(m,n)）——参数 mn → r(m+n)</text>
+<text x="52.0" y="556.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">瓶颈编码器-解码器结构：压缩中间表示，</text>
+<text x="52.0" y="568.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  减少上传梯度大小（隐私增强）与通信带宽</text>
+<text x="52.0" y="580.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输入：40 维 log-Mel（25ms 窗/10ms 移，约 1s=100 帧）</text>
+<text x="52.0" y="592.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SVDF 低秩结构特别适合移动端训练和推理</text>
+<rect x="474.0" y="500.0" width="414.0" height="96.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="490.0" y="524.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">隐私保护</text>
+<text x="490.0" y="544.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">所有用户数据留在设备端，仅上传模型梯度</text>
+<text x="490.0" y="556.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">安全聚合协议：服务器无法从聚合梯度反推</text>
+<text x="490.0" y="568.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  任何个体设备的梯度</text>
+<text x="490.0" y="580.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">教师软标签经加密通道分发——不暴露音频内容</text>
+<text x="490.0" y="592.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">符合 Google 隐私原则，运行在 DP 框架下</text>
+<rect x="36.0" y="614.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="640.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">300K</text>
+<text x="130.0" y="660.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">客户端（每天约 6,000 轮 FL）</text>
+<text x="298.0" y="640.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">175</text>
+<text x="298.0" y="660.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每客户端缓存样本中位数</text>
+<text x="466.0" y="640.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5,250 万</text>
+<text x="466.0" y="660.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">总样本量（约 1.7s/条）</text>
+<text x="634.0" y="640.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+15~20</text>
+<text x="634.0" y="660.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">过滤后标签准确率提升（点）</text>
+<text x="802.0" y="640.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">117 人</text>
+<text x="802.0" y="660.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">标注 11,908 样本验证过滤</text>
+<text x="36.0" y="698.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">规模远超学术 FL（数百到数千客户端的模拟环境）——首次在真实用户设备上部署 FL 用于 KWS 训练，证明工业级可行性和可扩展性</text>
+</svg>
+    <p class="cap"><b>图1 · 方案全景</b>：三个核心问题（标签缺失/噪声/域不匹配）与三件套的一一对应（联邦蒸馏/置信度过滤/联合训练）；SVDF 模型与隐私机制；生产规模数字。</p>
+  </div>
+  </div>
+
+  <h2><span class="no">§03</span>实验：离线 + 罕见的在线 A/B</h2>
+  <div class="h2sub">数百万设备数周的真实用户证据——绝大多数学术 FL 只有模拟</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 460">
+<rect x="0.0" y="0.0" width="880.0" height="460.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">离线 + 在线 A/B 的性能对比（约 值）</text>
+<line x1="36.0" y1="56.0" x2="380.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="260.0" y="96.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">离线：固定 FPR=0.1% 的 TPR 提升</text>
+<rect x="110.0" y="118.0" width="4.0" height="36.0" rx="5" fill="#e8b8b0"/>
+<text x="122.0" y="142.0" font-size="10.5" fill="#e8b8b0" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">基线</text>
+<text x="104.0" y="142.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">纯 FL（无蒸馏）</text>
+<rect x="110.0" y="174.0" width="125.0" height="36.0" rx="5" fill="#c9d8e8"/>
+<text x="243.0" y="198.0" font-size="10.5" fill="#c9d8e8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">+3%</text>
+<text x="104.0" y="198.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">纯集中式训练</text>
+<rect x="110.0" y="230.0" width="229.2" height="36.0" rx="5" fill="#0b6e52"/>
+<text x="347.2" y="254.0" font-size="10.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+5%</text>
+<text x="104.0" y="254.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">完整方案（蒸馏+过滤+联合）★</text>
+<rect x="110.0" y="288.0" width="300.0" height="30.0" rx="6" fill="#f9faf7"/>
+<text x="260.0" y="307.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">整体：相同误检率下检测率相对提升约 5–10%</text>
+<text x="680.0" y="96.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">在线 A/B（数百万设备 · 数周）</text>
+<rect x="540.0" y="118.0" width="183.3" height="36.0" rx="5" fill="#0b6e52"/>
+<text x="729.3" y="142.0" font-size="10" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">相对降低约 10–15%</text>
+<text x="534.0" y="142.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">误唤醒率</text>
+<rect x="540.0" y="180.0" width="95.3" height="36.0" rx="5" fill="#5aa886"/>
+<text x="641.3" y="204.0" font-size="10" fill="#5aa886" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">相对降低约 4–9%</text>
+<text x="534.0" y="204.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">漏检率</text>
+<rect x="520.0" y="250.0" width="320.0" height="60.0" rx="8" fill="#eef6f1"/>
+<text x="680.0" y="272.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">用户满意度（继续使用率、误唤醒反馈率）</text>
+<text x="680.0" y="290.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">显著提升——实验组（联邦模型）vs 对照组</text>
+<text x="680.0" y="304.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（前一版集中式模型）</text>
+<text x="36.0" y="434.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：本页数字为笔记记录的约值/相对量（论文未提供精确对照表）；在线 A/B 是 FL 工作里罕见的真实用户级证据——绝大多数学术 FL 只有模拟结果</text>
+</svg>
+    <p class="cap"><b>图2 · 性能对比（约 值）</b>：离线固定 FPR 下 TPR 提升（完整方案 &gt; 纯集中式 &gt; 纯 FL）；在线 A/B（数百万设备数周）——误唤醒率相对降 10–15%、漏检率降 5–8%、满意度显著提升。</p>
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">组件消融（约 值）：三件套缺一不可</text>
+<line x1="36.0" y1="56.0" x2="340.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="36.0" y="80.0" width="848.0" height="80.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<rect x="36.0" y="80.0" width="8.0" height="80.0" rx="4" fill="#0b6e52"/>
+<text x="60.0" y="106.0" font-size="12" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">联邦蒸馏</text>
+<text x="200.0" y="106.0" font-size="10" fill="#0b6e52" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">去掉（软标签→硬标签）→ 难例性能 −3~5%</text>
+<text x="200.0" y="126.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">软标签编码的类别间相似度信息至关重要</text>
+<rect x="36.0" y="172.0" width="848.0" height="80.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<rect x="36.0" y="172.0" width="8.0" height="80.0" rx="4" fill="#5aa886"/>
+<text x="60.0" y="198.0" font-size="12" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">置信度过滤</text>
+<text x="200.0" y="198.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">过滤掉约 10–20% 低置信度样本</text>
+<text x="200.0" y="218.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不过滤的退化集中在假阳性率——低质量标签</text>
+<text x="200.0" y="236.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  学出错误的判别边界；难例（边界/高噪）改善最大</text>
+<rect x="36.0" y="264.0" width="848.0" height="80.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<rect x="36.0" y="264.0" width="8.0" height="80.0" rx="4" fill="#9fc8b8"/>
+<text x="60.0" y="290.0" font-size="12" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">联合训练</text>
+<text x="200.0" y="290.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">去掉集中式轮 → 非典型噪声 −2~3%</text>
+<text x="200.0" y="310.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">集中式数据补「明确的非关键词」——帮助模型</text>
+<text x="200.0" y="328.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  建立精确的关键词 vs 非关键词边界</text>
+<text x="36.0" y="372.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标签准确性研究：117 名专业标注员 × 11,908 样本（每样本 3 人独立标注取多数投票，Cohen's Kappa &gt; 0.85）——</text>
+<text x="36.0" y="390.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">过滤后保留样本的标签准确率比未过滤高约 15–20 个百分点：置信度过滤的机制验证与性能验证双闭环</text>
+</svg>
+    <p class="cap"><b>图3 · 组件消融（约 值）</b>：蒸馏去软标签难例 −3~5%；不过滤假阳性率增加；去集中式轮非典型噪声 −2~3%；117 人 × 11,908 样本的标签准确性双闭环验证。</p>
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 用户规模门槛：FL 需要足够大的用户基数保证 FedAvg</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  收敛——300K 客户端够用；新兴助手（用户量小）</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  可能无法保证收敛质量</text>
+<text x="72.0" y="170.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 设备端训练能力：只支持简单增强（SpecAugment）——</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  噪声混合/RIR 混响模拟做不了；须数分钟内完成</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 通信开销：每轮上传梯度约 1.3MB（320K × 4 bytes）</text>
+<text x="72.0" y="238.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Non-IID：安静办公室手机 vs 嘈杂厨房音箱——分布</text>
+<text x="72.0" y="265.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  差异大，FedAvg 收敛慢或次优</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验设计边界 + 延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· DP 预算 ε 未报——隐私-效用权衡无定量分析</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 缺同规模公平对比：相同数量的集中式标注 vs FL</text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  数据——FL 本身的增益难以量化</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· FL 总成本未报（服务器聚合/设备能耗/带宽）</text>
+<text x="536.0" y="211.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸：形式化用户级 DP（近期工作：好的裁剪+噪声</text>
+<text x="536.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  校准可把损失压到 1–2% 内）；个性化 FL（车载/桌面</text>
+<text x="536.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  分型号）；异步 FL 降低对在线率依赖</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：隐私保护和模型性能不矛盾——联邦蒸馏（解决无标签）+ 置信度过滤（利用系统副产品信号）+ 联合训练（补域）是隐私合规训练的可复制蓝图</text>
+</svg>
+    <p class="cap"><b>图4 · 边界与延伸</b>：用户规模门槛、设备端能力限制、通信开销、Non-IID；DP 预算未报、缺同规模公平对比、总成本未报；形式化 DP、个性化 FL、异步 FL 等方向。</p>
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：四条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>首个大规模生产级联邦 KWS 系统</b>：近 300K 客户端、每天约 6,000 轮 FL——证明 FL 在工业级 KWS 的可行性和可扩展性。</p></div>
+    <div class="row"><div class="n">2</div><p><b>联邦蒸馏解决标签缺失</b>：软标签作为设备端监督信号——FL 在 KWS 场景的关键使能技术（没有它 FL 训练根本无法进行）。</p></div>
+    <div class="row"><div class="n">3</div><p><b>置信度过滤</b>：首次利用系统副产品信号（服务器拒绝/重试/说话人 ID）过滤不可靠标签——零额外标注成本、零隐私风险。</p></div>
+    <div class="row"><div class="n">4</div><p><b>联合训练范式</b>：FL + 集中式交替解决域不完整——可推广到输入法预测、推荐系统等其他 FL 任务。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">规模是护城河也是门槛</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>用户规模门槛</h4>
+      <p>FL 需要足够大的用户基数保证 FedAvg 统计收敛——300K 客户端够用，但新兴语音助手（用户量小）可能无法保证收敛质量：这套方案有大厂专属的门槛。</p>
+    </div>
+    <div class="card bad">
+      <h4>设备端能力与通信</h4>
+      <p>只支持 SpecAugment 级别的简单增强——噪声混合/RIR 模拟做不了；每轮上传梯度约 1.3MB（320K×4B），3G/4G 下流量能耗不可忽视；Non-IID（安静办公室手机 vs 嘈杂厨房音箱）收敛慢或次优。</p>
+    </div>
+    <div class="card bad">
+      <h4>隐私-效用权衡无定量</h4>
+      <p>DP 预算 ε 未报数值、未分析不同隐私级别的性能损失——而 DP 保证强度直接影响法律合规性。</p>
+    </div>
+    <div class="card bad">
+      <h4>对比与成本缺口</h4>
+      <p>缺与纯集中式训练在同规模数据上的公平对比（相同数量集中式标注 vs FL 数据）——FL 本身的增益难以量化；FL 总成本（服务器聚合/设备能耗/带宽）未报。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>隐私保护和模型性能不矛盾——联邦蒸馏 + 置信度过滤 + 联合训练是隐私合规训练的可复制蓝图，对整个语音行业的合规实践有参考价值。</li>
+      <li>无标签设备端数据的解法是「教师打标」：软标签比硬标签多携带类别相似度结构——蒸馏不只是压缩，更是标签工厂。</li>
+      <li>系统副产品信号（服务器拒绝/用户重试/说话人匹配）是免费的置信度来源——产品系统里自然产生的反馈往往比专门收集的标注更便宜且无隐私代价。</li>
+      <li>数据分布不完整时用不涉隐私的模拟数据补域：FL 与集中式不是二选一——交替训练作用于同一全局参数可兼得真实分布与完整覆盖。</li>
+      <li>保守过滤优于激进保留：宁丢正确样本也要低假阳性——训练数据的标签质量比数量更值得优先保证。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2204.06322" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="Production_Federated_Keyword_Spotting_via_Distillation_Filtering_and_Joint_Federated_Centralized_Training.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
