@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>滤波器组学习：噪声鲁棒小足迹关键词检测</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 16px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №16</div>
+  <h1 class="hero">特征通道砍到 5 个，<br>学习特征才开始<span class="g">真正赢手工</span></h1>
+  <div class="chips">
+    <span class="chip">Filterbank Learning · arXiv 2211.10565</span>
+    <span class="chip">奥尔堡大学 × UT 达拉斯 × Oticon</span>
+    <span class="chip">可学习滤波器组 + 随机失活</span>
+    <span class="chip">GSC 加噪版 · 5 次重复 + t 检验</span>
+  </div>
+  <div class="meta">「可学习特征更好」在 KWS 上屡屡落空——不是方法不行，是坐标系选错了：信息冗余在 40 通道下把差异托平；把通道推向极端，分配能力的高下才显形。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>痛点</b>：唤醒词监听是全天候 workload，能效决定续航；声学模型乘法次数与输入特征尺寸直接挂钩（硬件实测乘法数-功耗线性关系 R²=0.9641）——通道数是能效的上游旋钮，且乘法量随通道数<b>超线性</b>缩放（K=40→895M/s，K=5→71M/s，12.6 倍）。</li>
+      <li><b>手工梅尔的两宗罪</b>：按人耳平均感知设计的通用先验，不是「区分这撮关键词并扛住这类噪声」的任务先验；对噪声频谱一无所知——噪声集中的频段照样分到宝贵通道。</li>
+      <li><b>翻案背景</b>：SincNet 风格学习前端从没赢过手工特征，作者前期工作也发现无统计显著差异——「频谱信息冗余」猜想：识别一小撮关键词用不满全部谱信息，冗余托平了两种表示的上限。</li>
+      <li><b>本文的手法</b>：不是新模块，是<b>换坐标系</b>——把通道数从 40 一路砍到 5，让频率分配变成稀缺约束，胜负边界在 K&lt;10 处显形。</li>
+      <li><b>方法</b>：保留 STFT，只把「线性谱 → K 维特征」做成一张 241×K 可学习矩阵（ReLU 正性约束），log + BN 后接残差膨胀卷积声学模型；梅尔初始化。与前期工作的唯一差异：滤波器组层的随机失活（0.4）。</li>
+      <li><b>失活的机制</b>：随机丢弃通道制造信息瓶颈——每个通道学到更鲁棒、不依赖其他通道的表示；物证是带失活的滤波器是平滑化版本（窄尖形状对应拟合训练噪声细节）。</li>
+      <li><b>核心权衡数字</b>：40ch 梅尔 → 8ch 学习，相对精度损失 3.5%（手工要 6.3%），能耗降 6.3 倍；8ch 梅尔 → 5ch 学习，精度持平还微升，能耗再降 2 倍；合计 −6.2% 换 12.6 倍。</li>
+      <li><b>最难条件优势最大</b>：5 通道未见 −10dB 提升 3.87 个绝对点（相对约 16%）——学习特征在未见噪声 + 极低 SNR 双重压力下反而最强。</li>
+      <li><b>频谱物证</b>：学到的滤波器抑制 2.7/4.3kHz（恰好是 F-16 座舱噪声的长时谱峰）、加权 5.8–7kHz（训练噪声高频衰减，该频段语音失真最小）——「学习适应噪声」落到可检查的证据上。</li>
+      <li><b>边界</b>：学习不能消除砍通道的代价——未见 −10dB 下 8ch 学习比 40ch 梅尔还差 6.6 个绝对点（相对 18%），恶劣信噪比的代价远大于平均值；滤波器组层只是帧内线性加权，无频域非线性能力。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：学习特征为什么一直赢不了</h2>
+  <div class="h2sub">冗余托平效应 + 能效维度缺席</div>
+  <p class="lead">端到端可学习特征在 KWS 上的正面对比屡屡落空：Peter 等（ICASSP 2022）的结论是 MFCC 仍更优；作者前期工作发现学习滤波器组与对数梅尔无统计显著差异。同时以往对比从未把「通道数」当变量——默认 40 通道，从未发现学习特征的优势区间可能藏在少通道一侧。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>可学习前端缺乏正则手段</h4>
+      <p>滤波器组通道容易与训练噪声的特定频谱细节协同适应（过拟合训练噪声）、通道之间容易互相依赖——对未见噪声的泛化没有保障。本文的随机失活正是冲着这个缺口。</p>
+    </div>
+    <div class="card bad">
+      <h4>SincNet 路线的强先验</h4>
+      <p>从原始波形学 sinc 滤波器——每个滤波器只有高低两个截止频率，是带通形状的强先验；本文保留 STFT、学习仅施加正性约束的满矩阵映射，自由度分布在全部权重上，且矩阵可直接画成响应曲线当证据。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：一张矩阵 + 一个失活</h2>
+  <div class="h2sub">搜索空间收缩到 241×K，增量小而收益明确</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 960">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="960.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">滤波器组学习：通道砍到个位数，学习特征才开始赢</text>
+<line x1="36.0" y1="60.0" x2="520.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 出发点：通道数是能效的上游旋钮</text>
+<rect x="36.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">always-on 的能耗账</text>
+<text x="52.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">唤醒词监听是全天候 workload——能效决定续航与发热</text>
+<text x="52.0" y="155.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">声学模型乘法次数与输入特征矩阵尺寸直接挂钩</text>
+<text x="52.0" y="168.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（硬件实测：乘法数与功耗强正线性关系，</text>
+<text x="52.0" y="181.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  R² = 0.9641，p = 0.0001）</text>
+<text x="52.0" y="194.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">乘法量随通道数超线性缩放：K=40 → 895M/s，</text>
+<text x="52.0" y="207.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  K=5 → 71M/s，整体缩减 12.6 倍</text>
+<rect x="474.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">手工梅尔在少通道下的两个先天缺陷</text>
+<text x="490.0" y="140.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">梅尔刻度按人耳对纯音的平均感知设计——目标是「大</text>
+<text x="490.0" y="152.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  而全的语音感知」，不是「区分这撮关键词并扛住这类噪声」</text>
+<text x="490.0" y="165.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">通道多时冗余掩盖错配；通道一少，判别线索（摩擦音高频</text>
+<text x="490.0" y="177.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  能量分布、元音共振峰相对位置）在粗粒度加权中被平均掉</text>
+<text x="490.0" y="190.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">对噪声频谱一无所知：噪声集中的频段照样分到宝贵通道</text>
+<text x="490.0" y="202.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——让稀缺通道去编码噪声而不是语音</text>
+<text x="36.0" y="216.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 管线：只把「线性谱 → K 维特征」这一步做成可学习</text>
+<rect x="36.0" y="232.0" width="140.0" height="92.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="106.0" y="256.0" font-size="11.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">STFT</text>
+<text x="106.0" y="276.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">30ms 窗 / 10ms 移</text>
+<text x="106.0" y="290.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">241 线性频点</text>
+<line x1="176.0" y1="278.0" x2="188.0" y2="278.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="186.0" y="232.0" width="140.0" height="92.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="256.0" y="256.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">滤波器组层 ★</text>
+<text x="256.0" y="276.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Y = X · g(W)</text>
+<text x="256.0" y="290.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">W ∈ R^(241×K)</text>
+<text x="256.0" y="304.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ReLU 保证非负</text>
+<line x1="326.0" y1="278.0" x2="338.0" y2="278.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="396.0" y="232.0" width="140.0" height="92.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="466.0" y="256.0" font-size="11.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">log + BN</text>
+<text x="466.0" y="276.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">log(max(Y, η))</text>
+<text x="466.0" y="290.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">η = e^−50</text>
+<text x="466.0" y="304.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">动态范围压缩</text>
+<line x1="536.0" y1="278.0" x2="548.0" y2="278.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="580.0" y="232.0" width="140.0" height="92.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="650.0" y="256.0" font-size="11.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">声学模型</text>
+<text x="650.0" y="276.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">残差 + 膨胀卷积</text>
+<text x="650.0" y="290.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">深度 CNN</text>
+<line x1="720.0" y1="278.0" x2="732.0" y2="278.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="760.0" y="232.0" width="140.0" height="92.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="830.0" y="256.0" font-size="11.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">判决</text>
+<text x="830.0" y="276.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">词级后验</text>
+<text x="830.0" y="290.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">整段取最大</text>
+<text x="460.0" y="342.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么必须正性约束：通道输出是频点能量的加权和——能量叠加物理上非负；且负权重会让对数在输出 ≤ 0 时无定义。ReLU 把约束织进前向，梯度直接穿过</text>
+<text x="460.0" y="358.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么保留 STFT 只学矩阵：搜索空间收缩到一张 241×K 矩阵——参数极少、可直接画成滤波器响应曲线当证据，不是黑箱</text>
+<text x="460.0" y="374.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">梅尔初始化：从可行解出发微调（防 K 极小时病态收敛），对比只剩「是否联合微调」一个变量</text>
+<text x="36.0" y="396.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 关键增量：滤波器组层的随机失活（速率 0.4）</text>
+<rect x="36.0" y="410.0" width="414.0" height="108.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="434.0" font-size="12" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">信息瓶颈机制（与前期工作的唯一差异）</text>
+<text x="52.0" y="454.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练时随机丢弃通道 → 每个通道学到更鲁棒、</text>
+<text x="52.0" y="466.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  更不依赖其他通道的表示——阻断通道间协同适应</text>
+<text x="52.0" y="479.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（与自编码器瓶颈层迫使压缩表示抓本质结构同源）</text>
+<text x="52.0" y="491.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="504.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">物证（图3）：带失活学出的滤波器是无失活版本的</text>
+<text x="52.0" y="516.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  平滑化——窄尖滤波器对应拟合训练噪声的频谱细节，</text>
+<text x="52.0" y="529.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  平滑化 = 对训练噪声细节依赖更低 → 未见噪声泛化更好</text>
+<rect x="474.0" y="410.0" width="414.0" height="108.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="490.0" y="434.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">此前为什么一直打平：频谱信息冗余猜想</text>
+<text x="490.0" y="454.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SincNet 风格学习前端在 KWS 没赢过手工特征；</text>
+<text x="490.0" y="466.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  Peter 等（ICASSP 2022）正式对比：MFCC 反而更优</text>
+<text x="490.0" y="479.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">作者前期工作：学习滤波器组 vs 对数梅尔无统计显著差异</text>
+<text x="490.0" y="491.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="504.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 「频谱信息冗余」猜想：识别一小撮关键词根本用不满</text>
+<text x="490.0" y="516.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  全部谱信息——冗余把两种表示的上限都托平了</text>
+<text x="490.0" y="529.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">本文翻案的手法不是新模块，是换坐标系：把通道数推向</text>
+<text x="490.0" y="541.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  极端（40 → 5），让频率分配变成稀缺约束</text>
+<rect x="36.0" y="536.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="562.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">12.6×</text>
+<text x="130.0" y="582.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">乘法缩减（K: 40→5）</text>
+<text x="298.0" y="562.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−3.5%</text>
+<text x="298.0" y="582.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">相对精度损失（40 梅尔→8 学习）</text>
+<text x="466.0" y="562.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">6.3×</text>
+<text x="466.0" y="582.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">该点能耗下降</text>
+<text x="634.0" y="562.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+3.87</text>
+<text x="634.0" y="582.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">未见 −10dB 提升（5 通道）</text>
+<text x="802.0" y="562.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">K&lt;10</text>
+<text x="802.0" y="582.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">学习特征开始胜出的边界</text>
+<text x="36.0" y="620.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据：GSC 加噪版（作者自建）——训练 8 种噪声（NOISEX-92 + CHiME-3：车内/工厂/babble/机枪/F-16 等）SNR 0–20dB+干净；测试分已见 4 种 + 未见 4 种（工厂二/海盗机舱/咖啡馆/街口），SNR 外推到 −10dB；每条件 5 次重复 + 双样本 t 检验（α=0.05）</text>
+</svg>
+    <p class="cap"><b>图1 · 机制全景</b>：通道数-能耗账与手工梅尔的两宗罪；管线（STFT → 241×K 可学习矩阵 + ReLU 正性约束 → log+BN → 残差膨胀卷积）；随机失活的信息瓶颈机制与「频谱冗余」翻案背景。
+  </div>
+  </div>
+  <div class="formula">
+    <div class="f">Y = X · g(W)，W ∈ R^(241×K)，g = ReLU　→　log(max(Y, e⁻⁵⁰)) → BN → 声学模型</div>
+    <div class="why"><b>人话</b>：滤波器组层就是一次矩阵乘法——每个通道的输出是频点能量的加权和，权重与声学模型一起反向传播联合优化。<b>为什么 ReLU 正性约束是必须的</b>：能量叠加物理上不能为负；且负权重会让对数在输出 ≤ 0 时无定义——把约束织进前向计算，梯度直接穿过未饱和的权重，比投影式实现简洁。</div>
+  </div>
+  <p class="sub"><b>为什么梅尔初始化</b>：从被大量实践验证的可行解出发微调——避免 K 极小时的病态收敛，同时让「学习 vs 手工」的对比只剩「是否联合微调」这一个变量。判决规则是整段词级后验取最大，与 1 秒定长、每段一词的协议严格对齐，让对比聚焦在前端这一个变量上。</p>
+
+  <h2><span class="no">§03</span>实验：GSC 加噪版，已见/未见双轨</h2>
+  <div class="h2sub">训练 8 种噪声，测试 4 种已见 + 4 种未见，SNR 外推到 −10dB</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 450">
+<rect x="0.0" y="0.0" width="880.0" height="450.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">系统级权衡（图 2 形态）：乘法数 × 平均准确率</text>
+<line x1="36.0" y1="56.0" x2="440.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="106.0" y1="316.0" x2="670.0" y2="316.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="320.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">75</text>
+<line x1="106.0" y1="244.0" x2="670.0" y2="244.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="248.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">78</text>
+<line x1="106.0" y1="172.0" x2="670.0" y2="172.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="176.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">81</text>
+<line x1="106.0" y1="100.0" x2="670.0" y2="100.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="100.0" y="104.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">84</text>
+<line x1="239.6" y1="100.0" x2="239.6" y2="340.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="239.6" y="356.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">100M</text>
+<line x1="444.9" y1="100.0" x2="444.9" y2="340.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="444.9" y="356.0" font-size="10" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">300M</text>
+<circle cx="649.3" cy="149.2" r="7" fill="#c9d8e8" stroke="#fff" stroke-width="1.5"/>
+<text x="639.3" y="139.2" font-size="10" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">40ch 梅尔 81.95</text>
+<circle cx="303.8" cy="274.0" r="7" fill="#c9d8e8" stroke="#fff" stroke-width="1.5"/>
+<text x="311.8" y="292.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">8ch 梅尔 76.75</text>
+<circle cx="303.8" cy="217.4" r="8" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="313.8" y="209.4" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">8ch 学习+失活 79.11</text>
+<circle cx="175.5" cy="271.4" r="8" fill="#5aa886" stroke="#fff" stroke-width="1.5"/>
+<text x="169.5" y="259.4" font-size="10" fill="#0a6b4e" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5ch 学习+失活 76.86</text>
+<line x1="649.3" y1="149.2" x2="303.8" y2="274.0" stroke="#c9d8e8" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+<line x1="303.8" y1="274.0" x2="303.8" y2="217.4" stroke="#0b6e52" stroke-width="2.5" marker-end="url(#arg)"/>
+<line x1="303.8" y1="217.4" x2="175.5" y2="271.4" stroke="#5aa886" stroke-width="2.5" marker-end="url(#arg)"/>
+<rect x="310.0" y="108.0" width="340.0" height="96.0" rx="8" fill="#eef6f1"/>
+<text x="480.0" y="130.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">学习把砍通道的代价几乎砍半</text>
+<text x="480.0" y="150.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">40→8 梅尔：相对损失 6.3%　40→8 学习：3.5%</text>
+<text x="480.0" y="168.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">8ch 梅尔 → 5ch 学习：精度持平（76.75→76.86）</text>
+<text x="480.0" y="186.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">  能耗再降 2 倍；合计 40→5：−6.2% 换 12.6×</text>
+<text x="390.0" y="86.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">横轴：声学模型每秒乘法数（log）· 纵轴：跨 SNR 平均准确率</text>
+<text x="36.0" y="428.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：低乘法区（少通道）学习特征曲线明显高于手工；通道数 &gt; 10 后两条曲线趋于重合——信息冗余把差异托平</text>
+</svg>
+    <p class="cap"><b>图2 · 系统级权衡（图 2 形态）</b>：乘法数（log）× 跨 SNR 平均准确率——学习把砍通道的代价从 6.3% 砍到 3.5%；8ch 梅尔 → 5ch 学习精度持平能耗再降 2 倍。
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">逐格点对比（Table 1 摘录）：最难的条件，优势最大</text>
+<line x1="36.0" y1="56.0" x2="500.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="110.0" y="128.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5ch 已见 −10dB</text>
+<rect x="110.0" y="134.0" width="52.2" height="18.0" rx="3" fill="#c9d8e8"/>
+<text x="168.2" y="147.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">40.12</text>
+<rect x="110.0" y="156.0" width="58.1" height="18.0" rx="3" fill="#0b6e52"/>
+<text x="174.1" y="169.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">44.66</text>
+<text x="310.0" y="152.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+4.54</text>
+<text x="110.0" y="208.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5ch 未见 −10dB</text>
+<rect x="110.0" y="214.0" width="31.9" height="18.0" rx="3" fill="#c9d8e8"/>
+<text x="147.9" y="227.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">24.52</text>
+<rect x="110.0" y="236.0" width="36.9" height="18.0" rx="3" fill="#0b6e52"/>
+<text x="152.9" y="249.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">28.39</text>
+<text x="310.0" y="232.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+3.87</text>
+<text x="110.0" y="288.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5ch 干净</text>
+<rect x="110.0" y="294.0" width="119.8" height="18.0" rx="3" fill="#c9d8e8"/>
+<text x="235.8" y="307.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">92.13</text>
+<rect x="110.0" y="316.0" width="122.1" height="18.0" rx="3" fill="#0b6e52"/>
+<text x="238.1" y="329.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">93.91</text>
+<text x="310.0" y="312.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1.78</text>
+<text x="470.0" y="128.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">8ch 已见 0dB</text>
+<rect x="470.0" y="134.0" width="98.8" height="18.0" rx="3" fill="#c9d8e8"/>
+<text x="574.8" y="147.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">76.01</text>
+<rect x="470.0" y="156.0" width="102.7" height="18.0" rx="3" fill="#0b6e52"/>
+<text x="578.7" y="169.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">78.99</text>
+<text x="670.0" y="152.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+2.98</text>
+<text x="470.0" y="208.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">8ch 未见 0dB</text>
+<rect x="470.0" y="214.0" width="89.6" height="18.0" rx="3" fill="#c9d8e8"/>
+<text x="565.6" y="227.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">68.92</text>
+<rect x="470.0" y="236.0" width="93.9" height="18.0" rx="3" fill="#0b6e52"/>
+<text x="569.9" y="249.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">72.24</text>
+<text x="670.0" y="232.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+3.32</text>
+<text x="470.0" y="288.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">8ch 未见 −5dB</text>
+<rect x="470.0" y="294.0" width="64.9" height="18.0" rx="3" fill="#c9d8e8"/>
+<text x="540.9" y="307.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">49.94</text>
+<rect x="470.0" y="316.0" width="69.0" height="18.0" rx="3" fill="#0b6e52"/>
+<text x="545.0" y="329.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">53.11</text>
+<text x="670.0" y="312.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+3.17</text>
+<rect x="110.0" y="350.0" width="300.0" height="26.0" rx="6" fill="#e6f4ee"/>
+<text x="260.0" y="367.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5ch 未见 −10dB 相对提升约 16%——最恶劣条件下优势最大</text>
+<rect x="470.0" y="350.0" width="300.0" height="26.0" rx="6" fill="#f9faf7"/>
+<text x="620.0" y="367.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">K=10 起学习特征开始有利；K=40 三种前端无显著差异</text>
+<text x="36.0" y="420.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">口径：5 次重复平均；每格 双样本 t 检验（α=0.05）；每格上条 手工对数梅尔 / 下条 学习+随机失活（5 通道全条件超过手工，8 通道带失活已见未见全格点超过无失活版本）</text>
+</svg>
+    <p class="cap"><b>图3 · 逐格点对比（Table 1 摘录）</b>：手工梅尔 vs 学习+失活——5 通道全条件超过手工，最恶劣的未见 −10dB 相对提升约 16%。
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 450">
+<rect x="0.0" y="0.0" width="880.0" height="450.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">频谱物证（图 3）+ 边界</text>
+<line x1="36.0" y1="56.0" x2="260.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="260.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">学到的滤波器响应 vs 梅尔（示意，5 通道）</text>
+<rect x="70.0" y="112.0" width="380.0" height="190.0" rx="6" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="117.5" y1="112.0" x2="117.5" y2="302.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="117.5" y="316.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1k</text>
+<line x1="165.0" y1="112.0" x2="165.0" y2="302.0" stroke="#eef0ec" stroke-width="1"/>
+<line x1="212.5" y1="112.0" x2="212.5" y2="302.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="212.5" y="316.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3k</text>
+<line x1="260.0" y1="112.0" x2="260.0" y2="302.0" stroke="#eef0ec" stroke-width="1"/>
+<line x1="307.5" y1="112.0" x2="307.5" y2="302.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="307.5" y="316.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5k</text>
+<line x1="355.0" y1="112.0" x2="355.0" y2="302.0" stroke="#eef0ec" stroke-width="1"/>
+<line x1="402.5" y1="112.0" x2="402.5" y2="302.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="402.5" y="316.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">7k</text>
+<rect x="184.2" y="232.0" width="28.0" height="70.0" rx="4" fill="#e8b8b0" opacity="0.6"/>
+<rect x="260.2" y="232.0" width="28.0" height="70.0" rx="4" fill="#e8b8b0" opacity="0.6"/>
+<text x="198.2" y="226.0" font-size="7.5" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">F-16 噪声峰</text>
+<path d="M 74.8 302.0 Q 98.5 249.8 122.2 302.0 L 74.8 302.0 Z" fill="#0b6e52" opacity="0.55"/>
+<path d="M 141.2 302.0 Q 165.0 265.4 188.8 302.0 L 141.2 302.0 Z" fill="#0b6e52" opacity="0.55"/>
+<path d="M 207.8 302.0 Q 231.5 270.6 255.2 302.0 L 207.8 302.0 Z" fill="#0b6e52" opacity="0.55"/>
+<path d="M 269.5 302.0 Q 307.5 244.5 345.5 302.0 L 269.5 302.0 Z" fill="#0b6e52" opacity="0.55"/>
+<path d="M 343.1 302.0 Q 378.8 223.6 414.4 302.0 L 343.1 302.0 Z" fill="#0b6e52" opacity="0.55"/>
+<rect x="345.5" y="120.0" width="57.0" height="20.0" rx="4" fill="#d97a2b" opacity="0.85"/>
+<text x="374.0" y="134.0" font-size="8" fill="#fff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">加权区</text>
+<text x="260.0" y="156.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">学习滤波器（平滑化，避开 2.7/4.3k 噪声峰、加权 5.8–7k）</text>
+<text x="260.0" y="294.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">低频段更平滑（随机失活的效果）；窄尖形状 = 拟合训练噪声细节</text>
+<text x="260.0" y="320.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解读：F-16 座舱噪声长时谱恰在 2.7/4.3k 有强峰 → 滤波器学会避开；</text>
+<text x="260.0" y="334.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">训练噪声高频衰减 → 5.8–7k 的语音信息失真最小 → 通道搬去「噪声最少的地方」</text>
+<rect x="530.0" y="88.0" width="320.0" height="296.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="690.0" y="108.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界</text>
+<text x="546.0" y="128.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 极端条件退化被平均掩盖：未见 −10dB 下 8ch 学习</text>
+<text x="546.0" y="142.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  30.52 vs 40ch 梅尔 37.17——差 6.6 点（相对 18%）</text>
+<text x="546.0" y="156.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="546.0" y="170.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 滤波器组层是帧内线性加权：无频域非线性组合能力，</text>
+<text x="546.0" y="184.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  低通道数下能否逼近最优判别子空间无理论保证</text>
+<text x="546.0" y="198.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="546.0" y="212.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 失活速率固定 0.4 无消融；作用位置（权重还是特征）</text>
+<text x="546.0" y="226.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  论文未明说</text>
+<text x="546.0" y="240.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="546.0" y="254.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 能耗只计声学模型乘法：滤波器组层每帧 241×K 次</text>
+<text x="546.0" y="268.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  乘法、STFT、访存、BN 开销全未计入——MCU 上访存</text>
+<text x="546.0" y="282.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  能耗可能反超乘法</text>
+<text x="546.0" y="296.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="546.0" y="310.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 只比对数梅尔一种基线（无 MFCC/SincNet 同框架复现）；</text>
+<text x="546.0" y="324.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  无混响；判决无流式滑窗/误报控制；图3 停留在相关性</text>
+<text x="546.0" y="338.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  解释（剔除 F-16 重训的因果验证没做）</text>
+<text x="36.0" y="432.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：可学习特征 vs 手工特征的胜负是条件性的——把比较推到资源极端（通道 &lt; 10），冗余托平效应消失，分配能力的高下才显形</text>
+</svg>
+    <p class="cap"><b>图4 · 频谱物证与边界</b>：学到的滤波器避开 2.7/4.3kHz 的 F-16 噪声峰、加权 5.8–7kHz（示意形态）；极端条件退化、线性加权的表达上限、能耗只算一半等边界。
+  </div>
+  </div>
+  <p class="sub"><b>统计装置</b>：每个条件不同随机初始化重复 5 次，双样本 t 检验（α=0.05），显著格点在表中标注——单次训练的准确率差异完全可能来自随机初始化，这套装置是短文结论可信度的关键。通道数扫描取 40/10/8/7/5 五个点（篇幅所限），K=40 时三种前端无显著差异（与前期结论一致），K=10 起学习特征开始有利，K=8/7/5 优势逐级放大。</p>
+
+  <h2><span class="no">§04</span>贡献：五条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>首次证明条件性胜负</b>：通道数大幅削减时滤波器组学习能胜过手工特征——把「学习特征不胜手工」的叙事修正为「胜负边界在 K&lt;10 附近」。</p></div>
+    <div class="row"><div class="n">2</div><p><b>可转述的系统级权衡数字</b>：40ch→8ch 学习 −3.5% 换 6.3 倍能耗；8ch→5ch 精度持平再降 2 倍——对常开式低资源部署有直接参考价值。</p></div>
+    <div class="row"><div class="n">3</div><p><b>随机失活引入滤波器组层</b>：信息瓶颈机制提升通道鲁棒性与泛化性——方法增量小而收益明确。</p></div>
+    <div class="row"><div class="n">4</div><p><b>滤波器组可视化物证</b>：2.7/4.3kHz 抑制对应 F-16 噪声峰、5.8–7kHz 加权对应高频噪声衰减——把「学习适应噪声」从口号落到频谱证据。</p></div>
+    <div class="row"><div class="n">5</div><p><b>评测装置可复用</b>：5 次重复 + t 检验 + 乘法数能耗代理（R²=0.9641），为小足迹前端研究立了干净的比较范式。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">学习不消除代价，只是把代价砍半</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>极端条件退化被平均掩盖</h4>
+      <p>未见 −10dB 下 8ch 学习 30.52 vs 40ch 梅尔 37.17——差 6.6 个绝对点（相对 18%）；「平均 −3.5%」在恶劣信噪比下远大于平均值。</p>
+    </div>
+    <div class="card bad">
+      <h4>表达形式与理论保证受限</h4>
+      <p>滤波器组层是一帧内的线性加权——没有频域非线性组合能力，也不带 SincNet 那样的带通形状先验；低通道数下能否逼近最优判别子空间无理论保证。</p>
+    </div>
+    <div class="card bad">
+      <h4>失活设计空间未探索 + 能耗只算一半</h4>
+      <p>速率固定 0.4 无消融，作用位置（权重还是特征）未明说；能耗代理只计声学模型乘法——滤波器组层自身的乘法、STFT、访存、BN 开销全未计入，MCU 上访存能耗可能反超乘法。</p>
+    </div>
+    <div class="card bad">
+      <h4>验证范围窄</h4>
+      <p>只比对数梅尔一种基线（无 MFCC/SincNet 同框架复现）；只有加性噪声无混响；判决无流式滑窗与误报控制；图 3 停留在相关性解释（剔除 F-16 重训看凹陷是否消失的因果验证没做）；基准是作者自建自用，需第三方复现。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>「方法 A 不如 B」的结论可能是坐标系选错了——把比较推到资源极端（通道/带宽/延迟稀缺），冗余托平效应消失，方法间的真实差距才显形。</li>
+      <li>通用先验（梅尔刻度）是「平均最优」，不是「任务最优」——资源稀缺时任务特定优化（哪怕只是线性映射）开始有回报。</li>
+      <li>可解释性可以是证据：把学到的矩阵画成响应曲线、与噪声长时谱对照，「学到了什么」从黑箱变成可检查的频谱物证。</li>
+      <li>随机失活不只在防过拟合——在稀缺通道上它制造信息瓶颈，逼每个单元独立鲁棒（平滑化的滤波器形状就是外部证据）。</li>
+      <li>能耗论证要算全链路：只算声学模型乘法会漏掉前端自身开销，访存能耗在 MCU 上可能反超计算。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2211.10565" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="Filterbank_Learning_For_Noise-Robust_Small-Footprint_Keyword_Spotting.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
