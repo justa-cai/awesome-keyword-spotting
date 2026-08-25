@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DS-ResNet-SE：把 1–2% 的参数预算花在「挑通道」上 | 论文精读 2020 №3</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.22em;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:14px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.sub{font-size:17px;color:var(--ink2);margin-bottom:22px;font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.chip{font-size:12.5px;padding:5px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2);font-weight:600}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink2);margin-bottom:40px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:10px;vertical-align:-6px}
+h2{font-size:24px;font-weight:800;margin-bottom:18px;letter-spacing:.01em}
+h3{font-size:17px;font-weight:700;margin:26px 0 10px}
+p{margin-bottom:14px;color:#2c3646}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:.14em;margin-bottom:10px}
+.tldr li{list-style:none;padding-left:22px;position:relative;margin-bottom:8px;color:#2c3646;font-size:15px}
+.tldr li::before{content:"◆";position:absolute;left:2px;color:var(--acc);font-size:10px;top:7px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px}
+.card h4{font-size:15px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13.5px;color:var(--ink2);margin-bottom:0}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h4{color:var(--dk)}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4}
+.card.bad h4{color:var(--warn)}
+.fig{margin:26px 0}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:9px;text-align:center}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 22px;margin:16px 0;font-size:15px}
+.formula .f{font-family:"SF Mono",Consolas,"Liberation Mono",monospace;font-size:14.5px;color:var(--ink);background:#f4f4ef;border-radius:8px;padding:10px 16px;margin-bottom:8px;overflow-x:auto;white-space:pre-wrap}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;margin:16px 0}
+table.tb th{background:#eff1ec;color:var(--ink);font-weight:700;text-align:left;padding:10px 14px;border-bottom:2px solid var(--line);font-size:13px}
+table.tb td{padding:9px 14px;border-bottom:1px solid #f0f0ea;color:#2c3646;vertical-align:top}
+table.tb tr:last-child td{border-bottom:none}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.contrib{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:18px 0}
+.contrib .row{display:flex;gap:14px;margin-bottom:12px;align-items:flex-start}
+.contrib .row:last-child{margin-bottom:0}
+.contrib .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lt);color:var(--dk);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.contrib .row p{margin:0;font-size:14px;color:#2c3646}
+.judge{background:#fdf8f0;border:1px solid #eadfc8;border-radius:12px;padding:20px 24px;margin:18px 0}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:#5a4a2f;margin-bottom:10px;font-weight:600}
+.judge .rw{font-size:13.5px;color:#7a6a4a;padding-left:18px;position:relative;margin-bottom:9px}
+.judge .rw::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-size:12px;padding:4px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink3);font-weight:600}
+.foot-note{font-size:12px;color:var(--ink3);width:100%;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2020 №3</div>
+<h1 class="hero">DS-ResNet-SE：小模型没钱扩宽度，就把预算花在<span class="g">「挑通道」</span>上</h1>
+<div class="sub">Depthwise Separable Convolutional ResNet with Squeeze-and-Excitation Blocks —— SE 通道注意力进小足迹 KWS 的早期证据</div>
+<div class="chips">
+<span class="chip acc">Squeeze-and-Excitation</span><span class="chip">DSConv</span><span class="chip">残差连接</span><span class="chip">通道注意力</span><span class="chip">~200K 参数</span>
+</div>
+<div class="meta">
+<b>西北工业大学 · arXiv 2004.12200（2020.04）</b><br>
+任务：GSC 12 词分类 · 架构：DSConv + 残差 + SE 三件套，总参数 ~200K · SE 缩减比 r=4<br>
+一句话：算子层（DSConv）和结构层（残差）的性价比见顶后，注意力层是下一个便宜的提分位——SE 参数开销 1–2%，换 0.5–1% 精度，难区分词对上收益最大。
+</div>
+
+<section>
+<span class="no">01</span><h2>核心矛盾：预算锁死，表达还要涨</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>标准卷积 O(C_in·C_out·K²) 的复杂度让小模型没资格堆宽度堆深度；DSConv 砍掉 8–9 倍计算量，但<b>只是换了算子</b>，表达能力的下一档提升要从别处来。</li>
+<li>本文的组合拳：DSConv 管<b>省</b>（预算内塞更多层）、残差管<b>深</b>（梯度走捷径、训练不退化）、SE 管<b>准</b>（学会哪些通道重要）。</li>
+<li>消融显示三件套缺一不可：每加一个组件精度涨一档；SE 只加 1–2% 参数就换 0.5–1% 精度——小模型性价比之王。</li>
+<li>SE 权重可视化有层级分工：浅层关注频谱形状通道，深层关注抽象判别通道——注意力不是均匀先验，是自发学出的分工。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-ResNet-SE：小模型没钱扩宽度，就把预算花在「挑通道」上</text>
+<line x1="36.0" y1="60.0" x2="700.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 核心矛盾：计算预算锁死，表达能力还要涨</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标准卷积复杂度 O(C_in · C_out · K²)——通道数和核尺寸一起翻倍就是四倍开销；小足迹模型没资格走「堆宽度堆深度」的老路</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">DSConv 已把计算量砍约 8–9 倍，但只是「换算子」——表达能力的下一档提升要从别处来：让模型自己学会「哪些通道重要」</text>
+<rect x="36.0" y="152.0" width="848.0" height="50.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="182.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">算子层：DSConv</text>
+<text x="215.0" y="173.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">深度卷积（每通道独立空间卷积）+ 逐点 1×1（跨通道融合），总开销约 1/C_out + 1/K²</text>
+<text x="215.0" y="191.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">预算内塞进更多层的地基</text>
+<rect x="36.0" y="210.0" width="848.0" height="50.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="240.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">结构层：残差连接</text>
+<text x="215.0" y="231.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">y = F(x) + x——学增量而不是完整映射；梯度走捷径，深层网络训练不退化</text>
+<text x="215.0" y="249.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">让「更深」在小模型上成立</text>
+<rect x="36.0" y="268.0" width="848.0" height="50.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="298.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力层：SE 模块</text>
+<text x="215.0" y="289.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">全局池化读通道统计量 → 两层 FC 学出 0–1 通道权重 → 逐通道重加权</text>
+<text x="215.0" y="307.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">参数 +1–2% 换精度 +0.5–1%</text>
+<text x="36.0" y="332.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② DS-ResNet-SE Block：三个组件怎么叠成一个块</text>
+<rect x="36.0" y="352.0" width="156.0" height="58.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="114.0" y="375.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1×1 扩展</text>
+<text x="114.0" y="394.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">通道扩张（可选）</text>
+<line x1="192.0" y1="381.0" x2="208.00" y2="381.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="208.0" y="352.0" width="156.0" height="58.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="286.0" y="375.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DSConv</text>
+<text x="286.0" y="394.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">空间特征提取</text>
+<line x1="364.0" y1="381.0" x2="380.00" y2="381.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="380.0" y="352.0" width="156.0" height="58.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="458.0" y="375.0" font-size="9.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SE 模块</text>
+<text x="458.0" y="394.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">通道注意力加权</text>
+<line x1="536.0" y1="381.0" x2="552.00" y2="381.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="552.0" y="352.0" width="156.0" height="58.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="630.0" y="375.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1×1 投影</text>
+<text x="630.0" y="394.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">压回原始维度</text>
+<line x1="708.0" y1="381.0" x2="724.00" y2="381.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="724.0" y="352.0" width="156.0" height="58.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="802.0" y="375.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">⊕ 残差</text>
+<text x="802.0" y="394.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">y = F(x) + x</text>
+<rect x="36.0" y="430.0" width="848.0" height="88.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="454.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">堆叠方式：多个 DS-ResNet-SE 块串联 · 通道数逐层递增（64 → 128 → 256）· 总参数控制在 ~200K（嵌入式可部署量级）</text>
+<text x="52.0" y="469.5" font-size="9.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="485.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SE 缩减比 r：FC 降维到 C/r 再升回 C——r=4 是性能-复杂度甜点（r=8 更省但精度回落）</text>
+<text x="52.0" y="500.5" font-size="9.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="516.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">三件套各司其职：DSConv 管省、残差管深、SE 管准——缺任何一个都退回上一档（消融验证）</text>
+<text x="36.0" y="560.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 一句话读懂这篇论文</text>
+<rect x="36.0" y="576.0" width="848.0" height="62.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="460.0" y="604.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">「通道注意力是小模型性价比最高的表达增强」——SE 参数开销 ~1–2%，却换来 0.5–1% 精度，难区分词对上收益最大</text>
+<text x="460.0" y="626.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">而且这不需要任何推理时的动态计算图改动——训练完就是普通静态网络</text>
+<rect x="36.0" y="672.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="698.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~200K</text>
+<text x="130.0" y="718.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">总参数量（嵌入式可部署）</text>
+<text x="298.0" y="698.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+0.5–1%</text>
+<text x="298.0" y="718.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">SE 带来的精度提升</text>
+<text x="466.0" y="698.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1–2%</text>
+<text x="466.0" y="718.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">SE 的参数开销</text>
+<text x="634.0" y="698.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1–2%</text>
+<text x="634.0" y="718.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">vs DS-CNN 总提升（残差+SE）</text>
+<text x="802.0" y="698.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">r=4</text>
+<text x="802.0" y="718.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">SE 缩减比甜点</text>
+<text x="36.0" y="756.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">西北工业大学 · arXiv 2004.12200（2020.04）；GSC 12 类；基线：标准 CNN · DS-CNN · DS-ResNet；数字为约值</text>
+</svg>
+<div class="cap">图 1 · 全景：预算矛盾 → 三件套各司其职 → Block 结构 → 核心数字带</div>
+</section>
+
+<section>
+<span class="no">02</span><h2>机制：SE 模块三步走</h2>
+<p>SE（Squeeze-and-Excitation）回答的问题很朴素：<b>特征图里几十上百个通道，真的一样重要吗？</b>三步给出答案——先把每个通道压成一个统计量（谁在活跃），再用两层 FC 学出通道间的权重（谁配被放大），最后逐通道乘回去（安静的压低、活跃的放大）。</p>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：SE 模块三步走 · 一个 Block 的完整数据流</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SE 模块内部</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="60.0" y="112.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">输入：C 个通道的特征图</text>
+<rect x="64.0" y="115.4" width="18.0" height="30.6" rx="2" fill="#9fc8b8"/>
+<rect x="88.0" y="134.1" width="18.0" height="11.9" rx="2" fill="#9fc8b8"/>
+<rect x="112.0" y="122.2" width="18.0" height="23.8" rx="2" fill="#9fc8b8"/>
+<rect x="136.0" y="137.5" width="18.0" height="8.5" rx="2" fill="#9fc8b8"/>
+<rect x="160.0" y="127.3" width="18.0" height="18.7" rx="2" fill="#9fc8b8"/>
+<rect x="184.0" y="140.9" width="18.0" height="5.1" rx="2" fill="#9fc8b8"/>
+<text x="60.0" y="162.0" font-size="8.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① Squeeze：每通道全局平均池化 → C 维通道描述符（谁在活跃）</text>
+<rect x="64.0" y="172.0" width="318.0" height="22.0" rx="5" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="223.0" y="187.0" font-size="8.5" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">z = GAP(x)  ∈ R^C</text>
+<text x="60.0" y="214.0" font-size="8.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② Excitation：两层 FC 学通道间关系</text>
+<rect x="64.0" y="222.0" width="318.0" height="22.0" rx="5" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="223.0" y="237.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">s = σ(W₂ · ReLU(W₁ · z))    W₁: C→C/r · W₂: C/r→C</text>
+<text x="60.0" y="264.0" font-size="8.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ Reweighting：权重逐通道乘回特征</text>
+<rect x="64.0" y="276.9" width="18.0" height="29.1" rx="2" fill="#0b6e52"/>
+<rect x="88.0" y="303.6" width="18.0" height="2.4" rx="2" fill="#d5e0d9"/>
+<rect x="112.0" y="285.8" width="18.0" height="20.2" rx="2" fill="#0b6e52"/>
+<rect x="136.0" y="304.7" width="18.0" height="1.3" rx="2" fill="#d5e0d9"/>
+<rect x="160.0" y="294.8" width="18.0" height="11.2" rx="2" fill="#0b6e52"/>
+<rect x="184.0" y="305.5" width="18.0" height="0.5" rx="2" fill="#d5e0d9"/>
+<text x="60.0" y="326.0" font-size="8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">安静通道被压低 · 活跃通道被放大——模型学会「听谁的话」</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Block 数据流与设计取舍</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="450.0" y="114.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-ResNet-SE Block 的五步（左上流程条的展开）：</text>
+<text x="450.0" y="129.2" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  x → 1×1 扩展（可选）→ DSConv 空间特征</text>
+<text x="450.0" y="144.4" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  → SE 通道加权 → 1×1 投影 → ⊕ x（残差）</text>
+<text x="450.0" y="159.6" font-size="8.6" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="174.8" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么 SE 放在投影前：</text>
+<text x="450.0" y="190.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SE 作用在「丰富通道」上——扩展后通道多、</text>
+<text x="450.0" y="205.2" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  区分度大，注意力才有对象</text>
+<text x="450.0" y="220.4" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 放投影后就只剩低维通道，权重的表达力浪费</text>
+<text x="450.0" y="235.6" font-size="8.6" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="250.8" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么残差和 SE 是互补的：</text>
+<text x="450.0" y="266.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 残差解决「能不能训深」——梯度通路问题</text>
+<text x="450.0" y="281.2" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SE 解决「深了之后通道冗余」——选择性问题</text>
+<text x="450.0" y="296.4" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 消融：只加残差精度涨一档，再叠 SE 再涨一档</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：SE 三步——全局池化读统计量、瓶颈 FC 学权重、逐通道缩放；注意权重是 0–1 的软门控不是硬选择。右：Block 里 SE 的位置与「残差管训练、SE 管选择」的分工</text>
+</svg>
+<div class="cap">图 2 · 机制解剖：SE 模块内部三步 · Block 完整数据流与设计取舍</div>
+<div class="formula">
+<div class="f">Squeeze:    z = GAP(x) ∈ R^C              ← 每通道一个数：它在多大程度上被激活
+Excitation: s = σ(W₂ · ReLU(W₁ · z))     ← W₁: C→C/r, W₂: C/r→C（r=4 瓶颈）
+Reweight:   x̃_c = s_c · x_c               ← 0–1 软门控逐通道缩放</div>
+<div class="why"><b>人话：</b>Squeeze 是「点名」——看哪些通道在发言；Excitation 是「评权重」——按发言内容判断谁重要；Reweight 是「调音台」——重要的推子推上去，噪音推子拉下来。整个过程只花 1–2% 参数。</div>
+</div>
+<p><b>SE 在 Block 里的位置</b>有讲究：放在 1×1 投影<b>之前</b>——扩展后通道丰富、区分度大，注意力才有对象；放投影后就只剩低维通道，权重的表达力被浪费。而残差与 SE 是互补关系：残差解决「能不能训深」（梯度通路），SE 解决「深了之后通道冗余」（选择性）——消融里两者各涨一档，不是替代品。</p>
+</section>
+
+<section>
+<span class="no">03</span><h2>结果：消融阶梯 + 注意力学到了什么</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：消融阶梯 + SE 权重看什么 + r 的甜点</text>
+<line x1="36.0" y1="56.0" x2="480.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融阶梯（GSC 12 类，示意）</text>
+<line x1="52.0" y1="262.0" x2="456.00" y2="262.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="265.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">92</text>
+<line x1="52.0" y1="224.5" x2="456.00" y2="224.50" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="227.5" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">93</text>
+<line x1="52.0" y1="187.0" x2="456.00" y2="187.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="190.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">94</text>
+<line x1="52.0" y1="149.5" x2="456.00" y2="149.50" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="152.5" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">95</text>
+<line x1="52.0" y1="112.0" x2="456.00" y2="112.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="115.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">96</text>
+<rect x="86.0" y="224.5" width="72.0" height="37.5" rx="4" fill="#c9d8e8"/>
+<text x="122.0" y="218.5" font-size="8.5" fill="#c9d8e8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~93.0</text>
+<text x="122.0" y="276.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">标准 CNN</text>
+<rect x="182.0" y="187.0" width="72.0" height="75.0" rx="4" fill="#9fc8b8"/>
+<text x="218.0" y="181.0" font-size="8.5" fill="#9fc8b8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~94.0</text>
+<text x="218.0" y="276.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN</text>
+<text x="218.0" y="286.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（+DSCo</text>
+<text x="218.0" y="296.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">nv）</text>
+<rect x="278.0" y="164.5" width="72.0" height="97.5" rx="4" fill="#5d9c85"/>
+<text x="314.0" y="158.5" font-size="8.5" fill="#5d9c85" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~94.6</text>
+<text x="314.0" y="276.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-Res</text>
+<text x="314.0" y="286.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Net（+残</text>
+<text x="314.0" y="296.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">差）</text>
+<rect x="374.0" y="142.0" width="72.0" height="120.0" rx="4" fill="#0b6e52"/>
+<text x="410.0" y="136.0" font-size="8.5" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~95.2</text>
+<text x="410.0" y="276.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-Res</text>
+<text x="410.0" y="286.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Net-SE</text>
+<text x="410.0" y="296.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif"> ★</text>
+<text x="256.0" y="106.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每加一个组件涨一档——三件套缺一不可（纵轴放大，示意量级）</text>
+<text x="56.0" y="312.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="56.0" y="326.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SE 模块：+0.5–1%（vs DS-ResNet）· 参数只多 1–2%</text>
+<text x="56.0" y="339.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· vs DS-CNN 合计 +1–2%（残差与 SE 共同贡献）</text>
+<text x="56.0" y="352.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 难区分关键词对上改善最明显——通道注意力</text>
+<text x="56.0" y="365.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  帮模型放大细微判别特征</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SE 权重可视化 + 缩减比</text>
+<rect x="500.0" y="92.0" width="324.0" height="130.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="110.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">不同层的 SE 关注不同的通道</text>
+<text x="514.0" y="126.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">浅层 SE → 频谱形状类通道（共振峰走向）</text>
+<text x="514.0" y="140.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">深层 SE → 抽象判别性通道（词特异性响应）</text>
+<text x="514.0" y="158.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力学到的不是均匀先验——层级分工自发涌现</text>
+<rect x="500.0" y="230.0" width="324.0" height="112.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="248.0" font-size="8.8" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">缩减比 r 的权衡（SE 的 FC 瓶颈）</text>
+<text x="514.0" y="272.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">r=4</text>
+<text x="544.0" y="272.0" font-size="7" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">精度</text>
+<rect x="566.0" y="262.0" width="76.5" height="10.0" rx="3" fill="#9fc8b8"/>
+<text x="660.0" y="272.0" font-size="7" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">开销</text>
+<rect x="682.0" y="262.0" width="40.5" height="10.0" rx="3" fill="#e8c8a0"/>
+<text x="800.0" y="272.0" font-size="10" fill="#d97a2b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">★</text>
+<text x="514.0" y="298.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">r=8</text>
+<text x="544.0" y="298.0" font-size="7" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">精度</text>
+<rect x="566.0" y="288.0" width="54.0" height="10.0" rx="3" fill="#9fc8b8"/>
+<text x="660.0" y="298.0" font-size="7" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">开销</text>
+<rect x="682.0" y="288.0" width="22.5" height="10.0" rx="3" fill="#e8c8a0"/>
+<text x="514.0" y="324.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">r=2</text>
+<text x="544.0" y="324.0" font-size="7" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">精度</text>
+<rect x="566.0" y="314.0" width="81.0" height="10.0" rx="3" fill="#9fc8b8"/>
+<text x="660.0" y="324.0" font-size="7" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">开销</text>
+<rect x="682.0" y="314.0" width="76.5" height="10.0" rx="3" fill="#e8c8a0"/>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：消融阶梯为示意量级（笔记记录 +0.5–1% / +1–2% 区间，具体数值回对原文）；r=4 为论文报告的最佳权衡</text>
+</svg>
+<div class="cap">图 3 · 主结果：消融阶梯（示意量级）· SE 权重的层级分工 · 缩减比 r 的权衡</div>
+<table class="tb">
+<tr><th>配置</th><th>变化</th><th>收益（约值）</th><th>判断</th></tr>
+<tr><td>标准 CNN → DS-CNN</td><td>换 DSConv 算子</td><td>计算量 −8~9 倍，精度持平或略升</td><td>算子层性价比已被吃干净</td></tr>
+<tr><td>DS-CNN → DS-ResNet</td><td>+ 残差连接</td><td>更深网络可训，精度涨一档</td><td>结构层的贡献</td></tr>
+<tr class="hl"><td>DS-ResNet → DS-ResNet-SE</td><td>+ SE 模块</td><td>+0.5–1% 精度，参数仅 +1–2%</td><td>注意力层的高性价比</td></tr>
+<tr><td>r=4 vs r=8</td><td>SE 瓶颈宽度</td><td>r=4 最佳权衡</td><td>再压瓶颈精度回落</td></tr>
+</table>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>难区分词对上改善最明显。</b>通道注意力帮模型放大细微的判别特征（如 yes/yeah 这类声学近邻的差异）——平均精度涨 0.5–1% 的背后，涨的部分集中在最难的地方。</p></div>
+<div class="row"><div class="n">2</div><p><b>SE 权重有自发层级分工。</b>浅层 SE 偏向频谱形状类通道（共振峰走向），深层 SE 偏向抽象判别通道（词特异性响应）——没人告诉它该这么分，是训练自己长出来的。</p></div>
+<div class="row"><div class="n">3</div><p><b>部署形态友好。</b>SE 训练完就是静态网络的一部分——没有动态图、没有运行时开销类型变化，量化/编译流程与普通 CNN 无异，嵌入式落地零额外工程。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">04</span><h2>边界：这套打法买不到什么</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法与评估边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SE 有计算开销：参数省（+1–2%）但全连接与 Sigmoid</text>
+<text x="72.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  是实打实的每通道乘加——极低延迟预算下要核账</text>
+<text x="72.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 手工超参：块数 · 通道递增 · r 都靠人调——本文没有</text>
+<text x="72.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  自动化（同年的 AutoKWS 正好补这个方向）</text>
+<text x="72.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 评估条件干净：单通道近场音频为主——远场 / 噪声</text>
+<text x="72.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  场景未充分验证</text>
+<text x="72.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声下的 SE 有效性存疑：通道统计量被噪声污染后</text>
+<text x="72.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  注意力是否还认得出「信息通道」，文中无数据</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸 + 系列坐标</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 空间-通道联合注意力（CBAM）</text>
+<text x="536.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· NAS 自动搜 DS-ResNet-SE 配置</text>
+<text x="536.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 远场 / 噪声场景扩展评估</text>
+<text x="536.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 时间维注意力 × 通道注意力组合</text>
+<text x="536.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系列坐标：</text>
+<text x="536.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文（2020）：SE 进 KWS 小模型——通道注意力</text>
+<text x="536.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  性价比的早期证据</text>
+<text x="536.0" y="240.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2021 SE-Res2Net：SE + Res2Net 双路径——本文路线</text>
+<text x="536.0" y="254.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  的直接延伸</text>
+<text x="536.0" y="268.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2021 轻量动态滤波器：同为 ~2% 参数换显著提升，</text>
+<text x="536.0" y="281.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  但换成输入自适应调制——「小开销大回报」家族</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：当算子层（DSConv）和结构层（残差）的性价比见顶后，注意力层是下一个便宜的提分位——先问「哪一维最冗余」（这里是通道），再选对应维度的注意力</text>
+</svg>
+<div class="cap">图 4 · 边界与延伸：SE 的计算开销 · 干净评估条件 · 噪声下有效性存疑</div>
+<div class="cards">
+<div class="card bad"><h4>SE 不是零开销</h4><p>参数省（+1–2%），但全连接 + Sigmoid 是实打实的每通道乘加——在极低延迟预算（MCU 级）下要重新核账，参数账省不代表周期账省。</p></div>
+<div class="card bad"><h4>评估条件干净</h4><p>主要在单通道近场音频上评估——远场、加噪场景未充分验证；音箱/耳机的真实工况不在此文射程内。</p></div>
+<div class="card bad"><h4>噪声下的 SE 存疑</h4><p>通道统计量被噪声污染后，注意力是否还认得出「信息通道」——文中无数据，这是通道注意力路线共同的未答题。</p></div>
+<div class="card"><h4>超参仍靠手调</h4><p>块数、通道递增、r 都是人定的——同年同目录的 AutoKWS（2020 №2）正好代表自动化这个方向的补法。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">05</span><h2>可迁移的判断</h2>
+<div class="judge">
+<div class="jt">JUDGMENTS · 能带走的三条</div>
+<p>① 提分要按层找性价比：算子 → 结构 → 注意力。</p>
+<div class="rw">DSConv（算子层）和残差（结构层）的红利见顶后，注意力是下一个便宜的提分位——先问「哪一维最冗余」（本文答案是通道），再选对应维度的注意力，比无脑换更大网络划算。</div>
+<p>② 小开销大回报的模块，收益集中在难样本。</p>
+<div class="rw">+1–2% 参数换 0.5–1% 平均精度看着不多，但涨的部分集中在难区分词对上——评估这类模块时看均值会低估价值，要看困难类别的分解。</div>
+<p>③ 软门控优于硬选择，训练期优于推理期。</p>
+<div class="rw">SE 用 0–1 连续权重而非剪掉通道（梯度可流），训练完固化成静态网络（部署无额外开销）——「训练时自适应、部署时静态」是小模型上加注意力的通用安全模式。</div>
+</div>
+<p><b>系列坐标</b>：本文（2020）确立「SE 进小足迹 KWS」的性价比证据；2021 年 SE-Res2Net 沿这条线加双路径多尺度，2021 年轻量动态滤波器换输入自适应调制的路线但同样是 ~2% 参数换显著提升——「小开销大回报」家族在 KWS 里反复出现，本文是较早的系统性消融。</p>
+</section>
+
+<div class="foot">
+<span class="pill">arXiv 2004.12200</span><span class="pill">GSC 12 词</span><span class="pill">SE r=4</span><span class="pill">~200K 参数</span>
+<div class="foot-note">消融数字为笔记记录的区间约值，具体数值以原文为准 · 本页为可视化精读笔记，图表由 SVG 重绘</div>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,241 @@
+- generic [ref=f320e2]:
+  - generic [ref=f320e3]: 论文精读 · 可视化版 · 2020 №3
+  - heading "DS-ResNet-SE：小模型没钱扩宽度，就把预算花在「挑通道」上" [level=1] [ref=f320e4]
+  - generic [ref=f320e5]: Depthwise Separable Convolutional ResNet with Squeeze-and-Excitation Blocks —— SE 通道注意力进小足迹 KWS 的早期证据
+  - generic [ref=f320e6]:
+    - generic [ref=f320e7]: Squeeze-and-Excitation
+    - generic [ref=f320e8]: DSConv
+    - generic [ref=f320e9]: 残差连接
+    - generic [ref=f320e10]: 通道注意力
+    - generic [ref=f320e11]: ~200K 参数
+  - generic [ref=f320e12]: 西北工业大学 · arXiv 2004.12200（2020.04） 任务：GSC 12 词分类 · 架构：DSConv + 残差 + SE 三件套，总参数 ~200K · SE 缩减比 r=4 一句话：算子层（DSConv）和结构层（残差）的性价比见顶后，注意力层是下一个便宜的提分位——SE 参数开销 1–2%，换 0.5–1% 精度，难区分词对上收益最大。
+  - generic [ref=f320e13]:
+    - generic [ref=f320e14]: "01"
+    - heading "核心矛盾：预算锁死，表达还要涨" [level=2] [ref=f320e15]
+    - generic [ref=f320e16]:
+      - generic [ref=f320e17]: TL;DR
+      - list [ref=f320e18]:
+        - listitem [ref=f320e19]: ◆ 标准卷积 O(C_in·C_out·K²) 的复杂度让小模型没资格堆宽度堆深度；DSConv 砍掉 8–9 倍计算量，但只是换了算子，表达能力的下一档提升要从别处来。
+        - listitem [ref=f320e20]: ◆ 本文的组合拳：DSConv 管省（预算内塞更多层）、残差管深（梯度走捷径、训练不退化）、SE 管准（学会哪些通道重要）。
+        - listitem [ref=f320e21]: ◆ 消融显示三件套缺一不可：每加一个组件精度涨一档；SE 只加 1–2% 参数就换 0.5–1% 精度——小模型性价比之王。
+        - listitem [ref=f320e22]: ◆ SE 权重可视化有层级分工：浅层关注频谱形状通道，深层关注抽象判别通道——注意力不是均匀先验，是自发学出的分工。
+    - img [ref=f320e23]:
+      - generic [ref=f320e25]: DS-ResNet-SE：小模型没钱扩宽度，就把预算花在「挑通道」上
+      - generic [ref=f320e26]: ① 核心矛盾：计算预算锁死，表达能力还要涨
+      - generic [ref=f320e28]: 标准卷积复杂度 O(C_in · C_out · K²)——通道数和核尺寸一起翻倍就是四倍开销；小足迹模型没资格走「堆宽度堆深度」的老路
+      - generic [ref=f320e29]: DSConv 已把计算量砍约 8–9 倍，但只是「换算子」——表达能力的下一档提升要从别处来：让模型自己学会「哪些通道重要」
+      - generic [ref=f320e31]: 算子层：DSConv
+      - generic [ref=f320e32]: 深度卷积（每通道独立空间卷积）+ 逐点 1×1（跨通道融合），总开销约 1/C_out + 1/K²
+      - generic [ref=f320e33]: 预算内塞进更多层的地基
+      - generic [ref=f320e35]: 结构层：残差连接
+      - generic [ref=f320e36]: y = F(x) + x——学增量而不是完整映射；梯度走捷径，深层网络训练不退化
+      - generic [ref=f320e37]: 让「更深」在小模型上成立
+      - generic [ref=f320e39]: 注意力层：SE 模块
+      - generic [ref=f320e40]: 全局池化读通道统计量 → 两层 FC 学出 0–1 通道权重 → 逐通道重加权
+      - generic [ref=f320e41]: 参数 +1–2% 换精度 +0.5–1%
+      - generic [ref=f320e42]: ② DS-ResNet-SE Block：三个组件怎么叠成一个块
+      - generic [ref=f320e44]: 1×1 扩展
+      - generic [ref=f320e45]: 通道扩张（可选）
+      - generic [ref=f320e47]: DSConv
+      - generic [ref=f320e48]: 空间特征提取
+      - generic [ref=f320e50]: SE 模块
+      - generic [ref=f320e51]: 通道注意力加权
+      - generic [ref=f320e53]: 1×1 投影
+      - generic [ref=f320e54]: 压回原始维度
+      - generic [ref=f320e56]: ⊕ 残差
+      - generic [ref=f320e57]: y = F(x) + x
+      - generic [ref=f320e59]: 堆叠方式：多个 DS-ResNet-SE 块串联 · 通道数逐层递增（64 → 128 → 256）· 总参数控制在 ~200K（嵌入式可部署量级）
+      - generic [ref=f320e60]: SE 缩减比 r：FC 降维到 C/r 再升回 C——r=4 是性能-复杂度甜点（r=8 更省但精度回落）
+      - generic [ref=f320e61]: 三件套各司其职：DSConv 管省、残差管深、SE 管准——缺任何一个都退回上一档（消融验证）
+      - generic [ref=f320e62]: ③ 一句话读懂这篇论文
+      - generic [ref=f320e64]: 「通道注意力是小模型性价比最高的表达增强」——SE 参数开销 ~1–2%，却换来 0.5–1% 精度，难区分词对上收益最大
+      - generic [ref=f320e65]: 而且这不需要任何推理时的动态计算图改动——训练完就是普通静态网络
+      - generic [ref=f320e67]: ~200K
+      - generic [ref=f320e68]: 总参数量（嵌入式可部署）
+      - generic [ref=f320e69]: +0.5–1%
+      - generic [ref=f320e70]: SE 带来的精度提升
+      - generic [ref=f320e71]: +1–2%
+      - generic [ref=f320e72]: SE 的参数开销
+      - generic [ref=f320e73]: +1–2%
+      - generic [ref=f320e74]: vs DS-CNN 总提升（残差+SE）
+      - generic [ref=f320e75]: r=4
+      - generic [ref=f320e76]: SE 缩减比甜点
+      - generic [ref=f320e77]: 西北工业大学 · arXiv 2004.12200（2020.04）；GSC 12 类；基线：标准 CNN · DS-CNN · DS-ResNet；数字为约值
+    - generic [ref=f320e78]: 图 1 · 全景：预算矛盾 → 三件套各司其职 → Block 结构 → 核心数字带
+  - generic [ref=f320e79]:
+    - generic [ref=f320e80]: "02"
+    - heading "机制：SE 模块三步走" [level=2] [ref=f320e81]
+    - paragraph [ref=f320e82]: SE（Squeeze-and-Excitation）回答的问题很朴素：特征图里几十上百个通道，真的一样重要吗？三步给出答案——先把每个通道压成一个统计量（谁在活跃），再用两层 FC 学出通道间的权重（谁配被放大），最后逐通道乘回去（安静的压低、活跃的放大）。
+    - img [ref=f320e83]:
+      - generic [ref=f320e85]: 机制解剖：SE 模块三步走 · 一个 Block 的完整数据流
+      - generic [ref=f320e86]: SE 模块内部
+      - generic [ref=f320e88]: 输入：C 个通道的特征图
+      - generic [ref=f320e95]: ① Squeeze：每通道全局平均池化 → C 维通道描述符（谁在活跃）
+      - generic [ref=f320e97]: z = GAP(x) ∈ R^C
+      - generic [ref=f320e98]: ② Excitation：两层 FC 学通道间关系
+      - generic [ref=f320e100]: "s = σ(W₂ · ReLU(W₁ · z)) W₁: C→C/r · W₂: C/r→C"
+      - generic [ref=f320e101]: ③ Reweighting：权重逐通道乘回特征
+      - generic [ref=f320e108]: 安静通道被压低 · 活跃通道被放大——模型学会「听谁的话」
+      - generic [ref=f320e109]: Block 数据流与设计取舍
+      - generic [ref=f320e111]: DS-ResNet-SE Block 的五步（左上流程条的展开）：
+      - generic [ref=f320e112]: x → 1×1 扩展（可选）→ DSConv 空间特征
+      - generic [ref=f320e113]: → SE 通道加权 → 1×1 投影 → ⊕ x（残差）
+      - generic [ref=f320e114]: 为什么 SE 放在投影前：
+      - generic [ref=f320e115]: · SE 作用在「丰富通道」上——扩展后通道多、
+      - generic [ref=f320e116]: 区分度大，注意力才有对象
+      - generic [ref=f320e117]: · 放投影后就只剩低维通道，权重的表达力浪费
+      - generic [ref=f320e118]: 为什么残差和 SE 是互补的：
+      - generic [ref=f320e119]: · 残差解决「能不能训深」——梯度通路问题
+      - generic [ref=f320e120]: · SE 解决「深了之后通道冗余」——选择性问题
+      - generic [ref=f320e121]: · 消融：只加残差精度涨一档，再叠 SE 再涨一档
+      - generic [ref=f320e122]: 左：SE 三步——全局池化读统计量、瓶颈 FC 学权重、逐通道缩放；注意权重是 0–1 的软门控不是硬选择。右：Block 里 SE 的位置与「残差管训练、SE 管选择」的分工
+    - generic [ref=f320e123]: 图 2 · 机制解剖：SE 模块内部三步 · Block 完整数据流与设计取舍
+    - generic [ref=f320e124]:
+      - generic [ref=f320e125]: "Squeeze: z = GAP(x) ∈ R^C ← 每通道一个数：它在多大程度上被激活 Excitation: s = σ(W₂ · ReLU(W₁ · z)) ← W₁: C→C/r, W₂: C/r→C（r=4 瓶颈） Reweight: x̃_c = s_c · x_c ← 0–1 软门控逐通道缩放"
+      - generic [ref=f320e126]: 人话：Squeeze 是「点名」——看哪些通道在发言；Excitation 是「评权重」——按发言内容判断谁重要；Reweight 是「调音台」——重要的推子推上去，噪音推子拉下来。整个过程只花 1–2% 参数。
+    - paragraph [ref=f320e127]: SE 在 Block 里的位置有讲究：放在 1×1 投影之前——扩展后通道丰富、区分度大，注意力才有对象；放投影后就只剩低维通道，权重的表达力被浪费。而残差与 SE 是互补关系：残差解决「能不能训深」（梯度通路），SE 解决「深了之后通道冗余」（选择性）——消融里两者各涨一档，不是替代品。
+  - generic [ref=f320e128]:
+    - generic [ref=f320e129]: "03"
+    - heading "结果：消融阶梯 + 注意力学到了什么" [level=2] [ref=f320e130]
+    - img [ref=f320e131]:
+      - generic [ref=f320e133]: 主结果：消融阶梯 + SE 权重看什么 + r 的甜点
+      - generic [ref=f320e134]: 消融阶梯（GSC 12 类，示意）
+      - generic [ref=f320e135]: "92"
+      - generic [ref=f320e136]: "93"
+      - generic [ref=f320e137]: "94"
+      - generic [ref=f320e138]: "95"
+      - generic [ref=f320e139]: "96"
+      - generic [ref=f320e141]: ~93.0
+      - generic [ref=f320e142]: 标准 CNN
+      - generic [ref=f320e144]: ~94.0
+      - generic [ref=f320e145]: DS-CNN
+      - generic [ref=f320e146]: （+DSCo
+      - generic [ref=f320e147]: nv）
+      - generic [ref=f320e149]: ~94.6
+      - generic [ref=f320e150]: DS-Res
+      - generic [ref=f320e151]: Net（+残
+      - generic [ref=f320e152]: 差）
+      - generic [ref=f320e154]: ~95.2
+      - generic [ref=f320e155]: DS-Res
+      - generic [ref=f320e156]: Net-SE
+      - generic [ref=f320e157]: ★
+      - generic [ref=f320e158]: 每加一个组件涨一档——三件套缺一不可（纵轴放大，示意量级）
+      - generic [ref=f320e159]: 读数：
+      - generic [ref=f320e160]: · SE 模块：+0.5–1%（vs DS-ResNet）· 参数只多 1–2%
+      - generic [ref=f320e161]: · vs DS-CNN 合计 +1–2%（残差与 SE 共同贡献）
+      - generic [ref=f320e162]: · 难区分关键词对上改善最明显——通道注意力
+      - generic [ref=f320e163]: 帮模型放大细微判别特征
+      - generic [ref=f320e164]: SE 权重可视化 + 缩减比
+      - generic [ref=f320e166]: 不同层的 SE 关注不同的通道
+      - generic [ref=f320e167]: 浅层 SE → 频谱形状类通道（共振峰走向）
+      - generic [ref=f320e168]: 深层 SE → 抽象判别性通道（词特异性响应）
+      - generic [ref=f320e169]: 注意力学到的不是均匀先验——层级分工自发涌现
+      - generic [ref=f320e171]: 缩减比 r 的权衡（SE 的 FC 瓶颈）
+      - generic [ref=f320e172]: r=4
+      - generic [ref=f320e173]: 精度
+      - generic [ref=f320e175]: 开销
+      - generic [ref=f320e177]: ★
+      - generic [ref=f320e178]: r=8
+      - generic [ref=f320e179]: 精度
+      - generic [ref=f320e181]: 开销
+      - generic [ref=f320e183]: r=2
+      - generic [ref=f320e184]: 精度
+      - generic [ref=f320e186]: 开销
+      - generic [ref=f320e188]: 注：消融阶梯为示意量级（笔记记录 +0.5–1% / +1–2% 区间，具体数值回对原文）；r=4 为论文报告的最佳权衡
+    - generic [ref=f320e189]: 图 3 · 主结果：消融阶梯（示意量级）· SE 权重的层级分工 · 缩减比 r 的权衡
+    - table [ref=f320e190]:
+      - rowgroup [ref=f320e191]:
+        - row [ref=f320e192]:
+          - columnheader "配置" [ref=f320e193]
+          - columnheader "变化" [ref=f320e194]
+          - columnheader "收益（约值）" [ref=f320e195]
+          - columnheader "判断" [ref=f320e196]
+        - row [ref=f320e197]:
+          - cell "标准 CNN → DS-CNN" [ref=f320e198]
+          - cell "换 DSConv 算子" [ref=f320e199]
+          - cell "计算量 −8~9 倍，精度持平或略升" [ref=f320e200]
+          - cell "算子层性价比已被吃干净" [ref=f320e201]
+        - row [ref=f320e202]:
+          - cell "DS-CNN → DS-ResNet" [ref=f320e203]
+          - cell "+ 残差连接" [ref=f320e204]
+          - cell "更深网络可训，精度涨一档" [ref=f320e205]
+          - cell "结构层的贡献" [ref=f320e206]
+        - row [ref=f320e207]:
+          - cell "DS-ResNet → DS-ResNet-SE" [ref=f320e208]
+          - cell "+ SE 模块" [ref=f320e209]
+          - cell "+0.5–1% 精度，参数仅 +1–2%" [ref=f320e210]
+          - cell "注意力层的高性价比" [ref=f320e211]
+        - row [ref=f320e212]:
+          - cell "r=4 vs r=8" [ref=f320e213]
+          - cell "SE 瓶颈宽度" [ref=f320e214]
+          - cell "r=4 最佳权衡" [ref=f320e215]
+          - cell "再压瓶颈精度回落" [ref=f320e216]
+    - generic [ref=f320e217]:
+      - generic [ref=f320e218]:
+        - generic [ref=f320e219]: "1"
+        - paragraph [ref=f320e220]: 难区分词对上改善最明显。通道注意力帮模型放大细微的判别特征（如 yes/yeah 这类声学近邻的差异）——平均精度涨 0.5–1% 的背后，涨的部分集中在最难的地方。
+      - generic [ref=f320e221]:
+        - generic [ref=f320e222]: "2"
+        - paragraph [ref=f320e223]: SE 权重有自发层级分工。浅层 SE 偏向频谱形状类通道（共振峰走向），深层 SE 偏向抽象判别通道（词特异性响应）——没人告诉它该这么分，是训练自己长出来的。
+      - generic [ref=f320e224]:
+        - generic [ref=f320e225]: "3"
+        - paragraph [ref=f320e226]: 部署形态友好。SE 训练完就是静态网络的一部分——没有动态图、没有运行时开销类型变化，量化/编译流程与普通 CNN 无异，嵌入式落地零额外工程。
+  - generic [ref=f320e227]:
+    - generic [ref=f320e228]: "04"
+    - heading "边界：这套打法买不到什么" [level=2] [ref=f320e229]
+    - img [ref=f320e230]:
+      - generic [ref=f320e232]: 边界与延伸
+      - generic [ref=f320e234]: 方法与评估边界
+      - generic [ref=f320e235]: · SE 有计算开销：参数省（+1–2%）但全连接与 Sigmoid
+      - generic [ref=f320e236]: 是实打实的每通道乘加——极低延迟预算下要核账
+      - generic [ref=f320e237]: · 手工超参：块数 · 通道递增 · r 都靠人调——本文没有
+      - generic [ref=f320e238]: 自动化（同年的 AutoKWS 正好补这个方向）
+      - generic [ref=f320e239]: · 评估条件干净：单通道近场音频为主——远场 / 噪声
+      - generic [ref=f320e240]: 场景未充分验证
+      - generic [ref=f320e241]: · 噪声下的 SE 有效性存疑：通道统计量被噪声污染后
+      - generic [ref=f320e242]: 注意力是否还认得出「信息通道」，文中无数据
+      - generic [ref=f320e244]: 延伸 + 系列坐标
+      - generic [ref=f320e245]: · 空间-通道联合注意力（CBAM）
+      - generic [ref=f320e246]: · NAS 自动搜 DS-ResNet-SE 配置
+      - generic [ref=f320e247]: · 远场 / 噪声场景扩展评估
+      - generic [ref=f320e248]: · 时间维注意力 × 通道注意力组合
+      - generic [ref=f320e249]: 系列坐标：
+      - generic [ref=f320e250]: · 本文（2020）：SE 进 KWS 小模型——通道注意力
+      - generic [ref=f320e251]: 性价比的早期证据
+      - generic [ref=f320e252]: · 2021 SE-Res2Net：SE + Res2Net 双路径——本文路线
+      - generic [ref=f320e253]: 的直接延伸
+      - generic [ref=f320e254]: · 2021 轻量动态滤波器：同为 ~2% 参数换显著提升，
+      - generic [ref=f320e255]: 但换成输入自适应调制——「小开销大回报」家族
+      - generic [ref=f320e256]: 可迁移判断：当算子层（DSConv）和结构层（残差）的性价比见顶后，注意力层是下一个便宜的提分位——先问「哪一维最冗余」（这里是通道），再选对应维度的注意力
+    - generic [ref=f320e257]: 图 4 · 边界与延伸：SE 的计算开销 · 干净评估条件 · 噪声下有效性存疑
+    - generic [ref=f320e258]:
+      - generic [ref=f320e259]:
+        - heading "SE 不是零开销" [level=4] [ref=f320e260]
+        - paragraph [ref=f320e261]: 参数省（+1–2%），但全连接 + Sigmoid 是实打实的每通道乘加——在极低延迟预算（MCU 级）下要重新核账，参数账省不代表周期账省。
+      - generic [ref=f320e262]:
+        - heading "评估条件干净" [level=4] [ref=f320e263]
+        - paragraph [ref=f320e264]: 主要在单通道近场音频上评估——远场、加噪场景未充分验证；音箱/耳机的真实工况不在此文射程内。
+      - generic [ref=f320e265]:
+        - heading "噪声下的 SE 存疑" [level=4] [ref=f320e266]
+        - paragraph [ref=f320e267]: 通道统计量被噪声污染后，注意力是否还认得出「信息通道」——文中无数据，这是通道注意力路线共同的未答题。
+      - generic [ref=f320e268]:
+        - heading "超参仍靠手调" [level=4] [ref=f320e269]
+        - paragraph [ref=f320e270]: 块数、通道递增、r 都是人定的——同年同目录的 AutoKWS（2020 №2）正好代表自动化这个方向的补法。
+  - generic [ref=f320e271]:
+    - generic [ref=f320e272]: "05"
+    - heading "可迁移的判断" [level=2] [ref=f320e273]
+    - generic [ref=f320e274]:
+      - generic [ref=f320e275]: JUDGMENTS · 能带走的三条
+      - paragraph [ref=f320e276]: ① 提分要按层找性价比：算子 → 结构 → 注意力。
+      - generic [ref=f320e277]: ↳ DSConv（算子层）和残差（结构层）的红利见顶后，注意力是下一个便宜的提分位——先问「哪一维最冗余」（本文答案是通道），再选对应维度的注意力，比无脑换更大网络划算。
+      - paragraph [ref=f320e278]: ② 小开销大回报的模块，收益集中在难样本。
+      - generic [ref=f320e279]: ↳ +1–2% 参数换 0.5–1% 平均精度看着不多，但涨的部分集中在难区分词对上——评估这类模块时看均值会低估价值，要看困难类别的分解。
+      - paragraph [ref=f320e280]: ③ 软门控优于硬选择，训练期优于推理期。
+      - generic [ref=f320e281]: ↳ SE 用 0–1 连续权重而非剪掉通道（梯度可流），训练完固化成静态网络（部署无额外开销）——「训练时自适应、部署时静态」是小模型上加注意力的通用安全模式。
+    - paragraph [ref=f320e282]: 系列坐标：本文（2020）确立「SE 进小足迹 KWS」的性价比证据；2021 年 SE-Res2Net 沿这条线加双路径多尺度，2021 年轻量动态滤波器换输入自适应调制的路线但同样是 ~2% 参数换显著提升——「小开销大回报」家族在 KWS 里反复出现，本文是较早的系统性消融。
+  - generic [ref=f320e283]:
+    - generic [ref=f320e284]: arXiv 2004.12200
+    - generic [ref=f320e285]: GSC 12 词
+    - generic [ref=f320e286]: SE r=4
+    - generic [ref=f320e287]: ~200K 参数
+    - generic [ref=f320e288]: 消融数字为笔记记录的区间约值，具体数值以原文为准 · 本页为可视化精读笔记，图表由 SVG 重绘
