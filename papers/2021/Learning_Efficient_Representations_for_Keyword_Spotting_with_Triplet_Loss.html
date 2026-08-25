@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三元组损失的 KWS 高效表示 · 论文精读可视化</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;}
+.wrap{max-width:980px;margin:0 auto;padding:56px 28px 80px;}
+.kicker{font-size:13px;letter-spacing:.22em;color:var(--acc);font-weight:700;margin-bottom:14px;text-transform:uppercase;}
+h1.hero{font-size:40px;line-height:1.32;font-weight:800;letter-spacing:.01em;margin-bottom:18px;}
+h1.hero .g{color:var(--acc);}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+.chip{font-size:12.5px;padding:4px 13px;border:1px solid var(--line);border-radius:999px;color:var(--ink2);background:#fffdf8;}
+.chip.acc{background:var(--lt);border-color:#bfe5d6;color:var(--dk);}
+.meta{border-left:3px solid var(--acc);background:#fffdf8;padding:12px 18px;font-size:13.5px;color:var(--ink2);margin-bottom:40px;border-radius:0 8px 8px 0;}
+.meta b{color:var(--ink);}
+h2{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:800;margin:56px 0 6px;}
+h2 .no{flex:none;font-size:12px;font-weight:800;color:#fff;background:var(--ink);padding:3px 10px;border-radius:999px;letter-spacing:.08em;}
+.h2sub{font-size:13.5px;color:var(--ink3);margin:0 0 18px 46px;}
+.tldr{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-bottom:8px;}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--dk);letter-spacing:.12em;margin-bottom:10px;}
+.tldr li{list-style:none;font-size:14.5px;color:var(--ink2);padding-left:20px;position:relative;margin-bottom:7px;}
+.tldr li:before{content:"◈";position:absolute;left:0;color:var(--acc);font-size:12px;top:2px;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.card{background:#fffdf8;border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
+.card h3{font-size:15.5px;font-weight:700;margin-bottom:8px;}
+.card p{font-size:13.5px;color:var(--ink2);}
+.card.acc{background:var(--lt);border-color:#bfe5d6;}
+.card.acc h3{color:var(--dk);}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4;}
+.card.bad h3{color:var(--warn);}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--lt);color:var(--dk);margin-bottom:8px;}
+.fig{margin:26px 0;}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:14px;}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:10px;line-height:1.7;}
+.cap b{color:var(--ink2);}
+.formula{background:#fffdf8;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 12px 12px 0;padding:16px 20px;margin:16px 0;}
+.formula .f{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:15px;color:var(--ink);background:#f2f4ef;padding:10px 14px;border-radius:8px;margin-bottom:10px;overflow-x:auto;white-space:pre;}
+.formula .why{font-size:13.5px;color:var(--ink2);}
+.formula .why b{color:var(--dk);}
+table.tb{width:100%;border-collapse:collapse;background:#fffdf8;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:18px 0;font-size:13.5px;}
+table.tb th{background:var(--ink);color:#fff;padding:10px 14px;text-align:left;font-weight:700;font-size:13px;}
+table.tb td{padding:10px 14px;border-top:1px solid var(--line);color:var(--ink2);}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:700;}
+.contrib{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:18px 0;}
+.contrib .row{display:flex;gap:16px;padding:12px 0;border-bottom:1px dashed var(--line);}
+.contrib .row:last-child{border-bottom:none;}
+.contrib .n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.contrib .row p{font-size:14px;color:var(--ink2);}
+.contrib .row p b{color:var(--ink);}
+.lim{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.judge{background:#fffaf4;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:18px 0;}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.12em;margin-bottom:10px;}
+.judge p{font-size:14px;color:var(--ink2);margin-bottom:8px;}
+.judge p b{color:var(--ink);}
+.foot{margin-top:64px;padding-top:28px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.pill{display:inline-block;font-size:13px;font-weight:700;color:var(--dk);background:var(--lt);border:1px solid #bfe5d6;border-radius:999px;padding:7px 18px;text-decoration:none;}
+.pill.ghost{background:transparent;color:var(--ink2);border-color:var(--line);}
+.foot-note{font-size:12px;color:var(--ink3);margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2021 №16</div>
+<h1 class="hero">换唤醒词不用重训：<br>新词只是嵌入空间里的<span class="g">一个新坐标</span></h1>
+<div class="chips">
+<span class="chip acc">Triplet Loss KWS · 托木斯克国立大学 + NTR Labs</span>
+<span class="chip">arXiv 2101.04792 · FaceNet 式度量学习进 KWS</span>
+<span class="chip">三元组 + 半难负样本挖掘 + 原型匹配</span>
+<span class="chip">新词 5–10 样本 → 85–90% · 开集 EER 3–5%</span>
+</div>
+<div class="meta">
+<b>一句话</b>：分类式 KWS 的词表焊死在输出层——加词、删词、自定义词都要重训整个模型。本文把人脸识别的 triplet loss 系统搬进 KWS：DS-CNN 骨干学一个嵌入空间（同词靠近、异词远离、L2 归一化到单位球），新关键词 = 几个样本的嵌入均值（原型），推理比距离即可——零重训。12 类约 94–95%（比 CE 低约 1 个点，买的是换词自由），开集验证 EER 3–5%，5–10 个新词样本即达 85–90%。
+</div>
+
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<li><b>分类模型的硬边界</b>：输出类别数固定——厂商加新唤醒词、用户自定义词、多语言扩展全都卡在「重训整个模型」这一步。度量学习把问题改写：学空间而不是学分类头。</li>
+<li><b>三元组损失</b>：L = max(0, d(a,p) − d(a,n) + margin)——锚点与同词样本的距离加上 margin 后仍小于与异词样本的距离则零损失，否则推动类内收紧、类间拉开。margin 甜点 0.3（0.2 间隔不够、0.5 多数三元组满足不了）。</li>
+<li><b>半难负样本挖掘是训练成败的关键</b>：随机负样本大多太远（损失为零、无信号）；半难负样本（比正样本远但在 margin 带内）信号最强又不像最难负样本那样让训练不稳——比随机策略高 <b>2–3%</b>。每 ~100 步重挖一次。</li>
+<li>架构：DS-CNN 风格骨干（标准卷积起手 + DS 块 + GAP）→ FC 投影到 D 维 → <b>L2 归一化到单位球</b>（欧氏 ≡ 余弦，还 +1% 与更稳训练）。</li>
+<li>两种推理形态：<b>闭集分类</b>（最近原型）与<b>开集验证</b>（最近原型距离 &lt; θ 判该词，否则「未知」）——后者才是 KWS 的真形态（非词表输入要能拒识）。</li>
+<li>结果（约值）：12 类 94–95%（CE 95–96%）；35 类 92–93%；类内距离 0.3–0.4 vs 类间 0.8–1.0（清晰分离）；嵌入维度甜点 <b>64–128</b>（32 容量不足、256 只多 &lt;0.5%）。</li>
+<li><b>新词适配（核心卖点）</b>：5–10 个样本算原型 → 85–90% 检测准确率，全程不动嵌入网络；建议每词 10–20 个不同说话人的样本做原型更稳。</li>
+<li>代价与边界：闭集精度比 CE 低约 1 个点；三元组训练对超参敏感（可能坍缩）；声学近邻词（yes/yeah、on/off）拉不开间隔；距离无概率含义（校准负担）；推理 O(K·D) 随词表涨。</li>
+</div>
+
+<h2><span class="no">§01</span>问题：词表焊死在输出层</h2>
+<div class="h2sub">改词 = 重训的三重痛</div>
+<div class="cards">
+<div class="card bad">
+<h3>加词删词都要重训</h3>
+<p>分类 KWS 的输出节点数 = 词表大小——厂商上新唤醒词、用户自定义个性化词、多语言扩展，每次都要重新训练和部署整个模型。迭代节奏被训练周期绑架。</p>
+</div>
+<div class="card bad">
+<h3>语音的高变异性</h3>
+<p>同一个关键词在不同说话人、语速、噪声条件下差异巨大——嵌入空间必须在容纳这些变化的同时保持类内紧凑；还要支持音素级精细区分（yes 与 yeah 只差尾音素）。</p>
+</div>
+<div class="card">
+<h3>度量学习的改写</h3>
+<p>不学「类别 → 节点」而学「样本 → 坐标」：同词样本在嵌入空间聚成簇、异词远离。新词 = 簇中心（原型），加词变成加坐标——模型本身不变。</p>
+</div>
+<div class="card">
+<h3>来自人脸识别的成熟方案</h3>
+<p>triplet loss 在 FaceNet 上已大获成功——人脸识别同样要「同身份靠近、异身份远离 + 新身份免重训注册」，与 KWS 的新词适配需求同构。本文的工作是系统适配而非发明。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三元组损失 KWS：换唤醒词不重训——新词只是嵌入空间里的一个新坐标</text>
+<line x1="36.0" y1="60.0" x2="720.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 分类模型的硬边界：词表焊死在输出层</text>
+<rect x="36.0" y="98.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="128.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">改词 = 重训</text>
+<text x="220.0" y="119.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">分类 KWS 的输出类别数固定——添加/删除/修改关键词都要重训整个模型；</text>
+<text x="220.0" y="137.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">厂商加新唤醒词 · 用户自定义词 · 多语言扩展全都卡在这一步</text>
+<rect x="36.0" y="156.0" width="848.0" height="50.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="186.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">度量学习的解法</text>
+<text x="220.0" y="177.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">学一个嵌入空间：同词样本靠近（类内小）、异词样本远离（类间大）——</text>
+<text x="220.0" y="195.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">新词 = 几个样本的嵌入均值（原型），推理比距离即可，零重训</text>
+<rect x="36.0" y="214.0" width="848.0" height="50.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="244.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三个技术挑战</text>
+<text x="220.0" y="235.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">语音高变异（同词在不同说话人/语速/噪声下差异大）· 音素级精细区分</text>
+<text x="220.0" y="253.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（yes 与 yeah 只差尾音素）· 嵌入空间校准（阈值判断要可靠）</text>
+<text x="36.0" y="288.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 三阶段框架 + 嵌入网络结构</text>
+<rect x="36.0" y="308.0" width="276.0" height="60.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="174.0" y="330.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 嵌入网络训练</text>
+<text x="174.0" y="348.0" font-size="8.4" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">三元组损失 + 半难负样本挖掘</text>
+<line x1="312.0" y1="338.0" x2="324.00" y2="338.00" stroke="#8a93a5" stroke-width="1.4"/>
+<rect x="324.0" y="308.0" width="276.0" height="60.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="462.0" y="330.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 关键词原型构建</text>
+<text x="462.0" y="348.0" font-size="8.4" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每词 10–20 样本嵌入求均值</text>
+<line x1="600.0" y1="338.0" x2="612.00" y2="338.00" stroke="#8a93a5" stroke-width="1.4"/>
+<rect x="612.0" y="308.0" width="276.0" height="60.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="750.0" y="330.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 推理时分类</text>
+<text x="750.0" y="348.0" font-size="8.4" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">闭集最近原型 · 开集阈值 θ</text>
+<rect x="36.0" y="384.0" width="416.0" height="134.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="244.0" y="406.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">嵌入网络结构</text>
+<text x="52.0" y="428.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输入：40 维 MFCC · T≈49（约 1 秒）</text>
+<text x="52.0" y="441.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="454.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">骨干（DS-CNN 风格）：</text>
+<text x="52.0" y="467.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 第一层标准卷积（扩大初始感受野）</text>
+<text x="52.0" y="480.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多层深度可分离卷积块（DW + PW + BN + ReLU）</text>
+<text x="52.0" y="493.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全局平均池化（变长特征图 → 定长向量）</text>
+<text x="52.0" y="506.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="519.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">投影：FC → D 维（64/128）→ L2 归一化到单位球</text>
+<rect x="468.0" y="384.0" width="416.0" height="134.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="676.0" y="406.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三元组损失</text>
+<text x="484.0" y="428.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">L = max(0, d(a,p) − d(a,n) + margin)</text>
+<text x="484.0" y="441.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="454.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">锚点 a：某关键词的样本</text>
+<text x="484.0" y="467.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">正样本 p：同关键词的另一样本（可不同说话人）</text>
+<text x="484.0" y="480.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">负样本 n：不同关键词的样本</text>
+<text x="484.0" y="493.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="506.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">d(·) 欧氏距离（L2 归一化后 ≡ 余弦距离）</text>
+<text x="484.0" y="519.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">margin 控制间隔：0.2–0.5 最佳（0.3 甜点）</text>
+<text x="484.0" y="532.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  0.2 间隔不够 · 0.5 训练困难（多数三元组满足不了）</text>
+<text x="36.0" y="542.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 两种推理形态</text>
+<rect x="36.0" y="558.0" width="416.0" height="92.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="580.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">闭集分类</text>
+<text x="52.0" y="600.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">计算 f(x) 与所有原型的距离，取最近的原型对应类别</text>
+<text x="52.0" y="618.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——标准多分类形态，词表内的词选一个</text>
+<rect x="468.0" y="558.0" width="416.0" height="92.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="484.0" y="580.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">开集验证（KWS 的真形态）</text>
+<text x="484.0" y="600.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">最近原型距离 &lt; θ → 判该词；否则判「未知」</text>
+<text x="484.0" y="618.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——非词表输入要能拒识，θ 是误报/漏报的旋钮</text>
+<rect x="36.0" y="664.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="690.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">94–95%</text>
+<text x="130.0" y="710.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">12 类准确率（CE 95–96%）</text>
+<text x="298.0" y="690.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3–5%</text>
+<text x="298.0" y="710.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">开集验证 EER</text>
+<text x="466.0" y="690.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">85–90%</text>
+<text x="466.0" y="710.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">新词 5–10 样本适配</text>
+<text x="634.0" y="690.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+2–3%</text>
+<text x="634.0" y="710.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">半难挖掘 vs 随机负样本</text>
+<text x="802.0" y="690.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">64 维</text>
+<text x="802.0" y="710.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">性价比最优嵌入维度</text>
+<text x="36.0" y="748.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">托木斯克国立大学 + NTR Labs · arXiv 2101.04792；GSC v2 的 12/35 类；三元组损失源自人脸识别 FaceNet——本文把它系统搬进 KWS；数字为约值</text>
+</svg>
+<div class="cap"><b>图1 · 机制全景</b>：上半是分类模型的硬边界与度量学习解法，中段是三阶段框架、嵌入网络结构与三元组损失定义，底部是两种推理形态与关键数字。</div>
+</div>
+
+<h2><span class="no">§02</span>方法：margin 的几何与挖掘的艺术</h2>
+<div class="h2sub">三元组距离关系 · 半难负样本 · L2 归一化</div>
+
+<div class="formula">
+<div class="f">L = max( 0, d(f(x_a), f(x_p)) − d(f(x_a), f(x_n)) + margin )
+半难负样本:  d(a,p) &lt; d(a,n) &lt; d(a,p) + margin      # 恰好贴着间隔边界
+原型:        c_k = (1/N_k) · Σ f(x_i)                  # 建议每词 10–20 样本（不同说话人）
+L2 归一化:   嵌入映射到单位超球面 → 欧氏距离 ≡ 余弦距离</div>
+<div class="why"><b>人话</b>：三元组只看三个点的相对关系——正样本要比负样本至少近一个 margin。随机选的负样本几乎总是太远（损失恒为零，模型学不到东西），所以要主动挑那些「差点就违规」的半难负样本——它们才是有信息的训练信号。</div>
+</div>
+
+<div class="cards">
+<div class="card acc">
+<h3>margin 的甜点逻辑</h3>
+<p>margin 是类间隔的最低保证：0.2 时簇间挨得太近（易混淆），0.5 时间隔要求太苛刻（多数三元组永远满足不了，训练困难）——0.3 在准确率与稳定性之间平衡。这个值与数据的固有混淆度相关，换任务要重扫。</p>
+</div>
+<div class="card acc">
+<h3>挖掘的工程复杂度</h3>
+<p>半难挖掘要求定期（每 ~100 步）重算全部样本嵌入、重新挑负样本——训练管线多了一个调度环节。这是 triplet 系方法的固有税，后来的 Proxy-NCA/ArcFace 用代理点绕开了它。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：margin 的几何 · 半难负样本为什么关键</text>
+<line x1="36.0" y1="56.0" x2="590.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三元组与 margin 的距离线</text>
+<rect x="48.0" y="92.0" width="350.0" height="160.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<circle cx="108" cy="150" r="8" fill="#0b6e52"/>
+<text x="108.0" y="174.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">锚点 a</text>
+<circle cx="198" cy="124" r="7" fill="#9fc8b8"/>
+<text x="198.0" y="110.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">正样本 p（同词）</text>
+<line x1="116.0" y1="142.0" x2="192.00" y2="128.00" stroke="#0b6e52" stroke-width="1.6"/>
+<text x="153.0" y="129.0" font-size="7.8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">d(a,p) 小</text>
+<circle cx="348" cy="124" r="7" fill="#e8b8b0"/>
+<text x="348.0" y="110.0" font-size="8" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">负样本 n（异词）</text>
+<line x1="116.0" y1="146.0" x2="342.00" y2="128.00" stroke="#c0392b" stroke-width="1.6"/>
+<text x="229.0" y="149.0" font-size="7.8" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">d(a,n) 大</text>
+<rect x="288.0" y="104.0" width="62.0" height="44.0" rx="4" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="319.0" y="126.0" font-size="7.5" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">margin</text>
+<text x="223.0" y="232.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">要求：d(a,n) ≥ d(a,p) + margin——不满足就产生损失</text>
+<text x="223.0" y="246.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">类内收紧 + 类间拉开同时发生</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">负样本挖掘的三档</text>
+<rect x="436.0" y="92.0" width="408.0" height="160.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="496.0" y1="160.0" x2="796.00" y2="160.00" stroke="#d8d8d0" stroke-width="1.6"/>
+<circle cx="496" cy="160" r="5" fill="#0b6e52"/>
+<text x="496.0" y="174.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">a</text>
+<circle cx="576" cy="160" r="5" fill="#9fc8b8"/>
+<text x="576.0" y="174.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">p</text>
+<rect x="588.0" y="134.0" width="60.0" height="52.0" rx="4" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="618.0" y="128.0" font-size="7.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">半难区 ★</text>
+<text x="618.0" y="116.0" font-size="6.8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">d(a,p)~d(a,p)+margin</text>
+<circle cx="676" cy="154" r="4" fill="#c9d8e8"/>
+<circle cx="746" cy="164" r="4" fill="#c9d8e8"/>
+<text x="711.0" y="140.0" font-size="7.2" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">随机负样本（大多在这——损失为 0）</text>
+<text x="618.0" y="204.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">随机：信号稀疏 · 半难：接近违规，信号强</text>
+<text x="618.0" y="218.0" font-size="7.8" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">最难：像 p 的 n——可能是标错，训练不稳</text>
+<text x="640.0" y="246.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每 ~100 步重算全部嵌入、重新挖掘（工程复杂度）</text>
+<rect x="48.0" y="262.0" width="792.0" height="140.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="448.0" y="284.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两个工程细节</text>
+<text x="68.0" y="306.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· L2 归一化到单位超球面：欧氏距离 ≡ 余弦距离（理论等价）——两种度量性能几乎相同（消融验证）；</text>
+<text x="68.0" y="319.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  另外带来 +1% 准确率与更稳的训练</text>
+<text x="68.0" y="333.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 原型质量：每词建议 10–20 个样本（不同说话人）——样本多样性显著影响原型代表性；</text>
+<text x="68.0" y="346.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  新词 5–10 个样本即可得到 85–90% 的检测准确率</text>
+<text x="68.0" y="360.0" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="68.0" y="373.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· t-SNE 证据：类别成清晰簇；yes/no/up/down 等高频词最紧凑；go/no 的簇近但可分</text>
+<text x="68.0" y="387.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 距离分布：类内 0.3–0.4 vs 类间 0.8–1.0——明显分离（margin=0.3 间隔 0.4–0.6）</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：三元组要求负样本比正样本至少远一个 margin——margin 是类间隔的最低保证。右：随机负样本大多太远（零损失无信号），半难负样本恰好贴着间隔边界——信号最强又不 destabilize</text>
+</svg>
+<div class="cap"><b>图2 · 机制解剖</b>：左是三元组的距离几何（d(a,n) ≥ d(a,p)+margin 的间隔要求），右是负样本挖掘三档（随机/半难/最难）的距离带与两个工程细节（L2 球面、原型质量）。</div>
+</div>
+
+<h2><span class="no">§03</span>实验：1 个点换换词自由</h2>
+<div class="h2sub">GSC v2 · 闭集/开集/新词适配三线</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（约值）：精度小换灵活性，维度有甜点</text>
+<line x1="36.0" y1="56.0" x2="520.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率与嵌入维度</text>
+<line x1="52.0" y1="242.0" x2="456.00" y2="242.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="245.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="52.0" y1="204.9" x2="456.00" y2="204.86" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="207.9" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">92</text>
+<line x1="52.0" y1="167.7" x2="456.00" y2="167.71" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="170.7" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">94</text>
+<line x1="52.0" y1="130.6" x2="456.00" y2="130.57" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="133.6" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">96</text>
+<rect x="102.0" y="139.9" width="86.0" height="102.1" rx="5" fill="#c9d8e8"/>
+<text x="145.0" y="132.9" font-size="9.3" fill="#c9d8e8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~95.5</text>
+<text x="145.0" y="257.0" font-size="7.7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CE 分类（</text>
+<text x="145.0" y="268.0" font-size="7.7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参照）</text>
+<rect x="232.0" y="158.4" width="86.0" height="83.6" rx="5" fill="#0b6e52"/>
+<text x="275.0" y="151.4" font-size="9.3" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~94.5</text>
+<text x="275.0" y="257.0" font-size="7.7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">三元组 12</text>
+<text x="275.0" y="268.0" font-size="7.7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif"> 类</text>
+<rect x="362.0" y="195.6" width="86.0" height="46.4" rx="5" fill="#7fb69f"/>
+<text x="405.0" y="188.6" font-size="9.3" fill="#7fb69f" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~92.5</text>
+<text x="405.0" y="257.0" font-size="7.7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">三元组 35</text>
+<text x="405.0" y="268.0" font-size="7.7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif"> 类</text>
+<text x="256.0" y="106.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">12 类比 CE 低约 1 个点——买的是换词零重训</text>
+<text x="251.0" y="288.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">嵌入维度扫描（12 类）</text>
+<line x1="96.0" y1="390.0" x2="416.00" y2="390.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="136.0" y1="360.0" x2="176.00" y2="330.00" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="176.0" y1="330.0" x2="256.00" y2="315.00" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="256.0" y1="315.0" x2="416.00" y2="312.00" stroke="#0b6e52" stroke-width="1.8"/>
+<circle cx="136.0" cy="360.0" r="4" fill="#0b6e52"/>
+<text x="136.0" y="353.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">32</text>
+<text x="136.0" y="374.0" font-size="7.3" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~92</text>
+<circle cx="176.0" cy="330.0" r="4" fill="#0b6e52"/>
+<text x="176.0" y="323.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">64</text>
+<text x="176.0" y="344.0" font-size="7.3" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~94</text>
+<circle cx="256.0" cy="315.0" r="4" fill="#0b6e52"/>
+<text x="256.0" y="308.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">128</text>
+<text x="256.0" y="329.0" font-size="7.3" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~95</text>
+<circle cx="416.0" cy="312.0" r="4" fill="#0b6e52"/>
+<text x="416.0" y="305.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">256</text>
+<text x="416.0" y="326.0" font-size="7.3" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~95</text>
+<text x="256.0" y="416.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">64 维性价比最高 · 256 维比 128 只多 &lt;0.5%</text>
+<text x="56.0" y="432.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：维度甜点 64–128——容量够放词表结构即可，更高维度只买存储与计算</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">验证任务与新词适配</text>
+<rect x="500.0" y="92.0" width="324.0" height="120.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="112.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">开集验证（余弦距离 + 阈值）</text>
+<text x="514.0" y="130.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· EER 约 3–5%——阈值 θ 是误报/漏报旋钮</text>
+<text x="514.0" y="143.5" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 校准问题：距离值没有概率含义——不像 softmax</text>
+<text x="514.0" y="157.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  可直接读置信度，θ 的选择依赖验证集调优</text>
+<text x="514.0" y="170.5" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 推理成本 O(K·D)：词表大（&gt;100 词）时距离计算</text>
+<text x="514.0" y="184.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  本身成为开销项</text>
+<rect x="500.0" y="220.0" width="324.0" height="192.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="514.0" y="240.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">新词适配（核心卖点）</text>
+<text x="514.0" y="258.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 5–10 个新词样本 → 原型 → 85–90% 检测准确率</text>
+<text x="514.0" y="270.8" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全程不动嵌入网络——零重训、当天上线</text>
+<text x="514.0" y="283.6" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="296.4" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 消融读数：</text>
+<text x="514.0" y="309.2" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  - 半难 vs 随机负样本：+2–3%</text>
+<text x="514.0" y="322.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  - margin：0.3 甜点（0.2 间隔不够 · 0.5 难训）</text>
+<text x="514.0" y="334.8" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  - L2 归一化：+1% 且训练更稳</text>
+<text x="514.0" y="347.6" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="360.4" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 边界提醒：yes/yeah、on/off 这类声学极近的词对，</text>
+<text x="514.0" y="373.2" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  三元组拉不开足够间隔——度量学习的通用软肋</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：数字为笔记记录的约值（原文见 arXiv 2101.04792）；骨干为 DS-CNN 风格；margin 扫 0.2/0.3/0.5 三档；嵌入维度扫 32/64/128/256</text>
+</svg>
+<div class="cap"><b>图3 · 主结果</b>：左是准确率对比与嵌入维度扫描（64 维性价比最高），右是开集验证的 EER 与校准问题、新词适配的核心卖点和消融读数。</div>
+</div>
+<table class="tb">
+<tr><th>评测线</th><th>结果（约值）</th><th>解读</th></tr>
+<tr><td>12 类闭集</td><td>94–95%（CE 95–96%）</td><td>让出约 1 个点，买换词零重训</td></tr>
+<tr class="hl"><td>新词适配</td><td>5–10 样本 → 85–90%</td><td>核心卖点：当天上线</td></tr>
+<tr><td>开集验证</td><td>EER 3–5%</td><td>θ 阈值是误报/漏报旋钮</td></tr>
+<tr><td>嵌入维度</td><td>64–128 甜点</td><td>256 只多 &lt;0.5%，白付存储</td></tr>
+<tr><td>半难 vs 随机挖掘</td><td>+2–3%</td><td>挖掘策略值这么多点</td></tr>
+</table>
+<div class="tldr" style="margin-top:14px;">
+<div class="tt">读表要点</div>
+<li>嵌入空间的健康证据：类内距离 0.3–0.4 vs 类间 0.8–1.0——两个分布明显分离；t-SNE 上高频词（yes/no/up/down）簇最紧凑，go/no 簇近但可分。</li>
+<li>校准是被低估的痛点：softmax 输出天然带概率含义，距离没有——θ 的选择完全依赖验证集调优，换场景可能要重调。这是所有距离判别系统的共同软肋。</li>
+<li>词表规模的隐性账：推理要跟全部 K 个原型算距离（O(K·D)）——词表超百词后这本身成为开销项，与分类头 O(D) 的单次前向不同。</li>
+</div>
+
+<h2><span class="no">§04</span>贡献</h2>
+<div class="h2sub">五点：从系统研究到灵活性证明</div>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>三元组损失在 KWS 的系统应用</b>：架构、训练策略、负样本挖掘、空间分析的完整方案——不是单点技巧而是一套可复用的配方。</p></div>
+<div class="row"><div class="n">2</div><p><b>换词免重训的灵活性证明</b>：简单原型计算即可添加新关键词，无需改动嵌入网络——为快速定制提供实用方案。</p></div>
+<div class="row"><div class="n">3</div><p><b>分类与验证双支持</b>：嵌入空间同时服务闭集分类（最近原型）与开集验证（阈值判断）——覆盖 KWS 的两种核心需求。</p></div>
+<div class="row"><div class="n">4</div><p><b>嵌入维度系统分析</b>：32→256 的扫描给出 64–128 甜点——容量够放词表结构即可，更高只买开销。</p></div>
+<div class="row"><div class="n">5</div><p><b>半难负样本挖掘的验证</b>：比随机策略 +2–3%——确认挖掘策略对 KWS 三元组训练至关重要。</p></div>
+</div>
+
+<h2><span class="no">§05</span>局限与判断</h2>
+<div class="h2sub">训练敏感 · 校准缺失 · 近邻词混淆</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练敏感：三元组对学习率/margin/挖掘策略高度敏感——不当设置</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  可能嵌入坍缩到一个点或收敛缓慢，调参负担实打实</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 声学近邻词混淆：yes/yeah、on/off 拉不开间隔——度量学习的</text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  通用挑战（不是三元组独有）</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 校准缺失：距离无概率含义——基于阈值的检测不如 softmax 输出</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  可靠，θ 依赖验证集</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 推理 O(K·D)：词表超百词后距离计算成为新开销</text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 挖掘依赖：定期重挖负样本增加工程复杂度</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验边界 + 延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声/远场评估有限——噪声下类内是否仍紧凑是开放问题</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未与对比损失/中心损失/原型网络系统对比</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未探索三元组 + CE 联合训练</text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无边缘设备部署评估</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸：更稳的度量损失（Proxy-NCA / ArcFace / Circle</text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Loss——人脸识别已验证更优）；三元组 + CE 联合训练</text>
+<text x="536.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（准确率与灵活性兼得）；自适应嵌入维度；层次化嵌入空间</text>
+<text x="536.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（先大类后细类）</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：度量学习把 KWS 从「固定类别分类」变成「灵活的距离匹配」——新词是坐标不是输出节点；代价是约 1 个点的闭集精度 + 校准负担，值不值取决于换词频率</text>
+</svg>
+<div class="cap"><b>图4 · 边界与延伸</b>：左技术边界（超参敏感与坍缩风险、近邻词拉不开、距离无概率含义、O(K·D) 推理、挖掘工程税），右实验边界（噪声远场有限、无度量损失横比、无联合训练）+ 延伸方向。</div>
+</div>
+<div class="judge">
+<div class="jt">可迁移判断</div>
+<p>↳ <b>新词是坐标不是输出节点</b>：把分类改写成距离匹配后，加类别的成本从「重训」降到「求均值」——凡是词表/类表频繁变动的系统（自定义命令、多语言、个性化），都该认真评估这 1 个点的精度税值不值。</p>
+<p>↳ <b>训练信号密度决定度量学习成败</b>：随机负样本让 99% 的三元组零损失——挑「差点违规」的样本训练才有信息。半难挖掘的原则（挑边界样本）与 AUC 优化的成对采样、主动学习的不确定性采样同源。</p>
+<p>↳ <b>L2 归一化是小动作大收益</b>：一行代码换来度量等价（欧氏=余弦）+ 1% 准确率 + 训练更稳——嵌入学习的默认第一步应该是把表示钉到单位球上。</p>
+<p>↳ <b>距离的校准是隐藏成本</b>：softmax 有概率含义、距离没有——开集部署时要为阈值调优单独立项。选度量学习方案前，把「θ 怎么定、多久重定」写进工程预算。</p>
+</div>
+
+<div class="foot">
+<a class="pill" href="https://arxiv.org/pdf/2101.04792">arXiv 2101.04792 ↗</a>
+<a class="pill ghost" href="../index.html">← 返回总目录</a>
+</div>
+<div class="foot-note">笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值 · 2021 №16 · 201+/305</div>
+</div>
+</body>
+</html>

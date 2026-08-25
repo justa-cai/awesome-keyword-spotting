@@ -1,0 +1,275 @@
+- generic [ref=f290e2]:
+  - generic [ref=f290e3]: 论文精读 · 可视化版 · 2021 №16
+  - heading "换唤醒词不用重训： 新词只是嵌入空间里的一个新坐标" [level=1] [ref=f290e4]: 换唤醒词不用重训：新词只是嵌入空间里的一个新坐标
+  - generic [ref=f290e5]:
+    - generic [ref=f290e6]: Triplet Loss KWS · 托木斯克国立大学 + NTR Labs
+    - generic [ref=f290e7]: arXiv 2101.04792 · FaceNet 式度量学习进 KWS
+    - generic [ref=f290e8]: 三元组 + 半难负样本挖掘 + 原型匹配
+    - generic [ref=f290e9]: 新词 5–10 样本 → 85–90% · 开集 EER 3–5%
+  - generic [ref=f290e10]: 一句话：分类式 KWS 的词表焊死在输出层——加词、删词、自定义词都要重训整个模型。本文把人脸识别的 triplet loss 系统搬进 KWS：DS-CNN 骨干学一个嵌入空间（同词靠近、异词远离、L2 归一化到单位球），新关键词 = 几个样本的嵌入均值（原型），推理比距离即可——零重训。12 类约 94–95%（比 CE 低约 1 个点，买的是换词自由），开集验证 EER 3–5%，5–10 个新词样本即达 85–90%。
+  - generic [ref=f290e11]:
+    - generic [ref=f290e12]: TL;DR
+    - listitem [ref=f290e13]: ◈ 分类模型的硬边界：输出类别数固定——厂商加新唤醒词、用户自定义词、多语言扩展全都卡在「重训整个模型」这一步。度量学习把问题改写：学空间而不是学分类头。
+    - listitem [ref=f290e14]: ◈ 三元组损失：L = max(0, d(a,p) − d(a,n) + margin)——锚点与同词样本的距离加上 margin 后仍小于与异词样本的距离则零损失，否则推动类内收紧、类间拉开。margin 甜点 0.3（0.2 间隔不够、0.5 多数三元组满足不了）。
+    - listitem [ref=f290e15]: ◈ 半难负样本挖掘是训练成败的关键：随机负样本大多太远（损失为零、无信号）；半难负样本（比正样本远但在 margin 带内）信号最强又不像最难负样本那样让训练不稳——比随机策略高 2–3%。每 ~100 步重挖一次。
+    - listitem [ref=f290e16]: ◈ 架构：DS-CNN 风格骨干（标准卷积起手 + DS 块 + GAP）→ FC 投影到 D 维 → L2 归一化到单位球（欧氏 ≡ 余弦，还 +1% 与更稳训练）。
+    - listitem [ref=f290e17]: ◈ 两种推理形态：闭集分类（最近原型）与开集验证（最近原型距离 < θ 判该词，否则「未知」）——后者才是 KWS 的真形态（非词表输入要能拒识）。
+    - listitem [ref=f290e18]: ◈ 结果（约值）：12 类 94–95%（CE 95–96%）；35 类 92–93%；类内距离 0.3–0.4 vs 类间 0.8–1.0（清晰分离）；嵌入维度甜点 64–128（32 容量不足、256 只多 <0.5%）。
+    - listitem [ref=f290e19]: ◈ 新词适配（核心卖点）：5–10 个样本算原型 → 85–90% 检测准确率，全程不动嵌入网络；建议每词 10–20 个不同说话人的样本做原型更稳。
+    - listitem [ref=f290e20]: ◈ 代价与边界：闭集精度比 CE 低约 1 个点；三元组训练对超参敏感（可能坍缩）；声学近邻词（yes/yeah、on/off）拉不开间隔；距离无概率含义（校准负担）；推理 O(K·D) 随词表涨。
+  - heading "§01 问题：词表焊死在输出层" [level=2] [ref=f290e21]:
+    - generic [ref=f290e22]: §01
+    - text: 问题：词表焊死在输出层
+  - generic [ref=f290e23]: 改词 = 重训的三重痛
+  - generic [ref=f290e24]:
+    - generic [ref=f290e25]:
+      - heading "加词删词都要重训" [level=3] [ref=f290e26]
+      - paragraph [ref=f290e27]: 分类 KWS 的输出节点数 = 词表大小——厂商上新唤醒词、用户自定义个性化词、多语言扩展，每次都要重新训练和部署整个模型。迭代节奏被训练周期绑架。
+    - generic [ref=f290e28]:
+      - heading "语音的高变异性" [level=3] [ref=f290e29]
+      - paragraph [ref=f290e30]: 同一个关键词在不同说话人、语速、噪声条件下差异巨大——嵌入空间必须在容纳这些变化的同时保持类内紧凑；还要支持音素级精细区分（yes 与 yeah 只差尾音素）。
+    - generic [ref=f290e31]:
+      - heading "度量学习的改写" [level=3] [ref=f290e32]
+      - paragraph [ref=f290e33]: 不学「类别 → 节点」而学「样本 → 坐标」：同词样本在嵌入空间聚成簇、异词远离。新词 = 簇中心（原型），加词变成加坐标——模型本身不变。
+    - generic [ref=f290e34]:
+      - heading "来自人脸识别的成熟方案" [level=3] [ref=f290e35]
+      - paragraph [ref=f290e36]: triplet loss 在 FaceNet 上已大获成功——人脸识别同样要「同身份靠近、异身份远离 + 新身份免重训注册」，与 KWS 的新词适配需求同构。本文的工作是系统适配而非发明。
+  - generic [ref=f290e37]:
+    - img [ref=f290e38]:
+      - generic [ref=f290e40]: 三元组损失 KWS：换唤醒词不重训——新词只是嵌入空间里的一个新坐标
+      - generic [ref=f290e41]: ① 分类模型的硬边界：词表焊死在输出层
+      - generic [ref=f290e43]: 改词 = 重训
+      - generic [ref=f290e44]: 分类 KWS 的输出类别数固定——添加/删除/修改关键词都要重训整个模型；
+      - generic [ref=f290e45]: 厂商加新唤醒词 · 用户自定义词 · 多语言扩展全都卡在这一步
+      - generic [ref=f290e47]: 度量学习的解法
+      - generic [ref=f290e48]: 学一个嵌入空间：同词样本靠近（类内小）、异词样本远离（类间大）——
+      - generic [ref=f290e49]: 新词 = 几个样本的嵌入均值（原型），推理比距离即可，零重训
+      - generic [ref=f290e51]: 三个技术挑战
+      - generic [ref=f290e52]: 语音高变异（同词在不同说话人/语速/噪声下差异大）· 音素级精细区分
+      - generic [ref=f290e53]: （yes 与 yeah 只差尾音素）· 嵌入空间校准（阈值判断要可靠）
+      - generic [ref=f290e54]: ② 三阶段框架 + 嵌入网络结构
+      - generic [ref=f290e56]: ① 嵌入网络训练
+      - generic [ref=f290e57]: 三元组损失 + 半难负样本挖掘
+      - generic [ref=f290e59]: ② 关键词原型构建
+      - generic [ref=f290e60]: 每词 10–20 样本嵌入求均值
+      - generic [ref=f290e62]: ③ 推理时分类
+      - generic [ref=f290e63]: 闭集最近原型 · 开集阈值 θ
+      - generic [ref=f290e65]: 嵌入网络结构
+      - generic [ref=f290e66]: 输入：40 维 MFCC · T≈49（约 1 秒）
+      - generic [ref=f290e67]: 骨干（DS-CNN 风格）：
+      - generic [ref=f290e68]: · 第一层标准卷积（扩大初始感受野）
+      - generic [ref=f290e69]: · 多层深度可分离卷积块（DW + PW + BN + ReLU）
+      - generic [ref=f290e70]: · 全局平均池化（变长特征图 → 定长向量）
+      - generic [ref=f290e71]: 投影：FC → D 维（64/128）→ L2 归一化到单位球
+      - generic [ref=f290e73]: 三元组损失
+      - generic [ref=f290e74]: L = max(0, d(a,p) − d(a,n) + margin)
+      - generic [ref=f290e75]: 锚点 a：某关键词的样本
+      - generic [ref=f290e76]: 正样本 p：同关键词的另一样本（可不同说话人）
+      - generic [ref=f290e77]: 负样本 n：不同关键词的样本
+      - generic [ref=f290e78]: d(·) 欧氏距离（L2 归一化后 ≡ 余弦距离）
+      - generic [ref=f290e79]: margin 控制间隔：0.2–0.5 最佳（0.3 甜点）
+      - generic [ref=f290e80]: 0.2 间隔不够 · 0.5 训练困难（多数三元组满足不了）
+      - generic [ref=f290e81]: ③ 两种推理形态
+      - generic [ref=f290e83]: 闭集分类
+      - generic [ref=f290e84]: 计算 f(x) 与所有原型的距离，取最近的原型对应类别
+      - generic [ref=f290e85]: ——标准多分类形态，词表内的词选一个
+      - generic [ref=f290e87]: 开集验证（KWS 的真形态）
+      - generic [ref=f290e88]: 最近原型距离 < θ → 判该词；否则判「未知」
+      - generic [ref=f290e89]: ——非词表输入要能拒识，θ 是误报/漏报的旋钮
+      - generic [ref=f290e91]: 94–95%
+      - generic [ref=f290e92]: 12 类准确率（CE 95–96%）
+      - generic [ref=f290e93]: 3–5%
+      - generic [ref=f290e94]: 开集验证 EER
+      - generic [ref=f290e95]: 85–90%
+      - generic [ref=f290e96]: 新词 5–10 样本适配
+      - generic [ref=f290e97]: +2–3%
+      - generic [ref=f290e98]: 半难挖掘 vs 随机负样本
+      - generic [ref=f290e99]: 64 维
+      - generic [ref=f290e100]: 性价比最优嵌入维度
+      - generic [ref=f290e101]: 托木斯克国立大学 + NTR Labs · arXiv 2101.04792；GSC v2 的 12/35 类；三元组损失源自人脸识别 FaceNet——本文把它系统搬进 KWS；数字为约值
+    - generic [ref=f290e102]: 图1 · 机制全景：上半是分类模型的硬边界与度量学习解法，中段是三阶段框架、嵌入网络结构与三元组损失定义，底部是两种推理形态与关键数字。
+  - heading "§02 方法：margin 的几何与挖掘的艺术" [level=2] [ref=f290e103]:
+    - generic [ref=f290e104]: §02
+    - text: 方法：margin 的几何与挖掘的艺术
+  - generic [ref=f290e105]: 三元组距离关系 · 半难负样本 · L2 归一化
+  - generic [ref=f290e106]:
+    - generic [ref=f290e107]: "L = max( 0, d(f(x_a), f(x_p)) − d(f(x_a), f(x_n)) + margin ) 半难负样本: d(a,p) < d(a,n) < d(a,p) + margin # 恰好贴着间隔边界 原型: c_k = (1/N_k) · Σ f(x_i) # 建议每词 10–20 样本（不同说话人） L2 归一化: 嵌入映射到单位超球面 → 欧氏距离 ≡ 余弦距离"
+    - generic [ref=f290e108]: 人话：三元组只看三个点的相对关系——正样本要比负样本至少近一个 margin。随机选的负样本几乎总是太远（损失恒为零，模型学不到东西），所以要主动挑那些「差点就违规」的半难负样本——它们才是有信息的训练信号。
+  - generic [ref=f290e109]:
+    - generic [ref=f290e110]:
+      - heading "margin 的甜点逻辑" [level=3] [ref=f290e111]
+      - paragraph [ref=f290e112]: margin 是类间隔的最低保证：0.2 时簇间挨得太近（易混淆），0.5 时间隔要求太苛刻（多数三元组永远满足不了，训练困难）——0.3 在准确率与稳定性之间平衡。这个值与数据的固有混淆度相关，换任务要重扫。
+    - generic [ref=f290e113]:
+      - heading "挖掘的工程复杂度" [level=3] [ref=f290e114]
+      - paragraph [ref=f290e115]: 半难挖掘要求定期（每 ~100 步）重算全部样本嵌入、重新挑负样本——训练管线多了一个调度环节。这是 triplet 系方法的固有税，后来的 Proxy-NCA/ArcFace 用代理点绕开了它。
+  - generic [ref=f290e116]:
+    - img [ref=f290e117]:
+      - generic [ref=f290e119]: 机制解剖：margin 的几何 · 半难负样本为什么关键
+      - generic [ref=f290e120]: 三元组与 margin 的距离线
+      - generic [ref=f290e123]: 锚点 a
+      - generic [ref=f290e125]: 正样本 p（同词）
+      - generic [ref=f290e127]: d(a,p) 小
+      - generic [ref=f290e129]: 负样本 n（异词）
+      - generic [ref=f290e131]: d(a,n) 大
+      - generic [ref=f290e133]: margin
+      - generic [ref=f290e134]: 要求：d(a,n) ≥ d(a,p) + margin——不满足就产生损失
+      - generic [ref=f290e135]: 类内收紧 + 类间拉开同时发生
+      - generic [ref=f290e136]: 负样本挖掘的三档
+      - generic [ref=f290e139]: a
+      - generic [ref=f290e141]: p
+      - generic [ref=f290e143]: 半难区 ★
+      - generic [ref=f290e144]: d(a,p)~d(a,p)+margin
+      - generic [ref=f290e147]: 随机负样本（大多在这——损失为 0）
+      - generic [ref=f290e148]: 随机：信号稀疏 · 半难：接近违规，信号强
+      - generic [ref=f290e149]: 最难：像 p 的 n——可能是标错，训练不稳
+      - generic [ref=f290e150]: 每 ~100 步重算全部嵌入、重新挖掘（工程复杂度）
+      - generic [ref=f290e152]: 两个工程细节
+      - generic [ref=f290e153]: · L2 归一化到单位超球面：欧氏距离 ≡ 余弦距离（理论等价）——两种度量性能几乎相同（消融验证）；
+      - generic [ref=f290e154]: 另外带来 +1% 准确率与更稳的训练
+      - generic [ref=f290e155]: · 原型质量：每词建议 10–20 个样本（不同说话人）——样本多样性显著影响原型代表性；
+      - generic [ref=f290e156]: 新词 5–10 个样本即可得到 85–90% 的检测准确率
+      - generic [ref=f290e157]: · t-SNE 证据：类别成清晰簇；yes/no/up/down 等高频词最紧凑；go/no 的簇近但可分
+      - generic [ref=f290e158]: · 距离分布：类内 0.3–0.4 vs 类间 0.8–1.0——明显分离（margin=0.3 间隔 0.4–0.6）
+      - generic [ref=f290e159]: 左：三元组要求负样本比正样本至少远一个 margin——margin 是类间隔的最低保证。右：随机负样本大多太远（零损失无信号），半难负样本恰好贴着间隔边界——信号最强又不 destabilize
+    - generic [ref=f290e160]: 图2 · 机制解剖：左是三元组的距离几何（d(a,n) ≥ d(a,p)+margin 的间隔要求），右是负样本挖掘三档（随机/半难/最难）的距离带与两个工程细节（L2 球面、原型质量）。
+  - heading "§03 实验：1 个点换换词自由" [level=2] [ref=f290e161]:
+    - generic [ref=f290e162]: §03
+    - text: 实验：1 个点换换词自由
+  - generic [ref=f290e163]: GSC v2 · 闭集/开集/新词适配三线
+  - generic [ref=f290e164]:
+    - img [ref=f290e165]:
+      - generic [ref=f290e167]: 主结果（约值）：精度小换灵活性，维度有甜点
+      - generic [ref=f290e168]: 准确率与嵌入维度
+      - generic [ref=f290e169]: "90"
+      - generic [ref=f290e171]: "92"
+      - generic [ref=f290e173]: "94"
+      - generic [ref=f290e175]: "96"
+      - generic [ref=f290e177]: ~95.5
+      - generic [ref=f290e178]: CE 分类（
+      - generic [ref=f290e179]: 参照）
+      - generic [ref=f290e181]: ~94.5
+      - generic [ref=f290e182]: 三元组 12
+      - generic [ref=f290e183]: 类
+      - generic [ref=f290e185]: ~92.5
+      - generic [ref=f290e186]: 三元组 35
+      - generic [ref=f290e187]: 类
+      - generic [ref=f290e188]: 12 类比 CE 低约 1 个点——买的是换词零重训
+      - generic [ref=f290e189]: 嵌入维度扫描（12 类）
+      - generic [ref=f290e194]: "32"
+      - generic [ref=f290e195]: ~92
+      - generic [ref=f290e197]: "64"
+      - generic [ref=f290e198]: ~94
+      - generic [ref=f290e200]: "128"
+      - generic [ref=f290e201]: ~95
+      - generic [ref=f290e203]: "256"
+      - generic [ref=f290e204]: ~95
+      - generic [ref=f290e205]: 64 维性价比最高 · 256 维比 128 只多 <0.5%
+      - generic [ref=f290e206]: 读数：维度甜点 64–128——容量够放词表结构即可，更高维度只买存储与计算
+      - generic [ref=f290e207]: 验证任务与新词适配
+      - generic [ref=f290e209]: 开集验证（余弦距离 + 阈值）
+      - generic [ref=f290e210]: · EER 约 3–5%——阈值 θ 是误报/漏报旋钮
+      - generic [ref=f290e211]: · 校准问题：距离值没有概率含义——不像 softmax
+      - generic [ref=f290e212]: 可直接读置信度，θ 的选择依赖验证集调优
+      - generic [ref=f290e213]: · 推理成本 O(K·D)：词表大（>100 词）时距离计算
+      - generic [ref=f290e214]: 本身成为开销项
+      - generic [ref=f290e216]: 新词适配（核心卖点）
+      - generic [ref=f290e217]: · 5–10 个新词样本 → 原型 → 85–90% 检测准确率
+      - generic [ref=f290e218]: · 全程不动嵌入网络——零重训、当天上线
+      - generic [ref=f290e219]: · 消融读数：
+      - generic [ref=f290e220]: "- 半难 vs 随机负样本：+2–3%"
+      - generic [ref=f290e221]: "- margin：0.3 甜点（0.2 间隔不够 · 0.5 难训）"
+      - generic [ref=f290e222]: "- L2 归一化：+1% 且训练更稳"
+      - generic [ref=f290e223]: · 边界提醒：yes/yeah、on/off 这类声学极近的词对，
+      - generic [ref=f290e224]: 三元组拉不开足够间隔——度量学习的通用软肋
+      - generic [ref=f290e225]: 注：数字为笔记记录的约值（原文见 arXiv 2101.04792）；骨干为 DS-CNN 风格；margin 扫 0.2/0.3/0.5 三档；嵌入维度扫 32/64/128/256
+    - generic [ref=f290e226]: 图3 · 主结果：左是准确率对比与嵌入维度扫描（64 维性价比最高），右是开集验证的 EER 与校准问题、新词适配的核心卖点和消融读数。
+  - table [ref=f290e227]:
+    - rowgroup [ref=f290e228]:
+      - row [ref=f290e229]:
+        - columnheader "评测线" [ref=f290e230]
+        - columnheader "结果（约值）" [ref=f290e231]
+        - columnheader "解读" [ref=f290e232]
+      - row [ref=f290e233]:
+        - cell "12 类闭集" [ref=f290e234]
+        - cell "94–95%（CE 95–96%）" [ref=f290e235]
+        - cell "让出约 1 个点，买换词零重训" [ref=f290e236]
+      - row [ref=f290e237]:
+        - cell "新词适配" [ref=f290e238]
+        - cell "5–10 样本 → 85–90%" [ref=f290e239]
+        - cell "核心卖点：当天上线" [ref=f290e240]
+      - row [ref=f290e241]:
+        - cell "开集验证" [ref=f290e242]
+        - cell "EER 3–5%" [ref=f290e243]
+        - cell "θ 阈值是误报/漏报旋钮" [ref=f290e244]
+      - row [ref=f290e245]:
+        - cell "嵌入维度" [ref=f290e246]
+        - cell "64–128 甜点" [ref=f290e247]
+        - cell "256 只多 <0.5%，白付存储" [ref=f290e248]
+      - row [ref=f290e249]:
+        - cell "半难 vs 随机挖掘" [ref=f290e250]
+        - cell "+2–3%" [ref=f290e251]
+        - cell "挖掘策略值这么多点" [ref=f290e252]
+  - generic [ref=f290e253]:
+    - generic [ref=f290e254]: 读表要点
+    - listitem [ref=f290e255]: ◈ 嵌入空间的健康证据：类内距离 0.3–0.4 vs 类间 0.8–1.0——两个分布明显分离；t-SNE 上高频词（yes/no/up/down）簇最紧凑，go/no 簇近但可分。
+    - listitem [ref=f290e256]: ◈ 校准是被低估的痛点：softmax 输出天然带概率含义，距离没有——θ 的选择完全依赖验证集调优，换场景可能要重调。这是所有距离判别系统的共同软肋。
+    - listitem [ref=f290e257]: ◈ 词表规模的隐性账：推理要跟全部 K 个原型算距离（O(K·D)）——词表超百词后这本身成为开销项，与分类头 O(D) 的单次前向不同。
+  - heading "§04 贡献" [level=2] [ref=f290e258]:
+    - generic [ref=f290e259]: §04
+    - text: 贡献
+  - generic [ref=f290e260]: 五点：从系统研究到灵活性证明
+  - generic [ref=f290e261]:
+    - generic [ref=f290e262]:
+      - generic [ref=f290e263]: "1"
+      - paragraph [ref=f290e264]: 三元组损失在 KWS 的系统应用：架构、训练策略、负样本挖掘、空间分析的完整方案——不是单点技巧而是一套可复用的配方。
+    - generic [ref=f290e265]:
+      - generic [ref=f290e266]: "2"
+      - paragraph [ref=f290e267]: 换词免重训的灵活性证明：简单原型计算即可添加新关键词，无需改动嵌入网络——为快速定制提供实用方案。
+    - generic [ref=f290e268]:
+      - generic [ref=f290e269]: "3"
+      - paragraph [ref=f290e270]: 分类与验证双支持：嵌入空间同时服务闭集分类（最近原型）与开集验证（阈值判断）——覆盖 KWS 的两种核心需求。
+    - generic [ref=f290e271]:
+      - generic [ref=f290e272]: "4"
+      - paragraph [ref=f290e273]: 嵌入维度系统分析：32→256 的扫描给出 64–128 甜点——容量够放词表结构即可，更高只买开销。
+    - generic [ref=f290e274]:
+      - generic [ref=f290e275]: "5"
+      - paragraph [ref=f290e276]: 半难负样本挖掘的验证：比随机策略 +2–3%——确认挖掘策略对 KWS 三元组训练至关重要。
+  - heading "§05 局限与判断" [level=2] [ref=f290e277]:
+    - generic [ref=f290e278]: §05
+    - text: 局限与判断
+  - generic [ref=f290e279]: 训练敏感 · 校准缺失 · 近邻词混淆
+  - generic [ref=f290e280]:
+    - img [ref=f290e281]:
+      - generic [ref=f290e283]: 边界与延伸
+      - generic [ref=f290e285]: 技术边界
+      - generic [ref=f290e286]: · 训练敏感：三元组对学习率/margin/挖掘策略高度敏感——不当设置
+      - generic [ref=f290e287]: 可能嵌入坍缩到一个点或收敛缓慢，调参负担实打实
+      - generic [ref=f290e288]: · 声学近邻词混淆：yes/yeah、on/off 拉不开间隔——度量学习的
+      - generic [ref=f290e289]: 通用挑战（不是三元组独有）
+      - generic [ref=f290e290]: · 校准缺失：距离无概率含义——基于阈值的检测不如 softmax 输出
+      - generic [ref=f290e291]: 可靠，θ 依赖验证集
+      - generic [ref=f290e292]: · 推理 O(K·D)：词表超百词后距离计算成为新开销
+      - generic [ref=f290e293]: · 挖掘依赖：定期重挖负样本增加工程复杂度
+      - generic [ref=f290e295]: 实验边界 + 延伸
+      - generic [ref=f290e296]: · 噪声/远场评估有限——噪声下类内是否仍紧凑是开放问题
+      - generic [ref=f290e297]: · 未与对比损失/中心损失/原型网络系统对比
+      - generic [ref=f290e298]: · 未探索三元组 + CE 联合训练
+      - generic [ref=f290e299]: · 无边缘设备部署评估
+      - generic [ref=f290e300]: 延伸：更稳的度量损失（Proxy-NCA / ArcFace / Circle
+      - generic [ref=f290e301]: Loss——人脸识别已验证更优）；三元组 + CE 联合训练
+      - generic [ref=f290e302]: （准确率与灵活性兼得）；自适应嵌入维度；层次化嵌入空间
+      - generic [ref=f290e303]: （先大类后细类）
+      - generic [ref=f290e304]: 可迁移判断：度量学习把 KWS 从「固定类别分类」变成「灵活的距离匹配」——新词是坐标不是输出节点；代价是约 1 个点的闭集精度 + 校准负担，值不值取决于换词频率
+    - generic [ref=f290e305]: 图4 · 边界与延伸：左技术边界（超参敏感与坍缩风险、近邻词拉不开、距离无概率含义、O(K·D) 推理、挖掘工程税），右实验边界（噪声远场有限、无度量损失横比、无联合训练）+ 延伸方向。
+  - generic [ref=f290e306]:
+    - generic [ref=f290e307]: 可迁移判断
+    - paragraph [ref=f290e308]: ↳ 新词是坐标不是输出节点：把分类改写成距离匹配后，加类别的成本从「重训」降到「求均值」——凡是词表/类表频繁变动的系统（自定义命令、多语言、个性化），都该认真评估这 1 个点的精度税值不值。
+    - paragraph [ref=f290e309]: ↳ 训练信号密度决定度量学习成败：随机负样本让 99% 的三元组零损失——挑「差点违规」的样本训练才有信息。半难挖掘的原则（挑边界样本）与 AUC 优化的成对采样、主动学习的不确定性采样同源。
+    - paragraph [ref=f290e310]: ↳ L2 归一化是小动作大收益：一行代码换来度量等价（欧氏=余弦）+ 1% 准确率 + 训练更稳——嵌入学习的默认第一步应该是把表示钉到单位球上。
+    - paragraph [ref=f290e311]: ↳ 距离的校准是隐藏成本：softmax 有概率含义、距离没有——开集部署时要为阈值调优单独立项。选度量学习方案前，把「θ 怎么定、多久重定」写进工程预算。
+  - generic [ref=f290e312]:
+    - link "arXiv 2101.04792 ↗" [ref=f290e313] [cursor=pointer]:
+      - /url: https://arxiv.org/pdf/2101.04792
+    - link "← 返回总目录" [ref=f290e314] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f290e315]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值 · 2021 №16 · 201+/305
