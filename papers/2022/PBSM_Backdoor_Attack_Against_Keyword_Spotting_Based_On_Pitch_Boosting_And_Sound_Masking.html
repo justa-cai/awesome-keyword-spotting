@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PBSM：基于音高提升与声音掩蔽的 KWS 后门攻击</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №28 · AI 安全</div>
+  <h1 class="hero">把后门触发器藏进<br>人耳的<span class="g">听觉盲区</span></h1>
+  <div class="chips">
+    <span class="chip">PBSM · 河海大学 × RMIT · arXiv 2211.08697</span>
+    <span class="chip">音高提升 5 半音 + 20ms 掩蔽信号</span>
+    <span class="chip">只碰数据的弱攻击者威胁模型</span>
+    <span class="chip">GSC 10 类 · CNN/CNN-LSTM/ResNet18</span>
+  </div>
+  <div class="meta">投毒不到 1% 的训练数据，三个受害模型平均攻击成功率接近 90%；20 名志愿者无一人感知到高幅度信号——隐蔽性不靠「频率超出可闻域」的物理边界，靠人类听觉对强邻信号的忽略。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>定位</b>：KWS 是设备常驻监听入口——后门触发等于攻击者拿到「万能唤醒词」，后续语音指令链路全部暴露；后门攻击研究集中在图像/文本，部署量最大的端侧 KWS 恰是防御最薄弱的一环。</li>
+      <li><b>威胁模型</b>：攻击者不知道受害网络任何结构信息，唯一攻击面是修改训练数据——对应训练外包和采购第三方数据两类真实场景；能力假设越弱，攻击面越贴近现实供应链风险。</li>
+      <li><b>两条已有路线的死穴</b>：多数触发器「难懂但可闻」——人耳能清晰区分嵌没嵌触发器，抽听即暴露；超声脉冲真正不可闻但被采样率硬约束（需 &gt;40kHz，真实产品多在 16kHz）且短脉冲打不动 LSTM。</li>
+      <li><b>组合触发范式</b>：音高提升（时序通道）——STFT 频域整体上移 5 半音（约 1.335 倍频）——全局变换让 LSTM 无论哪个时间步建模都没有干净帧可依托；对人耳「不是噪声」（仍是一段自然可懂的话）。</li>
+      <li><b>声音掩蔽（空间通道）</b>：心理声学上掩蔽声抬升听阈——20ms 高幅度信号插在整段音频最高幅度段（≥200ms 下限）旁边，能量很大但被强邻信号掩蔽到听不见。</li>
+      <li><b>共生关系</b>：音高提升在听感上构造出掩蔽空间，高幅度信号就藏在里面——两层隐蔽互相加强。</li>
+      <li><b>主结果</b>：投毒 &lt;1% 时三模型平均 ASR 接近 90%，随投毒样本数增加快速收敛 &gt;90%；准确率方差平均 0.64%（vs 基线 0.66%）——良性性能几乎不受影响。</li>
+      <li><b>人工验证</b>：20 人 × 20 条——95% 认为后门音频自然可懂、<b>无一人感知到高幅度信号</b>；1 人觉得少数音频不可懂（音高提升是有损变换的残留窗口）。</li>
+      <li><b>消融机制链</b>：高幅度/超声只攻空间维（打得动纯 CNN、打不动 LSTM）；仅音高提升在低投毒率下攻击 CNN_LSTM 全面反超（全局变换无干净帧）；高幅度分量「延迟生效」——低投毒预算押音高分量。</li>
+      <li><b>防御侧正资产</b>：结论章明确「时序层（LSTM）能提升 KWS 对后门攻击的抵抗力」——攻击侧的负结果就是防御侧的设计依据。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：隐蔽性与有效性的张力</h2>
+  <div class="h2sub">触发信号越强模型越好学但人越容易听出来</div>
+  <p class="lead">论文要同时满足四个互相牵制的目标：触发器让人耳「听不出」而非「听不懂」；不受采样率约束；同时命中纯 CNN（空间特征）和 LSTM 类（时序建模）；投毒率压到 1% 以下还维持约 90% 攻击成功率且良性准确率几乎不受影响。语音同时包含空间特征（个体声音组成）和时序特征（语音段关联）——超声脉冲只在局部时间窗注入扰动等于只攻击空间维度，时序维度留下大量干净信息供模型依赖，这就是它打不动 LSTM 的根源。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>「难懂但可闻」的触发器</h4>
+      <p>现有方法注入的触发器人耳虽听不懂内容但能清晰区分「嵌了触发器」和「干净输入」——只要有人抽听训练数据或触发样本，攻击就极容易被发现：隐蔽性只做到「机器可学、人听不懂」，没做到「人听不出」。</p>
+    </div>
+    <div class="card bad">
+      <h4>超声路线的两个死穴</h4>
+      <p>真正不可闻的超声脉冲要求采样率 &gt;40kHz 否则攻击直接失效——真实语音产品绝大多数在 16kHz；且短超声脉冲对含 LSTM 的模型攻击困难——主流 KWS 架构普遍带时序建模层，正好卡在两个死穴上。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：Algorithm 1 五步 + BadNets 训练</h2>
+  <div class="h2sub">心理声学掩蔽从音频编码工具转用为攻击构造</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 960">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="960.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PBSM 后门攻击：把触发器藏进人耳的听觉盲区</text>
+<line x1="36.0" y1="60.0" x2="480.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 威胁模型：只碰数据的弱攻击者</text>
+<rect x="36.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 是最值得下手的一环</text>
+<text x="52.0" y="142.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 是设备常驻监听入口——后门触发 = 攻击者拿到</text>
+<text x="52.0" y="154.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「万能唤醒词」，后续语音指令链路全部暴露</text>
+<text x="52.0" y="166.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">后门攻击研究集中在图像/文本，语音很少——部署量最大</text>
+<text x="52.0" y="178.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  的端侧应用 vs 防御研究最薄弱的一环</text>
+<text x="52.0" y="190.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">厂商普遍直接用公开/第三方数据训练——供应链失控</text>
+<rect x="474.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">弱攻击者设定（更贴近现实 → 威胁更强）</text>
+<text x="490.0" y="142.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">攻击者不知道受害网络的任何结构信息</text>
+<text x="490.0" y="154.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">唯一攻击面：修改训练数据集、生成毒化数据集</text>
+<text x="490.0" y="166.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不碰模型、不碰训练代码、不碰推理链路</text>
+<text x="490.0" y="178.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="190.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">对应真实场景：训练外包给第三方平台 / 直接采购</text>
+<text x="490.0" y="202.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  第三方训练数据——能力假设越弱，攻击面越现实</text>
+<text x="36.0" y="214.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 组合触发范式：时序维度 + 空间维度双通道</text>
+<rect x="36.0" y="230.0" width="414.0" height="130.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="254.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音高提升（时序通道）</text>
+<text x="52.0" y="276.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">STFT 转频域 → 整体上移 5 个半音（约 1.335 倍频，</text>
+<text x="52.0" y="287.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  纯四度）→ ISTFT 回时域</text>
+<text x="52.0" y="298.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="309.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全局变换：与时间位置无关，每一帧都被污染——LSTM</text>
+<text x="52.0" y="320.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  无论哪个时间步建模都没有干净帧可依托，后门稳定可学</text>
+<text x="52.0" y="331.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 对人耳「不是噪声」：仍是一段自然可懂的话，只是音调</text>
+<text x="52.0" y="342.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  变了——人耳对绝对音高的敏感度远低于音色/节奏/语义</text>
+<text x="52.0" y="353.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 短板：倾向忽略空间关联——对纯 CNN 攻击对比度不够</text>
+<rect x="474.0" y="230.0" width="414.0" height="130.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="490.0" y="254.0" font-size="12" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">声音掩蔽 + 高幅度信号（空间通道）</text>
+<text x="490.0" y="276.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">心理声学：一个声音的存在使另一个声音的听阈上升——</text>
+<text x="490.0" y="287.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  掩蔽声功率高于被掩蔽声，人耳只对最显著的声音敏感</text>
+<text x="490.0" y="298.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="309.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 插入位置：全局搜索最高幅度自然语音段（≥200ms 下限</text>
+<text x="490.0" y="320.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——掩蔽效应需要持续时间建立听阈抬升），信号插其前后</text>
+<text x="490.0" y="331.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 20ms 高幅度信号完全落在掩蔽窗内——能量很大但听不见</text>
+<text x="490.0" y="342.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 短板：只攻击局部时间窗——LSTM 用上下文平滑稀释它</text>
+<text x="490.0" y="353.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （这正是超声脉冲打不动 LSTM 的同一根源）</text>
+<text x="36.0" y="366.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ Algorithm 1：触发生成流程 + 共生关系</text>
+<rect x="36.0" y="382.0" width="148.0" height="66.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="110.0" y="404.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① STFT</text>
+<text x="110.0" y="422.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">良性样本转频域</text>
+<line x1="184.0" y1="415.0" x2="198.0" y2="415.0" stroke="#8a93a5" stroke-width="1.8" marker-end="url(#ar)"/>
+<rect x="156.0" y="382.0" width="148.0" height="66.0" rx="8" fill="#eef6f1" stroke="#d5e8df" stroke-width="1"/>
+<text x="230.0" y="404.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② +5 半音</text>
+<text x="230.0" y="422.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">频域逐频点上移</text>
+<text x="230.0" y="436.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Fre_domain_bs.fre += 5</text>
+<line x1="304.0" y1="415.0" x2="318.0" y2="415.0" stroke="#8a93a5" stroke-width="1.8" marker-end="url(#ar)"/>
+<rect x="316.0" y="382.0" width="148.0" height="66.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="390.0" y="404.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 搜最高幅度段</text>
+<text x="390.0" y="422.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">时长约束 ≥200ms</text>
+<text x="390.0" y="436.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">天然掩蔽声</text>
+<line x1="464.0" y1="415.0" x2="478.0" y2="415.0" stroke="#8a93a5" stroke-width="1.8" marker-end="url(#ar)"/>
+<rect x="516.0" y="382.0" width="148.0" height="66.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="590.0" y="404.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">④ 插 20ms 信号</text>
+<text x="590.0" y="422.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">末尾则插前 / 否则插后</text>
+<text x="590.0" y="436.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">藏在掩蔽空间里</text>
+<line x1="664.0" y1="415.0" x2="678.0" y2="415.0" stroke="#8a93a5" stroke-width="1.8" marker-end="url(#ar)"/>
+<rect x="736.0" y="382.0" width="148.0" height="66.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="810.0" y="404.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">⑤ ISTFT</text>
+<text x="810.0" y="422.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">回到时域</text>
+<text x="810.0" y="436.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">输出触发样本</text>
+<rect x="36.0" y="462.0" width="848.0" height="46.0" rx="8" fill="#eef6f1"/>
+<text x="460.0" y="482.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">共生关系：音高提升在听感上构造出一个声音掩蔽空间，高幅度信号就藏在这个空间里</text>
+<text x="460.0" y="498.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">——两层隐蔽各自成立又互相加强；训练沿用 BadNets 范式：p% 数据注入触发器 + 绑定目标标签</text>
+<rect x="36.0" y="524.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="550.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~90%</text>
+<text x="130.0" y="570.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ASR（投毒 &lt;1%，三模型平均）</text>
+<text x="298.0" y="550.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.64%</text>
+<text x="298.0" y="570.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率方差（vs 基线 0.66%）</text>
+<text x="466.0" y="550.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<text x="466.0" y="570.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">感知到高幅度信号的志愿者数</text>
+<text x="634.0" y="550.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">95%</text>
+<text x="634.0" y="570.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">志愿者认为后门音频自然可懂</text>
+<text x="802.0" y="550.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">16kHz+</text>
+<text x="802.0" y="570.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">不受采样率约束（超声需 &gt;40kHz）</text>
+<text x="36.0" y="608.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据：GSC 10 类 23,682 条（1 秒 16kHz）；受害模型 CNN（95.29%）/ CNN_LSTM（95.56%）/ ResNet18（94.74%）；基线 = 长超声脉冲 100ms@40kHz（调到源头论文认可的最优配置）；投毒样本 50–500 条 ≈ 0.2%–2.3%</text>
+</svg>
+    <p class="cap"><b>图1 · 机制全景</b>：威胁模型（只碰数据的弱攻击者）；组合触发范式双通道（音高提升管时序 / 掩蔽信号管空间）与各自的短板；Algorithm 1 五步流程与共生关系。</p>
+  </div>
+  </div>
+  <p class="sub"><b>为什么是 5 个半音</b>：音高提升越高触发器越有效，但扰动原始声音越厉害——作者大量攻击实验 + 人耳测试后选定，最大化「攻击效果与声音自然度」的平衡并为高幅度信号提供隐蔽空间（经验定参，人耳测试数据矩阵未报告）。<b>为什么 200ms 下限</b>：掩蔽效应需要持续时间维持听阈抬升——掩蔽窗太短护不住后面的 20ms 信号。<b>训练</b>：BadNets 范式——p% 数据注入触发器 + 目标标签绑定；p 越大后门越牢但毒化样本越多越易被数据审核发现。</p>
+
+  <h2><span class="no">§03</span>实验：三模型 × 四触发 × 投毒 0.2–2.3%</h2>
+  <div class="h2sub">基线调到源头论文认可的最优配置（长超声 100ms@40kHz）避免打弱基线</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 450">
+<rect x="0.0" y="0.0" width="880.0" height="450.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融机制链：哪类触发打得动哪类模型（Figure 2）</text>
+<line x1="36.0" y1="56.0" x2="500.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="375.0" y="106.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN（局部空间）</text>
+<text x="565.0" y="106.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN_LSTM（时序）</text>
+<text x="755.0" y="106.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ResNet18（局部→全局 + GAP）</text>
+<text x="270.0" y="156.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">短时高幅度信号（空间）</text>
+<rect x="290.0" y="126.0" width="170.0" height="56.0" rx="8" fill="#0b6e52"/>
+<text x="375.0" y="152.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">强</text>
+<text x="375.0" y="170.0" font-size="8" fill="#ffffff" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">局部尖峰正中下怀</text>
+<rect x="480.0" y="126.0" width="170.0" height="56.0" rx="8" fill="#e8b8b0"/>
+<text x="565.0" y="152.0" font-size="11" fill="#a03325" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">弱</text>
+<text x="565.0" y="170.0" font-size="8" fill="#a03325" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">上下文平滑稀释</text>
+<rect x="670.0" y="126.0" width="170.0" height="56.0" rx="8" fill="#9fc8b8"/>
+<text x="755.0" y="152.0" font-size="11" fill="#0a4030" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">中</text>
+<text x="755.0" y="170.0" font-size="8" fill="#0a4030" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GAP 削局部敏感</text>
+<text x="270.0" y="224.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">音高提升（时序/全局）</text>
+<rect x="290.0" y="194.0" width="170.0" height="56.0" rx="8" fill="#9fc8b8"/>
+<text x="375.0" y="220.0" font-size="11" fill="#0a4030" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">中</text>
+<text x="375.0" y="238.0" font-size="8" fill="#0a4030" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">对比度不足</text>
+<rect x="480.0" y="194.0" width="170.0" height="56.0" rx="8" fill="#0b6e52"/>
+<text x="565.0" y="220.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">强 ★</text>
+<text x="565.0" y="238.0" font-size="8" fill="#ffffff" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">无干净帧可依托</text>
+<rect x="670.0" y="194.0" width="170.0" height="56.0" rx="8" fill="#5aa886"/>
+<text x="755.0" y="220.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">中偏强</text>
+<text x="755.0" y="238.0" font-size="8" fill="#ffffff" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">全局变换契合</text>
+<text x="270.0" y="292.0" font-size="10" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PBSM 组合 ★</text>
+<rect x="290.0" y="262.0" width="170.0" height="56.0" rx="8" fill="#0b6e52"/>
+<text x="375.0" y="288.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">强 ★</text>
+<text x="375.0" y="306.0" font-size="8" fill="#ffffff" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">双通道全命中</text>
+<rect x="480.0" y="262.0" width="170.0" height="56.0" rx="8" fill="#0b6e52"/>
+<text x="565.0" y="288.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">强 ★</text>
+<text x="565.0" y="306.0" font-size="8" fill="#ffffff" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">双通道全命中</text>
+<rect x="670.0" y="262.0" width="170.0" height="56.0" rx="8" fill="#0b6e52"/>
+<text x="755.0" y="288.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">强 ★</text>
+<text x="755.0" y="306.0" font-size="8" fill="#ffffff" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">双通道全命中</text>
+<text x="270.0" y="360.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">超声脉冲（基线）</text>
+<rect x="290.0" y="330.0" width="170.0" height="56.0" rx="8" fill="#0b6e52"/>
+<text x="375.0" y="356.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">强</text>
+<text x="375.0" y="374.0" font-size="8" fill="#ffffff" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">同高幅度信号</text>
+<rect x="480.0" y="330.0" width="170.0" height="56.0" rx="8" fill="#e8b8b0"/>
+<text x="565.0" y="356.0" font-size="11" fill="#a03325" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">弱</text>
+<text x="565.0" y="374.0" font-size="8" fill="#a03325" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">短脉冲打不动</text>
+<rect x="670.0" y="330.0" width="170.0" height="56.0" rx="8" fill="#9fc8b8"/>
+<text x="755.0" y="356.0" font-size="11" fill="#0a4030" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">中</text>
+<text x="755.0" y="374.0" font-size="8" fill="#0a4030" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">需一定投毒量</text>
+<text x="36.0" y="420.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：仅音高提升在低投毒率（&lt;1%）下攻击 CNN_LSTM 全面超过高幅度/超声——全局变换无干净帧可依托；高幅度分量「延迟生效」——需足够毒化样本量才被学成判别特征。低投毒预算押音高分量</text>
+</svg>
+    <p class="cap"><b>图2 · 消融机制链（Figure 2）</b>：四类触发 × 三类模型的命中矩阵——高幅度/超声只攻空间维（打不动 LSTM），仅音高提升在低投毒率下反超，PBSM 双通道全命中。</p>
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">隐蔽性的三层证据 + 与超声路线的本质分野</text>
+<line x1="36.0" y1="56.0" x2="540.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="250.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">人工验证（20 人 × 20 条）</text>
+<rect x="120.0" y="114.0" width="285.0" height="34.0" rx="5" fill="#0b6e52"/>
+<text x="411.0" y="136.0" font-size="11" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">95%</text>
+<text x="114.0" y="136.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">认为自然且可懂</text>
+<rect x="120.0" y="174.0" width="4.0" height="34.0" rx="5" fill="#c0392b"/>
+<text x="130.0" y="196.0" font-size="11" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0%</text>
+<text x="114.0" y="196.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">感知到高幅度信号</text>
+<rect x="120.0" y="234.0" width="15.0" height="34.0" rx="5" fill="#d97a2b"/>
+<text x="141.0" y="256.0" font-size="11" fill="#d97a2b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5%</text>
+<text x="114.0" y="256.0" font-size="10" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">觉得少数不可懂</text>
+<rect x="120.0" y="296.0" width="300.0" height="46.0" rx="8" fill="#eef6f1"/>
+<text x="270.0" y="314.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">「人耳听不出」的最硬证据——</text>
+<text x="270.0" y="330.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">没有任何志愿者感知到高幅度信号</text>
+<text x="690.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两种隐蔽机制的本质分野</text>
+<rect x="540.0" y="106.0" width="300.0" height="88.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="690.0" y="128.0" font-size="10.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">超声脉冲：物理边界</text>
+<text x="690.0" y="146.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">隐蔽性押在「频率超出可闻域」</text>
+<text x="690.0" y="160.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 被采样率硬约束（需 &gt;40kHz；16kHz 产品直接失效）</text>
+<text x="690.0" y="174.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">  且短脉冲难攻击 LSTM——两个死穴</text>
+<rect x="540.0" y="206.0" width="300.0" height="108.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="690.0" y="228.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PBSM：感知弱点</text>
+<text x="690.0" y="246.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">隐蔽性押在「人类听觉系统对强邻信号的忽略」</text>
+<text x="690.0" y="259.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 任何常规采样率下都成立</text>
+<text x="690.0" y="272.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">  音高提升本身对人耳「不是噪声」（自然可懂）</text>
+<text x="690.0" y="285.0" font-size="8.5" fill="" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="690.0" y="298.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">防御侧启示：心理声学感知弱点可被映射成隐蔽</text>
+<text x="690.0" y="311.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">  通道——机器检测（能量尖峰/基频统计）是另一战场</text>
+<text x="36.0" y="408.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率方差侧（Table 1）：PBSM 平均 0.64% vs 基线 0.66%（论文认为不显著）——两法都在 1% 内波动；方差随投毒数非单调（训练随机性主导）——这解释了为什么每实验重复五次</text>
+</svg>
+    <p class="cap"><b>图3 · 隐蔽性证据</b>：人工验证（95% 自然可懂、无人感知信号）；超声（物理边界、被采样率卡死）vs PBSM（感知弱点、任何采样率成立）的本质分野；准确率方差侧证据。</p>
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与防御侧启示</text>
+<line x1="36.0" y1="56.0" x2="300.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">攻击的边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 音高提升是有损变换：5 半音是效果与自然度折中——</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  对音高敏感的听者存在被察觉的窗口（1 人觉得不可懂）</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 奈奎斯特问题未交代：16kHz 数据上移 1.335 倍会把高频</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  推过 8kHz 奈奎斯特——折叠/截断失真如何处理未报告；</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  实验 40kHz 采样可能部分掩盖了这个问题</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 静音多/能量均匀的音频搜不到 ≥200ms 掩蔽段——无方案</text>
+<text x="72.0" y="238.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未测任何后门防御：高幅度信号在波形层是能量尖峰——</text>
+<text x="72.0" y="265.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  信号级检测器未必受人耳局限约束；音高可被基频统计</text>
+<text x="72.0" y="278.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  抹平。「人检隐蔽」≠「机检隐蔽」</text>
+<text x="72.0" y="292.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="305.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· ASR 只有图没有表——复现者拿不到精确读数</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验边界 + 防御侧资产</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 单一封闭词表分类：GSC 10 类 1 秒短词——长词/流式/</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  远场/噪声未覆盖</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 受害模型是通用三件套——DS-CNN / cFSMN / TC-ResNet</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  等端侧主力未测，「大多数 KWS 有效」外推缺证据</text>
+<text x="536.0" y="197.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 人工验证 20 人无标准化量表；5 半音/20ms 无参数消融</text>
+<text x="536.0" y="224.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="238.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">★★ 防御侧正资产（结论章原话）：时序层（LSTM）能提升</text>
+<text x="536.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  KWS 对后门攻击的抵抗力——攻击侧的负结果 = 防御侧</text>
+<text x="536.0" y="265.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  的设计依据：抗局部触发后门，加时序建模层</text>
+<text x="536.0" y="278.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="292.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 后续：真实麦克风链路（AGC/降噪/重采样改写触发器形态）</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断（防御视角）：数据供应链是 KWS 最现实的后门入口——「只碰数据」的弱攻击者已足够有效；心理声学感知弱点可被武器化，防「人检」更要防「机检」</text>
+</svg>
+    <p class="cap"><b>图4 · 边界与防御侧启示</b>：未测后门防御（人检≠机检）、奈奎斯特问题、变换有损窗口、验证范围窄；「时序层抗后门」这一攻击侧负结果 = 防御侧正资产。</p>
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：三条 + 笔记补一条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>音高提升 + 声音掩蔽的触发器范式</b>：音高提升对人耳不是噪声、掩蔽降低人耳敏感度——人工验证（95% 自然可懂、无人感知信号）+ 准确率方差（0.64%）共同支持。</p></div>
+    <div class="row"><div class="n">2</div><p><b>不受采样率限制且覆盖两类模型</b>：全局音高变换打 LSTM、掩蔽信号打非时序模型——直接对冲超声触发器的两个死穴。</p></div>
+    <div class="row"><div class="n">3</div><p><b>低投毒率 + 隐蔽性的完整验证</b>：投毒 ≤1% 即可有效攻击（平均 ASR 接近 90%）。</p></div>
+    <div class="row"><div class="n">4</div><p><b>（笔记补）方法论意义</b>：把心理声学掩蔽从音频编码的传统工具转用到对抗攻击——隐蔽性不再依赖物理边界而依赖感知弱点：任何人耳感知的系统性弱点都可能被映射成触发器的隐蔽通道。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">「人检隐蔽」≠「机检隐蔽」</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>未测任何后门防御</h4>
+      <p>高幅度信号在波形层是能量尖峰——信号级能量检测器未必受人耳局限约束；音高提升可被基频统计或音高归一化部分抹平。攻击在「人检」下隐蔽不等于在「机检」下隐蔽。</p>
+    </div>
+    <div class="card bad">
+      <h4>奈奎斯特问题未交代</h4>
+      <p>16kHz 数据全频段上移 1.335 倍会把高频推过 8kHz 奈奎斯特——折叠/截断失真如何处理未报告；实验 40kHz 采样可能部分掩盖了问题，「不受采样率限制」在最常见的 16kHz 管线缺直接证据。</p>
+    </div>
+    <div class="card bad">
+      <h4>变换有损 + 约束有洞</h4>
+      <p>5 半音是折中不是无损——对音高敏感的听者存在察觉窗口；静音多/能量均匀的真实语音搜不到 ≥200ms 掩蔽段时触发器如何生成无方案；5 半音/20ms 无参数消融。</p>
+    </div>
+    <div class="card bad">
+      <h4>验证范围窄</h4>
+      <p>封闭词表 1 秒短词分类——长词/流式/远场/噪声未覆盖；受害模型是通用三件套（DS-CNN/cFSMN/TC-ResNet 等端侧主力未测）；ASR 只有图没有表（复现者拿不到精确读数）；人工验证 20 人无标准化量表。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（防御视角）</h4>
+    <ul>
+      <li>数据供应链是 KWS 最现实的后门入口——「只碰数据」的弱攻击者已足够有效：训练外包和第三方数据采购都在暴露面上。</li>
+      <li>人耳感知的系统性弱点（掩蔽效应）可被武器化成隐蔽通道——防「人检」更要防「机检」：能量尖峰检测、基频统计是攻击未测的对手。</li>
+      <li>全局变换触发器专克时序模型：局部扰动会被循环结构用上下文平滑掉，全局变换没有干净帧可依托——这条对攻击和防御都成立。</li>
+      <li>时序建模层是实验支持的抗后门资产（攻击侧负结果 = 防御侧正资产）——抗局部触发类后门，加 LSTM 层是被验证的选项。</li>
+      <li>复合触发的两个分量生效条件不同：全局分量低投毒即生效、局部分量需足量样本「延迟生效」——低预算攻击押全局分量，防御审查优先盯全局统计异常。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2211.08697" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="PBSM_Backdoor_Attack_Against_Keyword_Spotting_Based_On_Pitch_Boosting_And_Sound_Masking.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
