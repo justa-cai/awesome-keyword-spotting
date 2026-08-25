@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PCL-KWS：面向关键词检测的渐进式持续学习</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 16px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  table.tb { width: 100%; border-collapse: collapse; margin: 18px 0; background: var(--card);
+    border-radius: 12px; overflow: hidden; font-size: 13.8px; }
+  table.tb th { background: var(--acc-lt); color: var(--acc-dk); font-weight: 700;
+    padding: 10px 12px; text-align: left; }
+  table.tb td { padding: 9px 12px; border-top: 1px solid var(--line); color: var(--ink2); }
+  table.tb td b { color: var(--ink); }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №31</div>
+  <h1 class="hero">加新词不改旧模型：<br>冻结旧知识、<span class="g">压缩新知识</span></h1>
+  <div class="chips">
+    <span class="chip">PCL-KWS · A*STAR 新加坡 · arXiv 2201.12546</span>
+    <span class="chip">渐进式网络实例化</span>
+    <span class="chip">TC-ResNet-8 约 80K · GSC V2 30 词</span>
+    <span class="chip">无回放 · 无任务 ID 依赖（训练）</span>
+  </div>
+  <div class="meta">智能家居从「开灯/关灯」到「打开空调」再到「晚安模式」——类别增量学习的老问题在 KWS 有新痛点：关键词低级层共享（相同音素）高级层独有，新词学习改变共享低级特征间接伤旧词。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>设计哲学</b>：保护旧知识（冻结旧子网络——比正则化更彻底，从结构层面而非参数约束层面解决遗忘）+ 压缩新知识（关键词感知网络缩放）。</li>
+      <li><b>网络实例化</b>：Task 0 训练完整基线（C₀ + 共享内存块 M + H₀，15 个基础词）→ 每个新任务：冻结所有旧子网、实例化新分类头 H_t、从基线复制卷积作初始化（C_t⁽⁰⁾=C₀，加速收敛）、新子网 f_t = (C_t, M, H_t)。</li>
+      <li><b>共享内存块 M 双重作用</b>：正向迁移（新子网读 M 获取全部先前任务的通用声学特征——免费预训练）+ 持续更新（M 随新任务训练更新不断积累）——旧子网用训练时的 M 快照，不受 M 后续更新干扰。</li>
+      <li><b>关键词感知缩放</b>：w_t = min(1.0, K_t/K₀)——新任务 3 词 vs 基础 15 词 → w=0.2，新子网只用 20% 通道宽度；「识别的词越少所需容量越小」的规模适配原则。</li>
+      <li><b>参数账</b>：基线 80K + 5 新子网（16K each）+ 新头 15K + M 10K ≈ 185K = 基线 2.3 倍——不缩放会是 6.25 倍（500K）。</li>
+      <li><b>主结果</b>：30 词 6 任务后平均准确率 92.8%——超 Fine-tuning 下界约 15 点、超最强基线 GEM 约 3 点，且零历史样本存储（GEM 要回放缓冲区）。</li>
+      <li><b>缩放消融</b>：w=1.0（500K，93.3%）→ w=0.2（185K，92.8%）——参数减 63% 只掉 0.5 点，边缘部署的划算交易。</li>
+      <li><b>初始化消融</b>：从基线复制 92.8% ≈ 从最近子网复制 92.5% &gt; 随机初始化 89–90%——基线提供「原始的、未被后续任务偏移」的公平起点。</li>
+      <li><b>内存块消融</b>：去掉 M 准确率 −3~5 点——没有 M 新子网在孤立参数空间优化，缺乏跨任务迁移。</li>
+      <li><b>边界</b>：推理需要任务 ID（或路由器）——用户说什么词系统无法预知；模型持续单调增长；旧子网知识固化（M 更新后与旧快照可能不匹配）；M 容量瓶颈；骨干单一（TC-ResNet）。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：边缘设备上的类别增量</h2>
+  <div class="h2sub">正则化不够、回放存不下、任务 ID 不可用、大模型装不进</div>
+  <p class="lead">EWC/SI 的 Fisher 对角近似忽略参数相关性，且任务越多冻结越多——自由度递减后新任务难学（实测仅比微调好 5–10%）；GEM 回放在 100KB 边缘预算下只能存 25 个频谱样本，10 个任务每任务 2–3 个——效果急剧下降；Expert Gate 等需要任务 ID——设备不知道用户接下来说什么；wav2vec2 约 300M 的预训练路线不适合边缘；Progressive Nets 参数线性增长——多任务后超出存储。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>KWS 特有的遗忘机制</h4>
+      <p>不同关键词的声学特征在低级层共享（相同音素）但高级层有独特组合——新关键词的学习会改变共享的低级特征表示，间接影响旧关键词的特征质量：遗忘的传导路径比一般分类任务更隐蔽。</p>
+    </div>
+    <div class="card bad">
+      <h4>目标约束</h4>
+      <p>不需要任务 ID（训练时）、不需要回放缓冲区、模型大小严格亚线性增长、跑在约 80K 的轻量骨干上——四个条件同时满足才是边缘可用的 CIL。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：实例化 + 共享 + 缩放</h2>
+  <div class="h2sub">「实例化 + 共享 + 缩放」在压缩和增量学习之间找平衡</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 960">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="960.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PCL-KWS：冻结旧知识、共享通用知识、压缩新知识</text>
+<line x1="36.0" y1="60.0" x2="560.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 现有 CIL 路线在 KWS 上的不足</text>
+<rect x="36.0" y="98.0" width="848.0" height="44.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="125.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">正则化（EWC/SI）</text>
+<text x="230.0" y="117.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Fisher 对角近似忽略参数相关性；任务越多冻结越多，</text>
+<text x="230.0" y="133.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">自由度递减 → 新任务难学；实测仅比微调好 5–10%</text>
+<rect x="36.0" y="150.0" width="848.0" height="44.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="177.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">回放（GEM）</text>
+<text x="230.0" y="169.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">边缘存储 100KB 只装 25 个频谱样本；10 任务每任务</text>
+<text x="230.0" y="185.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">2–3 个样本——回放效果急剧下降</text>
+<rect x="36.0" y="202.0" width="848.0" height="44.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="229.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">需要任务 ID</text>
+<text x="230.0" y="221.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Expert Gate / Progressive Nets 推理时要知道当前</text>
+<text x="230.0" y="237.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输入属于哪个任务——设备不知道用户接下来说什么</text>
+<rect x="36.0" y="254.0" width="848.0" height="44.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="281.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">大模型依赖 / 动态架构</text>
+<text x="230.0" y="273.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">wav2vec2 约 300M 不适合边缘；Progressive Nets</text>
+<text x="230.0" y="289.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">参数线性增长——多任务后超出设备存储</text>
+<text x="36.0" y="306.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 渐进式网络实例化（骨干 TC-ResNet-8 约 80K）</text>
+<rect x="36.0" y="326.0" width="200.0" height="100.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="136.0" y="348.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Task 0（基线 f₀）</text>
+<text x="136.0" y="368.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">C₀ 卷积层 + M + H₀</text>
+<text x="136.0" y="382.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">15 个基础关键词</text>
+<text x="136.0" y="396.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">训练完整基线 → 冻结</text>
+<rect x="266.0" y="326.0" width="300.0" height="100.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="416.0" y="348.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Task t（t ≥ 1 新任务到来）</text>
+<text x="416.0" y="368.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">① 冻结所有旧子网 f₀…f_{t−1}（防遗忘）</text>
+<text x="416.0" y="381.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">② 实例化新分类头 H_t（输出 = K_t 类）</text>
+<text x="416.0" y="394.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 从基线复制卷积作初始：C_t⁽⁰⁾ = C₀</text>
+<text x="416.0" y="407.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">④ 新子网 f_t = (C_t, M, H_t)，宽度按 w_t 缩放</text>
+<rect x="596.0" y="326.0" width="288.0" height="100.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="740.0" y="348.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">共享内存块 M 的双重作用</text>
+<text x="740.0" y="366.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">正向迁移：新子网读 M 获取全部先前任务</text>
+<text x="740.0" y="378.5" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">  的通用声学特征（相当于免费预训练）</text>
+<text x="740.0" y="391.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">持续更新：M 随新任务训练更新，不断积累知识</text>
+<text x="740.0" y="403.5" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">旧子网用训练时的 M 快照——不受 M 后续</text>
+<text x="740.0" y="416.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">  更新干扰</text>
+<text x="36.0" y="436.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 关键词感知网络缩放：容量与任务复杂度挂钩</text>
+<rect x="36.0" y="450.0" width="414.0" height="108.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="474.0" font-size="13" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">w_t = min(1.0, K_t / K₀)</text>
+<text x="52.0" y="498.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">新子网每层通道数 = 基线通道数 × w_t</text>
+<text x="52.0" y="508.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="519.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">例：K₀=15 基础词，新任务 K_t=3 → w_t = 0.2</text>
+<text x="52.0" y="529.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——新子网只用基线 20% 的通道宽度</text>
+<text x="52.0" y="540.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">规模适配原则：识别的词越少，所需特征提取容量越小</text>
+<text x="52.0" y="550.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 模型总大小增长亚线性（与任务复杂度成正比）</text>
+<rect x="474.0" y="450.0" width="414.0" height="108.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="490.0" y="474.0" font-size="12" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">参数账（K₀=15, K_t=3, T=5）</text>
+<text x="490.0" y="498.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">基线 80K + 5 新子网（16K each）80K + 新头 15K</text>
+<text x="490.0" y="508.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  + 共享 M 10K ≈ 185K = 基线的 2.3 倍</text>
+<text x="490.0" y="519.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="529.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">对比不缩放（w_t=1.0）：5 × 80K = 400K，总模型</text>
+<text x="490.0" y="540.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  约 500K = 基线 6.25 倍——缩放把 6.25× 压到 2.3×</text>
+<text x="490.0" y="550.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="561.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">边界部署价值：可预估「加 N 个新词要多大存储」</text>
+<rect x="36.0" y="574.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="600.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">92.8%</text>
+<text x="130.0" y="620.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">平均准确率（30 词 6 任务后）</text>
+<text x="298.0" y="600.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+15</text>
+<text x="298.0" y="620.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">vs Fine-tuning 下界（点）</text>
+<text x="466.0" y="600.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+3</text>
+<text x="466.0" y="620.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">vs 最强基线 GEM（点）</text>
+<text x="634.0" y="600.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2.3×</text>
+<text x="634.0" y="620.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数增长（不缩放是 6.25×）</text>
+<text x="802.0" y="600.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0 条</text>
+<text x="802.0" y="620.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">历史样本存储（无回放缓冲区）</text>
+<text x="36.0" y="658.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">任务设定：GSC V2 30 词 = 15 基础（Task 0）+ 5 增量任务 × 3 词；遗忘在 KWS 尤其严重——关键词低级层共享（相同音素）高级层独有，新词学习改变共享低级特征间接伤旧词</text>
+</svg>
+    <p class="cap"><b>图1 · 机制全景</b>：现有 CIL 路线的四类不足；渐进式网络实例化（Task 0 基线 → 新任务四步）与共享内存块 M 的双重作用；关键词感知缩放与参数账。</p>
+  </div>
+  </div>
+  <div class="formula">
+    <div class="f">w_t = min(1.0, K_t / K₀)　；　新子网每层通道数 = 基线通道数 × w_t</div>
+    <div class="why"><b>人话</b>：新任务的词少就给小网络——容量与任务复杂度显式挂钩。这带来一个部署级的好处：设备可以<b>预估</b>「添加 N 个新关键词需要多少额外存储」——参数增长从不可控的工程负担变成可计算的预算项。</div>
+  </div>
+
+  <h2><span class="no">§03</span>实验：30 词 6 任务</h2>
+  <div class="h2sub">15 基础词 + 5 增量任务 × 3 词，GSC V2</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 450">
+<rect x="0.0" y="0.0" width="880.0" height="450.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主对比：5 个增量任务后的平均准确率（30 词）</text>
+<line x1="36.0" y1="56.0" x2="540.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="66.0" y1="308.3" x2="630.0" y2="308.3" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="312.3" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">78</text>
+<line x1="66.0" y1="262.6" x2="630.0" y2="262.6" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="266.6" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">82</text>
+<line x1="66.0" y1="216.9" x2="630.0" y2="216.9" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="220.9" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">86</text>
+<line x1="66.0" y1="171.1" x2="630.0" y2="171.1" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="175.1" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="66.0" y1="125.4" x2="630.0" y2="125.4" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="129.4" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">94</text>
+<rect x="100.0" y="314.0" width="56.0" height="40.0" rx="4" fill="#e8b8b0"/>
+<text x="128.0" y="308.0" font-size="9" fill="#e8b8b0" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~78</text>
+<text x="128.0" y="370.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Fine-tuning</text>
+<text x="128.0" y="381.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">下界））</text>
+<text x="128.0" y="394.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1.0x</text>
+<rect x="190.0" y="216.9" width="56.0" height="137.1" rx="4" fill="#e8d5c4"/>
+<text x="218.0" y="210.9" font-size="9" fill="#e8d5c4" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~86</text>
+<text x="218.0" y="370.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">EWC</text>
+<text x="218.0" y="394.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1.0x</text>
+<rect x="280.0" y="211.1" width="56.0" height="142.9" rx="4" fill="#e8d5c4"/>
+<text x="308.0" y="205.1" font-size="9" fill="#e8d5c4" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~86</text>
+<text x="308.0" y="370.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">SI</text>
+<text x="308.0" y="394.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1.0x</text>
+<rect x="370.0" y="199.7" width="56.0" height="154.3" rx="4" fill="#c9d8e8"/>
+<text x="398.0" y="193.7" font-size="9" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~88</text>
+<text x="398.0" y="370.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">NR</text>
+<text x="398.0" y="381.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">随机子网））</text>
+<text x="398.0" y="394.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1.5x</text>
+<rect x="460.0" y="182.6" width="56.0" height="171.4" rx="4" fill="#9fc8b8"/>
+<text x="488.0" y="176.6" font-size="9" fill="#9fc8b8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">89.0</text>
+<text x="488.0" y="370.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GEM</text>
+<text x="488.0" y="381.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">b=100））</text>
+<text x="488.0" y="394.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1.0x</text>
+<rect x="550.0" y="139.1" width="56.0" height="214.9" rx="4" fill="#0b6e52"/>
+<text x="578.0" y="133.1" font-size="9" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">92.8</text>
+<text x="578.0" y="370.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">PCL-KWS ★</text>
+<text x="578.0" y="394.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2.3x</text>
+<text x="350.0" y="102.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">平均准确率（%）· 约 值 · 柱下为参数增长比</text>
+<rect x="450.0" y="122.0" width="170.0" height="40.0" rx="6" fill="#eef6f1"/>
+<text x="535.0" y="138.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PCL-KWS 超最强基线 GEM 约 3 点</text>
+<text x="535.0" y="152.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">且零历史样本存储</text>
+<text x="36.0" y="420.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：基线数字为笔记记录的约值区间中值（论文原表精确到小数）；EWC/SI 仅比微调好 5–10 点——正则化路线在 KWS 的 CIL 上远远不够；GEM 需要回放缓冲区，PCL 完全靠参数快照</text>
+</svg>
+    <p class="cap"><b>图2 · 主对比（约 值）</b>：六方法的平均准确率与参数增长——PCL-KWS 92.8% 超最强基线 GEM 约 3 点且零回放缓冲；EWC/SI 仅比微调好 5–10 点。</p>
+  </div>
+  </div>
+  <table class="tb">
+    <tr><th>方法</th><th>平均准确率</th><th>vs Fine-tuning</th><th>参数增长</th><th>需回放缓冲</th></tr>
+    <tr><td>Fine-tuning（下界）</td><td>~75–80%</td><td>—</td><td>1.0×</td><td>否</td></tr>
+    <tr><td>EWC</td><td>~85–87%</td><td>+7</td><td>1.0×</td><td>否</td></tr>
+    <tr><td>GEM（b=100）</td><td>~88–90%</td><td>+12</td><td>1.0×</td><td><b>是</b></td></tr>
+    <tr class="hl"><td><b>PCL-KWS</b></td><td><b>92.8%</b></td><td><b>+15</b></td><td>2.3×</td><td><b>否</b></td></tr>
+  </table>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融：缩放的甜点 + 初始化策略 + 内存块价值</text>
+<line x1="36.0" y1="56.0" x2="500.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="260.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">w_t 扫描：参数 −63% 只掉 0.5 点</text>
+<rect x="70.0" y="114.0" width="380.0" height="48.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="84.0" y="134.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">w=1.0（不缩放）</text>
+<text x="84.0" y="152.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">500K 参数（6.2x 基线）</text>
+<rect x="320.0" y="126.0" width="110.0" height="24.0" rx="12" fill="#c9d8e8"/>
+<text x="375.0" y="142.0" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">93.3%</text>
+<rect x="70.0" y="174.0" width="380.0" height="48.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="84.0" y="194.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">w=0.5</text>
+<text x="84.0" y="212.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">280K 参数（3.5x 基线）</text>
+<rect x="320.0" y="186.0" width="110.0" height="24.0" rx="12" fill="#9fc8b8"/>
+<text x="375.0" y="202.0" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">93.0%</text>
+<rect x="70.0" y="234.0" width="380.0" height="48.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="84.0" y="254.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">w=0.2（论文）★</text>
+<text x="84.0" y="272.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">185K 参数（2.3x 基线）</text>
+<rect x="320.0" y="246.0" width="110.0" height="24.0" rx="12" fill="#0b6e52"/>
+<text x="375.0" y="262.0" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">92.8%</text>
+<rect x="70.0" y="298.0" width="380.0" height="26.0" rx="6" fill="#e6f4ee"/>
+<text x="260.0" y="315.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">用 0.5 个点换 63% 参数——边缘部署的划算交易</text>
+<text x="690.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">初始化策略 + 共享内存块</text>
+<rect x="540.0" y="110.0" width="300.0" height="34.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="552.0" y="132.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">从基线 C₀ 复制（论文）</text>
+<text x="828.0" y="132.0" font-size="10" fill="#0b6e52" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">92.8%</text>
+<rect x="540.0" y="152.0" width="300.0" height="34.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="552.0" y="174.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">从最近子网 C_{t−1} 复制</text>
+<text x="828.0" y="174.0" font-size="10" fill="#9fc8b8" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">92.5%</text>
+<rect x="540.0" y="194.0" width="300.0" height="34.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="552.0" y="216.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">随机初始化</text>
+<text x="828.0" y="216.0" font-size="10" fill="#e8b8b0" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">89–90%</text>
+<text x="540.0" y="238.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">基线初始化的公平性：提供「原始的、未被后续任务</text>
+<text x="540.0" y="251.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">偏移的」特征表示——对所有新任务都是公平起点</text>
+<rect x="540.0" y="266.0" width="300.0" height="56.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="690.0" y="284.0" font-size="9.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">去共享内存块：准确率 −3~5 点</text>
+<text x="690.0" y="300.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">没有 M，新子网在「孤立」参数空间优化，</text>
+<text x="690.0" y="314.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">缺乏跨任务知识迁移</text>
+<text x="36.0" y="420.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：结构层面（冻结）解决遗忘比参数约束层面（正则化）更彻底；共享 M 是免费的正向迁移通道——新旧知识通过它互通而不互相覆盖</text>
+</svg>
+    <p class="cap"><b>图3 · 消融</b>：w_t 扫描（参数 −63% 只掉 0.5 点）；初始化策略（基线复制 ≈ 最近子网 &gt; 随机）；共享内存块去掉 −3~5 点（孤立参数空间缺迁移）。</p>
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 推理需要任务 ID（或路由器）——不同任务分类头不同，</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  系统无法预知用户说哪个词。候选解：全头并行取最高</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  置信 / 额外任务路由器 / 统一输出空间——论文未充分讨论</text>
+<text x="72.0" y="170.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 模型持续增长：缩放约束了速度但仍是单调递增——数百个</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  增量任务（用户不断加自定义词）最终突破存储</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 知识固化：旧子网用旧 M 快照——后续任务声学特性差异大</text>
+<text x="72.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  时旧子网性能可能退化（M 更新后与新快照不匹配）</text>
+<text x="72.0" y="251.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="265.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· M 的容量瓶颈：大小固定，任务多了可能「内存干扰」</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验边界 + 延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 骨干单一：TC-ResNet 顺序架构天然适合子网实例化——</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  DS-CNN / LSTM / Transformer 适用性未验证</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 任务顺序敏感性未测；任务间关键词重叠（stop vs top）</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  的区分能力未测</text>
+<text x="536.0" y="197.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未与 Der++ / AANet 等动态架构 CIL 对比</text>
+<text x="536.0" y="224.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸：统一分类头（动态扩展输出层）；定期向旧子网回灌</text>
+<text x="536.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  知识（蒸馏自全局模型）；NAS 自动定 w_t</text>
+<text x="536.0" y="265.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="278.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 范式可推广：语音命令识别 / 声学事件检测 / 手势识别</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断（冻结旧知识、共享通用知识、压缩新知识）：结构层面的遗忘防护优于参数约束；容量与任务复杂度显式挂钩让边缘设备可预估增量成本</text>
+</svg>
+    <p class="cap"><b>图4 · 边界与延伸</b>：推理侧任务 ID 问题、模型持续增长、知识固化与 M 容量瓶颈；骨干单一、任务顺序/关键词重叠未测；统一分类头/回灌/NAS 等方向。</p>
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：四条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>渐进式网络实例化框架</b>：首个专为小型 KWS 模型设计的动态架构持续学习——旧知识不变（冻结）、新知识增量增长（实例化）、知识共享（M）。</p></div>
+    <div class="row"><div class="n">2</div><p><b>关键词感知网络缩放</b>：容量与任务复杂度显式关联——可预估的参数增长让设备能算清增量成本。</p></div>
+    <div class="row"><div class="n">3</div><p><b>无需缓冲区</b>：知识保留完全靠参数快照——消除缓冲区大小决策、样本选择、更新策略等一整套管理复杂性。</p></div>
+    <div class="row"><div class="n">4</div><p><b>共享内存块正向迁移</b>：新子网经 M 获取旧任务知识而无须旧数据——解决回放方法的数据可用性问题。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">推理侧的任务 ID 问题未解决</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>推理需要任务 ID 或路由器</h4>
+      <p>不同任务分类头不同——推理时要知道输入属于哪个任务才能选头，但用户可能说任何已学过的词。候选解（全头并行取最高置信 / 任务路由器 / 统一输出空间）论文未充分讨论——这是从方法到产品的最大缺口。</p>
+    </div>
+    <div class="card bad">
+      <h4>模型持续增长 + 知识固化</h4>
+      <p>缩放约束了速度但仍是单调递增——数百个增量任务（用户不断加自定义词）最终突破存储；旧子网用旧 M 快照——后续任务声学差异大时旧子网可能退化；M 大小固定，任务多了可能内存干扰。</p>
+    </div>
+    <div class="card bad">
+      <h4>骨干单一</h4>
+      <p>全部实验在 TC-ResNet-8——其顺序架构天然适合子网实例化；DS-CNN / LSTM / Transformer 适用性未验证。</p>
+    </div>
+    <div class="card bad">
+      <h4>实验设计缺口</h4>
+      <p>任务顺序敏感性未测（CIL 通常对此敏感）；任务间关键词重叠（stop vs top 声学相似）的区分能力未测；未与 Der++/AANet 等动态架构 CIL 对比；基线数字为约值区间。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>结构层面的遗忘防护（冻结旧子网）优于参数约束层面（正则化）——正则化是在「尽量不影响」的方向上努力，结构隔离是「根本不影响」。</li>
+      <li>容量与任务复杂度显式挂钩：小任务给小网络——参数预算从固定成本变成任务函数，边缘设备可预估增量成本。</li>
+      <li>共享模块是免费的正向迁移通道：新任务经共享内存获取旧知识而无须旧数据——知识互通与参数隔离可以同时成立。</li>
+      <li>0.5 个点换 63% 参数是边缘部署的划算交易——准确率-存储的帕累托上，小模型的边际存储比边际精度贵。</li>
+      <li>「冻结旧知识、共享通用知识、压缩新知识」范式可推广到语音命令识别、声学事件检测、手势识别等一切需持续适应的边缘 AI。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2201.12546" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="Progressive_Continual_Learning_for_Spoken_Keyword_Spotting.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
