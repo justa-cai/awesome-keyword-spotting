@@ -1,7 +1,7 @@
 # 可视化精读计划（VIZ_PLAN）
 
 > 逐篇把 305 篇深读笔记重写为 HTML+SVG 可视化页（2026→2018 倒序）。
-**进度：144 / 305**
+**进度：145 / 305**
 > 进度以本文件为准；`viz_manifest.json` 是机器可读版（站点 viz 按钮按它门控）。
 
 ## 2026（24/24）
@@ -161,10 +161,10 @@
 - [✅] VE-KWS：视觉模态增强的端到端关键词检测
 - [⬜] VIC-KD：方差-不变性-协方差知识蒸馏，让关键词检测更能抵御对抗攻击
 
-## 2022（0/42）
+## 2022（1/42）
 
 - [⬜] AB/BA Analysis: A Framework for Estimating Keyword Spottin…
-- [⬜] 23 μW 关键词检测芯片：基于环形振荡器的时域特征提取
+- [✅] 23 μW 关键词检测芯片：基于环形振荡器的时域特征提取
 - [⬜] A Fast Network Exploration Strategy to Profile Low Energy …
 - [⬜] Avoid Overfitting User Specific Information in Federated K…
 - [⬜] BiFSMN: Binary Neural Network for Keyword Spotting
