@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sinc 卷积：第一层只学两个数——低截止和高截止频率 | 论文精读 2019 №15</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.22em;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:14px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.sub{font-size:17px;color:var(--ink2);margin-bottom:22px;font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.chip{font-size:12.5px;padding:5px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2);font-weight:600}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink2);margin-bottom:40px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:10px;vertical-align:-6px}
+h2{font-size:24px;font-weight:800;margin-bottom:18px;letter-spacing:.01em}
+h3{font-size:17px;font-weight:700;margin:26px 0 10px}
+p{margin-bottom:14px;color:#2c3646}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:.14em;margin-bottom:10px}
+.tldr li{list-style:none;padding-left:22px;position:relative;margin-bottom:8px;color:#2c3646;font-size:15px}
+.tldr li::before{content:"◆";position:absolute;left:2px;color:var(--acc);font-size:10px;top:7px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px}
+.card h4{font-size:15px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13.5px;color:var(--ink2);margin-bottom:0}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h4{color:var(--dk)}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4}
+.card.bad h4{color:var(--warn)}
+.fig{margin:26px 0}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:9px;text-align:center}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 22px;margin:16px 0;font-size:15px}
+.formula .f{font-family:"SF Mono",Consolas,"Liberation Mono",monospace;font-size:14.5px;color:var(--ink);background:#f4f4ef;border-radius:8px;padding:10px 16px;margin-bottom:8px;overflow-x:auto;white-space:pre-wrap}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;margin:16px 0}
+table.tb th{background:#eff1ec;color:var(--ink);font-weight:700;text-align:left;padding:10px 14px;border-bottom:2px solid var(--line);font-size:13px}
+table.tb td{padding:9px 14px;border-bottom:1px solid #f0f0ea;color:#2c3646;vertical-align:top}
+table.tb tr:last-child td{border-bottom:none}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.contrib{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:18px 0}
+.contrib .row{display:flex;gap:14px;margin-bottom:12px;align-items:flex-start}
+.contrib .row:last-child{margin-bottom:0}
+.contrib .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lt);color:var(--dk);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.contrib .row p{margin:0;font-size:14px;color:#2c3646}
+.judge{background:#fdf8f0;border:1px solid #eadfc8;border-radius:12px;padding:20px 24px;margin:18px 0}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:#5a4a2f;margin-bottom:10px;font-weight:600}
+.judge .rw{font-size:13.5px;color:#7a6a4a;padding-left:18px;position:relative;margin-bottom:9px}
+.judge .rw::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-size:12px;padding:4px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink3);font-weight:600}
+.foot-note{font-size:12px;color:var(--ink3);width:100%;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2019 №15</div>
+<h1 class="hero">Sinc 卷积：第一层只学两个数——<span class="g">低截止和高截止频率</span></h1>
+<div class="sub">Sinc-Convolution based Keyword Spotting on Raw Waveform —— 慕尼黑工大：SincNet 思想进 KWS，62K 参数拿到 96.4%</div>
+<div class="chips">
+<span class="chip acc">Sinc 卷积</span><span class="chip">原始波形</span><span class="chip">参数化带通</span><span class="chip">62K 参数</span><span class="chip">可解释滤波器</span>
+</div>
+<div class="meta">
+<b>慕尼黑工业大学（TUM）· ICASSP 2020 · arXiv 1911.02086（SincNet 思想源自 Ravanelli & Bengio 2018）</b><br>
+问题：MFCC/LFBE 手工次优 + 原始波形第一层参数爆炸 · 方法：第一层 64 个 sinc 带通滤波器（每个只学 f₁/f₂ 两个参数 = 128 个，vs 标准卷积 16,064），后续深度可分离卷积<br>
+一句话：第一层参数 −99%，62K 总参数在 GSC 拿 96.4%——学到的截止频率直接可视化，前端可解释。
+</div>
+
+<section>
+<span class="no">01</span><h2>问题：前端的三重困境</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>MFCC/LFBE 基于人耳听觉模型——<b>不为 KWS 优化</b>（Mel 频带划分、DCT 系数都是拍脑袋的通用选择）；压缩变换（对数 · DCT）还可能丢掉相位与细微频谱结构。</li>
+<li>直接学原始波形可以避免信息损失——但 16kHz 波形的第一层标准卷积要 <b>64×251=16,064 个参数</b>，参数效率极低。</li>
+<li>Sinc 卷积的解法：把第一层滤波器<b>参数化为带通滤波器</b>——理想带通 = 两个 sinc 之差，每个滤波器只学 <b>(f₁, f₂) 两个截止频率</b>，参数减 99% 且物理意义明确。</li>
+<li>后续层用<b>深度可分离卷积</b>接力保持效率——两种参数高效技术的紧凑组合，总参数仅 62K。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Sinc 卷积：第一层只学两个数——低截止和高截止频率</text>
+<line x1="36.0" y1="60.0" x2="660.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 特征前端的三重困境</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MFCC/LFBE 是人耳模型的通用特征——不为 KWS 优化；直接学原始波形可以，但第一层卷积参数爆炸</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">挑战：参数高效地从原始波形学出「为 KWS 优化」的滤波器组——同时保持极小模型</text>
+<rect x="36.0" y="152.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="181.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">手工特征次优</text>
+<text x="215.0" y="181.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Mel 频带划分、DCT 系数——不是关键词判别的最优选择</text>
+<rect x="36.0" y="208.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="237.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">压缩丢信息</text>
+<text x="215.0" y="237.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">对数压缩 · DCT——相位与细微频谱结构可能被丢</text>
+<rect x="36.0" y="264.0" width="848.0" height="48.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="293.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">波形第一层太贵</text>
+<text x="215.0" y="293.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">16kHz 波形 · 核 251 点 × 64 通道 = 16K+ 参数——参数效率低</text>
+<text x="36.0" y="296.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② Sinc 卷积：参数化带通滤波器</text>
+<rect x="36.0" y="312.0" width="416.0" height="190.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="334.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">原理</text>
+<text x="52.0" y="358.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 理想带通 = 两个 sinc 之差：</text>
+<text x="52.0" y="373.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  g = 2f₂·sinc(2πf₂n)</text>
+<text x="52.0" y="388.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">      − 2f₁·sinc(2πf₁n)</text>
+<text x="52.0" y="403.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="418.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 每个滤波器只学 2 个参数：</text>
+<text x="52.0" y="433.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  低截止 f₁ · 高截止 f₂</text>
+<text x="52.0" y="448.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="463.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 物理意义明确——学到的就是</text>
+<text x="52.0" y="478.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「哪段频率重要」的截止频率对</text>
+<rect x="468.0" y="312.0" width="416.0" height="190.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="676.0" y="334.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">参数对比（第一层）</text>
+<text x="484.0" y="358.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 标准卷积：64 通道 × 251 核长</text>
+<text x="484.0" y="373.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  = 16,064 个参数</text>
+<text x="484.0" y="388.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="403.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Sinc 卷积：64 滤波器 × 2 参数</text>
+<text x="484.0" y="418.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  = 128 个参数</text>
+<text x="484.0" y="433.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="448.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 减少超过 99%——而且每个参数</text>
+<text x="484.0" y="463.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  都可解释（就是截止频率）</text>
+<text x="484.0" y="478.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="493.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">后续层：深度可分离卷积接力</text>
+<text x="484.0" y="508.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">保持参数效率</text>
+<text x="36.0" y="534.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 整体架构与学到的形状</text>
+<rect x="36.0" y="554.0" width="198.0" height="58.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="135.0" y="576.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">原始波形</text>
+<text x="135.0" y="595.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">16kHz 直接入网</text>
+<line x1="234.0" y1="583.0" x2="250.00" y2="583.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="250.0" y="554.0" width="198.0" height="58.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="349.0" y="576.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Sinc 卷积层</text>
+<text x="349.0" y="595.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">64 个可学带通</text>
+<line x1="448.0" y1="583.0" x2="464.00" y2="583.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="464.0" y="554.0" width="198.0" height="58.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="563.0" y="576.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DSConv × N</text>
+<text x="563.0" y="595.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">深度可分离</text>
+<line x1="662.0" y1="583.0" x2="678.00" y2="583.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="678.0" y="554.0" width="198.0" height="58.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="777.0" y="576.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">全连接</text>
+<text x="777.0" y="595.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">分类输出</text>
+<text x="52.0" y="638.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">学到的滤波器呈类梅尔的非线性分布但为 KWS 调整——低频区（元音基频谐波）与高频区（辅音摩擦噪）都被覆盖</text>
+<rect x="36.0" y="646.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="672.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">96.4%</text>
+<text x="130.0" y="692.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC 准确率</text>
+<text x="298.0" y="672.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">62K</text>
+<text x="298.0" y="692.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">总参数量——同期最小档</text>
+<text x="466.0" y="672.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−99%+</text>
+<text x="466.0" y="692.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">第一层参数 vs 标准卷积</text>
+<text x="634.0" y="672.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2 个/滤波器</text>
+<text x="634.0" y="692.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">可学习参数（f₁, f₂）</text>
+<text x="802.0" y="672.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">可解释</text>
+<text x="802.0" y="692.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">截止频率直接可视化</text>
+<text x="36.0" y="730.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">慕尼黑工业大学（TUM：Mittermaier / Kürzinger / Waschneck / Rigoll）· ICASSP 2020 · arXiv 1911.02086；GSC 数据集 · SincNet 思想（Ravanelli 2018）的 KWS 落地</text>
+</svg>
+<div class="cap">图 1 · 全景：前端三重困境 → sinc 带通参数化与参数对比 → 整体架构 → 核心数字带</div>
+</section>
+
+<section>
+<span class="no">02</span><h2>机制：sinc 之差与学到的频带</h2>
+<p>数学核心很优雅：频域的<b>矩形带通</b>对应时域的两个 sinc 函数——低频 sinc（乘 2f₁）与高频 sinc（乘 2f₂）相减，得到一个只在 [f₁, f₂] 通带的滤波器。训练时只更新 (f₁, f₂)——<b>学到的参数就是「哪段频率重要」的直接答案</b>。加窗（汉明窗）平滑边缘避免理想矩形的振铃。</p>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：带通形状怎么来 · 学到的频带长什么样</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">从 sinc 差到带通</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="108.0" y1="230.0" x2="348.00" y2="230.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="108.0" y1="150.0" x2="108.00" y2="230.00" stroke="#d8d8d0" stroke-width="1"/>
+<rect x="108.0" y="190.0" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="112.0" y="157.7" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="112.0" y="157.7" width="3.0" height="32.3" rx="1" fill="#9fc8b8"/>
+<rect x="116.0" y="158.0" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="116.0" y="158.0" width="3.0" height="32.0" rx="1" fill="#9fc8b8"/>
+<rect x="120.0" y="158.4" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="120.0" y="158.4" width="3.0" height="31.6" rx="1" fill="#9fc8b8"/>
+<rect x="124.0" y="159.0" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="124.0" y="159.0" width="3.0" height="31.0" rx="1" fill="#9fc8b8"/>
+<rect x="128.0" y="159.8" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="128.0" y="159.8" width="3.0" height="30.2" rx="1" fill="#9fc8b8"/>
+<rect x="132.0" y="160.7" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="132.0" y="160.7" width="3.0" height="29.3" rx="1" fill="#9fc8b8"/>
+<rect x="136.0" y="161.7" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="136.0" y="161.7" width="3.0" height="28.3" rx="1" fill="#9fc8b8"/>
+<rect x="140.0" y="163.0" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="140.0" y="163.0" width="3.0" height="27.0" rx="1" fill="#9fc8b8"/>
+<rect x="144.0" y="164.3" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="144.0" y="164.3" width="3.0" height="25.7" rx="1" fill="#9fc8b8"/>
+<rect x="148.0" y="165.7" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="148.0" y="165.7" width="3.0" height="24.3" rx="1" fill="#9fc8b8"/>
+<rect x="152.0" y="167.3" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="152.0" y="167.3" width="3.0" height="22.7" rx="1" fill="#9fc8b8"/>
+<rect x="156.0" y="168.9" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="156.0" y="168.9" width="3.0" height="21.1" rx="1" fill="#9fc8b8"/>
+<rect x="160.0" y="170.6" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="160.0" y="170.6" width="3.0" height="19.4" rx="1" fill="#9fc8b8"/>
+<rect x="164.0" y="172.3" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="164.0" y="172.3" width="3.0" height="17.7" rx="1" fill="#9fc8b8"/>
+<rect x="168.0" y="174.1" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="168.0" y="174.1" width="3.0" height="15.9" rx="1" fill="#9fc8b8"/>
+<rect x="172.0" y="175.9" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="172.0" y="175.9" width="3.0" height="14.1" rx="1" fill="#9fc8b8"/>
+<rect x="176.0" y="177.7" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="176.0" y="177.7" width="3.0" height="12.3" rx="1" fill="#9fc8b8"/>
+<rect x="180.0" y="179.5" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="180.0" y="179.5" width="3.0" height="10.5" rx="1" fill="#9fc8b8"/>
+<rect x="184.0" y="181.2" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="184.0" y="181.2" width="3.0" height="8.8" rx="1" fill="#9fc8b8"/>
+<rect x="188.0" y="183.0" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="188.0" y="183.0" width="3.0" height="7.0" rx="1" fill="#9fc8b8"/>
+<rect x="192.0" y="184.6" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="192.0" y="184.6" width="3.0" height="5.4" rx="1" fill="#9fc8b8"/>
+<rect x="196.0" y="186.2" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="196.0" y="186.2" width="3.0" height="3.8" rx="1" fill="#9fc8b8"/>
+<rect x="200.0" y="187.8" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="200.0" y="187.8" width="3.0" height="2.2" rx="1" fill="#9fc8b8"/>
+<rect x="204.0" y="189.2" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="204.0" y="189.2" width="3.0" height="0.8" rx="1" fill="#9fc8b8"/>
+<rect x="208.0" y="190.5" width="3.0" height="0.5" rx="0" fill="none"/>
+<rect x="212.0" y="191.7" width="3.0" height="1.7" rx="0" fill="none"/>
+<rect x="216.0" y="192.8" width="3.0" height="2.8" rx="0" fill="none"/>
+<rect x="220.0" y="193.8" width="3.0" height="3.8" rx="0" fill="none"/>
+<rect x="224.0" y="194.7" width="3.0" height="4.7" rx="0" fill="none"/>
+<rect x="228.0" y="195.4" width="3.0" height="5.4" rx="0" fill="none"/>
+<rect x="232.0" y="196.0" width="3.0" height="6.0" rx="0" fill="none"/>
+<rect x="236.0" y="196.4" width="3.0" height="6.4" rx="0" fill="none"/>
+<rect x="240.0" y="196.8" width="3.0" height="6.8" rx="0" fill="none"/>
+<rect x="244.0" y="197.0" width="3.0" height="7.0" rx="0" fill="none"/>
+<rect x="248.0" y="197.0" width="3.0" height="7.0" rx="0" fill="none"/>
+<rect x="252.0" y="197.0" width="3.0" height="7.0" rx="0" fill="none"/>
+<rect x="256.0" y="196.9" width="3.0" height="6.9" rx="0" fill="none"/>
+<rect x="260.0" y="196.6" width="3.0" height="6.6" rx="0" fill="none"/>
+<rect x="264.0" y="196.3" width="3.0" height="6.3" rx="0" fill="none"/>
+<rect x="268.0" y="195.8" width="3.0" height="5.8" rx="0" fill="none"/>
+<rect x="272.0" y="195.4" width="3.0" height="5.4" rx="0" fill="none"/>
+<rect x="276.0" y="194.8" width="3.0" height="4.8" rx="0" fill="none"/>
+<rect x="280.0" y="194.2" width="3.0" height="4.2" rx="0" fill="none"/>
+<rect x="284.0" y="193.5" width="3.0" height="3.5" rx="0" fill="none"/>
+<rect x="288.0" y="192.9" width="3.0" height="2.9" rx="0" fill="none"/>
+<rect x="292.0" y="192.2" width="3.0" height="2.2" rx="0" fill="none"/>
+<rect x="296.0" y="191.5" width="3.0" height="1.5" rx="0" fill="none"/>
+<rect x="300.0" y="190.8" width="3.0" height="0.8" rx="0" fill="none"/>
+<rect x="304.0" y="190.1" width="3.0" height="0.1" rx="0" fill="none"/>
+<rect x="308.0" y="189.5" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="308.0" y="189.5" width="3.0" height="0.5" rx="1" fill="#9fc8b8"/>
+<rect x="312.0" y="188.9" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="312.0" y="188.9" width="3.0" height="1.1" rx="1" fill="#9fc8b8"/>
+<rect x="316.0" y="188.3" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="316.0" y="188.3" width="3.0" height="1.7" rx="1" fill="#9fc8b8"/>
+<rect x="320.0" y="187.8" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="320.0" y="187.8" width="3.0" height="2.2" rx="1" fill="#9fc8b8"/>
+<rect x="324.0" y="187.3" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="324.0" y="187.3" width="3.0" height="2.7" rx="1" fill="#9fc8b8"/>
+<rect x="328.0" y="186.9" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="328.0" y="186.9" width="3.0" height="3.1" rx="1" fill="#9fc8b8"/>
+<rect x="332.0" y="186.5" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="332.0" y="186.5" width="3.0" height="3.5" rx="1" fill="#9fc8b8"/>
+<rect x="336.0" y="186.3" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="336.0" y="186.3" width="3.0" height="3.7" rx="1" fill="#9fc8b8"/>
+<rect x="340.0" y="186.1" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="340.0" y="186.1" width="3.0" height="3.9" rx="1" fill="#9fc8b8"/>
+<rect x="344.0" y="185.9" width="3.0" height="0.0" rx="0" fill="none"/>
+<rect x="344.0" y="185.9" width="3.0" height="4.1" rx="1" fill="#9fc8b8"/>
+<text x="228.0" y="142.0" font-size="7.8" fill="#5d9c85" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">低频 sinc（×2f₁）</text>
+<rect x="148.0" y="290.0" width="60.0" height="30.0" rx="3" fill="#0b6e52"/>
+<text x="178.0" y="336.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">带通 = 差</text>
+<text x="64.0" y="262.0" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="64.0" y="275.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">矩形频域响应 ↔ 时域两个 sinc</text>
+<text x="64.0" y="288.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· f₁ 控制下沿 · f₂ 控制上沿</text>
+<text x="64.0" y="301.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 窗函数平滑边缘（汉明窗）</text>
+<text x="64.0" y="314.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 一组 (f₁, f₂) = 一组可学带通</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">学到的频带分布（示意）</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="486.0" y1="220.0" x2="806.00" y2="220.00" stroke="#d8d8d0" stroke-width="1"/>
+<rect x="486.0" y="185.7" width="19.2" height="34.3" rx="3" fill="#0b6e52"/>
+<text x="495.6" y="230.0" font-size="7.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">F0</text>
+<rect x="505.2" y="185.0" width="22.4" height="35.0" rx="3" fill="#0b6e52"/>
+<text x="516.4" y="230.0" font-size="7.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">H</text>
+<rect x="527.6" y="183.5" width="28.8" height="36.5" rx="3" fill="#0b6e52"/>
+<text x="542.0" y="230.0" font-size="7.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">F1</text>
+<rect x="556.4" y="182.8" width="32.0" height="37.2" rx="3" fill="#0b6e52"/>
+<text x="572.4" y="230.0" font-size="7.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">F2</text>
+<rect x="588.4" y="180.6" width="41.6" height="39.4" rx="3" fill="#9fc8b8"/>
+<rect x="630.0" y="177.8" width="54.4" height="42.2" rx="3" fill="#9fc8b8"/>
+<rect x="684.4" y="173.4" width="73.6" height="46.6" rx="3" fill="#0b6e52"/>
+<text x="721.2" y="230.0" font-size="7.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">fric</text>
+<text x="646.0" y="246.0" font-size="7.6" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">频率（对数感）→ 低频密 · 高频疏（类梅尔但为 KWS 调整）</text>
+<text x="450.0" y="258.0" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="270.8" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">低频区覆盖密：元音基频与谐波</text>
+<text x="450.0" y="283.6" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">高频区有覆盖：辅音摩擦噪声</text>
+<text x="450.0" y="296.4" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="309.2" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可解释性红利：</text>
+<text x="450.0" y="322.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 每个滤波器 = 一个 (f₁,f₂) 对</text>
+<text x="450.0" y="334.8" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 哪些频带被激活一眼可见</text>
+<text x="450.0" y="347.6" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 为 KWS 的频带重要性提供直接证据</text>
+<text x="450.0" y="360.4" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——MFCC 黑盒前端给不了这个</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：理想带通 = 两个 sinc 之差——频域矩形对应时域 sinc，f₁/f₂ 就是截止频率对。右：学到的频带分布呈类梅尔的低频密集——但分布是任务优化的结果，且每个滤波器可解释</text>
+</svg>
+<div class="cap">图 2 · 机制解剖：sinc 差构造带通 · 学到的频带分布（低频密·高频疏，类梅尔但任务优化）</div>
+<div class="formula">
+<div class="f">g(f₁, f₂)[n] = 2f₂·sinc(2πf₂n) − 2f₁·sinc(2πf₁n)    ← 理想带通 = 两个 sinc 之差
+第一层:  64 个滤波器 × 2 参数 = 128 (vs 标准卷积 16,064, −99%)
+后续:    深度卷积(通道内) + 逐点 1×1(通道间) — DSConv 接力
+架构:    原始波形 → Sinc 层 → DSConv×N → 全连接</div>
+<div class="why"><b>人话：</b>每个滤波器像一个可调的「收音机频道」——只学频道下沿和上沿两个旋钮，不学整个电路；64 台收音机各自锁到对分词最重要的频段。训练完看一眼每台锁在哪个频段，模型「在听什么」一目了然。</div>
+</div>
+<p><b>学到的分布印证了任务适配</b>：频带呈类梅尔的低频密集分布（元音基频与谐波），但为 KWS 做了调整——高频区（辅音摩擦噪声）也有覆盖；这个分布是<b>任务优化的结果</b>而非手工规定，且每个滤波器可解释——MFCC 黑盒前端给不了这一点。</p>
+</section>
+
+<section>
+<span class="no">03</span><h2>结果：参数-精度坐标上的位置</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：62K 参数的 96.4% + 效率账本</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">参数-精度坐标（示意）</text>
+<rect x="56.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="116.0" y1="272.0" x2="416.00" y2="272.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="116.0" y1="122.0" x2="116.00" y2="272.00" stroke="#d8d8d0" stroke-width="1"/>
+<text x="110.0" y="128.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">acc</text>
+<circle cx="172.2" cy="227.0" r="6" fill="#33507a"/>
+<text x="172.2" y="217.0" font-size="8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MFCC 大模型</text>
+<circle cx="341.0" cy="204.5" r="6" fill="#0b6e52"/>
+<text x="341.0" y="194.5" font-size="8" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 ★</text>
+<circle cx="387.9" cy="227.0" r="6" fill="#8a93a5"/>
+<text x="387.9" y="217.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MFCC 小模型</text>
+<text x="266.0" y="284.0" font-size="7.6" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量 →</text>
+<text x="266.0" y="144.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">同精度档里参数最小档之一</text>
+<text x="72.0" y="296.0" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="309.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 62K 参数 → 96.4%（GSC）</text>
+<text x="72.0" y="322.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 与 MFCC 特征 + 更大模型的基线</text>
+<text x="72.0" y="335.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  具有竞争力</text>
+<text x="72.0" y="348.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 第一层参数仅为标准卷积 ~1%</text>
+<text x="72.0" y="361.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· sinc + DSConv 的组合是紧凑关键</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">前端学习的谱系坐标</text>
+<rect x="500.0" y="92.0" width="324.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="110.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「前端进训练循环」家族：</text>
+<text x="514.0" y="123.5" font-size="8.2" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="137.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文（2019）：Sinc 卷积——参数化</text>
+<text x="514.0" y="150.5" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  带通（2 参数/滤波器）</text>
+<text x="514.0" y="164.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #6 滤波器组学习（2020）：高斯滤波</text>
+<text x="514.0" y="177.5" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  3 参数（fc·带宽·增益）+ 约束/无约束</text>
+<text x="514.0" y="191.0" font-size="8.2" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="204.5" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">两篇的对照（同一家族两种参数化）：</text>
+<text x="514.0" y="218.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Sinc：带通矩形频域——SincNet 出身</text>
+<text x="514.0" y="231.5" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 高斯：平滑频响——形状先验不同</text>
+<text x="514.0" y="245.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 共同点：手工 Mel 的可学习化替代</text>
+<text x="514.0" y="258.5" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  + 截止/中心频率可解释</text>
+<text x="514.0" y="272.0" font-size="8.2" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="285.5" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">更早的源头：Ravanelli & Bengio 2018</text>
+<text x="514.0" y="299.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SincNet（说话人识别）——本文把它</text>
+<text x="514.0" y="312.5" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">带进 KWS 并配 DSConv 压参数</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：坐标图为定性示意（论文值：62K 参数 / 96.4% GSC 准确率，ICASSP 2020 · arXiv 1911.02086）；SincNet 思想源自 Ravanelli 2018 说话人识别</text>
+</svg>
+<div class="cap">图 3 · 主结果：参数-精度坐标 · 与 #6 高斯滤波器组的家族对照</div>
+<table class="tb">
+<tr><th>指标</th><th>值</th><th>对照</th></tr>
+<tr class="hl"><td>准确率</td><td>96.4%（GSC）</td><td>与 MFCC 特征 + 更大模型的基线具竞争力</td></tr>
+<tr class="hl"><td>总参数</td><td>62K</td><td>同期最小档之一</td></tr>
+<tr><td>第一层参数</td><td>128（−99%+）</td><td>vs 标准卷积 16,064</td></tr>
+<tr><td>可解释性</td><td>截止频率可视化</td><td>频带重要性直接证据</td></tr>
+</table>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>与 #6（滤波器组学习）是同家族的两种参数化。</b>Sinc 用「带通矩形」（SincNet 出身，2 参数）、高斯用「平滑频响」（3 参数：中心/带宽/增益）——形状先验不同，共同点是手工 Mel 的可学习化替代 + 中心/截止频率可解释；两篇合起来把「可学习前端」的参数化空间探明了一角。</p></div>
+<div class="row"><div class="n">2</div><p><b>跨任务迁移的又一例。</b>SincNet 2018 年为说话人识别提出（Ravanelli & Bengio），本文把它带进 KWS 并配 DSConv 压参数——好组件跨任务复用是语音领域的常态，KWS 的贡献常在「组合与压缩」而非发明新算子。</p></div>
+<div class="row"><div class="n">3</div><p><b>62K 的量级要放在端侧语境读。</b>同期 KWS 模型多在数百 K 到数 M——62K 意味着能进更便宜的 MCU 档位；参数效率不是学术洁癖，是硬件选型的自由度。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">04</span><h2>边界：参数化的双刃</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 初始化敏感：截止频率的初始值不当 → 训练陷局部</text>
+<text x="72.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  最优——滤波器配置卡在坏起点</text>
+<text x="72.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声/远场评估有限：原始波形的噪声直进 sinc 层——</text>
+<text x="72.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  没有 MFCC 前端里的降噪步骤，极端噪声下存疑</text>
+<text x="72.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 可解释性是定性的：频响可视化 ≠ 定量指标——</text>
+<text x="72.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  缺衡量「滤波器学得好不好」的量化标准</text>
+<text x="72.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 带通形状是强先验：任意形状的核学不了——</text>
+<text x="72.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  比 #6 高斯参数化更受限</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸 + 系列坐标</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多尺度 sinc——同层不同带宽</text>
+<text x="536.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· sinc × 注意力——频带自适应加权</text>
+<text x="536.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声/远场系统评估 vs MFCC</text>
+<text x="536.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 初始化策略（Mel/Bark 刻度起手）</text>
+<text x="536.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多通道扩展（麦克风阵列空间信息）</text>
+<text x="536.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系列坐标（可学习前端谱系）：</text>
+<text x="536.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Ravanelli SincNet 2018：说话人识别</text>
+<text x="536.0" y="240.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——思想的源头</text>
+<text x="536.0" y="254.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文（2019）：KWS 落地 + DSConv 压参数</text>
+<text x="536.0" y="268.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #6 高斯滤波器组（2020）：形状先验更柔</text>
+<text x="536.0" y="281.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· trainable frontend（others）：远场鲁棒版</text>
+<text x="536.0" y="295.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2022 可训练基函数：倒谱域延伸</text>
+<text x="536.0" y="309.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 主线：前端从固定工艺变成可学习、可问责</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：参数化是参数效率的最强杠杆——把「K 个自由权重」换成「2 个物理参数」直接砍 99%；且物理参数化附送可解释性——参数有意义，学到的就不是黑盒。代价是形状先验（带通）限制了能学到的核形态</text>
+</svg>
+<div class="cap">图 4 · 边界与延伸：初始化敏感 · 噪声未验 · 带通形状先验 + 可学习前端谱系</div>
+<div class="cards">
+<div class="card bad"><h4>初始化敏感</h4><p>截止频率初始值不当 → 训练陷局部最优——滤波器配置卡在坏起点；用 Mel/Bark 刻度起手是明确的解法。</p></div>
+<div class="card bad"><h4>噪声/远场评估有限</h4><p>原始波形的噪声直进 sinc 层——没有 MFCC 前端式的降噪步骤，极端噪声下存疑。</p></div>
+<div class="card bad"><h4>可解释性是定性的</h4><p>频响可视化 ≠ 定量指标——缺「滤波器学得好不好」的量化标准；比 #6 的约束法分析少一层严格性。</p></div>
+<div class="card"><h4>带通形状是强先验</h4><p>只能学带通、学不了任意形状的核——比 #6 高斯参数化更受限；先验换效率的经典交易。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">05</span><h2>可迁移的判断</h2>
+<div class="judge">
+<div class="jt">JUDGMENTS · 能带走的三条</div>
+<p>① 参数化是参数效率的最强杠杆。</p>
+<div class="rw">把「K 个自由权重」换成「2 个物理参数」直接砍 99%——比剪枝/量化的压缩比都激进；凡是有物理结构的层（滤波器、衰减、振荡），先问能不能参数化而不是全连接学习。</div>
+<p>② 物理参数化附送可解释性。</p>
+<div class="rw">参数有意义（截止频率），学到的就不是黑盒——「模型在听哪个频段」可以画出来；可解释性不是事后的可视化技巧，而是参数化设计的副产品。</div>
+<p>③ 强先验是效率与灵活性的交易。</p>
+<div class="rw">带通形状学不了任意核（#6 高斯更柔、无约束更自由）——参数化越强效率越高、能表达的形状越少；选参数化 = 选「我愿意放弃哪些表达能力换效率」。</div>
+</div>
+<p><b>系列坐标</b>：可学习前端谱系的 Sinc 节点——Ravanelli & Bengio 的 SincNet（2018，说话人识别）是思想源头，本文（2019）把它带进 KWS 并配 DSConv 压到 62K；#6 高斯滤波器组（2020）换形状先验，trainable frontend（others）走远场鲁棒，2022 可训练基函数延伸到倒谱域——「前端从固定工艺变成可学习、可问责的管线成员」这条主线，本文是最早的 KWS 落地之一。</p>
+</section>
+
+<div class="foot">
+<span class="pill">ICASSP 2020</span><span class="pill">arXiv 1911.02086</span><span class="pill">TUM</span><span class="pill">SincNet × KWS</span>
+<div class="foot-note">本页坐标图为定性示意（论文值：62K 参数 / 96.4%），具体以原文为准 · 本页为可视化精读笔记，图表由 SVG 重绘</div>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,7 +1,7 @@
 # 可视化精读改写计划（VIZ_PLAN）
 
 按年份倒序把全部论文笔记重写为自包含 HTML+SVG 可视化精读页。每篇：读笔记 → python 生成 4 张 SVG → 注入统一模板 HTML → 校验 → 截图自查 → 提交推送。
-**总进度：257 / 305**
+**总进度：258 / 305**
 
 ## 2026（24 篇）
 **进度：24 / 24**
@@ -276,7 +276,7 @@
 - [x] WSRNet: Joint Spotting and Recognition of Handwritten Words
 
 ## 2019（22 篇）
-**进度：14 / 22**
+**进度：15 / 22**
 
 - [x] A Monaural Speech Enhancement Method for Robust Small-Footprint Keyword Spotting
 - [x] Adversarial Detection in Speech: A Classification Approach
@@ -292,7 +292,7 @@
 - [x] Prototypical Metric Transfer Learning for Continuous Speech Keyword Spotting With Limited Training Data
 - [x] Query-by-Example Keyword Spotting Using CTC and FST
 - [x] Region Proposal Network for Keyword Spotting
-- [⬜] Sinc-Convolution based Keyword Spotting on Raw Waveform
+- [x] Sinc-Convolution based Keyword Spotting on Raw Waveform
 - [⬜] Small-Footprint Keyword Spotting Using Graph Convolutional Networks
 - [⬜] SpeechYOLO: Speech Object Detection and Localization
 - [⬜] Stochastic Adaptive Neural Architecture Search for Keyword Spotting
