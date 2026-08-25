@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CTC + FST：新唤醒词 = 查词典抄一行音标，模型一行不改 | 论文精读 2019 №13</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.22em;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:14px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.sub{font-size:17px;color:var(--ink2);margin-bottom:22px;font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.chip{font-size:12.5px;padding:5px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2);font-weight:600}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink2);margin-bottom:40px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:10px;vertical-align:-6px}
+h2{font-size:24px;font-weight:800;margin-bottom:18px;letter-spacing:.01em}
+h3{font-size:17px;font-weight:700;margin:26px 0 10px}
+p{margin-bottom:14px;color:#2c3646}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:.14em;margin-bottom:10px}
+.tldr li{list-style:none;padding-left:22px;position:relative;margin-bottom:8px;color:#2c3646;font-size:15px}
+.tldr li::before{content:"◆";position:absolute;left:2px;color:var(--acc);font-size:10px;top:7px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px}
+.card h4{font-size:15px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13.5px;color:var(--ink2);margin-bottom:0}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h4{color:var(--dk)}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4}
+.card.bad h4{color:var(--warn)}
+.fig{margin:26px 0}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:9px;text-align:center}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 22px;margin:16px 0;font-size:15px}
+.formula .f{font-family:"SF Mono",Consolas,"Liberation Mono",monospace;font-size:14.5px;color:var(--ink);background:#f4f4ef;border-radius:8px;padding:10px 16px;margin-bottom:8px;overflow-x:auto;white-space:pre-wrap}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;margin:16px 0}
+table.tb th{background:#eff1ec;color:var(--ink);font-weight:700;text-align:left;padding:10px 14px;border-bottom:2px solid var(--line);font-size:13px}
+table.tb td{padding:9px 14px;border-bottom:1px solid #f0f0ea;color:#2c3646;vertical-align:top}
+table.tb tr:last-child td{border-bottom:none}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.contrib{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:18px 0}
+.contrib .row{display:flex;gap:14px;margin-bottom:12px;align-items:flex-start}
+.contrib .row:last-child{margin-bottom:0}
+.contrib .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lt);color:var(--dk);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.contrib .row p{margin:0;font-size:14px;color:#2c3646}
+.judge{background:#fdf8f0;border:1px solid #eadfc8;border-radius:12px;padding:20px 24px;margin:18px 0}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:#5a4a2f;margin-bottom:10px;font-weight:600}
+.judge .rw{font-size:13.5px;color:#7a6a4a;padding-left:18px;position:relative;margin-bottom:9px}
+.judge .rw::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-size:12px;padding:4px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink3);font-weight:600}
+.foot-note{font-size:12px;color:var(--ink3);width:100%;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2019 №13</div>
+<h1 class="hero">CTC + FST：新唤醒词 = 查词典抄一行音标，<span class="g">模型一行不改</span></h1>
+<div class="sub">Query-by-Example Keyword Spotting Using CTC and FST —— 高通的开放词汇方案：CTC 管耳朵、FST 管词典的彻底解耦</div>
+<div class="chips">
+<span class="chip acc">CTC 音素后验</span><span class="chip">FST 解码图</span><span class="chip">开放词汇</span><span class="chip">零重训注册</span><span class="chip">Viterbi 匹配</span>
+</div>
+<div class="meta">
+<b>Qualcomm AI Research（Kim / Lee / Lee / Kim / Hwang）· ASRU 2019 · arXiv 1910.05171</b><br>
+问题：固定词表加词要重训——用户自定义、多语言、快速部署都不够用 · 方法：CTC 输出帧级音素后验（训练一次即固定）+ FST 把关键词编成音素状态图（Viterbi 匹配）<br>
+一句话：注册 = 查词典拿音素转录 → 加进 FST 图——CTC 网络零改动；声学建模与关键词知识放进不同容器，各自独立更新。
+</div>
+
+<section>
+<span class="no">01</span><h2>问题：封闭词表的三个不够用</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>绝大多数 KWS 为<b>固定词表</b>设计（OK Google / Alexa / Hey Siri）——加词要重收数据、重训模型或大改模型；三个不够用的场景：<b>用户自定义</b>、<b>多语言方言</b>（每语种单独训太贵）、<b>快速部署</b>（重训周期太长）。</li>
+<li>双模块解耦：<b>CTC 音素后验生成器</b>（大规模语音训练一次即固定——通用的「耳朵」）+ <b>FST 关键词解码器</b>（词编成音素状态图——可随时更新的「词典」）。</li>
+<li>注册流程三步零训练：<b>查音素转录</b>（词典或自动音素化）→ <b>加进 FST 图</b> → 完事——CTC 网络一行不改。</li>
+<li>FST 的天然优势：<b>自环</b>支持重复与停顿、<b>多路径</b>支持变体发音、可加语言模型约束减误报——这些「语言学知识」免费进了解码图。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC + FST：新唤醒词 = 查词典抄一行音标，模型一行代码不改</text>
+<line x1="36.0" y1="60.0" x2="740.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 封闭词表的三个不够用</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">「OK Google」「Alexa」「Hey Siri」——固定词表加词要重收数据、重训模型或大改模型</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">核心需求：开放词汇——从少量注册样本检测任意用户定义词，底层网络零改动</text>
+<rect x="36.0" y="152.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="181.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">用户自定义</text>
+<text x="215.0" y="181.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">个性化唤醒词/命令词——厂商预设词表满足不了</text>
+<rect x="36.0" y="208.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="237.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多语言方言</text>
+<text x="215.0" y="237.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每种语言单独训模型——成本高昂</text>
+<rect x="36.0" y="264.0" width="848.0" height="48.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="293.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">快速部署</text>
+<text x="215.0" y="293.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">新产品要加语音命令——重训周期太长</text>
+<text x="36.0" y="296.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 双模块：CTC 管耳朵，FST 管词典</text>
+<rect x="36.0" y="312.0" width="416.0" height="190.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="334.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 音素后验生成器</text>
+<text x="52.0" y="358.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输入：连续声学特征流</text>
+<text x="52.0" y="373.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输出：每帧的音素后验分布</text>
+<text x="52.0" y="388.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （全部音素 + CTC blank）</text>
+<text x="52.0" y="403.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="418.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无需帧级对齐标注——CTC 天生</text>
+<text x="52.0" y="433.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  处理输入输出不确定对齐</text>
+<text x="52.0" y="448.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="463.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 大规模语音训练一次即固定</text>
+<text x="52.0" y="478.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——不随关键词变化</text>
+<rect x="468.0" y="312.0" width="416.0" height="190.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="676.0" y="334.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FST 关键词解码器</text>
+<text x="484.0" y="358.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 关键词 = 音素序列：「hello」</text>
+<text x="484.0" y="373.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  → /HH AH L OW/</text>
+<text x="484.0" y="388.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· FST 编码为状态转移图</text>
+<text x="484.0" y="403.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Viterbi 在音素后验网格上搜</text>
+<text x="484.0" y="418.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  最优匹配路径</text>
+<text x="484.0" y="433.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="448.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 支持变体发音 · 可加语言模型</text>
+<text x="484.0" y="463.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  约束减误报</text>
+<text x="484.0" y="478.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="493.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 过阈值 → 触发检测</text>
+<text x="36.0" y="534.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 注册流程：三步零训练</text>
+<rect x="76.0" y="554.0" width="240.0" height="58.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="196.0" y="576.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">查音素转录</text>
+<text x="196.0" y="595.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">词典或自动音素化工具</text>
+<line x1="316.0" y1="583.0" x2="348.00" y2="583.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="348.0" y="554.0" width="240.0" height="58.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="468.0" y="576.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">加进 FST 图</text>
+<text x="468.0" y="595.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">解码图更新</text>
+<line x1="588.0" y1="583.0" x2="620.00" y2="583.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="620.0" y="554.0" width="240.0" height="58.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="740.0" y="576.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">完事</text>
+<text x="740.0" y="595.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 网络一行不改</text>
+<text x="52.0" y="638.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词知识完全编码在 FST 的音素序列里，声学模型保持通用——「耳朵」与「词典」彻底解耦</text>
+<rect x="36.0" y="646.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="672.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">任意词</text>
+<text x="130.0" y="692.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">注册即可检测</text>
+<text x="298.0" y="672.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">零重训</text>
+<text x="298.0" y="692.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 训一次即固定</text>
+<text x="466.0" y="672.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">查词典式</text>
+<text x="466.0" y="692.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">音素转录注册</text>
+<text x="634.0" y="672.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">小足迹</text>
+<text x="634.0" y="692.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 边缘尺寸+FST 图小</text>
+<text x="802.0" y="672.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">变体发音</text>
+<text x="802.0" y="692.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FST 天然支持</text>
+<text x="36.0" y="730.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Qualcomm AI Research（Kim / Lee / Lee / Kim / Hwang）· ASRU 2019 · arXiv 1910.05171；开放词汇 KWS · 少量注册样本 · 与封闭系统对照</text>
+</svg>
+<div class="cap">图 1 · 全景：封闭词表三场景 → CTC + FST 双模块 → 三步注册 → 核心数字带</div>
+</section>
+
+<section>
+<span class="no">02</span><h2>机制：网格与状态图</h2>
+<p>CTC 输出一个<b>音素后验网格</b>——行是音素（加 blank），列是帧，颜色深浅是概率高低；FST 把「hello」编成 <b>HH→AH→L→OW 的状态转移图</b>。Viterbi 解码在网格上找与图最匹配的路径：blank 行吸收静音与过渡段（这正是 CTC 不需要帧级对齐标注的原因），自环容忍音素重复，多路径容纳异读变体。</p>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：CTC 的 blank 怎么解对齐 · FST 的图怎么走</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音素后验网格与路径</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="100.0" y="152.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">HH</text>
+<rect x="108.0" y="140.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="136.0" y="140.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="164.0" y="140.0" width="24.0" height="22.0" rx="3" fill="#0b6e52"/>
+<rect x="192.0" y="140.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="220.0" y="140.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="248.0" y="140.0" width="24.0" height="22.0" rx="3" fill="#0b6e52"/>
+<rect x="276.0" y="140.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="304.0" y="140.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="332.0" y="140.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="360.0" y="140.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<text x="100.0" y="182.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">AH</text>
+<rect x="108.0" y="170.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="136.0" y="170.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="164.0" y="170.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="192.0" y="170.0" width="24.0" height="22.0" rx="3" fill="#0b6e52"/>
+<rect x="220.0" y="170.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="248.0" y="170.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="276.0" y="170.0" width="24.0" height="22.0" rx="3" fill="#0b6e52"/>
+<rect x="304.0" y="170.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="332.0" y="170.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="360.0" y="170.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<text x="100.0" y="212.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">L</text>
+<rect x="108.0" y="200.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="136.0" y="200.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="164.0" y="200.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="192.0" y="200.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="220.0" y="200.0" width="24.0" height="22.0" rx="3" fill="#0b6e52"/>
+<rect x="248.0" y="200.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="276.0" y="200.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="304.0" y="200.0" width="24.0" height="22.0" rx="3" fill="#0b6e52"/>
+<rect x="332.0" y="200.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="360.0" y="200.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<text x="100.0" y="242.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">OW</text>
+<rect x="108.0" y="230.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="136.0" y="230.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="164.0" y="230.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="192.0" y="230.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="220.0" y="230.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="248.0" y="230.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="276.0" y="230.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="304.0" y="230.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="332.0" y="230.0" width="24.0" height="22.0" rx="3" fill="#0b6e52"/>
+<rect x="360.0" y="230.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<text x="100.0" y="272.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">blank</text>
+<rect x="108.0" y="260.0" width="24.0" height="22.0" rx="3" fill="#9fc8b8"/>
+<rect x="136.0" y="260.0" width="24.0" height="22.0" rx="3" fill="#9fc8b8"/>
+<rect x="164.0" y="260.0" width="24.0" height="22.0" rx="3" fill="#eef0ec"/>
+<rect x="192.0" y="260.0" width="24.0" height="22.0" rx="3" fill="#9fc8b8"/>
+<rect x="220.0" y="260.0" width="24.0" height="22.0" rx="3" fill="#9fc8b8"/>
+<rect x="248.0" y="260.0" width="24.0" height="22.0" rx="3" fill="#9fc8b8"/>
+<rect x="276.0" y="260.0" width="24.0" height="22.0" rx="3" fill="#9fc8b8"/>
+<rect x="304.0" y="260.0" width="24.0" height="22.0" rx="3" fill="#9fc8b8"/>
+<rect x="332.0" y="260.0" width="24.0" height="22.0" rx="3" fill="#9fc8b8"/>
+<rect x="360.0" y="260.0" width="24.0" height="22.0" rx="3" fill="#9fc8b8"/>
+<text x="248.0" y="132.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">帧 →（颜色深 = 后验高）</text>
+<text x="64.0" y="296.0" font-size="8.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">深色斜线 = Viterbi 找到的最优匹配路径</text>
+<text x="64.0" y="312.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">blank 行填满静音与过渡——CTC 不需要帧级标注</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FST 解码图（示意）</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<circle cx="496" cy="180" r="16" fill="#f4f6f9" stroke="#dde2e9"/>
+<text x="496.0" y="183.0" font-size="8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">S</text>
+<circle cx="586" cy="130" r="16" fill="#f4f6f9" stroke="#dde2e9"/>
+<text x="586.0" y="133.0" font-size="8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">HH</text>
+<circle cx="676" cy="130" r="16" fill="#f4f6f9" stroke="#dde2e9"/>
+<text x="676.0" y="133.0" font-size="8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AH</text>
+<circle cx="766" cy="130" r="16" fill="#f4f6f9" stroke="#dde2e9"/>
+<text x="766.0" y="133.0" font-size="8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">L</text>
+<circle cx="676" cy="230" r="16" fill="#f4f6f9" stroke="#dde2e9"/>
+<text x="676.0" y="233.0" font-size="8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">OW</text>
+<circle cx="766" cy="230" r="16" fill="#f4f6f9" stroke="#dde2e9"/>
+<text x="766.0" y="233.0" font-size="8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">E</text>
+<line x1="496.0" y1="180.0" x2="586.00" y2="130.00" stroke="#8a93a5" stroke-width="1.1"/>
+<line x1="586.0" y1="130.0" x2="676.00" y2="130.00" stroke="#8a93a5" stroke-width="1.1"/>
+<line x1="676.0" y1="130.0" x2="766.00" y2="130.00" stroke="#8a93a5" stroke-width="1.1"/>
+<line x1="676.0" y1="130.0" x2="766.00" y2="230.00" stroke="#8a93a5" stroke-width="1.1"/>
+<line x1="766.0" y1="230.0" x2="676.00" y2="230.00" stroke="#8a93a5" stroke-width="1.1"/>
+<line x1="766.0" y1="130.0" x2="676.00" y2="230.00" stroke="#8a93a5" stroke-width="1.1"/>
+<line x1="676.0" y1="114.0" x2="706.00" y2="96.00" stroke="#8a93a5" stroke-width="1"/>
+<text x="566.0" y="280.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 节点 = 音素状态 · 边 = 转移</text>
+<text x="566.0" y="296.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 自环支持重复/停顿 · 多路径支持变体</text>
+<text x="566.0" y="312.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 词表 = 图里的词；加词 = 图上加一条链</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：CTC 输出音素后验网格，Viterbi 沿高后验格子找最优路径——blank 行吸收静音与过渡。右：FST 把词编成状态图——自环容重复、多路径容变体，加词就是图上加一条链</text>
+</svg>
+<div class="cap">图 2 · 机制解剖：音素后验网格与 Viterbi 路径 · FST 状态图的转移结构</div>
+<div class="formula">
+<div class="f">CTC:   P(音素|帧) 网格 — 含 blank 行, 训练一次固定     ← 通用耳朵
+FST:   关键词 → 音素序列 → 状态转移图(自环+多路径)      ← 可换词典
+匹配:   Viterbi(网格, FST图) → 最优路径分数 > θ → 触发
+注册:   查词典拿音素转录 → 图上加一条链 → 零训练</div>
+<div class="why"><b>人话：</b>CTC 是个不知疲倦的速记员，每时每刻记下「现在听着像哪个音」；FST 是你要找的那句话的「拼图模板」；Viterbi 拿着模板在速记本上滑——拼上了就报警。要找新词就换一块新模板，速记员永远不用重新培训。</div>
+</div>
+<p><b>CTC 的 blank 是整个设计的润滑剂</b>：它吸收了「音素之间的静音与过渡」这个最麻烦的对齐问题——不需要帧级标注就能训练；解码时 blank 也让路径可以自由跳过过渡段，匹配对语速变化天然鲁棒。</p>
+</section>
+
+<section>
+<span class="no">03</span><h2>结果与高通的同门谱系</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）+ 高通的开放词表双路线</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">结果读数</text>
+<rect x="56.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="70.0" y="114.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 任意注册词有效检测——准确率有竞争力</text>
+<text x="70.0" y="127.8" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="70.0" y="141.6" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 少量注册样本仍保持合理性能</text>
+<text x="70.0" y="155.4" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="70.0" y="169.2" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 注册快速：音素转录即完——</text>
+<text x="70.0" y="183.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「查词典抄音标」级别的用户成本</text>
+<text x="70.0" y="196.8" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="70.0" y="210.6" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 音素级通用表示被验证：同一个 CTC</text>
+<text x="70.0" y="224.4" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  服务任意关键词</text>
+<text x="70.0" y="238.2" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="70.0" y="252.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（定性转述——具体指标回对原文）</text>
+<text x="70.0" y="265.8" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="70.0" y="279.6" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">与封闭词汇的对照表（笔记原文）：</text>
+<text x="70.0" y="293.4" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 新词：重训 vs 音素转录</text>
+<text x="70.0" y="307.2" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 模型更新：重训/微调 vs 更新 FST 图</text>
+<text x="70.0" y="321.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 灵活性：低 vs 高</text>
+<text x="70.0" y="334.8" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 开销：较小 vs FST 解码额外开销</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">高通的同门双路线</text>
+<rect x="500.0" y="92.0" width="324.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="110.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">有趣的事实：高通 AI Research 同年</text>
+<text x="514.0" y="123.2" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">在 ASRU 2019 发了两篇开放词表：</text>
+<text x="514.0" y="136.4" font-size="8.2" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="149.6" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #10 正交正则（同一团队）：</text>
+<text x="514.0" y="162.8" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  封闭词表的注意力优化</text>
+<text x="514.0" y="176.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文：开放词表的 CTC+FST</text>
+<text x="514.0" y="189.2" font-size="8.2" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="202.4" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">同组的谱系对照（中间表示）：</text>
+<text x="514.0" y="215.6" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文（2019）：音素 + FST 图</text>
+<text x="514.0" y="228.8" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——语言学先验 + 解码器</text>
+<text x="514.0" y="242.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #11 Snips（2019）：预测滤波器</text>
+<text x="514.0" y="255.2" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——数据先验 + 模板匹配</text>
+<text x="514.0" y="268.4" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #23 Sonos（2020）：音素 + 量化</text>
+<text x="514.0" y="281.6" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  LSTM——同是音素但换声学骨架</text>
+<text x="514.0" y="294.8" font-size="8.2" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="308.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">音素路线的家族在 2019-2020 成形，</text>
+<text x="514.0" y="321.2" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">2021 TAML 把注册改成文本锚定</text>
+<text x="514.0" y="334.4" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——中间表示的持续演化</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：结果为笔记定性转述（arXiv 1910.05171 · ASRU 2019），具体指标回对原文；开放词汇 KWS · 少量注册样本 · 与封闭词汇系统对照</text>
+</svg>
+<div class="cap">图 3 · 主结果（定性）· 开放词表四条路线的谱系坐标</div>
+<table class="tb">
+<tr><th>维度</th><th>封闭词汇</th><th>CTC+FST（本文）</th></tr>
+<tr><td>新关键词</td><td>重新训练</td><td class="hl">仅需音素转录</td></tr>
+<tr><td>模型更新</td><td>重训/微调</td><td class="hl">更新 FST 图</td></tr>
+<tr><td>部署灵活性</td><td>低</td><td class="hl">高</td></tr>
+<tr><td>计算开销</td><td>通常较小</td><td>FST 解码有额外开销</td></tr>
+</table>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>高通同年在 ASRU 2019 发了两篇互补的工作。</b>#10（正交正则）优化封闭词表的注意力，本文做开放词表的架构——一个「把现有词表做好」、一个「让词表可以随便换」；同组双线并进是工业研究布局的典型样本。</p></div>
+<div class="row"><div class="n">2</div><p><b>与 #23 Sonos 的对照见音素路线的内部演化。</b>两者都用「音素做中间表示」——本文用 CTC+FST 解码器，Sonos 用量化 LSTM + DTW/Viterbi 匹配：声学骨架与匹配机制不同，但「词知识=音素序列」的哲学一致——语言学先验是这条路线的共同底牌。</p></div>
+<div class="row"><div class="n">3</div><p><b>「加词 = 图上加一条链」是多词扩展的天然形态。</b>词表大小只影响 FST 图规模（与 #11 Snips 的滤波器并挂同构）——但大词表的解码延迟是真实约束（边界里自认），优化解码算法是这条路线的持续课题。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">04</span><h2>边界：音素错误会传染</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· CTC 质量是天花板：系统性能受限于音素预测准确性——</text>
+<text x="72.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  噪声 · 口音 · 儿童语音下错误率上升 → 召回下降</text>
+<text x="72.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 音素错误传播：一错传到 FST 匹配——短词（1–2 音节）</text>
+<text x="72.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  少量音素错就检测失败</text>
+<text x="72.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 歧义音素表示：异读/方言变体选错转录 → 性能受损</text>
+<text x="72.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· FST 解码延迟：大词表下解码计算可能成瓶颈</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸 + 系列坐标</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 端到端 CTC+FST——匹配目标进训练</text>
+<text x="536.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 自动音素转录（免人工标注）</text>
+<text x="536.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 子词单元——音素与词级的平衡</text>
+<text x="536.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· FST 解码优化保实时</text>
+<text x="536.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 从音频示例直接注册（免音素转录）</text>
+<text x="536.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系列坐标（开放词表路线图）：</text>
+<text x="536.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文（2019 高通）：音素+FST——解码器路线</text>
+<text x="536.0" y="240.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #11 Snips（2019）：预测滤波器——模板路线</text>
+<text x="536.0" y="254.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #23 Sonos（2020）：音素+量化——端侧版</text>
+<text x="536.0" y="268.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #11 Naver（2020）：嵌入原型——几何路线</text>
+<text x="536.0" y="281.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2021 TAML：文本锚定——注册免说话</text>
+<text x="536.0" y="295.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 四条路线各有甜点——中间表示的选择</text>
+<text x="536.0" y="309.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  决定灵活性与鲁棒性的平衡</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：把「声学建模」与「关键词知识」放进不同容器（网络 vs 解码图）——网络管通用能力一次训练，图管词表随时更新；中间表示选音素=买语言学先验，选嵌入=买数据适应性，选滤波器=买模板精度</text>
+</svg>
+<div class="cap">图 4 · 边界与延伸：CTC 质量天花板 · 错误传播 · 歧义转录 + 开放词表四路线坐标</div>
+<div class="cards">
+<div class="card bad"><h4>CTC 质量是天花板</h4><p>系统性能受限于音素预测准确性——噪声、口音、儿童语音下错误率上升直接打击召回率；声学模型一弱全局皆弱。</p></div>
+<div class="card bad"><h4>音素错误传播</h4><p>CTC 错一个音素传到 FST 匹配就失败——短词（1–2 音节）对少量错误最脆弱（与 #23 的同款发现）。</p></div>
+<div class="card bad"><h4>歧义音素转录</h4><p>异读、方言变体的转录选择影响性能——选错转录 = 注册时就埋了雷；自动音素化工具的质量是隐性依赖。</p></div>
+<div class="card"><h4>FST 解码延迟</h4><p>大词表下解码计算可能成瓶颈——影响实时性；解码算法优化是这条路线的长期课题。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">05</span><h2>可迁移的判断</h2>
+<div class="judge">
+<div class="jt">JUDGMENTS · 能带走的三条</div>
+<p>① 把「声学建模」与「类目知识」放进不同容器，各自独立更新。</p>
+<div class="rw">网络管通用能力（训练一次固定）、解码图/FST 管词表（随时增删）——两类知识的变化周期完全不同（声学十年不变、词表天天可能改），分容器是按变化频率解耦的架构原则，适用于任何「通用引擎 + 动态配置」的系统。</div>
+<p>② 中间表示的选择 = 买哪种先验。</p>
+<div class="rw">音素（本文）买语言学先验——可解释、词典可用，但受 G2P 与音素识别质量约束；嵌入（Naver #11）买数据适应性——不依赖语言学但黑盒；滤波器（Snips #11）买模板精度——样本省但不可读。先验与灵活性的权衡在中间表示选择时就定了。</div>
+<p>③ blank/自环这类「吸收不确定性的结构」是解耦的隐形功臣。</p>
+<div class="rw">CTC 的 blank 吸收对齐不确定性、FST 自环吸收时长不确定性——系统各层之间需要这类「弹性接口」来隔离误差；设计 pipeline 时主动预留吸收不确定性的位置，比追求每层精确更稳健。</div>
+</div>
+<p><b>系列坐标</b>：开放词表四条路线的「音素+解码器」分支——本文（2019 高通）与 #11 Snips（预测滤波器）、#23 Sonos（音素+量化）、#11 Naver（嵌入原型）同年或前后相继，四条路线各有甜点；2021 年 TAML 把注册改成文本锚定（连音频样本都不用）——这条谱系的主线始终是「词知识放哪、怎么生成」的中间表示演化。</p>
+</section>
+
+<div class="foot">
+<span class="pill">ASRU 2019</span><span class="pill">arXiv 1910.05171</span><span class="pill">Qualcomm</span><span class="pill">CTC+FST</span>
+<div class="foot-note">本页结果为笔记定性转述，具体指标以原文为准 · 本页为可视化精读笔记，图表由 SVG 重绘</div>
+</div>
+
+</div>
+</body>
+</html>
