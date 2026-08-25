@@ -1,0 +1,273 @@
+- generic [ref=f275e2]:
+  - generic [ref=f275e3]: 论文精读 · 可视化版 · 2021 №8 · 系列基石
+  - heading "维度匹配不需要学习： 用「复制」替掉投影层，卷积只卷时间轴" [level=1] [ref=f275e4]: 维度匹配不需要学习：用「复制」替掉投影层，卷积只卷时间轴
+  - generic [ref=f275e5]:
+    - generic [ref=f275e6]: BC-ResNet · 高通 AI 研究 + 韩国大学
+    - generic [ref=f275e7]: Interspeech 2021 · arXiv 2106.04140
+    - generic [ref=f275e8]: 广播残差（零参数）+ 时频分解卷积
+    - generic [ref=f275e9]: GSC v1/v2 98.0%/98.7% · 25K 参数 · MADD 5M
+  - generic [ref=f275e10]: 一句话：残差连接在通道数变化时要花 C_in×C_out 个参数做 1×1 投影——占整块的 10–15%，而这只是「维度匹配」的事务性操作。BC-ResNet 用零参数的广播（通道取模复制，硬件上就是 memcpy）替掉投影，再把 2D 卷积分解为 1D 时间深度卷积 + 1×1 通道混合（频率核的钱整个省下投给时间轴）。GSC v1/v2 拿到 98.0%/98.7%，四档变体（12K–100K）覆盖从 MCU 到边缘的全部预算——2021 年 GSC 最佳结果之一，后续大量 KWS 工作的默认骨干。
+  - generic [ref=f275e11]:
+    - generic [ref=f275e12]: TL;DR
+    - listitem [ref=f275e13]: ◈ 两处被忽视的浪费：投影残差的隐性税（1×1 投影匹配通道维度，扩展比 2 时占整块 10–15% 参数）与 2D 卷积的平摊浪费（时间维承载关键时序模式、频率维只是通道信息，却平分算力）。
+    - listitem [ref=f275e14]: "◈ 广播残差学习（BRL）：Broadcast(x)_{b,t,c} = x_{b,t, c mod C_in}——通道取模复制，C_in 整除 C_out 就复制 C_out/C_in 次，否则零填充。零参数、零 MAC，硬件上只是一次内存复制。"
+    - listitem [ref=f275e15]: ◈ 合理性论证：残差路径的作用是让恒等信息可达（保梯度流动），不是做特征变换；KWS 初始阶段各通道确实从相同输入提取信息——「不同输出通道需要相同输入」的假设在此成立。
+    - listitem [ref=f275e16]: ◈ 时频分解：DW 1D 时间卷积（核 3/5，捕音素过渡）+ 1×1 逐点卷积（通道/频率混合）——比标准 2D 深度可分离卷积省约 K_f 倍参数，频率核整个消失。
+    - listitem [ref=f275e17]: ◈ 模块六步：DW 时间卷积 → BN+ReLU → 1×1 → BN → 广播残差跨接 → ReLU——残差跨越整个变换模块保证梯度流动，广播消除投影开销。
+    - listitem [ref=f275e18]: ◈ 结果：GSC v1 12 类 98.0%（Att-RNN 97.7 / DS-CNN 97.5）、v2 98.7% 同参数预算一致最优；BC-ResNet-8（25K）对位胜 DS-CNN-S（24K）；MADD 5M vs DS-CNN 8M；~10K 最小档也有约 96%。
+    - listitem [ref=f275e19]: ◈ 消融把账算清：广播替投影 −15% 参数、掉点 <0.1%；2D 替 1D 多 30% 参数只换 ≤0.2%；完全去残差掉 1–2%——两个创新各有格子背书。
+    - listitem [ref=f275e20]: ◈ 部署：全部变体 MCU 级实时（<10ms）；训练配方极简（余弦退火 + 标签平滑 0.1，无特殊技巧）；高通开源官方实现——简洁性使它成为基线首选。
+    - listitem [ref=f275e21]: ◈ 边界：广播的表达力上限（固定复制，大任务可能不够）；频率局部结构损失（声调语言存疑）；仅 GSC 干净数据；无流式/量化评估。
+  - heading "§01 问题：两处习以为常的浪费" [level=2] [ref=f275e22]:
+    - generic [ref=f275e23]: §01
+    - text: 问题：两处习以为常的浪费
+  - generic [ref=f275e24]: 投影层的事务性开销 + 频率核的低回报
+  - generic [ref=f275e25]:
+    - generic [ref=f275e26]:
+      - heading "投影残差：为匹配维度付学费" [level=3] [ref=f275e27]
+      - paragraph [ref=f275e28]: 标准残差连接在输入输出通道不一致时必须过 1×1 投影——参数 C_in×C_out，通道扩展比为 2 时占整个残差块的 10–15%。而它做的事只是「把张量形状对齐」：一个事务性操作，却被当成特征变换付了学习预算。
+    - generic [ref=f275e29]:
+      - heading "2D 卷积：算力平摊给低回报维度" [level=3] [ref=f275e30]
+      - paragraph [ref=f275e31]: 时间维承载音素序列、韵律变化——KWS 的判别力主要在这里；频率维主要提供通道信息，局部卷积贡献相对小。2D 核把算力平摊给两个维度，等于把钱花在低回报的频率核上。
+    - generic [ref=f275e32]:
+      - heading "设计哲学一句话" [level=3] [ref=f275e33]
+      - paragraph [ref=f275e34]: 「把计算资源集中在最关键的信息维度上」——时间建模拿大头，频率用轻量 1×1 处理；维度匹配这种不产生判别力的操作，交给 memcpy。两个创新是同一条哲学的两处落地。
+    - generic [ref=f275e35]:
+      - heading "为什么这假设在 KWS 成立" [level=3] [ref=f275e36]
+      - paragraph [ref=f275e37]: 广播假设「不同输出通道需要相同输入信息」——KWS 任务相对简单、初始阶段各通道从相同输入提取信息，复制就够；更大任务/更长语音时该假设可能不成立（这是方法的外推边界）。
+  - generic [ref=f275e38]:
+    - img [ref=f275e39]:
+      - generic [ref=f275e41]: BC-ResNet：维度匹配不需要学习——用「复制」替掉投影，卷积只卷时间
+      - generic [ref=f275e42]: ① 两处被忽视的参数浪费
+      - generic [ref=f275e44]: 投影残差的隐性税
+      - generic [ref=f275e45]: 标准残差连接在输入输出通道不一致时要 1×1 投影层匹配维度——参数
+      - generic [ref=f275e46]: C_in×C_out；通道扩展比为 2 时，投影层可占整个残差块的 10–15%
+      - generic [ref=f275e48]: 2D 卷积的平摊浪费
+      - generic [ref=f275e49]: 传统二维卷积对时间和频率一视同仁——但时间维承载关键时序模式（音素
+      - generic [ref=f275e50]: 序列/韵律），频率维主要提供通道信息；频率方向的局部卷积贡献相对小
+      - generic [ref=f275e52]: 设计哲学
+      - generic [ref=f275e53]: 「把计算资源集中在最关键的信息维度上」——时间维度比频率维度关键，
+      - generic [ref=f275e54]: 大部分计算量应投给时间建模；维度匹配这种「事务性操作」根本不用学
+      - generic [ref=f275e55]: ② BC-ResNet 模块：六步流水，广播残差跨接整个变换
+      - generic [ref=f275e57]: ① DW 1D 时间卷积
+      - generic [ref=f275e58]: 核 K_t=3/5
+      - generic [ref=f275e59]: 每通道独立沿时间
+      - generic [ref=f275e61]: ② BN + ReLU
+      - generic [ref=f275e63]: ③ 逐点 1×1 卷积
+      - generic [ref=f275e64]: 通道扩展
+      - generic [ref=f275e65]: 频率/通道信息混合
+      - generic [ref=f275e67]: ④ BN
+      - generic [ref=f275e69]: ⑤ 广播残差跳跃
+      - generic [ref=f275e70]: 无参数
+      - generic [ref=f275e71]: Broadcast(x) 复制
+      - generic [ref=f275e73]: ⑥ ReLU
+      - generic [ref=f275e75]: 时频分解的参数账
+      - generic [ref=f275e76]: 一维时间深度卷积：参数 C × K_t（核 3/5，
+      - generic [ref=f275e77]: 捕获音素过渡与韵律的局部时间窗）
+      - generic [ref=f275e78]: 逐点卷积（1×1）：参数 C_in × C_out（通道维
+      - generic [ref=f275e79]: 上组合不同频率信息，形成高级特征）
+      - generic [ref=f275e80]: vs 标准 2D 深度可分离卷积：参数省约 K_f 倍
+      - generic [ref=f275e81]: （K_f 是频率维卷积核大小）——频率核整个消失
+      - generic [ref=f275e83]: 四档规模变体
+      - generic [ref=f275e84]: BC-ResNet-6：约 12K 参数（极度资源受限设备）
+      - generic [ref=f275e85]: BC-ResNet-8：约 25K（MCU 级设备）
+      - generic [ref=f275e86]: BC-ResNet-14：约 48K（较高性能边缘设备）
+      - generic [ref=f275e87]: BC-ResNet-18：约 100K（资源较充裕场景）
+      - generic [ref=f275e88]: 模块数（6/8/14/18）+ 通道扩展因子调规模；
+      - generic [ref=f275e89]: 全部变体 MCU 级实时（推理 <10ms）
+      - generic [ref=f275e90]: ③ 硬件友好与开源
+      - generic [ref=f275e92]: 广播操作在硬件上仅涉及内存复制（memcpy），无计算操作——不会成为推理瓶颈；这是「用访存换计算」的极端形式：零 MAC、零参数
+      - generic [ref=f275e93]: 训练配方极简：40 维 MFCC · 49 时间步（1s @16kHz · 25ms 窗 / 10ms 移）· 余弦退火 · 标签平滑 0.1——无复杂模块、无特殊训练技巧
+      - generic [ref=f275e94]: 高通 AI 研究开源官方实现（github.com/Qualcomm-AI-research/bcresnet），代码简洁——成为 KWS 基线的有力候选
+      - generic [ref=f275e96]: 98.0%
+      - generic [ref=f275e97]: GSC v1 12 类（Att-RNN 97.7）
+      - generic [ref=f275e98]: 98.7%
+      - generic [ref=f275e99]: GSC v2 12 类（同参数量最优）
+      - generic [ref=f275e100]: −15%
+      - generic [ref=f275e101]: 广播替投影省的参数（<0.1% 掉点）
+      - generic [ref=f275e102]: 5M
+      - generic [ref=f275e103]: BC-ResNet-8 MADD（DS-CNN 约 8M）
+      - generic [ref=f275e104]: ~10K
+      - generic [ref=f275e105]: 最小档也到约 96%
+      - generic [ref=f275e106]: 高通 AI 研究 + 韩国大学 · arXiv 2106.04140（Interspeech 2021）；2021 年 GSC 上的最佳结果之一；指标 = Top-1 准确率 + 参数量 K + MADD
+    - generic [ref=f275e107]: 图1 · 机制全景：上半是两处浪费与设计哲学，中段是六步模块结构、时频分解的参数账与四档规模，底部是硬件友好特性与关键数字。
+  - heading "§02 方法：memcpy 替学习，时间轴拿走预算" [level=2] [ref=f275e108]:
+    - generic [ref=f275e109]: §02
+    - text: 方法：memcpy 替学习，时间轴拿走预算
+  - generic [ref=f275e110]: 取模复制的数学 · 频率核的消失
+  - generic [ref=f275e111]:
+    - generic [ref=f275e112]: "标准残差: output = F(x) + Projection(x) # Projection = 1×1 卷积，参数 C_in×C_out 广播残差: output = F(x) + Broadcast(x) Broadcast(x)_{b,t,c} = x_{b,t, c mod C_in} # 取模复制：零参数 · 零 MAC 时频分解: DW 1D 时间卷积（参数 C×K_t） + 1×1 逐点卷积（参数 C_in×C_out） vs 2D DS 卷积 → 参数省约 K_f 倍（频率核消失）"
+    - generic [ref=f275e113]: 人话：投影层花一整个 C_in×C_out 的权重矩阵干「复制就能干的事」——广播用取模索引把每个输入通道复制到多个输出通道，硬件上就是内存拷贝。时频分解同理：MFCC 已经把频率信息编码成通道，2D 核在频率方向学的增量不值得那个价钱——砍掉，钱全给时间轴。
+  - generic [ref=f275e114]:
+    - generic [ref=f275e115]:
+      - heading "残差本身的账也算过" [level=3] [ref=f275e116]
+      - paragraph [ref=f275e117]: 完全移除残差连接掉 1–2%——梯度流动本身值这个价；投影残差与广播残差准确率接近但后者参数更少。三层消融合起来：残差要留（值 1–2%）、投影换成广播（免费）、2D 换 1D（省 30% 只损失 ≤0.2%）——每个决策都有格子背书。
+    - generic [ref=f275e118]:
+      - heading "硬件视角：用访存换计算" [level=3] [ref=f275e119]
+      - paragraph [ref=f275e120]: 广播是「用访存换计算」的极端形式——零 MAC、零参数、只动内存。在 MCU 上乘加单元是稀缺资源而访存相对便宜，这个交换方向恰好正确；所有变体推理 <10ms。
+  - generic [ref=f275e121]:
+    - img [ref=f275e122]:
+      - generic [ref=f275e124]: 机制解剖：投影 vs 广播 · 2D 核的钱花在哪
+      - generic [ref=f275e125]: 残差连接的两种维度匹配
+      - generic [ref=f275e127]: 标准：可学习投影（1×1 卷积）
+      - generic [ref=f275e132]: C_in
+      - generic [ref=f275e134]: 1×1 W
+      - generic [ref=f275e135]: C_in×C_out
+      - generic [ref=f275e144]: C_out
+      - generic [ref=f275e145]: output = F(x) + Projection(x) ← 参数 C_in×C_out
+      - generic [ref=f275e146]: 扩展比 2 时投影层可占整块 10–15%
+      - generic [ref=f275e147]: BC-ResNet：广播（复制，零参数）
+      - generic [ref=f275e152]: "Broadcast(x)_{b,t,c} = x_{b,t, c mod C_in}"
+      - generic [ref=f275e153]: C_in 整除 C_out → 每通道复制 C_out/C_in 次；否则零填充
+      - generic [ref=f275e154]: 硬件 = memcpy：零 MAC · 零参数 · 不成瓶颈
+      - generic [ref=f275e156]: 复制 →
+      - generic [ref=f275e157]: 2D 核的钱，重花到时间轴
+      - generic [ref=f275e159]: 2D 核 K_t×K_f
+      - generic [ref=f275e180]: 时间↑
+      - generic [ref=f275e181]: 频率→（也花钱）
+      - generic [ref=f275e182]: 分解：1D 时间条 + 1×1 混通道
+      - generic [ref=f275e187]: 时间 DW（核 3/5）
+      - generic [ref=f275e189]: 1×1
+      - generic [ref=f275e190]: 通道混合
+      - generic [ref=f275e191]: 理论依据：时间结构（音素序列/韵律/声调轨迹）比频率结构更重要——
+      - generic [ref=f275e192]: 大部分计算投给时间建模，频率维用轻量 1×1 处理；参数省约 K_f 倍
+      - generic [ref=f275e194]: 为什么「不学习」反而行
+      - generic [ref=f275e195]: · 信号处理视角：广播假设「不同输出通道需要相同的输入信息」——残差路径的作用是让恒等信息
+      - generic [ref=f275e196]: 可达（保梯度流动），不是做特征变换；KWS 的初始阶段各通道确实从相同输入提取信息
+      - generic [ref=f275e197]: · 消融背书：广播替投影 → 参数 −15%、准确率掉 <0.1%；完全去残差 → −1~2%（梯度流动本身值钱）
+      - generic [ref=f275e198]: · 工程洞见：「并非所有的维度变换都需要学习」——事务性操作（维度匹配）交给 memcpy，学习预算全给判别特征
+      - generic [ref=f275e199]: 左：投影层花 C_in×C_out 个参数做「复制就能干的事」；广播用 c mod C_in 的取模复制零参数完成维度匹配。右：2D 核在频率方向的算力被整条省下，全数转投时间轴
+    - generic [ref=f275e200]: 图2 · 机制解剖：左是投影（C_in×C_out 可学习）与广播（取模复制零参数）的对照，右是 2D 核的频率维开销如何被省下转投时间轴，以及「为什么不学习反而行」的信号处理解读。
+  - heading "§03 实验：同参数量一致占优" [level=2] [ref=f275e201]:
+    - generic [ref=f275e202]: §03
+    - text: 实验：同参数量一致占优
+  - generic [ref=f275e203]: GSC v1/v2 SOTA · 规模扫描 · 消融账本
+  - generic [ref=f275e204]:
+    - img [ref=f275e205]:
+      - generic [ref=f275e207]: 主结果：同参数量一致占优，消融把每个设计的账算清
+      - generic [ref=f275e208]: GSC 12 类 SOTA 对比（%）
+      - generic [ref=f275e209]: "97.0"
+      - generic [ref=f275e210]: "97.5"
+      - generic [ref=f275e211]: "98.0"
+      - generic [ref=f275e212]: "98.5"
+      - generic [ref=f275e213]: "99.0"
+      - generic [ref=f275e215]: "97.5"
+      - generic [ref=f275e217]: "97.7"
+      - generic [ref=f275e218]: DS-CNN
+      - generic [ref=f275e220]: "97.7"
+      - generic [ref=f275e222]: "97.9"
+      - generic [ref=f275e223]: Att-RNN
+      - generic [ref=f275e225]: "98.2"
+      - generic [ref=f275e226]: KWT
+      - generic [ref=f275e228]: "98.0"
+      - generic [ref=f275e230]: "98.7"
+      - generic [ref=f275e231]: BC-ResNet ★
+      - generic [ref=f275e233]: GSC v1
+      - generic [ref=f275e235]: GSC v2
+      - generic [ref=f275e236]: 2021 年 GSC 最佳结果之一；同参数预算下一致优于基线
+      - generic [ref=f275e237]: 规模-准确率扫描：
+      - generic [ref=f275e238]: · ~10K 参数 ≈ 96% → ~200K 参数 ≈ 98.7%——准确率-参数权衡曲线全程优异
+      - generic [ref=f275e239]: · BC-ResNet-8（25K）≈ 或优于 DS-CNN-S（24K）：同档对位胜利
+      - generic [ref=f275e240]: · MADD：BC-ResNet-8 约 5M vs 同准确率 DS-CNN 约 8M——1D 化的计算红利
+      - generic [ref=f275e241]: · 训练：余弦退火 + 标签平滑 0.1，无任何特殊技巧
+      - generic [ref=f275e242]: 消融：每个设计的账
+      - generic [ref=f275e246]: 广播替投影
+      - generic [ref=f275e247]: 参数 −15%，准确率掉 <0.1%
+      - generic [ref=f275e250]: 1D 分解替 2D
+      - generic [ref=f275e251]: 2D 多 30% 参数只换 ≤0.2%
+      - generic [ref=f275e254]: 完全去残差
+      - generic [ref=f275e255]: 掉 1–2%（梯度流动值钱）
+      - generic [ref=f275e258]: 投影 vs 广播
+      - generic [ref=f275e259]: 准确率接近，广播参数更少
+      - generic [ref=f275e260]: 读法：两个创新各自有消融格子背书——「广播 ≈ 投影但免费」
+      - generic [ref=f275e261]: 与「1D ≈ 2D 但省 30%」；残差本身（任何形式）值 1–2%
+      - generic [ref=f275e262]: 注：KWT v1 数字未在原笔记保留（只记 v2 98.2%）；GSC v1/v2 均为 12 类标准任务；引用具体数字请回对原文 arXiv 2106.04140
+    - generic [ref=f275e263]: 图3 · 主结果：左是 GSC 12 类 SOTA 对比与规模-准确率扫描、MADD 对比，右是四条消融——每个设计决策的账都被算清。
+  - table [ref=f275e264]:
+    - rowgroup [ref=f275e265]:
+      - row [ref=f275e266]:
+        - columnheader "消融/对比项" [ref=f275e267]
+        - columnheader "结果" [ref=f275e268]
+        - columnheader "结论" [ref=f275e269]
+      - row [ref=f275e270]:
+        - cell "广播替投影" [ref=f275e271]
+        - cell "参数 −15% · 掉点 <0.1%" [ref=f275e272]
+        - cell "维度匹配不需要学习" [ref=f275e273]
+      - row [ref=f275e274]:
+        - cell "1D 分解替 2D" [ref=f275e275]
+        - cell "2D 多 30% 参数只换 ≤0.2%" [ref=f275e276]
+        - cell "频率核不值那个价" [ref=f275e277]
+      - row [ref=f275e278]:
+        - cell "完全去残差" [ref=f275e279]
+        - cell "−1~2%" [ref=f275e280]
+        - cell "梯度流动本身值钱" [ref=f275e281]
+      - row [ref=f275e282]:
+        - cell "BC-ResNet-8 vs DS-CNN-S" [ref=f275e283]
+        - cell "25K vs 24K，准确率相当或更高" [ref=f275e284]
+        - cell "同档对位胜利" [ref=f275e285]
+      - row [ref=f275e286]:
+        - cell "MADD" [ref=f275e287]
+        - cell "5M vs 同准确率 DS-CNN 约 8M" [ref=f275e288]
+        - cell "1D 化的计算红利" [ref=f275e289]
+  - generic [ref=f275e290]:
+    - generic [ref=f275e291]: 读表要点
+    - listitem [ref=f275e292]: ◈ 规模曲线全程优异：~10K→96%、~200K→98.7%——从 MCU 到边缘设备的每个预算档都有competitive的选择，这也是它成为后续工作默认骨干的原因（本仓库多篇 2021-2022 论文直接以 BC-ResNet 为骨干或基线）。
+    - listitem [ref=f275e293]: ◈ 训练配方极简是隐藏优点：无复杂模块、无特殊训练技巧——基线就该这样，别人才能干净地叠加自己的创新做对比。
+    - listitem [ref=f275e294]: ◈ 引用注意：KWT 的 v1 数字未在原笔记保留（只记 v2 98.2%）；具体数字请回对原文。
+  - heading "§04 贡献" [level=2] [ref=f275e295]:
+    - generic [ref=f275e296]: §04
+    - text: 贡献
+  - generic [ref=f275e297]: 四点：从一个洞见到社区基线
+  - generic [ref=f275e298]:
+    - generic [ref=f275e299]:
+      - generic [ref=f275e300]: "1"
+      - paragraph [ref=f275e301]: 广播残差学习用于参数高效 KWS：零参数广播替可学习投影——保住残差梯度流动优势的同时消除参数开销；工程洞见是「并非所有维度变换都需要学习」。
+    - generic [ref=f275e302]:
+      - generic [ref=f275e303]: "2"
+      - paragraph [ref=f275e304]: 时频分解卷积策略：1D 时间卷积 + 频率/通道变换——贴合语音时频特性（时间动态性远高于频率），与同期时间向 1D 化工作互相验证。
+    - generic [ref=f275e305]:
+      - generic [ref=f275e306]: "3"
+      - paragraph [ref=f275e307]: GSC 上的 SOTA：v1 98.0% / v2 98.7%（12 类），同参数量一致优于先前方法——2021 年最佳结果之一。
+    - generic [ref=f275e308]:
+      - generic [ref=f275e309]: "4"
+      - paragraph [ref=f275e310]: 开源与可复现：高通官方实现（Qualcomm-AI-research/bcresnet），代码简洁易集成——简洁性使其成为 KWS 基线的有力候选。
+  - heading "§05 局限与判断" [level=2] [ref=f275e311]:
+    - generic [ref=f275e312]: §05
+    - text: 局限与判断
+  - generic [ref=f275e313]: 表达力上限 · 频率结构损失 · 仅干净 GSC
+  - generic [ref=f275e314]:
+    - img [ref=f275e315]:
+      - generic [ref=f275e317]: 边界与延伸
+      - generic [ref=f275e319]: 技术边界
+      - generic [ref=f275e320]: · 广播的表达力上限：固定复制无学习——需要复杂非线性维度变换的场景
+      - generic [ref=f275e321]: 可能不如投影层；更大任务/更长语音时简化假设可能不成立
+      - generic [ref=f275e322]: （KWS 的相对简单性使这一限制影响较小——但别默认外推）
+      - generic [ref=f275e323]: · 频率局部结构损失：1D 时间卷积把频率维当通道——精细频率区分
+      - generic [ref=f275e324]: （如不同声调）可能丢信息，声调语言场景存疑
+      - generic [ref=f275e325]: · 理论分析不足：「为什么复制就够」缺乏解释——是否与 KWS 特征
+      - generic [ref=f275e326]: 的某种结构性质有关？留给后续
+      - generic [ref=f275e327]: · 仅 GSC 干净数据：噪声/远场/自定义关键词场景未验证
+      - generic [ref=f275e329]: 实验边界 + 延伸
+      - generic [ref=f275e330]: · 固定 1 秒片段分类：流式/连续 KWS 未评估
+      - generic [ref=f275e331]: · 无量化数据：INT8/INT4 对广播操作的影响未报
+      - generic [ref=f275e332]: · KWT 等高效 Transformer 对比不细（只对 CNN/RNN 基线）
+      - generic [ref=f275e333]: · 声调语言（中文）未验证
+      - generic [ref=f275e334]: 延伸：BRL 扩展到 ASR/语音增强（更大模型上是否成立）；
+      - generic [ref=f275e335]: 叠量化/剪枝/蒸馏研究压缩后的性能保持；自适应广播（轻门控
+      - generic [ref=f275e336]: 控制广播强度替代均匀复制）；时频分解 + 注意力结合
+      - generic [ref=f275e337]: 可迁移判断：「并非所有维度变换都需要学习」——先分清操作是事务性（memcpy 即可）还是判别性（值得花参数）；时频分解 + 无参数残差是极轻量 KWS 的有效范式，简洁性让它成为基线首选
+    - generic [ref=f275e338]: 图4 · 边界与延伸：左技术边界（广播表达力上限、频率局部结构损失/声调语言存疑、理论解释缺失、仅干净 GSC），右实验边界（非流式、无量化数据、Transformer 对比不细）+ 延伸方向。
+  - generic [ref=f275e339]:
+    - generic [ref=f275e340]: 可迁移判断
+    - paragraph [ref=f275e341]: ↳ 并非所有维度变换都需要学习：先分清操作是事务性（对齐/复制，memcpy 即可）还是判别性（特征变换，值得花参数）——把学习预算全部留给判别力。这条审查适用于任何带维度匹配组件的网络。
+    - paragraph [ref=f275e342]: ↳ 参数预算要跟着信息密度走：MFCC 前端已把频率编码成通道，时间维才是判别力的来源——算子按维度的信息密度分配，而不是默认均匀。审架构时问一句「这层的钱花在信息最密的维度上了吗」。
+    - paragraph [ref=f275e343]: ↳ 残差连接值 1–2%，但它的投影不值：梯度流动的红利与投影层的学习开销是两件事——消融拆开看，红利用免费的方式保留，开销直接砍掉。
+    - paragraph [ref=f275e344]: ↳ 简洁性本身就是工程价值：无特殊技巧、配方透明、官方开源——BC-ResNet 成为后续几十篇工作的默认骨干不是因为某个单点最强，而是因为它「干净到可以当尺子」。
+  - generic [ref=f275e345]:
+    - link "arXiv 2106.04140 ↗" [ref=f275e346] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2106.04140
+    - link "官方实现 ↗" [ref=f275e347] [cursor=pointer]:
+      - /url: https://github.com/Qualcomm-AI-Research/bcresnet
+    - link "← 返回总目录" [ref=f275e348] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f275e349]: 笔记与可视化页基于 arXiv 版整理 · 本页是系列基石论文（后续多篇 KWS 工作的默认骨干）· 2021 №8 · 193+/305

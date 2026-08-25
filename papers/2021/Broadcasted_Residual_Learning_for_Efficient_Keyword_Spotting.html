@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BC-ResNet：广播残差学习 · 论文精读可视化</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;}
+.wrap{max-width:980px;margin:0 auto;padding:56px 28px 80px;}
+.kicker{font-size:13px;letter-spacing:.22em;color:var(--acc);font-weight:700;margin-bottom:14px;text-transform:uppercase;}
+h1.hero{font-size:40px;line-height:1.32;font-weight:800;letter-spacing:.01em;margin-bottom:18px;}
+h1.hero .g{color:var(--acc);}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+.chip{font-size:12.5px;padding:4px 13px;border:1px solid var(--line);border-radius:999px;color:var(--ink2);background:#fffdf8;}
+.chip.acc{background:var(--lt);border-color:#bfe5d6;color:var(--dk);}
+.meta{border-left:3px solid var(--acc);background:#fffdf8;padding:12px 18px;font-size:13.5px;color:var(--ink2);margin-bottom:40px;border-radius:0 8px 8px 0;}
+.meta b{color:var(--ink);}
+h2{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:800;margin:56px 0 6px;}
+h2 .no{flex:none;font-size:12px;font-weight:800;color:#fff;background:var(--ink);padding:3px 10px;border-radius:999px;letter-spacing:.08em;}
+.h2sub{font-size:13.5px;color:var(--ink3);margin:0 0 18px 46px;}
+.tldr{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-bottom:8px;}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--dk);letter-spacing:.12em;margin-bottom:10px;}
+.tldr li{list-style:none;font-size:14.5px;color:var(--ink2);padding-left:20px;position:relative;margin-bottom:7px;}
+.tldr li:before{content:"◈";position:absolute;left:0;color:var(--acc);font-size:12px;top:2px;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.card{background:#fffdf8;border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
+.card h3{font-size:15.5px;font-weight:700;margin-bottom:8px;}
+.card p{font-size:13.5px;color:var(--ink2);}
+.card.acc{background:var(--lt);border-color:#bfe5d6;}
+.card.acc h3{color:var(--dk);}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4;}
+.card.bad h3{color:var(--warn);}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--lt);color:var(--dk);margin-bottom:8px;}
+.fig{margin:26px 0;}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:14px;}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:10px;line-height:1.7;}
+.cap b{color:var(--ink2);}
+.formula{background:#fffdf8;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 12px 12px 0;padding:16px 20px;margin:16px 0;}
+.formula .f{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:15px;color:var(--ink);background:#f2f4ef;padding:10px 14px;border-radius:8px;margin-bottom:10px;overflow-x:auto;white-space:pre;}
+.formula .why{font-size:13.5px;color:var(--ink2);}
+.formula .why b{color:var(--dk);}
+table.tb{width:100%;border-collapse:collapse;background:#fffdf8;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:18px 0;font-size:13.5px;}
+table.tb th{background:var(--ink);color:#fff;padding:10px 14px;text-align:left;font-weight:700;font-size:13px;}
+table.tb td{padding:10px 14px;border-top:1px solid var(--line);color:var(--ink2);}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:700;}
+.contrib{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:18px 0;}
+.contrib .row{display:flex;gap:16px;padding:12px 0;border-bottom:1px dashed var(--line);}
+.contrib .row:last-child{border-bottom:none;}
+.contrib .n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.contrib .row p{font-size:14px;color:var(--ink2);}
+.contrib .row p b{color:var(--ink);}
+.lim{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.judge{background:#fffaf4;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:18px 0;}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.12em;margin-bottom:10px;}
+.judge p{font-size:14px;color:var(--ink2);margin-bottom:8px;}
+.judge p b{color:var(--ink);}
+.foot{margin-top:64px;padding-top:28px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.pill{display:inline-block;font-size:13px;font-weight:700;color:var(--dk);background:var(--lt);border:1px solid #bfe5d6;border-radius:999px;padding:7px 18px;text-decoration:none;}
+.pill.ghost{background:transparent;color:var(--ink2);border-color:var(--line);}
+.foot-note{font-size:12px;color:var(--ink3);margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2021 №8 · 系列基石</div>
+<h1 class="hero">维度匹配不需要学习：<br>用<span class="g">「复制」替掉投影层</span>，卷积只卷时间轴</h1>
+<div class="chips">
+<span class="chip acc">BC-ResNet · 高通 AI 研究 + 韩国大学</span>
+<span class="chip">Interspeech 2021 · arXiv 2106.04140</span>
+<span class="chip">广播残差（零参数）+ 时频分解卷积</span>
+<span class="chip">GSC v1/v2 98.0%/98.7% · 25K 参数 · MADD 5M</span>
+</div>
+<div class="meta">
+<b>一句话</b>：残差连接在通道数变化时要花 C_in×C_out 个参数做 1×1 投影——占整块的 10–15%，而这只是「维度匹配」的事务性操作。BC-ResNet 用零参数的广播（通道取模复制，硬件上就是 memcpy）替掉投影，再把 2D 卷积分解为 1D 时间深度卷积 + 1×1 通道混合（频率核的钱整个省下投给时间轴）。GSC v1/v2 拿到 98.0%/98.7%，四档变体（12K–100K）覆盖从 MCU 到边缘的全部预算——2021 年 GSC 最佳结果之一，后续大量 KWS 工作的默认骨干。
+</div>
+
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<li>两处被忽视的浪费：<b>投影残差的隐性税</b>（1×1 投影匹配通道维度，扩展比 2 时占整块 10–15% 参数）与 <b>2D 卷积的平摊浪费</b>（时间维承载关键时序模式、频率维只是通道信息，却平分算力）。</li>
+<li><b>广播残差学习（BRL）</b>：Broadcast(x)_{b,t,c} = x_{b,t, c mod C_in}——通道取模复制，C_in 整除 C_out 就复制 C_out/C_in 次，否则零填充。<b>零参数、零 MAC</b>，硬件上只是一次内存复制。</li>
+<li>合理性论证：残差路径的作用是让恒等信息可达（保梯度流动），不是做特征变换；KWS 初始阶段各通道确实从相同输入提取信息——「不同输出通道需要相同输入」的假设在此成立。</li>
+<li><b>时频分解</b>：DW 1D 时间卷积（核 3/5，捕音素过渡）+ 1×1 逐点卷积（通道/频率混合）——比标准 2D 深度可分离卷积省约 K_f 倍参数，频率核整个消失。</li>
+<li>模块六步：DW 时间卷积 → BN+ReLU → 1×1 → BN → 广播残差跨接 → ReLU——残差跨越整个变换模块保证梯度流动，广播消除投影开销。</li>
+<li>结果：GSC v1 12 类 <b>98.0%</b>（Att-RNN 97.7 / DS-CNN 97.5）、v2 <b>98.7%</b> 同参数预算一致最优；BC-ResNet-8（25K）对位胜 DS-CNN-S（24K）；MADD 5M vs DS-CNN 8M；~10K 最小档也有约 96%。</li>
+<li>消融把账算清：广播替投影 <b>−15% 参数、掉点 &lt;0.1%</b>；2D 替 1D 多 30% 参数只换 ≤0.2%；完全去残差掉 1–2%——两个创新各有格子背书。</li>
+<li>部署：全部变体 MCU 级实时（&lt;10ms）；训练配方极简（余弦退火 + 标签平滑 0.1，无特殊技巧）；高通开源官方实现——简洁性使它成为基线首选。</li>
+<li>边界：广播的表达力上限（固定复制，大任务可能不够）；频率局部结构损失（声调语言存疑）；仅 GSC 干净数据；无流式/量化评估。</li>
+</div>
+
+<h2><span class="no">§01</span>问题：两处习以为常的浪费</h2>
+<div class="h2sub">投影层的事务性开销 + 频率核的低回报</div>
+<div class="cards">
+<div class="card bad">
+<h3>投影残差：为匹配维度付学费</h3>
+<p>标准残差连接在输入输出通道不一致时必须过 1×1 投影——参数 C_in×C_out，通道扩展比为 2 时占整个残差块的 10–15%。而它做的事只是「把张量形状对齐」：一个事务性操作，却被当成特征变换付了学习预算。</p>
+</div>
+<div class="card bad">
+<h3>2D 卷积：算力平摊给低回报维度</h3>
+<p>时间维承载音素序列、韵律变化——KWS 的判别力主要在这里；频率维主要提供通道信息，局部卷积贡献相对小。2D 核把算力平摊给两个维度，等于把钱花在低回报的频率核上。</p>
+</div>
+<div class="card">
+<h3>设计哲学一句话</h3>
+<p>「把计算资源集中在最关键的信息维度上」——时间建模拿大头，频率用轻量 1×1 处理；维度匹配这种不产生判别力的操作，交给 memcpy。两个创新是同一条哲学的两处落地。</p>
+</div>
+<div class="card">
+<h3>为什么这假设在 KWS 成立</h3>
+<p>广播假设「不同输出通道需要相同输入信息」——KWS 任务相对简单、初始阶段各通道从相同输入提取信息，复制就够；更大任务/更长语音时该假设可能不成立（这是方法的外推边界）。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">BC-ResNet：维度匹配不需要学习——用「复制」替掉投影，卷积只卷时间</text>
+<line x1="36.0" y1="60.0" x2="730.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 两处被忽视的参数浪费</text>
+<rect x="36.0" y="98.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="128.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">投影残差的隐性税</text>
+<text x="230.0" y="119.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标准残差连接在输入输出通道不一致时要 1×1 投影层匹配维度——参数</text>
+<text x="230.0" y="137.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">C_in×C_out；通道扩展比为 2 时，投影层可占整个残差块的 10–15%</text>
+<rect x="36.0" y="156.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="186.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2D 卷积的平摊浪费</text>
+<text x="230.0" y="177.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">传统二维卷积对时间和频率一视同仁——但时间维承载关键时序模式（音素</text>
+<text x="230.0" y="195.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">序列/韵律），频率维主要提供通道信息；频率方向的局部卷积贡献相对小</text>
+<rect x="36.0" y="214.0" width="848.0" height="50.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="244.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">设计哲学</text>
+<text x="230.0" y="235.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「把计算资源集中在最关键的信息维度上」——时间维度比频率维度关键，</text>
+<text x="230.0" y="253.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">大部分计算量应投给时间建模；维度匹配这种「事务性操作」根本不用学</text>
+<text x="36.0" y="288.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② BC-ResNet 模块：六步流水，广播残差跨接整个变换</text>
+<rect x="36.0" y="308.0" width="130.0" height="64.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="101.0" y="328.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① DW 1D 时间卷积</text>
+<text x="101.0" y="344.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">核 K_t=3/5</text>
+<text x="101.0" y="358.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每通道独立沿时间</text>
+<line x1="166.0" y1="340.0" x2="182.00" y2="340.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="182.0" y="308.0" width="130.0" height="64.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="247.0" y="328.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② BN + ReLU</text>
+<line x1="312.0" y1="340.0" x2="328.00" y2="340.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="328.0" y="308.0" width="130.0" height="64.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="393.0" y="328.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 逐点 1×1 卷积</text>
+<text x="393.0" y="344.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">通道扩展</text>
+<text x="393.0" y="358.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">频率/通道信息混合</text>
+<line x1="458.0" y1="340.0" x2="474.00" y2="340.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="474.0" y="308.0" width="130.0" height="64.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="539.0" y="328.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">④ BN</text>
+<line x1="604.0" y1="340.0" x2="620.00" y2="340.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="620.0" y="308.0" width="130.0" height="64.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="685.0" y="328.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">⑤ 广播残差跳跃</text>
+<text x="685.0" y="344.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">无参数</text>
+<text x="685.0" y="358.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Broadcast(x) 复制</text>
+<line x1="750.0" y1="340.0" x2="766.00" y2="340.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="766.0" y="308.0" width="130.0" height="64.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="831.0" y="328.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">⑥ ReLU</text>
+<rect x="36.0" y="390.0" width="420.0" height="128.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="246.0" y="412.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">时频分解的参数账</text>
+<text x="52.0" y="434.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">一维时间深度卷积：参数 C × K_t（核 3/5，</text>
+<text x="52.0" y="447.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  捕获音素过渡与韵律的局部时间窗）</text>
+<text x="52.0" y="461.6" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">逐点卷积（1×1）：参数 C_in × C_out（通道维</text>
+<text x="52.0" y="475.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  上组合不同频率信息，形成高级特征）</text>
+<text x="52.0" y="489.2" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="503.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">vs 标准 2D 深度可分离卷积：参数省约 K_f 倍</text>
+<text x="52.0" y="516.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（K_f 是频率维卷积核大小）——频率核整个消失</text>
+<rect x="476.0" y="390.0" width="408.0" height="128.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="680.0" y="412.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四档规模变体</text>
+<text x="492.0" y="434.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">BC-ResNet-6：约 12K 参数（极度资源受限设备）</text>
+<text x="492.0" y="447.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">BC-ResNet-8：约 25K（MCU 级设备）</text>
+<text x="492.0" y="461.6" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">BC-ResNet-14：约 48K（较高性能边缘设备）</text>
+<text x="492.0" y="475.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">BC-ResNet-18：约 100K（资源较充裕场景）</text>
+<text x="492.0" y="489.2" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="492.0" y="503.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">模块数（6/8/14/18）+ 通道扩展因子调规模；</text>
+<text x="492.0" y="516.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">全部变体 MCU 级实时（推理 &lt;10ms）</text>
+<text x="36.0" y="546.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 硬件友好与开源</text>
+<rect x="36.0" y="562.0" width="848.0" height="96.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="586.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">广播操作在硬件上仅涉及内存复制（memcpy），无计算操作——不会成为推理瓶颈；这是「用访存换计算」的极端形式：零 MAC、零参数</text>
+<text x="52.0" y="601.0" font-size="9.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="616.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练配方极简：40 维 MFCC · 49 时间步（1s @16kHz · 25ms 窗 / 10ms 移）· 余弦退火 · 标签平滑 0.1——无复杂模块、无特殊训练技巧</text>
+<text x="52.0" y="631.0" font-size="9.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="646.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">高通 AI 研究开源官方实现（github.com/Qualcomm-AI-research/bcresnet），代码简洁——成为 KWS 基线的有力候选</text>
+<rect x="36.0" y="676.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="702.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">98.0%</text>
+<text x="130.0" y="722.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC v1 12 类（Att-RNN 97.7）</text>
+<text x="298.0" y="702.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">98.7%</text>
+<text x="298.0" y="722.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC v2 12 类（同参数量最优）</text>
+<text x="466.0" y="702.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−15%</text>
+<text x="466.0" y="722.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">广播替投影省的参数（&lt;0.1% 掉点）</text>
+<text x="634.0" y="702.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5M</text>
+<text x="634.0" y="722.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">BC-ResNet-8 MADD（DS-CNN 约 8M）</text>
+<text x="802.0" y="702.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~10K</text>
+<text x="802.0" y="722.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">最小档也到约 96%</text>
+<text x="36.0" y="760.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">高通 AI 研究 + 韩国大学 · arXiv 2106.04140（Interspeech 2021）；2021 年 GSC 上的最佳结果之一；指标 = Top-1 准确率 + 参数量 K + MADD</text>
+</svg>
+<div class="cap"><b>图1 · 机制全景</b>：上半是两处浪费与设计哲学，中段是六步模块结构、时频分解的参数账与四档规模，底部是硬件友好特性与关键数字。</div>
+</div>
+
+<h2><span class="no">§02</span>方法：memcpy 替学习，时间轴拿走预算</h2>
+<div class="h2sub">取模复制的数学 · 频率核的消失</div>
+
+<div class="formula">
+<div class="f">标准残差:  output = F(x) + Projection(x)        # Projection = 1×1 卷积，参数 C_in×C_out
+广播残差:  output = F(x) + Broadcast(x)
+          Broadcast(x)_{b,t,c} = x_{b,t, c mod C_in}     # 取模复制：零参数 · 零 MAC
+时频分解:  DW 1D 时间卷积（参数 C×K_t） + 1×1 逐点卷积（参数 C_in×C_out）
+          vs 2D DS 卷积 → 参数省约 K_f 倍（频率核消失）</div>
+<div class="why"><b>人话</b>：投影层花一整个 C_in×C_out 的权重矩阵干「复制就能干的事」——广播用取模索引把每个输入通道复制到多个输出通道，硬件上就是内存拷贝。时频分解同理：MFCC 已经把频率信息编码成通道，2D 核在频率方向学的增量不值得那个价钱——砍掉，钱全给时间轴。</div>
+</div>
+
+<div class="cards">
+<div class="card acc">
+<h3>残差本身的账也算过</h3>
+<p>完全移除残差连接掉 1–2%——梯度流动本身值这个价；投影残差与广播残差准确率接近但后者参数更少。三层消融合起来：残差要留（值 1–2%）、投影换成广播（免费）、2D 换 1D（省 30% 只损失 ≤0.2%）——每个决策都有格子背书。</p>
+</div>
+<div class="card acc">
+<h3>硬件视角：用访存换计算</h3>
+<p>广播是「用访存换计算」的极端形式——零 MAC、零参数、只动内存。在 MCU 上乘加单元是稀缺资源而访存相对便宜，这个交换方向恰好正确；所有变体推理 &lt;10ms。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：投影 vs 广播 · 2D 核的钱花在哪</text>
+<line x1="36.0" y1="56.0" x2="540.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">残差连接的两种维度匹配</text>
+<rect x="48.0" y="92.0" width="350.0" height="168.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="60.0" y="112.0" font-size="9.3" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标准：可学习投影（1×1 卷积）</text>
+<rect x="68.0" y="122.0" width="18.0" height="24.0" rx="3" fill="#c9d8e8"/>
+<rect x="92.0" y="122.0" width="18.0" height="24.0" rx="3" fill="#c9d8e8"/>
+<rect x="116.0" y="122.0" width="18.0" height="24.0" rx="3" fill="#c9d8e8"/>
+<rect x="140.0" y="122.0" width="18.0" height="24.0" rx="3" fill="#c9d8e8"/>
+<text x="112.0" y="138.0" font-size="7.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">C_in</text>
+<rect x="198.0" y="116.0" width="76.0" height="40.0" rx="5" fill="#e8b8b0"/>
+<text x="236.0" y="132.0" font-size="8" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1×1 W</text>
+<text x="236.0" y="146.0" font-size="7.2" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">C_in×C_out</text>
+<rect x="298.0" y="122.0" width="11.0" height="24.0" rx="3" fill="#9fc8b8"/>
+<rect x="312.0" y="122.0" width="11.0" height="24.0" rx="3" fill="#9fc8b8"/>
+<rect x="326.0" y="122.0" width="11.0" height="24.0" rx="3" fill="#9fc8b8"/>
+<rect x="340.0" y="122.0" width="11.0" height="24.0" rx="3" fill="#9fc8b8"/>
+<rect x="354.0" y="122.0" width="11.0" height="24.0" rx="3" fill="#9fc8b8"/>
+<rect x="368.0" y="122.0" width="11.0" height="24.0" rx="3" fill="#9fc8b8"/>
+<rect x="382.0" y="122.0" width="11.0" height="24.0" rx="3" fill="#9fc8b8"/>
+<rect x="396.0" y="122.0" width="11.0" height="24.0" rx="3" fill="#9fc8b8"/>
+<text x="356.0" y="138.0" font-size="7.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">C_out</text>
+<text x="223.0" y="186.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">output = F(x) + Projection(x)   ← 参数 C_in×C_out</text>
+<text x="223.0" y="202.0" font-size="8.3" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">扩展比 2 时投影层可占整块 10–15%</text>
+<text x="60.0" y="226.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">BC-ResNet：广播（复制，零参数）</text>
+<rect x="68.0" y="236.0" width="18.0" height="20.0" rx="3" fill="#c9d8e8"/>
+<rect x="92.0" y="236.0" width="18.0" height="20.0" rx="3" fill="#c9d8e8"/>
+<rect x="116.0" y="236.0" width="18.0" height="20.0" rx="3" fill="#c9d8e8"/>
+<rect x="140.0" y="236.0" width="18.0" height="20.0" rx="3" fill="#c9d8e8"/>
+<text x="223.0" y="276.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Broadcast(x)_{b,t,c} = x_{b,t, c mod C_in}</text>
+<text x="223.0" y="292.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">C_in 整除 C_out → 每通道复制 C_out/C_in 次；否则零填充</text>
+<text x="223.0" y="308.0" font-size="8.3" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">硬件 = memcpy：零 MAC · 零参数 · 不成瓶颈</text>
+<rect x="198.0" y="236.0" width="50.0" height="20.0" rx="4" fill="none" stroke="#0b6e52" stroke-width="1.4"/>
+<text x="223.0" y="264.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">复制 →</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2D 核的钱，重花到时间轴</text>
+<rect x="436.0" y="92.0" width="408.0" height="168.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="511.0" y="108.0" font-size="8.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2D 核 K_t×K_f</text>
+<rect x="456.0" y="116.0" width="14.0" height="11.0" rx="2" fill="#f2e3e0"/>
+<rect x="472.0" y="116.0" width="14.0" height="11.0" rx="2" fill="#f2e3e0"/>
+<rect x="488.0" y="116.0" width="14.0" height="11.0" rx="2" fill="#f2e3e0"/>
+<rect x="504.0" y="116.0" width="14.0" height="11.0" rx="2" fill="#f2e3e0"/>
+<rect x="456.0" y="129.0" width="14.0" height="11.0" rx="2" fill="#f2e3e0"/>
+<rect x="472.0" y="129.0" width="14.0" height="11.0" rx="2" fill="#e8b8b0"/>
+<rect x="488.0" y="129.0" width="14.0" height="11.0" rx="2" fill="#e8b8b0"/>
+<rect x="504.0" y="129.0" width="14.0" height="11.0" rx="2" fill="#f2e3e0"/>
+<rect x="456.0" y="142.0" width="14.0" height="11.0" rx="2" fill="#f2e3e0"/>
+<rect x="472.0" y="142.0" width="14.0" height="11.0" rx="2" fill="#e8b8b0"/>
+<rect x="488.0" y="142.0" width="14.0" height="11.0" rx="2" fill="#e8b8b0"/>
+<rect x="504.0" y="142.0" width="14.0" height="11.0" rx="2" fill="#f2e3e0"/>
+<rect x="456.0" y="155.0" width="14.0" height="11.0" rx="2" fill="#f2e3e0"/>
+<rect x="472.0" y="155.0" width="14.0" height="11.0" rx="2" fill="#e8b8b0"/>
+<rect x="488.0" y="155.0" width="14.0" height="11.0" rx="2" fill="#e8b8b0"/>
+<rect x="504.0" y="155.0" width="14.0" height="11.0" rx="2" fill="#f2e3e0"/>
+<rect x="456.0" y="168.0" width="14.0" height="11.0" rx="2" fill="#f2e3e0"/>
+<rect x="472.0" y="168.0" width="14.0" height="11.0" rx="2" fill="#f2e3e0"/>
+<rect x="488.0" y="168.0" width="14.0" height="11.0" rx="2" fill="#f2e3e0"/>
+<rect x="504.0" y="168.0" width="14.0" height="11.0" rx="2" fill="#f2e3e0"/>
+<text x="488.0" y="196.0" font-size="7.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">时间↑</text>
+<text x="488.0" y="208.0" font-size="7.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">频率→（也花钱）</text>
+<line x1="586.0" y1="170.0" x2="621.00" y2="170.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="726.0" y="108.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">分解：1D 时间条 + 1×1 混通道</text>
+<rect x="636.0" y="120.0" width="14.0" height="60.0" rx="3" fill="#9fc8b8" opacity="0.8"/>
+<rect x="662.0" y="120.0" width="14.0" height="60.0" rx="3" fill="#9fc8b8" opacity="0.8"/>
+<rect x="688.0" y="120.0" width="14.0" height="60.0" rx="3" fill="#9fc8b8" opacity="0.8"/>
+<rect x="714.0" y="120.0" width="14.0" height="60.0" rx="3" fill="#9fc8b8" opacity="0.8"/>
+<text x="688.0" y="192.0" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">时间 DW（核 3/5）</text>
+<rect x="766.0" y="120.0" width="60.0" height="60.0" rx="4" fill="#c9d8e8"/>
+<text x="796.0" y="154.0" font-size="9" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1×1</text>
+<text x="796.0" y="192.0" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">通道混合</text>
+<text x="640.0" y="244.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">理论依据：时间结构（音素序列/韵律/声调轨迹）比频率结构更重要——</text>
+<text x="640.0" y="258.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">大部分计算投给时间建模，频率维用轻量 1×1 处理；参数省约 K_f 倍</text>
+<rect x="48.0" y="272.0" width="792.0" height="128.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="448.0" y="294.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么「不学习」反而行</text>
+<text x="68.0" y="316.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 信号处理视角：广播假设「不同输出通道需要相同的输入信息」——残差路径的作用是让恒等信息</text>
+<text x="68.0" y="331.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  可达（保梯度流动），不是做特征变换；KWS 的初始阶段各通道确实从相同输入提取信息</text>
+<text x="68.0" y="346.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 消融背书：广播替投影 → 参数 −15%、准确率掉 &lt;0.1%；完全去残差 → −1~2%（梯度流动本身值钱）</text>
+<text x="68.0" y="361.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="68.0" y="376.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 工程洞见：「并非所有的维度变换都需要学习」——事务性操作（维度匹配）交给 memcpy，学习预算全给判别特征</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：投影层花 C_in×C_out 个参数做「复制就能干的事」；广播用 c mod C_in 的取模复制零参数完成维度匹配。右：2D 核在频率方向的算力被整条省下，全数转投时间轴</text>
+</svg>
+<div class="cap"><b>图2 · 机制解剖</b>：左是投影（C_in×C_out 可学习）与广播（取模复制零参数）的对照，右是 2D 核的频率维开销如何被省下转投时间轴，以及「为什么不学习反而行」的信号处理解读。</div>
+</div>
+
+<h2><span class="no">§03</span>实验：同参数量一致占优</h2>
+<div class="h2sub">GSC v1/v2 SOTA · 规模扫描 · 消融账本</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：同参数量一致占优，消融把每个设计的账算清</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC 12 类 SOTA 对比（%）</text>
+<line x1="52.0" y1="262.0" x2="456.00" y2="262.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="265.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">97.0</text>
+<line x1="52.0" y1="224.5" x2="456.00" y2="224.50" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="227.5" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">97.5</text>
+<line x1="52.0" y1="187.0" x2="456.00" y2="187.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="190.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">98.0</text>
+<line x1="52.0" y1="149.5" x2="456.00" y2="149.50" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="152.5" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">98.5</text>
+<line x1="52.0" y1="112.0" x2="456.00" y2="112.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="115.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">99.0</text>
+<rect x="96.0" y="224.5" width="34.0" height="37.5" rx="3" fill="#c9d8e8"/>
+<text x="113.0" y="219.5" font-size="8" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">97.5</text>
+<rect x="134.0" y="209.5" width="34.0" height="52.5" rx="3" fill="#c9d8e8"/>
+<text x="151.0" y="204.5" font-size="8" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">97.7</text>
+<text x="132.0" y="278.0" font-size="8.2" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN</text>
+<rect x="188.0" y="209.5" width="34.0" height="52.5" rx="3" fill="#c9d8e8"/>
+<text x="205.0" y="204.5" font-size="8" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">97.7</text>
+<rect x="226.0" y="194.5" width="34.0" height="67.5" rx="3" fill="#c9d8e8"/>
+<text x="243.0" y="189.5" font-size="8" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">97.9</text>
+<text x="224.0" y="278.0" font-size="8.2" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Att-RNN</text>
+<rect x="318.0" y="172.0" width="34.0" height="90.0" rx="3" fill="#c9d8e8"/>
+<text x="335.0" y="167.0" font-size="8" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">98.2</text>
+<text x="316.0" y="278.0" font-size="8.2" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWT</text>
+<rect x="372.0" y="187.0" width="34.0" height="75.0" rx="3" fill="#0b6e52"/>
+<text x="389.0" y="182.0" font-size="8" fill="#0b6e52" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">98.0</text>
+<rect x="410.0" y="134.5" width="34.0" height="127.5" rx="3" fill="#0b6e52"/>
+<text x="427.0" y="129.5" font-size="8" fill="#0b6e52" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">98.7</text>
+<text x="408.0" y="278.0" font-size="8.2" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">BC-ResNet ★</text>
+<rect x="54.0" y="92.0" width="9.0" height="9.0" rx="2" fill="#c9d8e8"/>
+<text x="67.0" y="100.0" font-size="7.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC v1</text>
+<rect x="116.0" y="92.0" width="9.0" height="9.0" rx="2" fill="#0b6e52"/>
+<text x="129.0" y="100.0" font-size="7.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC v2</text>
+<text x="256.0" y="106.0" font-size="7.8" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">2021 年 GSC 最佳结果之一；同参数预算下一致优于基线</text>
+<text x="56.0" y="300.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">规模-准确率扫描：</text>
+<text x="56.0" y="314.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· ~10K 参数 ≈ 96% → ~200K 参数 ≈ 98.7%——准确率-参数权衡曲线全程优异</text>
+<text x="56.0" y="327.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· BC-ResNet-8（25K）≈ 或优于 DS-CNN-S（24K）：同档对位胜利</text>
+<text x="56.0" y="340.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· MADD：BC-ResNet-8 约 5M vs 同准确率 DS-CNN 约 8M——1D 化的计算红利</text>
+<text x="56.0" y="353.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练：余弦退火 + 标签平滑 0.1，无任何特殊技巧</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融：每个设计的账</text>
+<rect x="500.0" y="92.0" width="324.0" height="240.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="512.0" y="108.0" width="300.0" height="44.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<rect x="512.0" y="108.0" width="6.0" height="44.0" rx="3" fill="#0b6e52"/>
+<text x="526.0" y="127.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">广播替投影</text>
+<text x="526.0" y="143.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">参数 −15%，准确率掉 &lt;0.1%</text>
+<rect x="512.0" y="162.0" width="300.0" height="44.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<rect x="512.0" y="162.0" width="6.0" height="44.0" rx="3" fill="#0b6e52"/>
+<text x="526.0" y="181.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1D 分解替 2D</text>
+<text x="526.0" y="197.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">2D 多 30% 参数只换 ≤0.2%</text>
+<rect x="512.0" y="216.0" width="300.0" height="44.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<rect x="512.0" y="216.0" width="6.0" height="44.0" rx="3" fill="#e8b8b0"/>
+<text x="526.0" y="235.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">完全去残差</text>
+<text x="526.0" y="251.0" font-size="8.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">掉 1–2%（梯度流动值钱）</text>
+<rect x="512.0" y="270.0" width="300.0" height="44.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<rect x="512.0" y="270.0" width="6.0" height="44.0" rx="3" fill="#9fc8b8"/>
+<text x="526.0" y="289.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">投影 vs 广播</text>
+<text x="526.0" y="305.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率接近，广播参数更少</text>
+<text x="514.0" y="330.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读法：两个创新各自有消融格子背书——「广播 ≈ 投影但免费」</text>
+<text x="514.0" y="344.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">与「1D ≈ 2D 但省 30%」；残差本身（任何形式）值 1–2%</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：KWT v1 数字未在原笔记保留（只记 v2 98.2%）；GSC v1/v2 均为 12 类标准任务；引用具体数字请回对原文 arXiv 2106.04140</text>
+</svg>
+<div class="cap"><b>图3 · 主结果</b>：左是 GSC 12 类 SOTA 对比与规模-准确率扫描、MADD 对比，右是四条消融——每个设计决策的账都被算清。</div>
+</div>
+<table class="tb">
+<tr><th>消融/对比项</th><th>结果</th><th>结论</th></tr>
+<tr class="hl"><td>广播替投影</td><td>参数 −15% · 掉点 &lt;0.1%</td><td>维度匹配不需要学习</td></tr>
+<tr><td>1D 分解替 2D</td><td>2D 多 30% 参数只换 ≤0.2%</td><td>频率核不值那个价</td></tr>
+<tr><td>完全去残差</td><td>−1~2%</td><td>梯度流动本身值钱</td></tr>
+<tr><td>BC-ResNet-8 vs DS-CNN-S</td><td>25K vs 24K，准确率相当或更高</td><td>同档对位胜利</td></tr>
+<tr><td>MADD</td><td>5M vs 同准确率 DS-CNN 约 8M</td><td>1D 化的计算红利</td></tr>
+</table>
+<div class="tldr" style="margin-top:14px;">
+<div class="tt">读表要点</div>
+<li>规模曲线全程优异：~10K→96%、~200K→98.7%——从 MCU 到边缘设备的每个预算档都有competitive的选择，这也是它成为后续工作默认骨干的原因（本仓库多篇 2021-2022 论文直接以 BC-ResNet 为骨干或基线）。</li>
+<li>训练配方极简是隐藏优点：无复杂模块、无特殊训练技巧——基线就该这样，别人才能干净地叠加自己的创新做对比。</li>
+<li>引用注意：KWT 的 v1 数字未在原笔记保留（只记 v2 98.2%）；具体数字请回对原文。</li>
+</div>
+
+<h2><span class="no">§04</span>贡献</h2>
+<div class="h2sub">四点：从一个洞见到社区基线</div>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>广播残差学习用于参数高效 KWS</b>：零参数广播替可学习投影——保住残差梯度流动优势的同时消除参数开销；工程洞见是「并非所有维度变换都需要学习」。</p></div>
+<div class="row"><div class="n">2</div><p><b>时频分解卷积策略</b>：1D 时间卷积 + 频率/通道变换——贴合语音时频特性（时间动态性远高于频率），与同期时间向 1D 化工作互相验证。</p></div>
+<div class="row"><div class="n">3</div><p><b>GSC 上的 SOTA</b>：v1 98.0% / v2 98.7%（12 类），同参数量一致优于先前方法——2021 年最佳结果之一。</p></div>
+<div class="row"><div class="n">4</div><p><b>开源与可复现</b>：高通官方实现（Qualcomm-AI-research/bcresnet），代码简洁易集成——简洁性使其成为 KWS 基线的有力候选。</p></div>
+</div>
+
+<h2><span class="no">§05</span>局限与判断</h2>
+<div class="h2sub">表达力上限 · 频率结构损失 · 仅干净 GSC</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 广播的表达力上限：固定复制无学习——需要复杂非线性维度变换的场景</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  可能不如投影层；更大任务/更长语音时简化假设可能不成立</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （KWS 的相对简单性使这一限制影响较小——但别默认外推）</text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 频率局部结构损失：1D 时间卷积把频率维当通道——精细频率区分</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （如不同声调）可能丢信息，声调语言场景存疑</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 理论分析不足：「为什么复制就够」缺乏解释——是否与 KWS 特征</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  的某种结构性质有关？留给后续</text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 仅 GSC 干净数据：噪声/远场/自定义关键词场景未验证</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验边界 + 延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 固定 1 秒片段分类：流式/连续 KWS 未评估</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无量化数据：INT8/INT4 对广播操作的影响未报</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· KWT 等高效 Transformer 对比不细（只对 CNN/RNN 基线）</text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 声调语言（中文）未验证</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸：BRL 扩展到 ASR/语音增强（更大模型上是否成立）；</text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">叠量化/剪枝/蒸馏研究压缩后的性能保持；自适应广播（轻门控</text>
+<text x="536.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">控制广播强度替代均匀复制）；时频分解 + 注意力结合</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：「并非所有维度变换都需要学习」——先分清操作是事务性（memcpy 即可）还是判别性（值得花参数）；时频分解 + 无参数残差是极轻量 KWS 的有效范式，简洁性让它成为基线首选</text>
+</svg>
+<div class="cap"><b>图4 · 边界与延伸</b>：左技术边界（广播表达力上限、频率局部结构损失/声调语言存疑、理论解释缺失、仅干净 GSC），右实验边界（非流式、无量化数据、Transformer 对比不细）+ 延伸方向。</div>
+</div>
+<div class="judge">
+<div class="jt">可迁移判断</div>
+<p>↳ <b>并非所有维度变换都需要学习</b>：先分清操作是事务性（对齐/复制，memcpy 即可）还是判别性（特征变换，值得花参数）——把学习预算全部留给判别力。这条审查适用于任何带维度匹配组件的网络。</p>
+<p>↳ <b>参数预算要跟着信息密度走</b>：MFCC 前端已把频率编码成通道，时间维才是判别力的来源——算子按维度的信息密度分配，而不是默认均匀。审架构时问一句「这层的钱花在信息最密的维度上了吗」。</p>
+<p>↳ <b>残差连接值 1–2%，但它的投影不值</b>：梯度流动的红利与投影层的学习开销是两件事——消融拆开看，红利用免费的方式保留，开销直接砍掉。</p>
+<p>↳ <b>简洁性本身就是工程价值</b>：无特殊技巧、配方透明、官方开源——BC-ResNet 成为后续几十篇工作的默认骨干不是因为某个单点最强，而是因为它「干净到可以当尺子」。</p>
+</div>
+
+<div class="foot">
+<a class="pill" href="https://arxiv.org/abs/2106.04140">arXiv 2106.04140 ↗</a>
+<a class="pill ghost" href="https://github.com/Qualcomm-AI-Research/bcresnet">官方实现 ↗</a>
+<a class="pill ghost" href="../index.html">← 返回总目录</a>
+</div>
+<div class="foot-note">笔记与可视化页基于 arXiv 版整理 · 本页是系列基石论文（后续多篇 KWS 工作的默认骨干）· 2021 №8 · 193+/305</div>
+</div>
+</body>
+</html>
