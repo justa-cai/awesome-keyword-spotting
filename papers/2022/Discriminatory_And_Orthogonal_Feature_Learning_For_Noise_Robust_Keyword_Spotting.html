@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>判别性正交特征学习：噪声鲁棒 KWS 的零推理成本方案</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 16px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  table.tb { width: 100%; border-collapse: collapse; margin: 18px 0; background: var(--card);
+    border-radius: 12px; overflow: hidden; font-size: 13.8px; }
+  table.tb th { background: var(--acc-lt); color: var(--acc-dk); font-weight: 700;
+    padding: 10px 12px; text-align: left; }
+  table.tb td { padding: 9px 12px; border-top: 1px solid var(--line); color: var(--ink2); }
+  table.tb td b { color: var(--ink); }
+  table.tb tr.hl td { background: #f6fbf9; font-weight: 600; }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №12</div>
+  <h1 class="hero">CE 只管「分开」不管「稳」：<br>推理<span class="g">零成本</span>的噪声鲁棒这样补</h1>
+  <div class="chips">
+    <span class="chip">LOVO 损失 · arXiv 2210.11519</span>
+    <span class="chip">高丽大学 × 德雷塞尔大学</span>
+    <span class="chip">两路度量学习 + 谱范数正交正则</span>
+    <span class="chip">TENet12 · Speech Commands v1</span>
+  </div>
+  <div class="meta">把「鲁棒特征」具体化为三个几何量（类内紧、类间开、类间正交），全部在训练期用损失函数解决——嵌入头训练完丢弃，推理图与前作逐位相同（102K / 6.64M）。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>双约束</b>：KWS 常驻监听，参数量和 FLOPS 是关键评价指标；部署噪声与训练噪声分布不重合——干净 97% 的模型在 WHAM 0dB 掉到 75.92。</li>
+      <li><b>靶心</b>：前作 LDy-TENet 的动态滤波器用 CE 联合训练，但 CE 的几何行为是找一个把各类分开的决策面——只要可分它就满足；鲁棒性要求特征在噪声扰动下几何结构稳定。「可分」与「稳」不等价。</li>
+      <li><b>翻译</b>：鲁棒 = 三个几何量——类间方差（要大）、类内方差（要小）、类间正交性（要不相关）——全部落在度量学习覆盖范围内。</li>
+      <li><b>两路解耦</b>：滤波器输出直接接 2 层 T-Conv 嵌入头算逐对损失 L_M（梯度一步直达前端，别穿十几层稀释）；分类器末端 GAP 嵌入上算类心级 L_I / L_O。</li>
+      <li><b>L_O 的四个设计决策</b>：矩阵滤波器清零对角（正交只看非对角）、e^(−MDM) 把「最大化距离」翻转为「最小化衰减项」并限幅、谱范数只罚最大奇异值（不像逐元素范数把整个矩阵往零拉）、幂迭代 10 次。</li>
+      <li><b>零成本验证</b>：Table I 里 LDyLM/LDyLMIO 与前作参数量 FLOPS 逐位相同（102K / 6.64M）——「训练期损失、推理零成本」从数字上坐实。</li>
+      <li><b>主结果</b>：WHAM 0dB +3.03（78.95 vs 75.92，摘要的「3%」即此）、Urban +2.37、DCASE +1.30；全条件平均 92.63 全场最高——噪声越凶收益越大，正是鲁棒方法的签名。</li>
+      <li><b>度量学习横评</b>：成对方法（FaceNet/circle/multi-sim）干净端微弱领先、低 SNR 系统性落后——mini-batch 枚举样本对让大类按 O(Mk²) 占据梯度；类心级监督每类贡献一份，天然类均衡。</li>
+      <li><b>消融</b>：单项强度 L_I &gt; L_M &gt; L_O；L_IO 联合才同时锁「类间开 + 正交」；完整 L_MIO 低 SNR 全面最优，代价是干净端 −0.10。</li>
+      <li><b>边界</b>：超参纯手工（λ₂=λ₃=0.01 说明几何项与 CE 平衡脆弱）；8 次重复不报方差；batch 100/12 类平均每类 8 样本估类心；式 2 名实不符（称 triplet 实为 contrastive 形态）。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：CE 的监督信号不含「稳」</h2>
+  <div class="h2sub">三条老路各自的坑</div>
+  <p class="lead">生成式语音增强（DAE/GAN/Griffin-Lim）以重构干净信号为目标——前端计算量大，为常驻监听配重型增强网络在能耗上不可行；分类损失驱动的前端特征增强省掉了增强目标，但监督信号只有 CE；通用度量学习（center/FaceNet/DeCov/multi-sim/circle）能改善嵌入判别性，但成对距离方法会偏向样本量大的主导类别。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>成对度量的主导类别偏置</h4>
+      <p>mini-batch 内枚举所有样本对时，大类的样本对数量按 O(Mk²) 占据梯度主导——高 SNR 下无伤大雅（成对监督更细腻所以略优），低 SNR 下类别贡献被噪声拉平，偏置伤害显形，成对方法系统性退化。</p>
+    </div>
+    <div class="card bad">
+      <h4>直接搬正则工具也不对</h4>
+      <p>DeCov 去相关作用在逐样本激活；谱归一化原本是 GAN 判别器的 Lipschitz 约束，作用在权重矩阵——而这里需要正则的对象是<b>类心矩阵的协方差</b>，且要同时编码距离项，通用工具没有现成形态。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：两路度量学习 + 谱范数融合</h2>
+  <div class="h2sub">监督施加在离被优化对象最近的位置</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 980">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="980.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LOVO：把「鲁棒」翻译成三个几何量，训练期全解决，推理零成本</text>
+<line x1="36.0" y1="60.0" x2="620.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 靶心：CE 只要求「可分」，不要求「稳」</text>
+<rect x="36.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 的双约束</text>
+<text x="52.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">常驻监听：参数量和 FLOPS 是关键评价指标，</text>
+<text x="52.0" y="155.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  任何改进不能突破推理预算</text>
+<text x="52.0" y="168.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">真实环境几乎不干净：训练与部署的噪声分布不重合</text>
+<text x="52.0" y="181.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （unseen noise）——干净 97% 的模型 WHAM 0dB</text>
+<text x="52.0" y="194.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  直接掉到 75.92（Table II 基线 LDy-TENet12）</text>
+<rect x="474.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">前作的监督信号缺陷</text>
+<text x="490.0" y="140.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">前作 LDy-TENet：动态滤波器 + CE 联合训练</text>
+<text x="490.0" y="153.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">CE 的几何行为：找一个把各类分开的决策面——</text>
+<text x="490.0" y="166.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  只要边界可分它就满足</text>
+<text x="490.0" y="179.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">而鲁棒性要求特征在噪声扰动下几何结构稳定——</text>
+<text x="490.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  论文原话「要找到鲁棒域」，两者不等价</text>
+<text x="36.0" y="206.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">解法：把「鲁棒特征」具体化为三个几何量——类间方差（要大）、类内方差（要小）、类间正交性（要不相关）——全部落在度量学习覆盖范围内</text>
+<text x="36.0" y="232.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 两路解耦的度量学习：监督施加在离被优化对象最近的位置</text>
+<rect x="36.0" y="272.0" width="108.0" height="100.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="90.0" y="316.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">输入 MFCC</text>
+<text x="90.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">40 维 / 30ms</text>
+<text x="90.0" y="352.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">SC v1 12 类</text>
+<line x1="144.0" y1="322.0" x2="166.0" y2="322.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="166.0" y="272.0" width="130.0" height="100.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="231.0" y="298.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">轻量动态卷积</text>
+<text x="231.0" y="318.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（继承前作，</text>
+<text x="231.0" y="332.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声中提取</text>
+<text x="231.0" y="346.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">鲁棒特征图）</text>
+<rect x="340.0" y="246.0" width="250.0" height="78.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="465.0" y="270.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 模型（TENet12 骨干）</text>
+<text x="465.0" y="290.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CE 损失（分类）</text>
+<text x="465.0" y="304.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">末端 GAP 嵌入（32 维）→ 类心损失 L_I / L_O</text>
+<line x1="296.0" y1="302.0" x2="340.0" y2="287.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="340.0" y="336.0" width="250.0" height="66.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="465.0" y="360.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">动态嵌入模型（仅训练期）</text>
+<text x="465.0" y="378.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2 层 T-Conv + ReLU + TAP → 128 维嵌入</text>
+<text x="465.0" y="392.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">逐对三元组损失 L_M（直接雕刻滤波器特征）</text>
+<line x1="296.0" y1="342.0" x2="340.0" y2="364.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="616.0" y="272.0" width="268.0" height="96.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="750.0" y="296.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">L_Total = L_CE + 0.25·L_M + 0.01·L_I + 0.01·L_O</text>
+<text x="750.0" y="316.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（LOVO = L_M + L_I + L_O）</text>
+<text x="750.0" y="328.5" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">λ₂/λ₃ 压到 0.01：几何项影响强，</text>
+<text x="750.0" y="341.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">  过强会挤占 CE 的学习空间</text>
+<text x="750.0" y="353.5" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">测试期：嵌入头整体丢弃 → 推理图</text>
+<text x="750.0" y="366.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">  与前作逐位一致（102K / 6.64M）</text>
+<line x1="590.0" y1="322.0" x2="616.0" y2="320.0" stroke="#0e8a66" stroke-width="2" marker-end="url(#arg)"/>
+<text x="460.0" y="422.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么滤波器要单独配嵌入头：只在分类器末端施约束，梯度要穿过 TENet12 十几层才到滤波器——稀释且方向模糊；输出端直接接 2 层卷积嵌入头，</text>
+<text x="460.0" y="437.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">几何监督一步直达滤波器权重。「滤波器侧」与「分类器侧」按职责解耦，训练完丢弃辅助头，鲁棒性收益全沉淀在滤波器权重里</text>
+<text x="36.0" y="456.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ L_O：两个会竞争的几何目标 → 一个谱范数损失</text>
+<rect x="36.0" y="470.0" width="414.0" height="168.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="494.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两个 C×C 矩阵（式 4–6）</text>
+<text x="52.0" y="514.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">类心矩阵 E′ = [Ē¹, Ē², …, Ēᶜ]（D×C）</text>
+<text x="52.0" y="526.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="539.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">MDM：类心两两欧氏距离平方——期望范数最大化</text>
+<text x="52.0" y="551.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （类心彼此推远）</text>
+<text x="52.0" y="564.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">MIM：类心协方差——期望 = I：非对角为零（去相关/</text>
+<text x="52.0" y="576.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  正交），对角为 1（方差归一）</text>
+<text x="52.0" y="589.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="601.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">一个要最大化、一个要最小化，且训练中会相互</text>
+<text x="52.0" y="614.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">竞争（多目标优化视角 [28]）——必须融合成单一目标</text>
+<rect x="474.0" y="470.0" width="414.0" height="168.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="490.0" y="494.0" font-size="12" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">L_O = SN( p(MIM) + e^(−MDM) − I )（式 7）</text>
+<text x="490.0" y="514.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">p(·)：矩阵滤波器把对角元清零——正交只由非对角</text>
+<text x="490.0" y="527.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  决定，对角混进来是冗余约束</text>
+<text x="490.0" y="540.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">e^(−MDM)：最大化距离 → 最小化指数衰减项——统一</text>
+<text x="490.0" y="553.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  方向 + 限幅（正交主导、距离跟随，防无界增长）</text>
+<text x="490.0" y="566.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SN 谱范数：只罚最大奇异值（最坏方向发散），不像</text>
+<text x="490.0" y="579.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  逐元素范数把整个矩阵往零拉（类心距离也拉没）</text>
+<text x="490.0" y="592.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">幂迭代算谱范数，最优 10 次（训练开销未量化）</text>
+<rect x="36.0" y="664.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="690.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+3.03</text>
+<text x="130.0" y="710.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">WHAM 0dB vs 前作（78.95/75.92）</text>
+<text x="298.0" y="690.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+0.97</text>
+<text x="298.0" y="710.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">全条件平均 vs 前作</text>
+<text x="466.0" y="690.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<text x="466.0" y="710.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">推理参数/FLOPS 增量</text>
+<text x="634.0" y="690.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">92.63%</text>
+<text x="634.0" y="710.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">全条件平均（全场最高）</text>
+<text x="802.0" y="690.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1.23</text>
+<text x="802.0" y="710.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">WHAM 0dB vs 最优度量学习基线</text>
+<text x="36.0" y="748.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">配置：SC v1 12 类（80/10/10）· 训练注入 mike noise + 随机时移 · 未见噪声 DCASE/Urbansound8K/WHAM 只在测试期混入（20/15/10/5/0dB 五档）· batch 100 · 30K 步 · 每设置重复 8 次</text>
+</svg>
+    <p class="cap"><b>图1 · 框架全景</b>：CE 监督的缺陷 → 两路解耦度量学习（滤波器侧 L_M + 分类器侧类心级 L_I/L_O）→ 推理图与前作逐位一致；L_O = SN(p(MIM)+e^(−MDM)−I) 的四个设计决策。
+  </div>
+  </div>
+  <div class="formula">
+    <div class="f">L_Total = L_CE + 0.25·L_M + 0.01·L_I + 0.01·L_O</div>
+    <div class="why"><b>人话</b>：分类损失是基本盘，逐对的三元组项给 0.25；两个类心级几何项压到 0.01——论文的经验观察是 L_I、L_O 影响力强于其他损失，不抑制会挤占 CE 的学习空间（几何正则过强牺牲分类精度）。L_M + L_I + L_O 合称 <b>LOVO 损失</b>（「低变异正交」；论文摘要与正文缩写展开不一致，忠实记录）。</div>
+  </div>
+  <p class="sub"><b>为什么 TAP 必须有</b>：时序卷积输出是变长时间步序列，度量学习要在 mini-batch 内两两算距离——必须先把时间维平均掉压成 128 维定长向量。<b>为什么类心损失挂在 GAP 输出上</b>：32 维定长、语义浓缩，天然适合类心统计载体，且零新增层。</p>
+
+  <h2><span class="no">§03</span>实验：三个未见噪声库 × 五档 SNR</h2>
+  <div class="h2sub">训练只见 mike noise，测试混入 DCASE/Urbansound8K/WHAM</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 460">
+<rect x="0.0" y="0.0" width="880.0" height="460.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主战场（Table II）：未见噪声下的崩溃斜率被压平</text>
+<line x1="36.0" y1="56.0" x2="500.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="86.0" y1="308.3" x2="710.0" y2="308.3" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="312.3" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">75</text>
+<line x1="86.0" y1="266.7" x2="710.0" y2="266.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="270.7" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">80</text>
+<line x1="86.0" y1="225.0" x2="710.0" y2="225.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="229.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">85</text>
+<line x1="86.0" y1="183.3" x2="710.0" y2="183.3" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="187.3" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="86.0" y1="141.7" x2="710.0" y2="141.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="145.7" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">95</text>
+<line x1="86.0" y1="100.0" x2="710.0" y2="100.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="104.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">100</text>
+<rect x="120.0" y="125.0" width="30.0" height="225.0" rx="3" fill="#0b6e52"/>
+<text x="135.0" y="120.0" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">97.0</text>
+<rect x="154.0" y="125.4" width="30.0" height="224.6" rx="3" fill="#9fc8b8"/>
+<text x="169.0" y="120.4" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">97.0</text>
+<rect x="188.0" y="128.3" width="30.0" height="221.7" rx="3" fill="#e8d5c4"/>
+<text x="203.0" y="123.3" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">96.6</text>
+<rect x="222.0" y="128.3" width="30.0" height="221.7" rx="3" fill="#e8b8b0"/>
+<text x="237.0" y="123.3" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">96.6</text>
+<text x="194.0" y="368.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">干净</text>
+<rect x="242.0" y="185.8" width="30.0" height="164.2" rx="3" fill="#0b6e52"/>
+<text x="257.0" y="180.8" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">89.7</text>
+<rect x="276.0" y="196.6" width="30.0" height="153.4" rx="3" fill="#9fc8b8"/>
+<text x="291.0" y="191.6" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">88.4</text>
+<rect x="310.0" y="198.8" width="30.0" height="151.2" rx="3" fill="#e8d5c4"/>
+<text x="325.0" y="193.8" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">88.1</text>
+<rect x="344.0" y="216.6" width="30.0" height="133.4" rx="3" fill="#e8b8b0"/>
+<text x="359.0" y="211.6" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">86.0</text>
+<text x="316.0" y="368.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">DCASE</text>
+<text x="316.0" y="380.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0dB</text>
+<rect x="364.0" y="259.0" width="30.0" height="91.0" rx="3" fill="#0b6e52"/>
+<text x="379.0" y="254.0" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">80.9</text>
+<rect x="398.0" y="278.8" width="30.0" height="71.2" rx="3" fill="#9fc8b8"/>
+<text x="413.0" y="273.8" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">78.5</text>
+<rect x="432.0" y="305.8" width="30.0" height="44.2" rx="3" fill="#e8d5c4"/>
+<text x="447.0" y="300.8" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">75.3</text>
+<rect x="466.0" y="315.0" width="30.0" height="35.0" rx="3" fill="#e8b8b0"/>
+<text x="481.0" y="310.0" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">74.2</text>
+<text x="438.0" y="368.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Urban</text>
+<text x="438.0" y="380.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0dB</text>
+<rect x="486.0" y="275.4" width="30.0" height="74.6" rx="3" fill="#0b6e52"/>
+<text x="501.0" y="270.4" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">79.0</text>
+<rect x="520.0" y="300.7" width="30.0" height="49.3" rx="3" fill="#9fc8b8"/>
+<text x="535.0" y="295.7" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">75.9</text>
+<rect x="554.0" y="306.8" width="30.0" height="43.2" rx="3" fill="#e8d5c4"/>
+<text x="569.0" y="301.8" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">75.2</text>
+<rect x="588.0" y="323.7" width="30.0" height="26.3" rx="3" fill="#e8b8b0"/>
+<text x="603.0" y="318.7" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">73.2</text>
+<text x="560.0" y="368.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">WHAM</text>
+<text x="560.0" y="380.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0dB</text>
+<rect x="608.0" y="161.4" width="30.0" height="188.6" rx="3" fill="#0b6e52"/>
+<text x="623.0" y="156.4" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">92.6</text>
+<rect x="642.0" y="169.5" width="30.0" height="180.5" rx="3" fill="#9fc8b8"/>
+<text x="657.0" y="164.5" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">91.7</text>
+<rect x="676.0" y="173.1" width="30.0" height="176.9" rx="3" fill="#e8d5c4"/>
+<text x="691.0" y="168.1" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">91.2</text>
+<rect x="710.0" y="183.1" width="30.0" height="166.9" rx="3" fill="#e8b8b0"/>
+<text x="725.0" y="178.1" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">90.0</text>
+<text x="682.0" y="368.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">全条件</text>
+<text x="682.0" y="380.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">平均</text>
+<text x="438.0" y="215.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+2.37</text>
+<text x="560.0" y="231.4" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+3.03</text>
+<text x="316.0" y="141.8" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1.30</text>
+<rect x="470.0" y="106.0" width="12.0" height="12.0" rx="3" fill="#0b6e52"/>
+<text x="486.0" y="116.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 L_MIO</text>
+<rect x="470.0" y="124.0" width="12.0" height="12.0" rx="3" fill="#9fc8b8"/>
+<text x="486.0" y="134.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">前作 LDy-TENet12</text>
+<rect x="470.0" y="142.0" width="12.0" height="12.0" rx="3" fill="#e8d5c4"/>
+<text x="486.0" y="152.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">TENet12</text>
+<rect x="470.0" y="160.0" width="12.0" height="12.0" rx="3" fill="#e8b8b0"/>
+<text x="486.0" y="170.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">TCNet14</text>
+<text x="400.0" y="86.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率（%）· 未见噪声只在测试期混入</text>
+<text x="36.0" y="418.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">崩溃斜率（WHAM 20dB→0dB）：本文掉 17.32 点 vs 前作 20.17 vs TENet12 20.56——斜率压平约 3 点；且噪声越凶收益越大（DCASE +1.30 → Urban +2.37 → WHAM +3.03），</text>
+<text x="36.0" y="436.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「条件越差收益越大」正是鲁棒性方法应有的签名</text>
+</svg>
+    <p class="cap"><b>图2 · 主战场（Table II）</b>：干净 + 三个未见噪声库 0dB + 全条件平均——WHAM 0dB +3.03 / Urban +2.37 / DCASE +1.30，全条件平均 92.63 全场最高，噪声越凶收益越大。
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">度量学习方法横评（Table III）：成对方法干净端赢、噪声端输</text>
+<line x1="36.0" y1="56.0" x2="560.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="250.0" y="92.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">同模型（只开 L_IO）同骨干对比</text>
+<rect x="180.0" y="112.0" width="92.5" height="18.0" rx="3" fill="#0b6e52"/>
+<text x="276.5" y="125.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">97.07</text>
+<rect x="360.0" y="112.0" width="132.1" height="18.0" rx="3" fill="#0b6e52" opacity="0.75"/>
+<text x="496.1" y="125.0" font-size="8.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">78.29</text>
+<text x="174.0" y="125.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 L_IO ★</text>
+<rect x="180.0" y="162.0" width="97.5" height="18.0" rx="3" fill="#9fc8b8"/>
+<text x="281.5" y="175.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">97.09</text>
+<rect x="360.0" y="162.0" width="32.3" height="18.0" rx="3" fill="#9fc8b8" opacity="0.75"/>
+<text x="396.3" y="175.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">76.56</text>
+<text x="174.0" y="175.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">circle loss</text>
+<rect x="180.0" y="212.0" width="100.0" height="18.0" rx="3" fill="#9fc8b8"/>
+<text x="284.0" y="225.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">97.10</text>
+<rect x="360.0" y="212.0" width="19.6" height="18.0" rx="3" fill="#9fc8b8" opacity="0.75"/>
+<text x="383.6" y="225.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">76.34</text>
+<text x="174.0" y="225.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">FaceNet</text>
+<rect x="180.0" y="262.0" width="55.0" height="18.0" rx="3" fill="#c9d8e8"/>
+<text x="239.0" y="275.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">96.92</text>
+<rect x="360.0" y="262.0" width="61.2" height="18.0" rx="3" fill="#c9d8e8" opacity="0.75"/>
+<text x="425.2" y="275.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">77.06</text>
+<text x="174.0" y="275.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">center loss</text>
+<rect x="180.0" y="312.0" width="65.0" height="18.0" rx="3" fill="#e8d5c4"/>
+<text x="249.0" y="325.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">96.96</text>
+<rect x="360.0" y="312.0" width="99.2" height="18.0" rx="3" fill="#e8d5c4" opacity="0.75"/>
+<text x="463.2" y="325.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">77.72</text>
+<text x="174.0" y="325.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">DeCov</text>
+<rect x="180.0" y="362.0" width="67.5" height="18.0" rx="3" fill="#e8b8b0"/>
+<text x="251.5" y="375.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">96.97</text>
+<rect x="360.0" y="362.0" width="45.0" height="18.0" rx="3" fill="#e8b8b0" opacity="0.75"/>
+<text x="409.0" y="375.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">76.78</text>
+<text x="174.0" y="375.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">multi-sim</text>
+<text x="255.0" y="408.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">干净（成对微弱领先）</text>
+<text x="435.0" y="408.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">WHAM 0dB（非成对领先）</text>
+<text x="540.0" y="136.0" font-size="10" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">全表总平均：</text>
+<text x="540.0" y="154.0" font-size="11" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 92.32</text>
+<text x="540.0" y="172.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">DeCov 92.22</text>
+<text x="540.0" y="190.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">circle 92.08</text>
+<text x="540.0" y="208.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FaceNet 92.05</text>
+<text x="540.0" y="226.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">center 92.00</text>
+<text x="540.0" y="244.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">multi-sim 91.93</text>
+<text x="540.0" y="266.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">完整方法 L_MIO 对最优</text>
+<text x="540.0" y="281.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">竞品 DeCov：78.95 对 77.72</text>
+<text x="540.0" y="296.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">= +1.23（跨表对读）</text>
+<rect x="620.0" y="96.0" width="224.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="732.0" y="118.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么成对方法低 SNR 退化</text>
+<text x="634.0" y="138.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">mini-batch 内枚举所有样本对：</text>
+<text x="634.0" y="152.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">大类的样本对数量按 O(Mk²)</text>
+<text x="634.0" y="167.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">占据梯度主导 [25]</text>
+<text x="634.0" y="181.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="634.0" y="196.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 高 SNR：主导类偏置无伤大雅，</text>
+<text x="634.0" y="210.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  逐对监督更细腻，成对略优</text>
+<text x="634.0" y="225.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="634.0" y="239.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 低 SNR：类别贡献被噪声拉平，</text>
+<text x="634.0" y="254.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  偏置的伤害显形，成对系统性落后</text>
+<text x="634.0" y="268.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="634.0" y="283.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">类心级监督：每个类压缩成一个点，</text>
+<text x="634.0" y="297.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">无论类内样本多少，每类贡献一份</text>
+<text x="634.0" y="312.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——梯度天然类均衡</text>
+<text x="634.0" y="326.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="634.0" y="341.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">本文额外映射到正交类心，比其他</text>
+<text x="634.0" y="355.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">非成对方法更稳</text>
+<text x="36.0" y="408.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">公平性说明：此表本文只开 L_IO（关闭 L_M）——其他方法 [20]–[24] 均只作用于 KWS 嵌入向量；滤波器侧三元组损失是本文独有的一路</text>
+</svg>
+    <p class="cap"><b>图3 · 度量学习横评（Table III）</b>：成对方法（FaceNet/circle/multi-sim）干净端微弱领先、WHAM 0dB 系统性落后——主导类别偏置机理与类心级监督的类均衡优势。
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">损失组合消融（Table II）+ 局限</text>
+<line x1="36.0" y1="56.0" x2="300.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="225.0" y="92.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">全条件平均（%）</text>
+<rect x="250.0" y="112.0" width="46.4" height="28.0" rx="5" fill="#e8b8b0"/>
+<text x="302.4" y="131.0" font-size="10" fill="#e8b8b0" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">91.66</text>
+<text x="244.0" y="131.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">LDy 基线（只有 CE）</text>
+<rect x="250.0" y="158.0" width="85.7" height="28.0" rx="5" fill="#c9d8e8"/>
+<text x="341.7" y="177.0" font-size="10" fill="#c9d8e8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">91.88</text>
+<text x="244.0" y="177.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">L_O 单项（纯正交）</text>
+<rect x="250.0" y="204.0" width="123.2" height="28.0" rx="5" fill="#9fc8b8"/>
+<text x="379.2" y="223.0" font-size="10" fill="#9fc8b8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">92.09</text>
+<text x="244.0" y="223.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">L_M 单项（滤波器侧）</text>
+<rect x="250.0" y="250.0" width="141.1" height="28.0" rx="5" fill="#9fc8b8"/>
+<text x="397.1" y="269.0" font-size="10" fill="#9fc8b8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">92.19</text>
+<text x="244.0" y="269.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">L_I 单项（类内紧致）</text>
+<rect x="250.0" y="296.0" width="185.7" height="28.0" rx="5" fill="#7fbd9f"/>
+<text x="441.7" y="315.0" font-size="10" fill="#7fbd9f" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">92.44</text>
+<text x="244.0" y="315.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">L_IO 双项</text>
+<rect x="250.0" y="342.0" width="219.6" height="28.0" rx="5" fill="#0b6e52"/>
+<text x="475.6" y="361.0" font-size="10" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">92.63</text>
+<text x="244.0" y="361.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">L_MIO 完整 ★</text>
+<text x="225.0" y="390.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">单项强度 L_I &gt; L_M &gt; L_O（类内紧致最重要）</text>
+<text x="225.0" y="405.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">干净端 trade-off：L_MIO 97.00 vs L_M 97.10（−0.10）</text>
+<rect x="530.0" y="86.0" width="320.0" height="130.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="690.0" y="108.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">L_IO 为什么要联合</text>
+<text x="544.0" y="128.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">正交只保证方向不相关，不保证质心间距</text>
+<text x="544.0" y="142.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">类内紧致也不管类间分开——单用谁都有</text>
+<text x="544.0" y="156.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不确定性；联合才同时锁定「类间开 +</text>
+<text x="544.0" y="170.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">类间正交」两个几何量</text>
+<text x="544.0" y="184.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（原文：jointly utilizing the two-loss</text>
+<text x="544.0" y="198.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  function would mitigate this uncertainty）</text>
+<rect x="530.0" y="228.0" width="320.0" height="158.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="690.0" y="250.0" font-size="11.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">局限（论文自认 + 笔记补充）</text>
+<text x="544.0" y="270.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 超参纯手工（α=1，λ₁=0.25，λ₂=λ₃=0.01）无敏感性分析</text>
+<text x="544.0" y="284.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 谱范数 10 次幂迭代 + 嵌入头的训练开销未量化</text>
+<text x="544.0" y="299.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 式2 名实不符：称 triplet 实为 contrastive 形态，y* 未定义</text>
+<text x="544.0" y="313.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· batch 100 / 12 类 → 平均每类约 8 样本估类心，方差未讨论</text>
+<text x="544.0" y="328.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 8 次重复却不报方差——0.02–0.10 点量级结论存疑</text>
+<text x="544.0" y="342.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 缺 FA/FRR 操作点指标、无嵌入空间可视化（几何假设只有</text>
+<text x="544.0" y="357.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  端到端精度这一间接证据）；三个噪声库全是城市域</text>
+<text x="36.0" y="446.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：监督要施加在离被优化对象最近的位置（滤波器侧配嵌入头，别让梯度穿十几层稀释）；类级统计量（类心）天然类均衡，适合替代成对度量做鲁棒目标</text>
+</svg>
+    <p class="cap"><b>图4 · 消融与局限</b>：损失组合矩阵——单项强度 L_I &gt; L_M &gt; L_O，L_IO 联合才同时锁定「类间开 + 正交」，完整 L_MIO 全条件平均最高（代价：干净端 −0.10）。
+  </div>
+  </div>
+  <table class="tb">
+    <tr><th>关键对比（WHAM 0dB）</th><th>准确率</th><th>差距</th></tr>
+    <tr class="hl"><td><b>本文 L_MIO</b></td><td><b>78.95</b></td><td><b>—</b></td></tr>
+    <tr><td>前作 LDy-TENet12</td><td>75.92</td><td>+3.03</td></tr>
+    <tr><td>DeCov（Table III 最优度量学习基线）</td><td>77.72</td><td>+1.23</td></tr>
+    <tr><td>TENet12 / TCNet14</td><td>75.19 / 73.15</td><td>+3.76 / +5.80</td></tr>
+  </table>
+  <p class="sub">干净集上另一个读数：NAS2 的 97.2% 需要 886K 参数（本文的 8.7 倍），本文最佳 97.3% 在同参数量级领先——几何监督顺带把干净端也抬了一点（LDyLM 平均 97.10 vs 前作 96.95）。</p>
+
+  <h2><span class="no">§04</span>贡献：五条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>LOVO 组合损失</b>：把模糊的「噪声鲁棒特征」具体化为三个几何量并以三项训练期损失全部落地，推理端参数/FLOPS 零增量。</p></div>
+    <div class="row"><div class="n">2</div><p><b>两路解耦的度量学习框架</b>：滤波器侧逐对损失 + 分类器侧类心级损失，梯度按职责就近施加，训练完丢弃辅助头。</p></div>
+    <div class="row"><div class="n">3</div><p><b>类心级监督规避主导类别偏置</b>：低 SNR 未见噪声下相对 center/FaceNet/multi-sim/circle/DeCov 全部更稳（总平均 92.32 对最优 92.22）。</p></div>
+    <div class="row"><div class="n">4</div><p><b>谱范数驱动的正交-距离联合正则</b>：清零对角 + 指数限幅 + 只罚最大奇异值 + 10 次幂迭代，把两个会竞争的几何目标融合成单一稳定优化对象。</p></div>
+    <div class="row"><div class="n">5</div><p><b>实证收益</b>：未见噪声 0dB 下 WHAM +3.03 / Urban +2.37 / DCASE +1.30，全条件平均 +0.97。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">鲁棒与干净精度存在小幅 trade-off</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>超参手工 + 开销未量化</h4>
+      <p>α=1、λ₁=0.25、λ₂=λ₃=0.01 全是经验值，无敏感性分析；谱范数每步 10 次幂迭代 + 嵌入头前向的训练开销没有任何数字。</p>
+    </div>
+    <div class="card bad">
+      <h4>写作瑕疵影响复现</h4>
+      <p>式 2 称 triplet loss 但形式是全样本对带符号距离加 margin（更接近 contrastive），y* 星号未定义；LOVO 缩写两处展开不一致。</p>
+    </div>
+    <div class="card bad">
+      <h4>小 batch 类心估计方差</h4>
+      <p>batch 100 / 12 类 ≈ 每类 8 个样本估类心；center loss 原文用跨 batch 记忆库，本文未讨论 batch 大小对类心质量的影响。</p>
+    </div>
+    <div class="card bad">
+      <h4>统计与评测维度缺失</h4>
+      <p>8 次重复不报方差（多个关键差距在 0.02–0.10 点量级）；无 FA/FRR 操作点指标；无 t-SNE 嵌入可视化（几何假设只有端到端精度这一间接证据）；三个噪声库全是城市域、仍是 SC v1、无设备级延迟功耗。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>「鲁棒」要先翻译成可优化的几何量（类内紧、类间开、正交），才能变成损失函数——模糊目标无法被梯度下降。</li>
+      <li>监督要施加在离被优化对象最近的位置：给前端配专属嵌入头，好过让梯度穿过十几层间接稀释。</li>
+      <li>类级统计量（类心）天然类均衡，替代成对度量做鲁棒目标可避开主导类别偏置——低 SNR 下尤其明显。</li>
+      <li>两个方向相反的几何目标必须融合成单一最小化对象（谱范数 + 指数限幅），直接加权求和会在训练中振荡。</li>
+      <li>训练期手段（损失/辅助头）是端侧最便宜的鲁棒性来源：推理图零变化，收益全沉淀在权重里——先穷尽这类手段再动架构。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2210.11519" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="Discriminatory_And_Orthogonal_Feature_Learning_For_Noise_Robust_Keyword_Spotting.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>

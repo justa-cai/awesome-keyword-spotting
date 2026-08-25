@@ -1,7 +1,7 @@
 # 可视化精读页计划（VIZ_PLAN）
 
 全量清单与进度真源。每完成一页重新生成。
-**进度：155 / 305**
+**进度：156 / 305**
 
 ## 2026（24 / 24 ✅）
 - [✅] A Multiplication-Free Feature Extractor for Signal Classification: Keyword Spotting Case Study（面向信号分类的无乘法特征提取器：关键词检测案例研究）
@@ -156,7 +156,7 @@
 - [✅] VE-KWS：视觉模态增强的端到端关键词检测
 - [⬜] VIC-KD：方差-不变性-协方差知识蒸馏，让关键词检测更能抵御对抗攻击
 
-## 2022（11 / 42 ）
+## 2022（12 / 42 ）
 - [✅] AB/BA Analysis: A Framework for Estimating Keyword Spotting Recall Improvement While Maintaining Audio Privacy
 - [✅] 23 μW 关键词检测芯片：基于环形振荡器的时域特征提取
 - [✅] A Fast Network Exploration Strategy to Profile Low Energy Consumption for Keyword Spotting
@@ -168,7 +168,7 @@
 - [✅] Deep LSTM Spoken Term Detection using Wav2Vec 2.0 Recognizer：基于 Wav2Vec 2.0 字素识别器的深度 LSTM 口语词汇检测
 - [✅] Delta Keyword Transformer: Bringing Transformers to the Edge through Dynamically Pruned Multi-Head Self-Attention
 - [✅] Depth Pruning with Auxiliary Networks for TinyML
-- [⬜] Discriminatory and Orthogonal Feature Learning for Noise Robust Keyword Spotting：面向噪声鲁棒关键词检测的判别性正交特征学习
+- [✅] Discriminatory and Orthogonal Feature Learning for Noise Robust Keyword Spotting：面向噪声鲁棒关键词检测的判别性正交特征学习
 - [⬜] Dummy Prototypical Networks for Few-Shot Open-Set Keyword Spotting
 - [⬜] Efficient Dynamic Filter for Robust and Low Computational Feature Extraction
 - [⬜] Exploring Sequence-to-Sequence Transformer-Transducer Models for Keyword Spotting（面向关键词检测的序列到序列 Transformer-Transducer 模型探索）
