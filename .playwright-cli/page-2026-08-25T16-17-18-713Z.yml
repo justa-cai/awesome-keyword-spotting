@@ -1,0 +1,270 @@
+- generic [ref=f292e2]:
+  - generic [ref=f292e3]: 论文精读 · 可视化版 · 2021 №17
+  - heading "卷积权重不必人人相同： 只花 2% 参数让滤波器跟着输入走" [level=1] [ref=f292e4]: 卷积权重不必人人相同：只花 2% 参数让滤波器跟着输入走
+  - generic [ref=f292e5]:
+    - generic [ref=f292e6]: Lightweight Dynamic Filter · 韩国大学 + 德雷塞尔大学
+    - generic [ref=f292e7]: arXiv 2109.11165 · 即插即用模块
+    - generic [ref=f292e8]: 双分支分解：主分支卷积 + 条件网调制
+    - generic [ref=f292e9]: GSC 12 类 95.6%（DS-CNN +1.3）· 参数 +2%
+  - generic [ref=f292e10]: 一句话：静态卷积「一刀切」——同一组权重要应付所有说话人、所有噪声条件；动态滤波器能按输入生成权重，但现有方法的条件网络本身就要生成完整卷积核，轻量 KWS 用不起。LDF 把问题降级：不生成核，只生成 C 个 Sigmoid 调制系数（条件网仅两个小 FC，GAP 通道统计作输入），对主分支卷积输出做逐通道调制——参数只加约 2%，DS-CNN 与 BC-ResNet 上均提升 0.5–1.5%，且与 SE 可叠加。
+  - generic [ref=f292e11]:
+    - generic [ref=f292e12]: TL;DR
+    - listitem [ref=f292e13]: ◈ 静态滤波的局限：权重训练后固定——说话人（男/女/成人/儿童/口音）、环境（安静/嘈杂/近场/远场）、不同关键词的声学分布各异，一组滤波器难以同时照顾。
+    - listitem [ref=f292e14]: ◈ 现有动态滤波的墙：CondConv/DynamicConv 一类要按输入生成完整卷积核（C_out×K_t×K_f×C_in 个参数）——条件网络等于第二个卷积层，参数量随核大小爆炸。
+    - listitem [ref=f292e15]: ◈ LDF 的降级设计：双分支分解——主分支照常做 DS 卷积；动态分支用通道统计（GAP）经两个小 FC（r=4 压缩）生成 C 个 Sigmoid 系数，对卷积输出逐通道调制。参数 2·(C/r)·C，约整网 2%。
+    - listitem [ref=f292e16]: ◈ 数学：s = GAP(X)；w = σ(W₂·δ(W₁·s))；Y = f(X) ⊙ w——「自适应」只发生在缩放上，不触碰卷积核本身。
+    - listitem [ref=f292e17]: ◈ 即插即用：不改基础架构，可插进任何轻量 KWS CNN。消融位置：中间层最好（前端/后端次之）；2–3 层联用最佳，超过 3 层递减；GAP 统计优于原始特征图作条件输入。
+    - listitem [ref=f292e18]: ◈ 与 SE 的关系最有意思：结构上几乎相同（GAP→瓶颈 FC→Sigmoid→逐通道缩放），视角不同（通道注意力 vs 输入自适应滤波）——效果相当或 LDF 略优，且两者叠加仍有增益（自适应维度不完全重叠）。
+    - listitem [ref=f292e19]: ◈ 结果（约值）：DS-CNN + LDF 达 95.6%（+1.3）；BC-ResNet 等各架构一致 +0.5–1.5%；参数 +2%、推理延迟额外计算可忽略——自适应能力在这个设计下几乎免费。
+    - listitem [ref=f292e20]: ◈ 最大遗憾：噪声/远场没测——输入自适应的真正主场恰恰是多样化声学条件（输入差异大时调制才更有用），论文只交了干净 GSC 的答卷。
+  - heading "§01 问题：一刀切的滤波器 vs 用不起的动态" [level=2] [ref=f292e21]:
+    - generic [ref=f292e22]: §01
+    - text: 问题：一刀切的滤波器 vs 用不起的动态
+  - generic [ref=f292e23]: 静态的局限 + 动态的代价
+  - generic [ref=f292e24]:
+    - generic [ref=f292e25]:
+      - heading "静态滤波的一刀切" [level=3] [ref=f292e26]
+      - paragraph [ref=f292e27]: 权重训练后对所有输入一视同仁——儿童的尖细嗓音和成人的低沉嗓音、安静与嘈杂环境，都过同一组滤波器。模型被迫学「平均最优」而非「各自最优」。
+    - generic [ref=f292e28]:
+      - heading "动态滤波的参数爆炸" [level=3] [ref=f292e29]
+      - paragraph [ref=f292e30]: 生成完整卷积核意味着条件网络的输出维度 = 核参数量——对 KWS 的小模型来说等于把参数量翻倍以上。「按输入定制滤波器」的理想撞上预算的现实。
+    - generic [ref=f292e31]:
+      - heading "降级的关键洞察" [level=3] [ref=f292e32]
+      - paragraph [ref=f292e33]: 自适应不必发生在「核的形状」上，可以发生在「响应的强度」上——保留静态卷积的全部表达力，只按输入调各通道的音量。调音量只需要 C 个系数。
+    - generic [ref=f292e34]:
+      - heading "为什么通道统计够用" [level=3] [ref=f292e35]
+      - paragraph [ref=f292e36]: 条件输入用 GAP 的通道统计（丢弃位置信息）优于原始特征图——「调音量」不需要知道哪个位置响，只需要知道整体频谱轮廓。信息需求与任务需求匹配。
+  - generic [ref=f292e37]:
+    - img [ref=f292e38]:
+      - generic [ref=f292e40]: 轻量动态滤波：让卷积权重跟着输入走——只用 2% 参数
+      - generic [ref=f292e41]: ① 静态滤波器的「一刀切」局限
+      - generic [ref=f292e43]: 静态卷积：权重训练后固定——同一组滤波器必须处理所有输入，无法按声学特性自适应
+      - generic [ref=f292e44]: 动态滤波器能按输入生成权重，但现有方法的条件网络本身很大——塞不进 KWS 的参数预算（这是本文要拆的墙）
+      - generic [ref=f292e46]: 输入多样性
+      - generic [ref=f292e47]: 说话人（男/女 · 成人/儿童 · 口音）· 环境（安静/嘈杂 · 近场/远场）·
+      - generic [ref=f292e48]: 不同关键词的声学分布各异——一刀切的滤波器难以同时照顾
+      - generic [ref=f292e50]: 动态滤波器太胖
+      - generic [ref=f292e51]: 现有动态滤波（CondConv / DynamicConv 一类）的条件网络要生成
+      - generic [ref=f292e52]: 完整卷积核——参数量随核大小爆炸，轻量 KWS 用不起
+      - generic [ref=f292e54]: LDF 的答案
+      - generic [ref=f292e55]: 不生成核，只生成「调制系数」——双分支分解：主分支照常卷积，
+      - generic [ref=f292e56]: 动态分支用通道统计算一组系数去调制——参数 2·(C/r)·C
+      - generic [ref=f292e57]: ② 双分支分解：卷积照常做，系数跟着输入走
+      - generic [ref=f292e59]: LDF 模块的数据流
+      - generic [ref=f292e60]: 输入特征图 X（C 通道）
+      - generic [ref=f292e61]: │
+      - generic [ref=f292e62]: ├─ 主分支：f(X) —— 标准 DS 卷积（原样保留）
+      - generic [ref=f292e63]: │
+      - generic [ref=f292e64]: └─ 条件网络 g(·)：
+      - generic [ref=f292e65]: s = GAP(X) ← 通道统计（1×C）
+      - generic [ref=f292e66]: w = σ(W₂·δ(W₁·s)) ← FC→ReLU→FC→Sigmoid
+      - generic [ref=f292e67]: （δ=ReLU · σ=Sigmoid · 压缩比 r=4/8）
+      - generic [ref=f292e68]: 输出：Y = f(X) ⊙ w ← 通道维逐元素调制
+      - generic [ref=f292e69]: 参数量：2·(C/r)·C —— 与 SE 同级，极小
+      - generic [ref=f292e71]: 即插即用与插入位置
+      - generic [ref=f292e72]: LDF 是即插即用模块——不改基础架构，
+      - generic [ref=f292e73]: 可插入任何轻量 KWS CNN（DS-CNN / BC-ResNet 等）
+      - generic [ref=f292e74]: 三种插入位置：
+      - generic [ref=f292e75]: · 前端：最早的卷积层后（对原始声学特征自适应增强）
+      - generic [ref=f292e76]: · 中间层：对中级特征自适应调制
+      - generic [ref=f292e77]: · 多层：多个层同时用，每层条件网络独立
+      - generic [ref=f292e78]: 消融：中间层最好；2–3 层同时用最佳，
+      - generic [ref=f292e79]: 超过 3 层收益递减
+      - generic [ref=f292e80]: 输入：40 维 MFCC · T≈49（1 秒）
+      - generic [ref=f292e81]: ③ 与 SE 注意力的关系：形似而神通
+      - generic [ref=f292e83]: 结构上 LDF ≈ SE（都是 GAP → 瓶颈 FC → Sigmoid → 逐通道缩放）——但视角不同：SE 是「通道注意力」（重标定特征响应），
+      - generic [ref=f292e84]: LDF 是「输入自适应滤波」（按输入条件调制卷积行为）。实测两者效果相当或 LDF 略优
+      - generic [ref=f292e85]: 最有意思的发现：两者可叠加——LDF + SE 仍有额外增益，说明它们捕捉的自适应维度不完全重叠
+      - generic [ref=f292e86]: 参数开销同级（都约 2%），推理延迟的额外计算可忽略——「自适应能力」在这个设计下几乎是免费的
+      - generic [ref=f292e88]: 95.6%
+      - generic [ref=f292e89]: LDF+DS-CNN · GSC 12 类
+      - generic [ref=f292e90]: +0.5–1.5%
+      - generic [ref=f292e91]: 各基础架构的一致提升
+      - generic [ref=f292e92]: ~2%
+      - generic [ref=f292e93]: 参数增加（几乎免费）
+      - generic [ref=f292e94]: 2–3 层
+      - generic [ref=f292e95]: 多层联用的甜点
+      - generic [ref=f292e96]: r=4
+      - generic [ref=f292e97]: 条件网络压缩比甜点
+      - generic [ref=f292e98]: 韩国大学 + 德雷塞尔大学 · arXiv 2109.11165；GSC v2 12 类；骨干 DS-CNN / BC-ResNet 均验证；数字为约值
+    - generic [ref=f292e99]: 图1 · 机制全景：上半是一刀切局限与动态滤波的参数墙，中段是双分支数据流与即插即用位置，底部是与 SE 的关系辨析和关键数字。
+  - heading "§02 方法：调系数不生核" [level=2] [ref=f292e100]:
+    - generic [ref=f292e101]: §02
+    - text: 方法：调系数不生核
+  - generic [ref=f292e102]: 数量级之差 · 三个消融甜点
+  - generic [ref=f292e103]:
+    - generic [ref=f292e104]: "条件网: s = GAP(X) → w = σ(W₂·δ(W₁·s)) # FC(C→C/r)→ReLU→FC(C/r→C)→Sigmoid 输出: Y = f(X) ⊙ w # 主分支卷积 × 通道调制 参数: 2·(C/r)·C （r=4） # vs 生成核的 C_out×K_t×K_f×C_in —— 差数个数量级"
+    - generic [ref=f292e105]: 人话：生成整套核要付「第二个卷积层」的价格；只生成 C 个 0–1 之间的系数只付两个小 FC。主分支的表达力原样保留——LDF 买到的不是更强的卷积，而是「这套卷积对不同输入的输出该放大还是抑制」的判断。
+  - generic [ref=f292e106]:
+    - generic [ref=f292e107]:
+      - heading "中间层最好的直觉" [level=3] [ref=f292e108]
+      - paragraph [ref=f292e109]: 前端特征太原始（调不动）、后端特征太抽象（调不动了）——中间层特征已成形但未过度压缩，「看得到内容又改得动表示」。这与 STCNN、时序 Lambda 等注意力/全局模块的插入位置结论完全同构：中间层是自适应操作的黄金窗口。
+    - generic [ref=f292e110]:
+      - heading "叠加增益的启示" [level=3] [ref=f292e111]
+      - paragraph [ref=f292e112]: LDF 与 SE 结构几乎相同却可叠加——说明「重标定已有特征」（SE 视角）与「条件化滤波行为」（LDF 视角）虽然实现重合，但训练动力学让两者收敛到不完全相同的调制模式——命名与动机影响学到的东西。
+  - generic [ref=f292e113]:
+    - img [ref=f292e114]:
+      - generic [ref=f292e116]: 机制解剖：为什么「只调系数」比「生成核」便宜一万倍
+      - generic [ref=f292e117]: 两条路的参数账
+      - generic [ref=f292e119]: 路 A：生成完整卷积核（现有动态滤波）
+      - generic [ref=f292e121]: 条件网
+      - generic [ref=f292e131]: C_out 组
+      - generic [ref=f292e132]: K_t×K_f×C_in
+      - generic [ref=f292e133]: 参数 = C_out×K_t×K_f×C_in —— 与卷积核本身一样大！
+      - generic [ref=f292e134]: 条件网络 = 第二个卷积层——轻量 KWS 直接破产
+      - generic [ref=f292e135]: 路 B：只生成调制系数（LDF）★
+      - generic [ref=f292e137]: 条件网
+      - generic [ref=f292e145]: C 个系数（Sigmoid）
+      - generic [ref=f292e146]: 参数 = 2·(C/r)·C —— r=4 压缩后只占整网 ~2%
+      - generic [ref=f292e147]: 主分支卷积原样保留——自适应只发生在「缩放」上
+      - generic [ref=f292e148]: 插入位置与联用的消融
+      - generic [ref=f292e150]: 位置消融（相对增益示意）
+      - generic [ref=f292e151]: 前端
+      - generic [ref=f292e153]: 中间层 ★
+      - generic [ref=f292e155]: 最好
+      - generic [ref=f292e156]: 后端
+      - generic [ref=f292e158]: 层数消融：1 层 < 2–3 层（甜点）< 3 层以上（递减）
+      - generic [ref=f292e159]: 条件网输入消融：GAP 通道统计 > 原始特征图
+      - generic [ref=f292e160]: ——统计量够用且便宜（不需要逐位置条件化）
+      - generic [ref=f292e162]: LDF + SE 可叠加（增益不完全重叠）
+      - generic [ref=f292e163]: 两者参数同级——自适应的两个维度各买一份
+      - generic [ref=f292e164]: 左：生成完整核要付「第二个卷积层」的价格；只生成 C 个 Sigmoid 系数只付两个小 FC——差几个数量级。右：中间层插入、2–3 层联用、GAP 统计条件化是三个甜点
+    - generic [ref=f292e165]: 图2 · 机制解剖：左是两条路的参数账（生成完整核 vs 只生成调制系数的数量级差异），右是位置/层数/压缩比/条件输入四个消融与 LDF+SE 叠加。
+  - heading "§03 实验：跨架构一致的小额稳定收益" [level=2] [ref=f292e166]:
+    - generic [ref=f292e167]: §03
+    - text: 实验：跨架构一致的小额稳定收益
+  - generic [ref=f292e168]: GSC v2 12 类 · 两种骨干验证
+  - generic [ref=f292e169]:
+    - img [ref=f292e170]:
+      - generic [ref=f292e172]: 主结果（约值）：2% 参数买 0.5–1.5 个点，跨架构一致
+      - generic [ref=f292e173]: 跨架构改进（GSC 12 类 · 相对基线提升）
+      - generic [ref=f292e174]: "93"
+      - generic [ref=f292e176]: "94"
+      - generic [ref=f292e178]: "95"
+      - generic [ref=f292e180]: "96"
+      - generic [ref=f292e182]: "97"
+      - generic [ref=f292e184]: "98"
+      - generic [ref=f292e186]: "99"
+      - generic [ref=f292e188]: ~94.3
+      - generic [ref=f292e189]: DS-CNN
+      - generic [ref=f292e190]: 基线
+      - generic [ref=f292e192]: ~95.6
+      - generic [ref=f292e193]: "+1.3"
+      - generic [ref=f292e194]: DS-CNN
+      - generic [ref=f292e195]: + LDF
+      - generic [ref=f292e197]: ~98.0
+      - generic [ref=f292e198]: BC-ResN
+      - generic [ref=f292e199]: et 基线
+      - generic [ref=f292e201]: ~98.8
+      - generic [ref=f292e202]: "+0.8"
+      - generic [ref=f292e203]: BC-ResN
+      - generic [ref=f292e204]: et + LD
+      - generic [ref=f292e205]: F
+      - generic [ref=f292e206]: 两种骨干一致受益——收益不绑定特定架构
+      - generic [ref=f292e207]: 读数：
+      - generic [ref=f292e208]: · 全部测试架构 +0.5–1.5%——即插即用的普适性证据
+      - generic [ref=f292e209]: · 参数增加仅 ~2%：条件网络两个小 FC 可忽略
+      - generic [ref=f292e210]: · 推理延迟：条件网络额外计算可忽略——实时性保持
+      - generic [ref=f292e211]: · LDF ≈ 或略优于 SE；两者叠加仍有增益（维度不重叠）
+      - generic [ref=f292e212]: 消融汇总与边界
+      - generic [ref=f292e214]: 四个消融甜点
+      - generic [ref=f292e215]: · 位置：中间层 > 前端 / 后端
+      - generic [ref=f292e216]: · 层数：2–3 层最佳，更多递减
+      - generic [ref=f292e217]: · 压缩比：r=4 平衡参数与增益
+      - generic [ref=f292e218]: · 条件输入：GAP 统计 > 原始特征图
+      - generic [ref=f292e219]: 机理直觉：中间层特征已成形但未过度抽象——
+      - generic [ref=f292e220]: 调制在这里既看得到内容又改得动表示；
+      - generic [ref=f292e221]: GAP 统计丢弃位置信息，但「调音量」不需要位置
+      - generic [ref=f292e223]: 证据边界
+      - generic [ref=f292e224]: · 噪声/远场未充分评估——理论上自适应应更
+      - generic [ref=f292e225]: 有优势（输入差异大时调制更有用），但无实验
+      - generic [ref=f292e226]: · 可解释性缺失：条件网络学到了什么调制模式
+      - generic [ref=f292e227]: （说话人？噪声类型？）——未分析
+      - generic [ref=f292e228]: · 仅 GSC；无流式评估；无量化数据
+      - generic [ref=f292e229]: · 与 CBAM / ECA 等注意力对比不全
+      - generic [ref=f292e230]: 注：数字为笔记记录的约值（原文见 arXiv 2109.11165）；BC-ResNet 行的基线值引自本仓库 2021 №8 页（98.0），LDF 版为笔记的相对提升记录——引用请回对两篇原文
+    - generic [ref=f292e231]: 图3 · 主结果：左是 DS-CNN 与 BC-ResNet 加 LDF 前后的对比（跨架构一致性），右是四个消融甜点与证据边界（噪声远场缺失、可解释性黑箱、SE 同构疑问）。
+  - table [ref=f292e232]:
+    - rowgroup [ref=f292e233]:
+      - row [ref=f292e234]:
+        - columnheader "消融/对比项" [ref=f292e235]
+        - columnheader "结果" [ref=f292e236]
+        - columnheader "解读" [ref=f292e237]
+      - row [ref=f292e238]:
+        - cell "参数增加" [ref=f292e239]
+        - cell "~2%" [ref=f292e240]
+        - cell "自适应几乎免费" [ref=f292e241]
+      - row [ref=f292e242]:
+        - cell "各基础架构提升" [ref=f292e243]
+        - cell "+0.5–1.5%" [ref=f292e244]
+        - cell "不绑定特定骨干" [ref=f292e245]
+      - row [ref=f292e246]:
+        - cell "插入位置" [ref=f292e247]
+        - cell "中间层最佳" [ref=f292e248]
+        - cell "与前/后端差距明显" [ref=f292e249]
+      - row [ref=f292e250]:
+        - cell "联用层数" [ref=f292e251]
+        - cell "2–3 层甜点" [ref=f292e252]
+        - cell "超过 3 层递减" [ref=f292e253]
+      - row [ref=f292e254]:
+        - cell "LDF vs SE" [ref=f292e255]
+        - cell "相当或略优，可叠加" [ref=f292e256]
+        - cell "维度不完全重叠" [ref=f292e257]
+  - generic [ref=f292e258]:
+    - generic [ref=f292e259]: 读表要点
+    - listitem [ref=f292e260]: ◈ 0.5–1.5% 的增益幅度不大，但「2% 参数 + 可忽略延迟 + 跨架构一致 + 可与 SE 叠加」四个性质合起来就是工程上「无脑加」的模块——这类小额稳定收益在端侧累积价值高于单点大幅提升。
+    - listitem [ref=f292e261]: ◈ 最大的未兑现承诺：输入自适应的理论优势在输入差异大时才兑现（噪声/说话人/域漂移）——论文只测了干净 GSC，等于在自适应最没用的场景验证了自适应。噪声数据集的验证是最自然的后续。
+    - listitem [ref=f292e262]: ◈ 引用提醒：BC-ResNet 基线值引自本仓库 2021 №8 页（KWT 页亦有对照），LDF 版数字为笔记的相对记录——引用回对两篇原文。
+  - heading "§04 贡献" [level=2] [ref=f292e263]:
+    - generic [ref=f292e264]: §04
+    - text: 贡献
+  - generic [ref=f292e265]: 四点：从极轻量自适应到普适验证
+  - generic [ref=f292e266]:
+    - generic [ref=f292e267]:
+      - generic [ref=f292e268]: "1"
+      - paragraph [ref=f292e269]: 专为 KWS 设计的极轻量动态滤波机制：双分支分解 + 通道统计条件网——仅 ~2% 参数提供输入自适应能力，可在最严格的边缘约束下使用。
+    - generic [ref=f292e270]:
+      - generic [ref=f292e271]: "2"
+      - paragraph [ref=f292e272]: 即插即用设计：无需修改基础架构，可集成到任何 CNN-based KWS 模型——工程实现成本极低。
+    - generic [ref=f292e273]:
+      - generic [ref=f292e274]: "3"
+      - paragraph [ref=f292e275]: 验证输入自适应对 KWS 有益：极小条件网络实现的简单自适应也带来可观提升——确认了 KWS 中自适应处理的必要性。
+    - generic [ref=f292e276]:
+      - generic [ref=f292e277]: "4"
+      - paragraph [ref=f292e278]: 跨架构一致改进：DS-CNN、BC-ResNet 等多种骨干一致受益——收益不依赖特定网络。
+  - heading "§05 局限与判断" [level=2] [ref=f292e279]:
+    - generic [ref=f292e280]: §05
+    - text: 局限与判断
+  - generic [ref=f292e281]: 主场未测 · 仅通道维 · SE 同构
+  - generic [ref=f292e282]:
+    - img [ref=f292e283]:
+      - generic [ref=f292e285]: 边界与延伸
+      - generic [ref=f292e287]: 技术边界
+      - generic [ref=f292e288]: · 噪声/远场评估不足：输入自适应的真正舞台是多样化声学条件
+      - generic [ref=f292e289]: （说话人变了、噪声变了才需要不同滤波）——但恰恰没测
+      - generic [ref=f292e290]: · 仅通道维调制：时间维的动态滤波未做（语音的时间结构
+      - generic [ref=f292e291]: 可能也需要自适应）
+      - generic [ref=f292e292]: · 可解释性：条件网络的调制策略是黑箱——学到的模式
+      - generic [ref=f292e293]: 与说话人/噪声/发音的对应关系未分析
+      - generic [ref=f292e294]: · SE 同构的疑问：结构上与 SE 几乎相同——「动态滤波」与
+      - generic [ref=f292e295]: 「通道注意力」的实质区分需要更深分析
+      - generic [ref=f292e297]: 实验边界 + 延伸
+      - generic [ref=f292e298]: · 仅 GSC 干净数据；无流式推理评估；无量化部署数据
+      - generic [ref=f292e299]: · 与 CBAM / ECA 等自适应模块对比不全
+      - generic [ref=f292e300]: 延伸：噪声数据集验证自适应优势（这才是主场）；
+      - generic [ref=f292e301]: 时间维动态滤波（当前仅通道）；与蒸馏结合再压缩；
+      - generic [ref=f292e302]: 分析条件网络学到的调制模式（可解释性）
+      - generic [ref=f292e303]: 可迁移判断：自适应能力可以是免费的——把「生成整套权重」降级为「生成调制系数」，参数差几个数量级；输入差异越大的场景（噪声/说话人/域漂移），这种廉价自适应的期望收益越高
+    - generic [ref=f292e304]: 图4 · 边界与延伸：左技术边界（噪声远场缺席、仅通道维、可解释性黑箱、与 SE 的实质区分待深挖），右实验边界（仅 GSC、无流式、无量化）+ 延伸方向。
+  - generic [ref=f292e305]:
+    - generic [ref=f292e306]: 可迁移判断
+    - paragraph [ref=f292e307]: ↳ 自适应可以是免费的：把「生成整套权重」降级为「生成调制系数」，参数差几个数量级——预算受限时先问「自适应的最小可行形式是什么」，往往缩放系数就够了。
+    - paragraph [ref=f292e308]: ↳ 输入差异越大，廉价自适应的期望收益越高：干净单说话人数据集是自适应最没用的场景——验证自适应机制应主动选择分布多样的测试集（噪声/说话人/域漂移），否则是在主场缺席的情况下打分。
+    - paragraph [ref=f292e309]: ↳ 中间层是自适应操作的黄金窗口：LDF 的位置消融与注意力插入位置、多尺度融合的结论第三次同构——「特征已成形且未过度抽象」的层间位置值得作为默认假设。
+    - paragraph [ref=f292e310]: ↳ 结构相同的模块可能学到不同的东西：LDF 与 SE 结构几乎一致却能叠加——动机与命名影响训练收敛的位置；两个「等价」模块叠加有增益时，说明该表示空间还有未被利用的自由度。
+  - generic [ref=f292e311]:
+    - link "arXiv 2109.11165 ↗" [ref=f292e312] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2109.11165
+    - link "← 返回总目录" [ref=f292e313] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f292e314]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值（BC-ResNet 基线引自本系列 2021 №8 页）· 2021 №17 · 202+/305

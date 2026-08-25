@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>轻量动态滤波器 KWS · 论文精读可视化</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;}
+.wrap{max-width:980px;margin:0 auto;padding:56px 28px 80px;}
+.kicker{font-size:13px;letter-spacing:.22em;color:var(--acc);font-weight:700;margin-bottom:14px;text-transform:uppercase;}
+h1.hero{font-size:40px;line-height:1.32;font-weight:800;letter-spacing:.01em;margin-bottom:18px;}
+h1.hero .g{color:var(--acc);}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+.chip{font-size:12.5px;padding:4px 13px;border:1px solid var(--line);border-radius:999px;color:var(--ink2);background:#fffdf8;}
+.chip.acc{background:var(--lt);border-color:#bfe5d6;color:var(--dk);}
+.meta{border-left:3px solid var(--acc);background:#fffdf8;padding:12px 18px;font-size:13.5px;color:var(--ink2);margin-bottom:40px;border-radius:0 8px 8px 0;}
+.meta b{color:var(--ink);}
+h2{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:800;margin:56px 0 6px;}
+h2 .no{flex:none;font-size:12px;font-weight:800;color:#fff;background:var(--ink);padding:3px 10px;border-radius:999px;letter-spacing:.08em;}
+.h2sub{font-size:13.5px;color:var(--ink3);margin:0 0 18px 46px;}
+.tldr{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-bottom:8px;}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--dk);letter-spacing:.12em;margin-bottom:10px;}
+.tldr li{list-style:none;font-size:14.5px;color:var(--ink2);padding-left:20px;position:relative;margin-bottom:7px;}
+.tldr li:before{content:"◈";position:absolute;left:0;color:var(--acc);font-size:12px;top:2px;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.card{background:#fffdf8;border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
+.card h3{font-size:15.5px;font-weight:700;margin-bottom:8px;}
+.card p{font-size:13.5px;color:var(--ink2);}
+.card.acc{background:var(--lt);border-color:#bfe5d6;}
+.card.acc h3{color:var(--dk);}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4;}
+.card.bad h3{color:var(--warn);}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--lt);color:var(--dk);margin-bottom:8px;}
+.fig{margin:26px 0;}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:14px;}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:10px;line-height:1.7;}
+.cap b{color:var(--ink2);}
+.formula{background:#fffdf8;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 12px 12px 0;padding:16px 20px;margin:16px 0;}
+.formula .f{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:15px;color:var(--ink);background:#f2f4ef;padding:10px 14px;border-radius:8px;margin-bottom:10px;overflow-x:auto;white-space:pre;}
+.formula .why{font-size:13.5px;color:var(--ink2);}
+.formula .why b{color:var(--dk);}
+table.tb{width:100%;border-collapse:collapse;background:#fffdf8;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:18px 0;font-size:13.5px;}
+table.tb th{background:var(--ink);color:#fff;padding:10px 14px;text-align:left;font-weight:700;font-size:13px;}
+table.tb td{padding:10px 14px;border-top:1px solid var(--line);color:var(--ink2);}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:700;}
+.contrib{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:18px 0;}
+.contrib .row{display:flex;gap:16px;padding:12px 0;border-bottom:1px dashed var(--line);}
+.contrib .row:last-child{border-bottom:none;}
+.contrib .n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.contrib .row p{font-size:14px;color:var(--ink2);}
+.contrib .row p b{color:var(--ink);}
+.lim{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.judge{background:#fffaf4;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:18px 0;}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.12em;margin-bottom:10px;}
+.judge p{font-size:14px;color:var(--ink2);margin-bottom:8px;}
+.judge p b{color:var(--ink);}
+.foot{margin-top:64px;padding-top:28px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.pill{display:inline-block;font-size:13px;font-weight:700;color:var(--dk);background:var(--lt);border:1px solid #bfe5d6;border-radius:999px;padding:7px 18px;text-decoration:none;}
+.pill.ghost{background:transparent;color:var(--ink2);border-color:var(--line);}
+.foot-note{font-size:12px;color:var(--ink3);margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2021 №17</div>
+<h1 class="hero">卷积权重不必人人相同：<br>只花 <span class="g">2% 参数</span>让滤波器跟着输入走</h1>
+<div class="chips">
+<span class="chip acc">Lightweight Dynamic Filter · 韩国大学 + 德雷塞尔大学</span>
+<span class="chip">arXiv 2109.11165 · 即插即用模块</span>
+<span class="chip">双分支分解：主分支卷积 + 条件网调制</span>
+<span class="chip">GSC 12 类 95.6%（DS-CNN +1.3）· 参数 +2%</span>
+</div>
+<div class="meta">
+<b>一句话</b>：静态卷积「一刀切」——同一组权重要应付所有说话人、所有噪声条件；动态滤波器能按输入生成权重，但现有方法的条件网络本身就要生成完整卷积核，轻量 KWS 用不起。LDF 把问题降级：不生成核，只生成 C 个 Sigmoid 调制系数（条件网仅两个小 FC，GAP 通道统计作输入），对主分支卷积输出做逐通道调制——参数只加约 2%，DS-CNN 与 BC-ResNet 上均提升 0.5–1.5%，且与 SE 可叠加。
+</div>
+
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<li><b>静态滤波的局限</b>：权重训练后固定——说话人（男/女/成人/儿童/口音）、环境（安静/嘈杂/近场/远场）、不同关键词的声学分布各异，一组滤波器难以同时照顾。</li>
+<li><b>现有动态滤波的墙</b>：CondConv/DynamicConv 一类要按输入生成完整卷积核（C_out×K_t×K_f×C_in 个参数）——条件网络等于第二个卷积层，参数量随核大小爆炸。</li>
+<li><b>LDF 的降级设计</b>：双分支分解——主分支照常做 DS 卷积；动态分支用通道统计（GAP）经两个小 FC（r=4 压缩）生成 C 个 Sigmoid 系数，对卷积输出<b>逐通道调制</b>。参数 2·(C/r)·C，约整网 2%。</li>
+<li>数学：s = GAP(X)；w = σ(W₂·δ(W₁·s))；Y = f(X) ⊙ w——「自适应」只发生在缩放上，不触碰卷积核本身。</li>
+<li><b>即插即用</b>：不改基础架构，可插进任何轻量 KWS CNN。消融位置：中间层最好（前端/后端次之）；2–3 层联用最佳，超过 3 层递减；GAP 统计优于原始特征图作条件输入。</li>
+<li><b>与 SE 的关系最有意思</b>：结构上几乎相同（GAP→瓶颈 FC→Sigmoid→逐通道缩放），视角不同（通道注意力 vs 输入自适应滤波）——效果相当或 LDF 略优，且<b>两者叠加仍有增益</b>（自适应维度不完全重叠）。</li>
+<li>结果（约值）：DS-CNN + LDF 达 95.6%（+1.3）；BC-ResNet 等各架构一致 +0.5–1.5%；参数 +2%、推理延迟额外计算可忽略——自适应能力在这个设计下几乎免费。</li>
+<li>最大遗憾：<b>噪声/远场没测</b>——输入自适应的真正主场恰恰是多样化声学条件（输入差异大时调制才更有用），论文只交了干净 GSC 的答卷。</li>
+</div>
+
+<h2><span class="no">§01</span>问题：一刀切的滤波器 vs 用不起的动态</h2>
+<div class="h2sub">静态的局限 + 动态的代价</div>
+<div class="cards">
+<div class="card bad">
+<h3>静态滤波的一刀切</h3>
+<p>权重训练后对所有输入一视同仁——儿童的尖细嗓音和成人的低沉嗓音、安静与嘈杂环境，都过同一组滤波器。模型被迫学「平均最优」而非「各自最优」。</p>
+</div>
+<div class="card bad">
+<h3>动态滤波的参数爆炸</h3>
+<p>生成完整卷积核意味着条件网络的输出维度 = 核参数量——对 KWS 的小模型来说等于把参数量翻倍以上。「按输入定制滤波器」的理想撞上预算的现实。</p>
+</div>
+<div class="card">
+<h3>降级的关键洞察</h3>
+<p>自适应不必发生在「核的形状」上，可以发生在「响应的强度」上——保留静态卷积的全部表达力，只按输入调各通道的音量。调音量只需要 C 个系数。</p>
+</div>
+<div class="card">
+<h3>为什么通道统计够用</h3>
+<p>条件输入用 GAP 的通道统计（丢弃位置信息）优于原始特征图——「调音量」不需要知道哪个位置响，只需要知道整体频谱轮廓。信息需求与任务需求匹配。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">轻量动态滤波：让卷积权重跟着输入走——只用 2% 参数</text>
+<line x1="36.0" y1="60.0" x2="640.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 静态滤波器的「一刀切」局限</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">静态卷积：权重训练后固定——同一组滤波器必须处理所有输入，无法按声学特性自适应</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">动态滤波器能按输入生成权重，但现有方法的条件网络本身很大——塞不进 KWS 的参数预算（这是本文要拆的墙）</text>
+<rect x="36.0" y="152.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="182.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">输入多样性</text>
+<text x="215.0" y="173.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">说话人（男/女 · 成人/儿童 · 口音）· 环境（安静/嘈杂 · 近场/远场）·</text>
+<text x="215.0" y="191.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不同关键词的声学分布各异——一刀切的滤波器难以同时照顾</text>
+<rect x="36.0" y="210.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="240.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">动态滤波器太胖</text>
+<text x="215.0" y="231.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">现有动态滤波（CondConv / DynamicConv 一类）的条件网络要生成</text>
+<text x="215.0" y="249.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">完整卷积核——参数量随核大小爆炸，轻量 KWS 用不起</text>
+<rect x="36.0" y="268.0" width="848.0" height="50.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="298.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LDF 的答案</text>
+<text x="215.0" y="289.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不生成核，只生成「调制系数」——双分支分解：主分支照常卷积，</text>
+<text x="215.0" y="307.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">动态分支用通道统计算一组系数去调制——参数 2·(C/r)·C</text>
+<text x="36.0" y="338.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 双分支分解：卷积照常做，系数跟着输入走</text>
+<rect x="36.0" y="354.0" width="420.0" height="190.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="246.0" y="376.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LDF 模块的数据流</text>
+<text x="52.0" y="398.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输入特征图 X（C 通道）</text>
+<text x="52.0" y="412.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">│</text>
+<text x="52.0" y="426.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">├─ 主分支：f(X) —— 标准 DS 卷积（原样保留）</text>
+<text x="52.0" y="440.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">│</text>
+<text x="52.0" y="454.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">└─ 条件网络 g(·)：</text>
+<text x="52.0" y="468.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   s = GAP(X)                ← 通道统计（1×C）</text>
+<text x="52.0" y="482.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   w = σ(W₂·δ(W₁·s))        ← FC→ReLU→FC→Sigmoid</text>
+<text x="52.0" y="496.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   （δ=ReLU · σ=Sigmoid · 压缩比 r=4/8）</text>
+<text x="52.0" y="510.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="524.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输出：Y = f(X) ⊙ w           ← 通道维逐元素调制</text>
+<text x="52.0" y="538.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="552.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量：2·(C/r)·C —— 与 SE 同级，极小</text>
+<rect x="468.0" y="354.0" width="408.0" height="190.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="676.0" y="376.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">即插即用与插入位置</text>
+<text x="484.0" y="398.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">LDF 是即插即用模块——不改基础架构，</text>
+<text x="484.0" y="412.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可插入任何轻量 KWS CNN（DS-CNN / BC-ResNet 等）</text>
+<text x="484.0" y="426.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="440.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">三种插入位置：</text>
+<text x="484.0" y="454.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 前端：最早的卷积层后（对原始声学特征自适应增强）</text>
+<text x="484.0" y="468.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 中间层：对中级特征自适应调制</text>
+<text x="484.0" y="482.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多层：多个层同时用，每层条件网络独立</text>
+<text x="484.0" y="496.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="510.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">消融：中间层最好；2–3 层同时用最佳，</text>
+<text x="484.0" y="524.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">超过 3 层收益递减</text>
+<text x="484.0" y="538.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="552.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输入：40 维 MFCC · T≈49（1 秒）</text>
+<text x="36.0" y="558.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 与 SE 注意力的关系：形似而神通</text>
+<rect x="36.0" y="574.0" width="848.0" height="122.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="598.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">结构上 LDF ≈ SE（都是 GAP → 瓶颈 FC → Sigmoid → 逐通道缩放）——但视角不同：SE 是「通道注意力」（重标定特征响应），</text>
+<text x="52.0" y="613.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">LDF 是「输入自适应滤波」（按输入条件调制卷积行为）。实测两者效果相当或 LDF 略优</text>
+<text x="52.0" y="628.0" font-size="9.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="643.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">最有意思的发现：两者可叠加——LDF + SE 仍有额外增益，说明它们捕捉的自适应维度不完全重叠</text>
+<text x="52.0" y="658.0" font-size="9.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="673.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">参数开销同级（都约 2%），推理延迟的额外计算可忽略——「自适应能力」在这个设计下几乎是免费的</text>
+<rect x="36.0" y="716.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="742.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">95.6%</text>
+<text x="130.0" y="762.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">LDF+DS-CNN · GSC 12 类</text>
+<text x="298.0" y="742.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+0.5–1.5%</text>
+<text x="298.0" y="762.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">各基础架构的一致提升</text>
+<text x="466.0" y="742.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~2%</text>
+<text x="466.0" y="762.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数增加（几乎免费）</text>
+<text x="634.0" y="742.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2–3 层</text>
+<text x="634.0" y="762.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">多层联用的甜点</text>
+<text x="802.0" y="742.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">r=4</text>
+<text x="802.0" y="762.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">条件网络压缩比甜点</text>
+<text x="36.0" y="800.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">韩国大学 + 德雷塞尔大学 · arXiv 2109.11165；GSC v2 12 类；骨干 DS-CNN / BC-ResNet 均验证；数字为约值</text>
+</svg>
+<div class="cap"><b>图1 · 机制全景</b>：上半是一刀切局限与动态滤波的参数墙，中段是双分支数据流与即插即用位置，底部是与 SE 的关系辨析和关键数字。</div>
+</div>
+
+<h2><span class="no">§02</span>方法：调系数不生核</h2>
+<div class="h2sub">数量级之差 · 三个消融甜点</div>
+
+<div class="formula">
+<div class="f">条件网:  s = GAP(X) → w = σ(W₂·δ(W₁·s))     # FC(C→C/r)→ReLU→FC(C/r→C)→Sigmoid
+输出:    Y = f(X) ⊙ w                            # 主分支卷积 × 通道调制
+参数:    2·(C/r)·C   （r=4）                     # vs 生成核的 C_out×K_t×K_f×C_in —— 差数个数量级</div>
+<div class="why"><b>人话</b>：生成整套核要付「第二个卷积层」的价格；只生成 C 个 0–1 之间的系数只付两个小 FC。主分支的表达力原样保留——LDF 买到的不是更强的卷积，而是「这套卷积对不同输入的输出该放大还是抑制」的判断。</div>
+</div>
+
+<div class="cards">
+<div class="card acc">
+<h3>中间层最好的直觉</h3>
+<p>前端特征太原始（调不动）、后端特征太抽象（调不动了）——中间层特征已成形但未过度压缩，「看得到内容又改得动表示」。这与 STCNN、时序 Lambda 等注意力/全局模块的插入位置结论完全同构：中间层是自适应操作的黄金窗口。</p>
+</div>
+<div class="card acc">
+<h3>叠加增益的启示</h3>
+<p>LDF 与 SE 结构几乎相同却可叠加——说明「重标定已有特征」（SE 视角）与「条件化滤波行为」（LDF 视角）虽然实现重合，但训练动力学让两者收敛到不完全相同的调制模式——命名与动机影响学到的东西。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker></defs>
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：为什么「只调系数」比「生成核」便宜一万倍</text>
+<line x1="36.0" y1="56.0" x2="650.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两条路的参数账</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="60.0" y="112.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">路 A：生成完整卷积核（现有动态滤波）</text>
+<rect x="68.0" y="124.0" width="60.0" height="26.0" rx="4" fill="#c9d8e8"/>
+<text x="98.0" y="141.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">条件网</text>
+<line x1="128.0" y1="137.0" x2="154.00" y2="137.00" stroke="#8a93a5" stroke-width="1.1" marker-end="url(#ar)"/>
+<rect x="156.0" y="116.0" width="11.0" height="11.0" rx="2" fill="#e8b8b0"/>
+<rect x="169.0" y="116.0" width="11.0" height="11.0" rx="2" fill="#e8b8b0"/>
+<rect x="182.0" y="116.0" width="11.0" height="11.0" rx="2" fill="#e8b8b0"/>
+<rect x="156.0" y="129.0" width="11.0" height="11.0" rx="2" fill="#e8b8b0"/>
+<rect x="169.0" y="129.0" width="11.0" height="11.0" rx="2" fill="#e8b8b0"/>
+<rect x="182.0" y="129.0" width="11.0" height="11.0" rx="2" fill="#e8b8b0"/>
+<rect x="156.0" y="142.0" width="11.0" height="11.0" rx="2" fill="#e8b8b0"/>
+<rect x="169.0" y="142.0" width="11.0" height="11.0" rx="2" fill="#e8b8b0"/>
+<rect x="182.0" y="142.0" width="11.0" height="11.0" rx="2" fill="#e8b8b0"/>
+<text x="218.0" y="138.0" font-size="7.5" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">C_out 组</text>
+<text x="218.0" y="150.0" font-size="7.5" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">K_t×K_f×C_in</text>
+<text x="223.0" y="196.0" font-size="8.2" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数 = C_out×K_t×K_f×C_in —— 与卷积核本身一样大！</text>
+<text x="223.0" y="210.0" font-size="8.2" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">条件网络 = 第二个卷积层——轻量 KWS 直接破产</text>
+<text x="60.0" y="236.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">路 B：只生成调制系数（LDF）★</text>
+<rect x="68.0" y="248.0" width="60.0" height="26.0" rx="4" fill="#c9d8e8"/>
+<text x="98.0" y="265.0" font-size="8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">条件网</text>
+<line x1="128.0" y1="261.0" x2="154.00" y2="261.00" stroke="#8a93a5" stroke-width="1.1" marker-end="url(#ar)"/>
+<rect x="158.0" y="252.2" width="11.0" height="21.8" rx="2" fill="#9fc8b8"/>
+<rect x="173.0" y="253.6" width="11.0" height="20.4" rx="2" fill="#9fc8b8"/>
+<rect x="188.0" y="270.2" width="11.0" height="3.8" rx="2" fill="#9fc8b8"/>
+<rect x="203.0" y="277.8" width="11.0" height="-3.8" rx="2" fill="#9fc8b8"/>
+<rect x="218.0" y="265.2" width="11.0" height="8.8" rx="2" fill="#9fc8b8"/>
+<rect x="233.0" y="250.9" width="11.0" height="23.1" rx="2" fill="#9fc8b8"/>
+<rect x="248.0" y="255.8" width="11.0" height="18.2" rx="2" fill="#9fc8b8"/>
+<rect x="263.0" y="272.8" width="11.0" height="1.2" rx="2" fill="#9fc8b8"/>
+<text x="218.0" y="288.0" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">C 个系数（Sigmoid）</text>
+<text x="223.0" y="322.0" font-size="8.2" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">参数 = 2·(C/r)·C —— r=4 压缩后只占整网 ~2%</text>
+<text x="223.0" y="336.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">主分支卷积原样保留——自适应只发生在「缩放」上</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">插入位置与联用的消融</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="450.0" y="112.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">位置消融（相对增益示意）</text>
+<text x="450.0" y="136.0" font-size="8.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">前端</text>
+<rect x="510.0" y="124.0" width="102.0" height="15.0" rx="4" fill="#c9d8e8"/>
+<text x="450.0" y="170.0" font-size="8.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">中间层 ★</text>
+<rect x="510.0" y="158.0" width="170.0" height="15.0" rx="4" fill="#0b6e52"/>
+<text x="684.0" y="170.0" font-size="8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">最好</text>
+<text x="450.0" y="204.0" font-size="8.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">后端</text>
+<rect x="510.0" y="192.0" width="93.5" height="15.0" rx="4" fill="#c9d8e8"/>
+<text x="450.0" y="236.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">层数消融：1 层 &lt; 2–3 层（甜点）&lt; 3 层以上（递减）</text>
+<text x="450.0" y="252.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">条件网输入消融：GAP 通道统计 &gt; 原始特征图</text>
+<text x="450.0" y="268.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——统计量够用且便宜（不需要逐位置条件化）</text>
+<rect x="448.0" y="284.0" width="384.0" height="50.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="640.0" y="302.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LDF + SE 可叠加（增益不完全重叠）</text>
+<text x="640.0" y="318.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">两者参数同级——自适应的两个维度各买一份</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：生成完整核要付「第二个卷积层」的价格；只生成 C 个 Sigmoid 系数只付两个小 FC——差几个数量级。右：中间层插入、2–3 层联用、GAP 统计条件化是三个甜点</text>
+</svg>
+<div class="cap"><b>图2 · 机制解剖</b>：左是两条路的参数账（生成完整核 vs 只生成调制系数的数量级差异），右是位置/层数/压缩比/条件输入四个消融与 LDF+SE 叠加。</div>
+</div>
+
+<h2><span class="no">§03</span>实验：跨架构一致的小额稳定收益</h2>
+<div class="h2sub">GSC v2 12 类 · 两种骨干验证</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（约值）：2% 参数买 0.5–1.5 个点，跨架构一致</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">跨架构改进（GSC 12 类 · 相对基线提升）</text>
+<line x1="52.0" y1="282.0" x2="456.00" y2="282.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="285.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">93</text>
+<line x1="52.0" y1="255.8" x2="456.00" y2="255.85" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="258.8" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">94</text>
+<line x1="52.0" y1="229.7" x2="456.00" y2="229.69" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="232.7" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">95</text>
+<line x1="52.0" y1="203.5" x2="456.00" y2="203.54" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="206.5" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">96</text>
+<line x1="52.0" y1="177.4" x2="456.00" y2="177.38" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="180.4" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">97</text>
+<line x1="52.0" y1="151.2" x2="456.00" y2="151.23" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="154.2" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">98</text>
+<line x1="52.0" y1="125.1" x2="456.00" y2="125.08" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="128.1" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">99</text>
+<rect x="90.0" y="248.0" width="56.0" height="34.0" rx="4" fill="#c9d8e8"/>
+<text x="118.0" y="242.0" font-size="8.2" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~94.3</text>
+<text x="118.0" y="296.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN </text>
+<text x="118.0" y="306.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">基线</text>
+<rect x="182.0" y="214.0" width="56.0" height="68.0" rx="4" fill="#0b6e52"/>
+<text x="210.0" y="208.0" font-size="8.2" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~95.6</text>
+<text x="210.0" y="196.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1.3</text>
+<text x="210.0" y="296.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN </text>
+<text x="210.0" y="306.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">+ LDF</text>
+<rect x="274.0" y="151.2" width="56.0" height="130.8" rx="4" fill="#c9d8e8"/>
+<text x="302.0" y="145.2" font-size="8.2" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~98.0</text>
+<text x="302.0" y="296.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">BC-ResN</text>
+<text x="302.0" y="306.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">et 基线</text>
+<rect x="366.0" y="130.3" width="56.0" height="151.7" rx="4" fill="#0b6e52"/>
+<text x="394.0" y="124.3" font-size="8.2" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~98.8</text>
+<text x="394.0" y="112.3" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+0.8</text>
+<text x="394.0" y="296.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">BC-ResN</text>
+<text x="394.0" y="306.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">et + LD</text>
+<text x="394.0" y="316.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">F</text>
+<text x="256.0" y="106.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">两种骨干一致受益——收益不绑定特定架构</text>
+<text x="56.0" y="312.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="56.0" y="326.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全部测试架构 +0.5–1.5%——即插即用的普适性证据</text>
+<text x="56.0" y="339.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 参数增加仅 ~2%：条件网络两个小 FC 可忽略</text>
+<text x="56.0" y="352.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 推理延迟：条件网络额外计算可忽略——实时性保持</text>
+<text x="56.0" y="365.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· LDF ≈ 或略优于 SE；两者叠加仍有增益（维度不重叠）</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融汇总与边界</text>
+<rect x="500.0" y="92.0" width="324.0" height="176.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="112.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四个消融甜点</text>
+<text x="514.0" y="130.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 位置：中间层 &gt; 前端 / 后端</text>
+<text x="514.0" y="143.5" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 层数：2–3 层最佳，更多递减</text>
+<text x="514.0" y="157.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 压缩比：r=4 平衡参数与增益</text>
+<text x="514.0" y="170.5" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 条件输入：GAP 统计 &gt; 原始特征图</text>
+<text x="514.0" y="184.0" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="197.5" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">机理直觉：中间层特征已成形但未过度抽象——</text>
+<text x="514.0" y="211.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">调制在这里既看得到内容又改得动表示；</text>
+<text x="514.0" y="224.5" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">GAP 统计丢弃位置信息，但「调音量」不需要位置</text>
+<rect x="500.0" y="276.0" width="324.0" height="136.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="514.0" y="294.0" font-size="9" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">证据边界</text>
+<text x="514.0" y="310.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声/远场未充分评估——理论上自适应应更</text>
+<text x="514.0" y="322.8" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  有优势（输入差异大时调制更有用），但无实验</text>
+<text x="514.0" y="335.6" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 可解释性缺失：条件网络学到了什么调制模式</text>
+<text x="514.0" y="348.4" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （说话人？噪声类型？）——未分析</text>
+<text x="514.0" y="361.2" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 仅 GSC；无流式评估；无量化数据</text>
+<text x="514.0" y="374.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 与 CBAM / ECA 等注意力对比不全</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：数字为笔记记录的约值（原文见 arXiv 2109.11165）；BC-ResNet 行的基线值引自本仓库 2021 №8 页（98.0），LDF 版为笔记的相对提升记录——引用请回对两篇原文</text>
+</svg>
+<div class="cap"><b>图3 · 主结果</b>：左是 DS-CNN 与 BC-ResNet 加 LDF 前后的对比（跨架构一致性），右是四个消融甜点与证据边界（噪声远场缺失、可解释性黑箱、SE 同构疑问）。</div>
+</div>
+<table class="tb">
+<tr><th>消融/对比项</th><th>结果</th><th>解读</th></tr>
+<tr class="hl"><td>参数增加</td><td>~2%</td><td>自适应几乎免费</td></tr>
+<tr><td>各基础架构提升</td><td>+0.5–1.5%</td><td>不绑定特定骨干</td></tr>
+<tr><td>插入位置</td><td>中间层最佳</td><td>与前/后端差距明显</td></tr>
+<tr><td>联用层数</td><td>2–3 层甜点</td><td>超过 3 层递减</td></tr>
+<tr><td>LDF vs SE</td><td>相当或略优，可叠加</td><td>维度不完全重叠</td></tr>
+</table>
+<div class="tldr" style="margin-top:14px;">
+<div class="tt">读表要点</div>
+<li>0.5–1.5% 的增益幅度不大，但「2% 参数 + 可忽略延迟 + 跨架构一致 + 可与 SE 叠加」四个性质合起来就是工程上「无脑加」的模块——这类小额稳定收益在端侧累积价值高于单点大幅提升。</li>
+<li>最大的未兑现承诺：输入自适应的理论优势在<b>输入差异大</b>时才兑现（噪声/说话人/域漂移）——论文只测了干净 GSC，等于在自适应最没用的场景验证了自适应。噪声数据集的验证是最自然的后续。</li>
+<li>引用提醒：BC-ResNet 基线值引自本仓库 2021 №8 页（KWT 页亦有对照），LDF 版数字为笔记的相对记录——引用回对两篇原文。</li>
+</div>
+
+<h2><span class="no">§04</span>贡献</h2>
+<div class="h2sub">四点：从极轻量自适应到普适验证</div>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>专为 KWS 设计的极轻量动态滤波机制</b>：双分支分解 + 通道统计条件网——仅 ~2% 参数提供输入自适应能力，可在最严格的边缘约束下使用。</p></div>
+<div class="row"><div class="n">2</div><p><b>即插即用设计</b>：无需修改基础架构，可集成到任何 CNN-based KWS 模型——工程实现成本极低。</p></div>
+<div class="row"><div class="n">3</div><p><b>验证输入自适应对 KWS 有益</b>：极小条件网络实现的简单自适应也带来可观提升——确认了 KWS 中自适应处理的必要性。</p></div>
+<div class="row"><div class="n">4</div><p><b>跨架构一致改进</b>：DS-CNN、BC-ResNet 等多种骨干一致受益——收益不依赖特定网络。</p></div>
+</div>
+
+<h2><span class="no">§05</span>局限与判断</h2>
+<div class="h2sub">主场未测 · 仅通道维 · SE 同构</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声/远场评估不足：输入自适应的真正舞台是多样化声学条件</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （说话人变了、噪声变了才需要不同滤波）——但恰恰没测</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 仅通道维调制：时间维的动态滤波未做（语音的时间结构</text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  可能也需要自适应）</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 可解释性：条件网络的调制策略是黑箱——学到的模式</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  与说话人/噪声/发音的对应关系未分析</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SE 同构的疑问：结构上与 SE 几乎相同——「动态滤波」与</text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「通道注意力」的实质区分需要更深分析</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验边界 + 延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 仅 GSC 干净数据；无流式推理评估；无量化部署数据</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 与 CBAM / ECA 等自适应模块对比不全</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸：噪声数据集验证自适应优势（这才是主场）；</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">时间维动态滤波（当前仅通道）；与蒸馏结合再压缩；</text>
+<text x="536.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">分析条件网络学到的调制模式（可解释性）</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：自适应能力可以是免费的——把「生成整套权重」降级为「生成调制系数」，参数差几个数量级；输入差异越大的场景（噪声/说话人/域漂移），这种廉价自适应的期望收益越高</text>
+</svg>
+<div class="cap"><b>图4 · 边界与延伸</b>：左技术边界（噪声远场缺席、仅通道维、可解释性黑箱、与 SE 的实质区分待深挖），右实验边界（仅 GSC、无流式、无量化）+ 延伸方向。</div>
+</div>
+<div class="judge">
+<div class="jt">可迁移判断</div>
+<p>↳ <b>自适应可以是免费的</b>：把「生成整套权重」降级为「生成调制系数」，参数差几个数量级——预算受限时先问「自适应的最小可行形式是什么」，往往缩放系数就够了。</p>
+<p>↳ <b>输入差异越大，廉价自适应的期望收益越高</b>：干净单说话人数据集是自适应最没用的场景——验证自适应机制应主动选择分布多样的测试集（噪声/说话人/域漂移），否则是在主场缺席的情况下打分。</p>
+<p>↳ <b>中间层是自适应操作的黄金窗口</b>：LDF 的位置消融与注意力插入位置、多尺度融合的结论第三次同构——「特征已成形且未过度抽象」的层间位置值得作为默认假设。</p>
+<p>↳ <b>结构相同的模块可能学到不同的东西</b>：LDF 与 SE 结构几乎一致却能叠加——动机与命名影响训练收敛的位置；两个「等价」模块叠加有增益时，说明该表示空间还有未被利用的自由度。</p>
+</div>
+
+<div class="foot">
+<a class="pill" href="https://arxiv.org/abs/2109.11165">arXiv 2109.11165 ↗</a>
+<a class="pill ghost" href="../index.html">← 返回总目录</a>
+</div>
+<div class="foot-note">笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值（BC-ResNet 基线引自本系列 2021 №8 页）· 2021 №17 · 202+/305</div>
+</div>
+</body>
+</html>
