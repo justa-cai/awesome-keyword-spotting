@@ -1,0 +1,267 @@
+- generic [ref=f305e2]:
+  - generic [ref=f305e3]: 论文精读 · 可视化版 · 2021 №23
+  - heading "新唤醒词连录都不用录： 打字即定制——文本直接当嵌入空间的锚点" [level=1] [ref=f305e4]: 新唤醒词连录都不用录：打字即定制——文本直接当嵌入空间的锚点
+  - generic [ref=f305e5]:
+    - generic [ref=f305e6]: TAML · 北京大学 ADSPLAB
+    - generic [ref=f305e7]: arXiv 2108.05516 · 音频-文本共享嵌入空间
+    - generic [ref=f305e8]: 音素级文本编码 · 跨模态对比对齐
+    - generic [ref=f305e9]: 零样本 75–85% · 保持音频锚点 85–90% 性能
+  - generic [ref=f305e10]: 一句话：度量学习解决了「加词不重训」，但锚点仍是音频——新词还要录几个样本。TAML 把锚点换成文本：音频编码器与文本编码器（音素序列输入）映射到同一个 128 维嵌入空间，对比/三元组损失把匹配的音-文对拉近——用户打一行字（「Hey Monday」），文本编码器即刻产出锚点，零录制零样本检测训练时从未见过的新词。纯文本锚点保持音频锚点方法 85–90% 的性能；愿意录的话，1 个音频样本融合再 +3–5%。
+  - generic [ref=f305e11]:
+    - generic [ref=f305e12]: TL;DR
+    - listitem [ref=f305e13]: ◈ 音频锚点的最后一道门槛：度量学习已把加词成本从「重训」降到「录几个样本算原型」——但录音对不熟悉操作的用户仍是负担。TAML 的问题句：能否用文本描述当锚点，实现打字即定制？
+    - listitem [ref=f305e14]: ◈ 三组件：音频编码器（MFCC/频谱图 → CNN → GAP+投影 → D=128 · L2 归一化）+ 文本编码器（音素序列输入 → BiLSTM/Transformer → 同一 D 维空间）+ 跨模态对齐（对比损失 + 三元组损失，匹配对拉近、不匹配推开）。
+    - listitem [ref=f305e15]: ◈ 音素级优于字符级：OK 与 okay 在音素层一致；colonel 读 /ˈkɜːrnəl/——字符编码完全误导，音素编码直达「怎么读」。文本编码器学的是发音而非拼写。
+    - listitem [ref=f305e16]: ◈ 对称对齐：音频→文本与文本→音频双向约束——消融显示对称优于单向，锚点质量更稳。
+    - listitem [ref=f305e17]: ◈ 推理两种形态：零样本（文本 → 嵌入 → 比距离 → 阈值，全程无音频）与少样本增强（融合锚点 = α·文本 + (1−α)·音频均值，α=0.3 最佳——5 个音频样本时与纯音频锚点差距 <2%）。
+    - listitem [ref=f305e18]: ◈ 结果（约值）：零样本在留出类上 75–85%（全监督 ~95%，音频锚点 ~88%）——保持音频锚点方法的 85–90%；融合 1 个音频样本 +3–5%；跨模态对齐质量经「文本锚点接近音频锚点性能」验证。
+    - listitem [ref=f305e19]: ◈ 负类处理：通用负类中心（大量非关键词语音的均值）承担拒识 + 困难负例挖掘（yes/yeah 类声学近邻加权，+2–3%）。
+    - listitem [ref=f305e20]: ◈ 死穴与边界：同音异义词无解（write/right 音素相同 → 文本锚点重合——但音频锚点同样无法从声学区分）；声调语言需要文本编码器额外携带声调；文本编码器质量是上限（生僻词/缩写）。
+  - heading "§01 问题：录音这道坎" [level=2] [ref=f305e21]:
+    - generic [ref=f305e22]: §01
+    - text: 问题：录音这道坎
+  - generic [ref=f305e23]: 从音频锚点到文本锚点的一步跨越
+  - generic [ref=f305e24]:
+    - generic [ref=f305e25]:
+      - heading "分类范式的锁没完全解开" [level=3] [ref=f305e26]
+      - paragraph [ref=f305e27]: 度量学习把「加词 = 重训」变成了「加词 = 算原型」——但原型要音频样本。用户录 3–5 遍新唤醒词对技术用户是小事，对老人孩子是真实门槛——定制体验的最后一公里卡在麦克风上。
+    - generic [ref=f305e28]:
+      - heading "零样本是质变不是量变" [level=3] [ref=f305e29]
+      - paragraph [ref=f305e30]: 音频锚点方法再高效也是 few-shot（至少 1 个样本）；文本锚点是 zero-shot——训练时从未听过音频的新词也能检测。交互形态从「请录音」变成「请输入」，这是范式差异。
+    - generic [ref=f305e31]:
+      - heading "跨模态对齐的可行性" [level=3] [ref=f305e32]
+      - paragraph [ref=f305e33]: 关键词的文本与音频之间有稳定映射（音素序列）——同一映射关系让 CLIP 类模型在图-文上成功。KWS 的优势是词表封闭、发音规则相对稳定——对齐难度低于开放域图文。
+    - generic [ref=f305e34]:
+      - heading "与同系列论文的坐标" [level=3] [ref=f305e35]
+      - paragraph [ref=f305e36]: Triplet KWS（№16）= 音频锚点的度量学习；KeySEM（№22）= 15K 词预训练嵌入 + 音频原型适配；本文把锚点从音频换成文本——三篇构成「定制成本递减」的谱系：重训 → 录音 → 打字。
+  - generic [ref=f305e37]:
+    - img [ref=f305e38]:
+      - generic [ref=f305e40]: TAML：新唤醒词连录都不用录——打字即定制，文本直接当锚点
+      - generic [ref=f305e41]: ① 音频锚点的最后一道门槛：要录音
+      - generic [ref=f305e43]: 度量学习已解决「加词不重训」——但现有方法的锚点是音频：新关键词要录几个样本才能算原型。对不熟悉操作的用户，录音这步仍在
+      - generic [ref=f305e44]: 本文的问题：能否用文本描述（打一行字）当锚点？——零样本定制：训练时从未见过音频的新词，仅凭文本即可检测
+      - generic [ref=f305e46]: 分类范式的锁
+      - generic [ref=f305e47]: 输出固定类别——加词/换唤醒词要收集大量新词数据并重训；
+      - generic [ref=f305e48]: 度量学习把问题变成距离比较，但音频锚点仍要录音
+      - generic [ref=f305e50]: 文本锚点的价
+      - generic [ref=f305e51]: 用户只需输入「Hey Siri」这样的文本——文本编码器转成嵌入锚点，
+      - generic [ref=f305e52]: 零录制；真正的零样本定制成为可能
+      - generic [ref=f305e54]: 跨模态的桥
+      - generic [ref=f305e55]: 把音频和文本映射到同一个嵌入空间——匹配对拉近、不匹配拉远；
+      - generic [ref=f305e56]: 文本到语音的跨模态桥接为 KWS 带来前所未有的灵活性
+      - generic [ref=f305e57]: ② TAML 三组件：双编码器 + 跨模态对齐
+      - generic [ref=f305e59]: 两个编码器
+      - generic [ref=f305e60]: 音频编码器：
+      - generic [ref=f305e61]: · MFCC/频谱图（1 秒片段）→ 多层 CNN（DS-CNN/ResNet）
+      - generic [ref=f305e62]: · GAP + 线性投影 → D=128 维 · L2 归一化到单位球
+      - generic [ref=f305e63]: · 捕获音素序列/韵律——同词不同说话人彼此接近
+      - generic [ref=f305e64]: 文本编码器：
+      - generic [ref=f305e65]: · 文本 → 音素序列（音素级优于字符级：OK 与 okay
+      - generic [ref=f305e66]: 在音素层一致）；BiLSTM 或 Transformer 编码
+      - generic [ref=f305e67]: · 线性投影到同一 D 维空间 · L2 归一化
+      - generic [ref=f305e68]: · 捕获关键词的音素结构与发音特征
+      - generic [ref=f305e70]: 跨模态对齐
+      - generic [ref=f305e71]: 对比损失：匹配对拉近 · 不匹配对推开
+      - generic [ref=f305e72]: L_match = d(f_a(x), f_t(t))²
+      - generic [ref=f305e73]: L_non = max(0, margin − d(f_a(x), f_t(t'))))²
+      - generic [ref=f305e74]: 三元组损失（跨模态版）：
+      - generic [ref=f305e75]: 锚=音频 · 正=对应文本 · 负=不匹配文本
+      - generic [ref=f305e76]: 对称对齐：音频→文本 与 文本→音频 双向
+      - generic [ref=f305e77]: （消融：对称优于单向）
+      - generic [ref=f305e78]: margin = 0.5 最佳；D=128 甜点（64 掉 2% · 256 增 <1%）
+      - generic [ref=f305e79]: ③ 两种推理形态 + 负类处理
+      - generic [ref=f305e81]: 从零样本到少样本的连续谱系
+      - generic [ref=f305e82]: 零样本：文本 → f_text(t) → 比距离 → 阈值判定
+      - generic [ref=f305e83]: （全程无音频样本）
+      - generic [ref=f305e84]: 少样本增强：融合锚点 = α·文本 + (1−α)·音频均值
+      - generic [ref=f305e85]: （α=0.3 最佳；5 个音频样本时接近纯音频锚点）
+      - generic [ref=f305e87]: 负类：KWS 必须能拒识
+      - generic [ref=f305e88]: 通用负类嵌入：大量非关键词语音算一个「负类中心」
+      - generic [ref=f305e89]: ——离负类中心比离关键词锚点近的音频判为非关键词
+      - generic [ref=f305e90]: 困难负例挖掘：yes vs yeah 这类声学近邻加权——
+      - generic [ref=f305e91]: 比随机负例采样提升 2–3%
+      - generic [ref=f305e93]: 75–85%
+      - generic [ref=f305e94]: 零样本检测准确率（全监督 ~95）
+      - generic [ref=f305e95]: 85–90%
+      - generic [ref=f305e96]: 保持音频锚点方法的性能比例
+      - generic [ref=f305e97]: +3–5%
+      - generic [ref=f305e98]: 1 个音频样本融合的提升
+      - generic [ref=f305e99]: <2%
+      - generic [ref=f305e100]: 5 样本融合 vs 纯音频锚点差距
+      - generic [ref=f305e101]: α=0.3
+      - generic [ref=f305e102]: 少样本时文本权重甜点
+      - generic [ref=f305e103]: 北京大学 ADSPLAB · arXiv 2108.05516；GSC v2 12/35 类；零样本评估用「留出类」协议——训练时排除某些词，推理只用其文本；数字为约值
+    - generic [ref=f305e104]: 图1 · 机制全景：上半是音频锚点的门槛与本文的问题句，中段是双编码器与跨模态对齐、推理形态与负类处理，底部是关键数字。
+  - heading "§02 方法：让文本和音频在同一个空间相遇" [level=2] [ref=f305e105]:
+    - generic [ref=f305e106]: §02
+    - text: 方法：让文本和音频在同一个空间相遇
+  - generic [ref=f305e107]: 对比/三元组损失 · 对称对齐 · 音素表示
+  - generic [ref=f305e108]:
+    - generic [ref=f305e109]: "对比: 匹配对 L = d(f_audio(x), f_text(t))² 不匹配对 L = max(0, margin − d(f_audio(x), f_text(t')))² # margin=0.5 三元组: L = max(0, d(f_a(x_a), f_t(t_p)) − d(f_a(x_a), f_t(t_n)) + margin) 零样本: 用户输入 t_new → f_text(t_new) → 与查询音频比距离 → 阈值判定 少样本: 融合锚点 = α·f_text + (1−α)·mean(f_audio) # α=0.3 最佳"
+    - generic [ref=f305e110]: 人话：训练时给模型看大量「这段音频 ↔ 这个词的音素序列」的配对——匹配的拉近、不匹配的推开，且双向约束。学成后文本编码器能直接算出「这个词的音频大概长在哪」的坐标——新词打进去，锚点即刻就位。
+  - generic [ref=f305e111]:
+    - generic [ref=f305e112]:
+      - heading "同音异义词的固有代价" [level=3] [ref=f305e113]
+      - paragraph [ref=f305e114]: 音素表示把「文本→发音」单射化：write 与 right 音素相同 → 文本锚点重合——文本锚点无法区分，需上下文消歧。注意音频锚点同样无法从声学上区分它们——这不是文本锚点的额外损失，是任务本身的对称歧义。
+    - generic [ref=f305e115]:
+      - heading "α=0.3 的含义" [level=3] [ref=f305e116]
+      - paragraph [ref=f305e117]: 少样本融合时文本权重只有 0.3——有音频样本时音频锚点更准（直接来自真实声学分布），文本锚点退化为先验/正则。这个配比说明两个信息源的可靠性排序：实听 > 读法推断。
+  - generic [ref=f305e118]:
+    - img [ref=f305e119]:
+      - generic [ref=f305e121]: 机制解剖：共享嵌入空间里，文本和音频怎么相遇
+      - generic [ref=f305e122]: 共享嵌入空间的图景
+      - generic [ref=f305e143]: T(stop)
+      - generic [ref=f305e145]: T(go)
+      - generic [ref=f305e147]: T(yes)
+      - generic [ref=f305e148]: 文本锚点落在对应音频簇的上方——
+      - generic [ref=f305e149]: 新词输入文本 → 编码 → 新锚点 → 立即可检
+      - generic [ref=f305e151]: 查询音频
+      - generic [ref=f305e153]: 近 → 判 stop
+      - generic [ref=f305e154]: 音素级文本表示的优势
+      - generic [ref=f305e156]: 为什么音素优于字符
+      - generic [ref=f305e157]: · 同一词的不同拼写在音素层一致：
+      - generic [ref=f305e158]: OK 与 okay → /oʊˈkeɪ/ 相同
+      - generic [ref=f305e159]: 文本编码器从音素读到「怎么读」而非「怎么拼」
+      - generic [ref=f305e160]: · 发音与拼写脱节的词（colonel 读 /ˈkɜːrnəl/）：
+      - generic [ref=f305e161]: 字符编码完全误导，音素编码直达发音
+      - generic [ref=f305e162]: · 消融：音素级文本嵌入与音频嵌入的对齐质量
+      - generic [ref=f305e163]: 显著高于字符级
+      - generic [ref=f305e165]: 同音异义词的死穴
+      - generic [ref=f305e166]: write 与 right 的音素完全相同 → 文本锚点重合
+      - generic [ref=f305e167]: ——文本锚点无法区分，需上下文消歧
+      - generic [ref=f305e168]: 这是把「文本→发音」单射化的固有代价
+      - generic [ref=f305e169]: （音频锚点同样无法从声学上区分它们）
+      - generic [ref=f305e170]: 左：音频簇与文本锚点共享一个空间——匹配对被对比损失拉近，文本锚点天然落在对应音频簇附近。右：音素表示让文本编码器读「发音」而非「拼写」，但同音异义词在这个表示下天然重合
+    - generic [ref=f305e171]: 图2 · 机制解剖：左是共享嵌入空间的图景（音频簇 + 文本锚点 + 查询判决），右是音素级表示的优势论证与同音异义词死穴。
+  - heading "§03 实验：零样本可用，少样本快速逼近" [level=2] [ref=f305e172]:
+    - generic [ref=f305e173]: §03
+    - text: 实验：零样本可用，少样本快速逼近
+  - generic [ref=f305e174]: 留出类协议 · 定制谱系 · 消融
+  - generic [ref=f305e175]:
+    - img [ref=f305e176]:
+      - generic [ref=f305e178]: 主结果（约值）：零样本 75–85%，少样本快速逼近音频锚点
+      - generic [ref=f305e179]: 定制谱系上的准确率
+      - generic [ref=f305e180]: "70"
+      - generic [ref=f305e182]: "75"
+      - generic [ref=f305e184]: "80"
+      - generic [ref=f305e186]: "85"
+      - generic [ref=f305e188]: "90"
+      - generic [ref=f305e190]: "95"
+      - generic [ref=f305e192]: ~95%
+      - generic [ref=f305e193]: 全监督（参照）
+      - generic [ref=f305e195]: ~88%
+      - generic [ref=f305e196]: 音频锚点度量学习
+      - generic [ref=f305e198]: ~86%
+      - generic [ref=f305e199]: 文本 + 5 音频样本
+      - generic [ref=f305e201]: ~80%
+      - generic [ref=f305e202]: 文本 + 1 音频样本
+      - generic [ref=f305e204]: ~78%
+      - generic [ref=f305e205]: 纯文本（零样本）★
+      - generic [ref=f305e206]: 读数：
+      - generic [ref=f305e207]: · 纯文本零样本保持音频锚点方法的 85–90% 性能
+      - generic [ref=f305e208]: · 融合 1 个音频样本 → +3–5%；5 个 → 差距 <2%
+      - generic [ref=f305e209]: · 全监督与零样本的差距 ~17 点——用「零录制」换的
+      - generic [ref=f305e210]: · 关键词的音素复杂度与训练词相似度影响零样本表现
+      - generic [ref=f305e211]: 消融读数
+      - generic [ref=f305e215]: 嵌入维度 D=128 甜点
+      - generic [ref=f305e216]: 64 掉 2% · 256 提升不到 1%—
+      - generic [ref=f305e217]: —与 triplet KWS（№16）结论一
+      - generic [ref=f305e218]: 致
+      - generic [ref=f305e221]: margin=0.5 最佳
+      - generic [ref=f305e222]: 间隔过小易混淆 · 过大训练困难
+      - generic [ref=f305e225]: 对称对齐 > 单向
+      - generic [ref=f305e226]: 音频→文本与文本→音频双向约束——锚点质量更
+      - generic [ref=f305e227]: 稳
+      - generic [ref=f305e230]: 困难负例 +2–3%
+      - generic [ref=f305e231]: yes/yeah 类声学近邻加权挖掘
+      - generic [ref=f305e232]: 注：数字为笔记记录的约值（原文见 arXiv 2108.05516）；零样本用留出类协议评估（训练排除该词，仅凭文本推理）；音频锚点基线即 triplet KWS 一类方法
+    - generic [ref=f305e233]: 图3 · 主结果：左是从全监督到纯文本零样本的定制谱系上的准确率阶梯，右是四条消融读数（维度/margin/对称对齐/困难负例）。
+  - table [ref=f305e234]:
+    - rowgroup [ref=f305e235]:
+      - row [ref=f305e236]:
+        - columnheader "定制形态" [ref=f305e237]
+        - columnheader "准确率（约值）" [ref=f305e238]
+        - columnheader "用户成本" [ref=f305e239]
+      - row [ref=f305e240]:
+        - cell "全监督（参照）" [ref=f305e241]
+        - cell "~95%" [ref=f305e242]
+        - cell "大量标注 + 重训" [ref=f305e243]
+      - row [ref=f305e244]:
+        - cell "音频锚点度量学习" [ref=f305e245]
+        - cell "~88%" [ref=f305e246]
+        - cell "录 5–10 个样本" [ref=f305e247]
+      - row [ref=f305e248]:
+        - cell "文本 + 5 音频样本（α=0.3）" [ref=f305e249]
+        - cell "~86%（差距 <2%）" [ref=f305e250]
+        - cell "打字 + 录 5 个" [ref=f305e251]
+      - row [ref=f305e252]:
+        - cell "文本 + 1 音频样本" [ref=f305e253]
+        - cell "~80%（+3–5%）" [ref=f305e254]
+        - cell "打字 + 录 1 个" [ref=f305e255]
+      - row [ref=f305e256]:
+        - cell "纯文本零样本 ★" [ref=f305e257]
+        - cell "~75–85%" [ref=f305e258]
+        - cell "只打字" [ref=f305e259]
+  - generic [ref=f305e260]:
+    - generic [ref=f305e261]: 读表要点
+    - listitem [ref=f305e262]: ◈ 零样本与全监督差 ~17 个点——这是「零录制」换的；但与音频锚点（few-shot 的代表）只差 10–15%，且融合 1 个样本就补回大半——谱系平滑，用户可按精度需求选成本档位。
+    - listitem [ref=f305e263]: ◈ 消融四条与 triplet KWS（№16）互相印证：D=128 甜点、margin=0.5、困难负例 +2–3%——度量学习的工程经验跨锚点类型稳定成立。
+    - listitem [ref=f305e264]: ◈ 细粒度缺失：零样本下短词/长词/常见/罕见的差异分析不足——「音素复杂度与训练词相似度影响表现」只有定性表述；声调语言的文本锚点设计完全未探索。
+  - heading "§04 贡献" [level=2] [ref=f305e265]:
+    - generic [ref=f305e266]: §04
+    - text: 贡献
+  - generic [ref=f305e267]: 五点：从文本锚点到定制范式
+  - generic [ref=f305e268]:
+    - generic [ref=f305e269]:
+      - generic [ref=f305e270]: "1"
+      - paragraph [ref=f305e271]: 首次用文本锚点替代音频锚点：KWS 度量学习的锚点从「音频样本」变成「文本描述」——极大降低定制门槛。
+    - generic [ref=f305e272]:
+      - generic [ref=f305e273]: "2"
+      - paragraph [ref=f305e274]: 零样本关键词定制：训练时完全未见的关键词，仅凭文本描述即可检测——文本-语音跨模态桥接带来前所未有的灵活性。
+    - generic [ref=f305e275]:
+      - generic [ref=f305e276]: "3"
+      - paragraph [ref=f305e277]: 联合音频-文本嵌入框架：共享空间中两个模态的关键词表示可直接比较——为多模态 KWS 研究奠基。
+    - generic [ref=f305e278]:
+      - generic [ref=f305e279]: "4"
+      - paragraph [ref=f305e280]: 验证文本嵌入可引导检测：纯文本锚点接近纯音频锚点的性能——跨模态对齐质量的有效性证据。
+    - generic [ref=f305e281]:
+      - generic [ref=f305e282]: "5"
+      - paragraph [ref=f305e283]: 连续定制谱系：从纯文本零样本到少样本增强的完整谱系——用户按需选档。
+  - heading "§05 局限与判断" [level=2] [ref=f305e284]:
+    - generic [ref=f305e285]: §05
+    - text: 局限与判断
+  - generic [ref=f305e286]: 同音异义 · 声调语言 · 文本编码器上限
+  - generic [ref=f305e287]:
+    - img [ref=f305e288]:
+      - generic [ref=f305e290]: 边界与延伸
+      - generic [ref=f305e292]: 技术边界
+      - generic [ref=f305e293]: · 文本编码器质量是上限：生僻词/外来词/缩写的发音特征
+      - generic [ref=f305e294]: 若编码不准，锚点质量跟着掉；BERT 类预训练可能提升但增复杂度
+      - generic [ref=f305e295]: · 同音异义词无解：write/right 音素相同 → 文本锚点重合，
+      - generic [ref=f305e296]: 需要上下文消歧（音频锚点同样无法从声学区分）
+      - generic [ref=f305e297]: · 对齐质量不均：多音节词、罕见音素词的文本-音频映射更复杂
+      - generic [ref=f305e298]: · 跨语言未验证：声调语言（中文同音节不同声调）需要文本编码器
+      - generic [ref=f305e299]: 额外携带声调信息；形态丰富语言有屈折变化问题
+      - generic [ref=f305e301]: 实验边界 + 延伸
+      - generic [ref=f305e302]: · 孤立词 KWS 为主——连续语音的关键词搜索未评估
+      - generic [ref=f305e303]: · 文本编码器的计算开销未分析（部署影响）
+      - generic [ref=f305e304]: · 未与音素后验图（PPG）类 KWS 对比——路线相近
+      - generic [ref=f305e305]: · 零样本下短词/长词/常见/罕见的细粒度分析不足
+      - generic [ref=f305e306]: 延伸：CLIP 式音频-文本对比预训练提升对齐；声调/重音信息
+      - generic [ref=f305e307]: 进文本编码器；在线适应用户声学特征；说话人个性化锚点
+      - generic [ref=f305e308]: 范式推广：命令词定制 · 声音事件类型扩展——任何需要
+      - generic [ref=f305e309]: 灵活类别定制的语音任务都能用文本锚点
+      - generic [ref=f305e310]: 可迁移判断：KWS 定制从「需要音频数据」跨越到「仅需文本描述」——当类别可以由文本枚举时，跨模态对齐让「打字即注册」成为默认交互；这是 CLIP 思想在端侧语音的先声
+    - generic [ref=f305e311]: 图4 · 边界与延伸：左技术边界（文本编码器上限、同音异义、对齐不均、跨语言声调），右实验边界（孤立词为主、编码器开销未析、未与 PPG 方法对比）+ 延伸方向与范式推广。
+  - generic [ref=f305e312]:
+    - generic [ref=f305e313]: 可迁移判断
+    - paragraph [ref=f305e314]: ↳ 当类别可由文本枚举时，打字即注册应成默认交互：跨模态对齐让「类别定义」与「类别数据」解耦——命令词定制、声音事件类型扩展都适用；先问「我的类别能不能写成文本」，能写就该有文本锚点这条路。
+    - paragraph [ref=f305e315]: ↳ 音素是文本-音频之间的正确中间表示：拼写层对齐会因拼写-发音脱节失效（colonel），音素层直达发音——选跨模态的桥接表示要贴「两模态共享的物理现实」，语音的现实是发音不是拼写。
+    - paragraph [ref=f305e316]: ↳ 零样本与少样本是谱系不是对立：融合权重 α 让系统在「纯文本先验」与「实测音频」之间连续滑动——产品设计上可默认零样本、静默收集用户音频逐步收紧锚点。
+    - paragraph [ref=f305e317]: ↳ 对齐的歧义是任务固有而非方法缺陷：write/right 在音频侧同样不可分——评估跨模态方法时要把「表示导致的损失」与「任务本身的对称歧义」分开记账，否则会错怪文本锚点。
+  - generic [ref=f305e318]:
+    - link "arXiv 2108.05516 ↗" [ref=f305e319] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2108.05516
+    - link "← 返回总目录" [ref=f305e320] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f305e321]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值 · 2021 №23 · 208+/305
