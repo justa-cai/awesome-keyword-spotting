@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>哑原型网络：少样本开集关键词检测</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 15.5px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  table.tb { width: 100%; border-collapse: collapse; margin: 18px 0; background: var(--card);
+    border-radius: 12px; overflow: hidden; font-size: 13.8px; }
+  table.tb th { background: var(--acc-lt); color: var(--acc-dk); font-weight: 700;
+    padding: 10px 12px; text-align: left; }
+  table.tb td { padding: 9px 12px; border-top: 1px solid var(--line); color: var(--ink2); }
+  table.tb td b { color: var(--ink); }
+  table.tb tr.hl td { background: #f6fbf9; font-weight: 600; }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №13</div>
+  <h1 class="hero">注册五条发音就能换唤醒词，<br>还得拒绝<span class="g">其余整个世界</span></h1>
+  <div class="chips">
+    <span class="chip">D-ProtoNet · arXiv 2206.13691</span>
+    <span class="chip">Qualcomm AI Research</span>
+    <span class="chip">少样本开集 KWS（首个设定）</span>
+    <span class="chip">splitGSC 基准 · 三骨干验证</span>
+  </div>
+  <div class="meta">哑原型不是训练后固定的参数，而是每个回合从当前 N 个已知类原型现场生成的一个嵌入点——开集检测被改写成 N+1 类分类，推理开销接近零。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>新设定 FSOS-KWS</b>：用户/OEM 注册 M 条发音即插即用（少样本），同时拒绝所有不属于注册词的开集发音（噪声/闲聊/电视/相近词）——第一篇提出该设定的工作。</li>
+      <li><b>本质难点</b>：开集随回合漂移——N 个已知类每个回合临时抽，「开集 = 剩下的一切」（含 Silence），拒绝边界必须从本回合支持样本即时推断；固定哑类（Proser）或静态 Unknown 类都无从适配。</li>
+      <li><b>SnaTCHer 的两宗罪</b>：每个查询都要过 Transformer（端侧常驻监听硬伤）；弱骨干上距离法直接崩（Conv4-64 AUROC 51.1/53.1，不如什么都不做的 ProtoNet 55.3/63.8）。</li>
+      <li><b>核心机制</b>：哑原型生成器 gϕ（DeepSets：FC → 沿类维 Maxpool → 投影，隐藏维仅 32）从本回合原型集现场合成哑类中心，与真原型同空间同度量进入同一个 softmax 分母。</li>
+      <li><b>非对称温度 γ=3</b>：哑类是单个点却要替 5 个未知类的并集兜底——开集查询到单点的平均距离系统性偏大，温度=1 时哑类概率永远上不去，梯度会逼编码器扭曲整个嵌入空间；放大 τ 把哑类那一路压平「更容易降低损失」。</li>
+      <li><b>双路损失 λ=0.1</b>：已知与开集查询数量相当，等权会让哑类监督占掉一半分类头容量——0.1 宣示「闭集少样本精度是主任务不容侵蚀」。</li>
+      <li><b>主结果</b>：ResNet-12 上 5-shot AUROC 86.7（对 SnaTCHer-F +3.4、对 ProtoNet +18.3），Acc 86.9 反而最高；弱骨干 Conv4-64 上优势更大（+10.6/+10.1）；KWS 骨干 BCResNet-8 上 +14.8/+13.5。</li>
+      <li><b>消融大头</b>：裸加哑类训练（γ=1）就 +14.3（Acc 几乎不动）——「给开集一个显式类表征」这一个动作解释了总增益的绝大部分，温度/Gumbel/L 都是精修。</li>
+      <li><b>RFN 意外发现</b>：频率轴实例归一化（抹掉说话人音色/信道色差）对全骨干一致有效，还把哑类在 BCResNet-8 上欠的闭集精度账还了（65.2→69.7）。</li>
+      <li><b>边界</b>：1-shot 闭集精度让位（miniImageNet 63.4 vs SnaTCHer 67.4）；点状哑类逼近多模态开集有天花板（L=3 饱和）；开集全来自同一词表——更像 held-out 类检测。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：换词的自由与拒绝的义务</h2>
+  <div class="h2sub">唤醒词是产品决策变量，为每个新词重跑管线是成本黑洞</div>
+  <p class="lead">过去 KWS 研究全建立在 GSC 固定词表闭集分类范式上——词表训练时冻结。产品侧正在松动：不同地区、品牌、技能都想换词。query-by-example 路线让注册 M 条发音即可识别新词，但真实音频流补上残酷的另一半：绝大多数音频不是任何注册词，而 DNN 是过度自信的——面对没有支持样本的未预期类别，模型会以高置信度硬塞进 N 个已知类之一。对唤醒词系统，误唤醒直接打击用户信任还搭上后续链路上电的功耗。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>闭集方案的 Unknown 类失效</h4>
+      <p>传统 GSC 12 类把剩余 25 个词打包成 Unknown 类——本质是把开集重包装成闭集，前提是「未知」能被训练时剩余词表穷举。少样本场景 N 类每回合临时抽，静态 Unknown 类完全对不上。</p>
+    </div>
+    <div class="card bad">
+      <h4>视觉 FSOSR 方法各有硬伤</h4>
+      <p>PEELER 用熵最大化间接压低已知类概率——没有显式未知类表征可校准；SnaTCHer 是当时的 SOTA 但每个查询都要过 Transformer；Proser 的哑分类器训练后固定——只适用于标签空间固定的传统 OSR，开集随回合漂移时无从适配。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：episode-known 哑原型</h2>
+  <div class="h2sub">度量学习一脉：适配阶段一次前向、零梯度、零微调</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 980">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="980.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">D-ProtoNet：哑原型每个回合现场生成，开集检测 = N+1 类分类</text>
+<line x1="36.0" y1="60.0" x2="600.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 新设定 FSOS-KWS：注册即用 + 拒绝一切未知</text>
+<rect x="36.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两个需求的叠加</text>
+<text x="52.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">少样本（query-by-example）：用户/OEM 注册 M 条</text>
+<text x="52.0" y="155.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  发音，即插即用识别训练时没见过的词</text>
+<text x="52.0" y="168.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">开集：常驻监听里绝大多数音频不是任何注册词</text>
+<text x="52.0" y="181.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——噪声/闲聊/电视/相近词，DNN 又过度自信，</text>
+<text x="52.0" y="194.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  会高置信度硬塞进 N 个已知类（误唤醒 = 信任崩塌）</text>
+<rect x="474.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">工具箱为什么没现成答案</text>
+<text x="490.0" y="140.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">闭集 KWS 的 Unknown 类：开集重包装成闭集——少样本</text>
+<text x="490.0" y="152.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  下 N 类每回合临时抽，静态 Unknown 对不上</text>
+<text x="490.0" y="165.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">已有少样本 KWS（[7][8][9]）：只优化闭集精度</text>
+<text x="490.0" y="177.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SnaTCHer（SOTA）：每个查询都要过 Transformer——端侧</text>
+<text x="490.0" y="190.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  常驻监听硬伤；弱骨干上距离法直接崩（AUROC 51）</text>
+<text x="490.0" y="202.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Proser 固定哑分类器：标签空间固定的传统 OSR 专用</text>
+<text x="36.0" y="206.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">本质难点：开集随回合漂移——N 个已知类临时抽，开集就是「剩下的一切」（含 Silence），拒绝边界必须从本回合支持样本即时推断</text>
+<text x="36.0" y="226.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 核心：episode-known 哑原型</text>
+<rect x="36.0" y="242.0" width="150.0" height="100.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="111.0" y="266.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">编码器 fφ</text>
+<text x="111.0" y="288.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Conv4-64 → 768 维</text>
+<text x="111.0" y="301.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ResNet-12 → 512 维</text>
+<text x="111.0" y="314.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">BCResNet-8 → 256 维</text>
+<text x="111.0" y="327.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（KWS 骨干）</text>
+<line x1="186.0" y1="292.0" x2="206.0" y2="292.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="206.0" y="242.0" width="170.0" height="100.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="291.0" y="266.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">本回合 N 个原型</text>
+<text x="291.0" y="288.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">cn = 支持样本嵌入均值</text>
+<text x="291.0" y="301.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">N-way M-shot 回合</text>
+<text x="291.0" y="314.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">已知类每回合临时抽</text>
+<text x="291.0" y="327.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">C = [c1; …; cN]</text>
+<line x1="376.0" y1="292.0" x2="396.0" y2="292.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="396.0" y="242.0" width="230.0" height="100.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="511.0" y="266.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">哑原型生成器 gϕ（DeepSets）</text>
+<text x="511.0" y="288.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">cd = Maxpool(g1(C)) · Wg</text>
+<text x="511.0" y="301.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">g1：FC-ReLU-FC（隐藏维 32）</text>
+<text x="511.0" y="314.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Maxpool 沿类维（对称 → 置换不变）</text>
+<text x="511.0" y="327.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每回合现算一次 → 开集=已知类的「包络」</text>
+<line x1="626.0" y1="292.0" x2="646.0" y2="292.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="646.0" y="242.0" width="238.0" height="100.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="765.0" y="266.0" font-size="11.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">N+1 类 softmax + 推理</text>
+<text x="765.0" y="288.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">分类：argmax 前 N 类</text>
+<text x="765.0" y="301.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">开集：p(哑类) &gt; δ 则拒绝</text>
+<text x="765.0" y="314.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">哑类温度 τ=γ·τn（γ=3）</text>
+<text x="765.0" y="327.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">增广原型集 {c1..cN, cd}</text>
+<text x="460.0" y="362.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">开集检测被改写成 N+1 类分类问题——检测器就是分类器本身，零额外打分管线，阈值只有一个</text>
+<text x="36.0" y="362.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 四个设计的「为什么」</text>
+<rect x="36.0" y="376.0" width="414.0" height="148.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="400.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">非对称温度 γ=3（最精巧）</text>
+<text x="52.0" y="420.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">哑类是单个点，却要替 N_U=5 个未知类的并集兜底</text>
+<text x="52.0" y="432.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——开集查询到单点的平均距离系统性偏大，温度=1 时</text>
+<text x="52.0" y="445.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  指数放大后哑类概率永远上不去 → 梯度逼编码器扭曲</text>
+<text x="52.0" y="457.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  整个嵌入空间（把开集样本硬拉近哑点）伤及已知类</text>
+<text x="52.0" y="470.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">τ 放大 3 倍 = 把哑类那一路指数压平，「更容易降低损失」</text>
+<text x="52.0" y="482.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——允许哑类用更宽容的地盘覆盖更分散的开集质量</text>
+<text x="52.0" y="495.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据背书：γ 1→3，5-shot AUROC 82.7 → 86.2</text>
+<rect x="474.0" y="376.0" width="414.0" height="148.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="490.0" y="400.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">λ=0.1 / Gumbel / L=3</text>
+<text x="490.0" y="420.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">双路损失 L = L^K + 0.1·L^U：已知与开集查询数量相当，</text>
+<text x="490.0" y="432.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  等权会让哑类监督占掉一半分类头容量——0.1 宣示</text>
+<text x="490.0" y="445.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「闭集少样本精度是主任务不容侵蚀」（Acc 与基线持平）</text>
+<text x="490.0" y="457.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="470.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">开集多模态（5 未知类 + Silence 聚不成一团）→ 多哑原型</text>
+<text x="490.0" y="482.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  分工；「查询归哪个哑点」是离散选择，硬 argmax 切断梯度</text>
+<text x="490.0" y="495.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ Gumbel softmax 软化：训练用概率加权合成哑原型，</text>
+<text x="490.0" y="507.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  推理切回硬 argmax；L=3 后饱和（4/5 无进一步收益）</text>
+<text x="36.0" y="534.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">④ splitGSC 基准：为 FSOS-KWS 立的规矩</text>
+<rect x="36.0" y="548.0" width="848.0" height="96.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="572.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 类级 15/10/10 固定划分（train: Happy/House/Bird…；val: 数字 Zero–Nine；test: Yes/No/Up/Down/Left/Right/On/Off/Stop/go）</text>
+<text x="52.0" y="589.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 固定划分防「换一次随机划分结果就波动」；测试词特意选传统 12 类 KWS 的那 10 个命令词——能和主流 GSC 文献直接对话</text>
+<text x="52.0" y="606.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Silence 只允许出现在开集（没人把静音注册成唤醒词，背景噪声永远是被拒绝对象）；每回合 5 已知类（不含 Silence）+ 5 开集类</text>
+<text x="52.0" y="623.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 规模：GSC v2 105,829 条 → 类划分筛选 + 补 Silence → 24,444 / 4,007 / 4,482；1,000 回合 × 5 trial 报均值（标准差）</text>
+<rect x="36.0" y="662.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="688.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">86.7%</text>
+<text x="130.0" y="708.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5-shot AUROC（ResNet-12）</text>
+<text x="298.0" y="688.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+3.4</text>
+<text x="298.0" y="708.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">vs SnaTCHer（5-shot AUROC）</text>
+<text x="466.0" y="688.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+14.8</text>
+<text x="466.0" y="708.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">BCResNet-8 上 vs ProtoNet</text>
+<text x="634.0" y="688.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">L=3</text>
+<text x="634.0" y="708.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">哑原型饱和点</text>
+<text x="802.0" y="688.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~0</text>
+<text x="802.0" y="708.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">推理开销（每查询 L 次距离）</text>
+<text x="36.0" y="746.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">作者线：Qualcomm AI Research（第一作者也是 BCResNet 提出者）——端侧可定制唤醒词的延续研究线；度量学习一脉被选中因为适配阶段一次前向、零梯度、零微调</text>
+</svg>
+    <p class="cap"><b>图1 · 机制全景</b>：FSOS-KWS 设定与工具箱缺口；episode-known 哑原型管线（编码器 → 本回合 N 原型 → DeepSets 生成器 → N+1 类 softmax）；四个设计的「为什么」与 splitGSC 协议。
+  </div>
+  </div>
+  <div class="formula">
+    <div class="f">c_d = gϕ(C) = Maxpool(g₁(C)) · W_g　；　p(y=n|x) = softmax(−d(f(x), c_n)/τ_n)，τ_{N+1} = γ·τ_n（γ=3）</div>
+    <div class="why"><b>人话</b>：N 个原型按行堆叠 → 每个原型过同样的 FC 变换 → 沿<b>类维</b>做 Maxpool（对称函数 → 置换不变，打乱类顺序不改变结果）→ 投影回嵌入空间。Maxpool 的语义：每个隐藏维只保留「所有已知类中最显著的那个值」——哑原型学到的是已知类的<b>包络</b>而非平均，包络之外才是开集该占的地方。</div>
+  </div>
+  <p class="sub"><b>为什么选 ProtoNets 作基座</b>：类表征就是嵌入空间里的一个原型点——这给「再添加一个哑类中心」留下天然接口，开集检测复用整套分类机制，不需要额外二分类头或重打分管线。**为什么推理近零开销**：哑原型每回合只生成一次（生成器是隐藏维 32 的两层 FC），每个查询只多算 L=3 次欧氏距离。</p>
+
+  <h2><span class="no">§03</span>实验：splitGSC 三骨干 + miniImageNet 跨域</h2>
+  <div class="h2sub">AUROC（免阈值开集质量）+ Acc（没伤主任务的守门指标）</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">splitGSC 主对比（Table 1 · ResNet-12 · 5-way 1/5-shot）</text>
+<line x1="36.0" y1="56.0" x2="560.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="240.0" y="90.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">开集检测 AUROC（越高越好）</text>
+<rect x="170.0" y="110.0" width="45.6" height="20.0" rx="4" fill="#e8b8b0"/>
+<rect x="170.0" y="133.0" width="107.2" height="20.0" rx="4" fill="#e8b8b0" opacity="0.6"/>
+<text x="219.6" y="124.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">60.7</text>
+<text x="281.2" y="147.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">68.4</text>
+<text x="164.0" y="134.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">ProtoNet</text>
+<rect x="170.0" y="168.0" width="84.8" height="20.0" rx="4" fill="#c9d8e8"/>
+<rect x="170.0" y="191.0" width="128.0" height="20.0" rx="4" fill="#c9d8e8" opacity="0.6"/>
+<text x="258.8" y="182.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">65.6</text>
+<text x="302.0" y="205.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">71.0</text>
+<text x="164.0" y="192.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">FEAT</text>
+<rect x="170.0" y="226.0" width="89.6" height="20.0" rx="4" fill="#e8d5c4"/>
+<rect x="170.0" y="249.0" width="136.8" height="20.0" rx="4" fill="#e8d5c4" opacity="0.6"/>
+<text x="263.6" y="240.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">66.2</text>
+<text x="310.8" y="263.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">72.1</text>
+<text x="164.0" y="250.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">PEELER</text>
+<rect x="170.0" y="284.0" width="145.6" height="20.0" rx="4" fill="#9fc8b8"/>
+<rect x="170.0" y="307.0" width="226.4" height="20.0" rx="4" fill="#9fc8b8" opacity="0.6"/>
+<text x="319.6" y="298.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">73.2</text>
+<text x="400.4" y="321.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">83.3</text>
+<text x="164.0" y="308.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">SnaTCHer-F（SOTA）</text>
+<rect x="170.0" y="342.0" width="190.4" height="20.0" rx="4" fill="#0b6e52"/>
+<rect x="170.0" y="365.0" width="253.6" height="20.0" rx="4" fill="#0b6e52" opacity="0.6"/>
+<text x="364.4" y="356.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">78.8</text>
+<text x="427.6" y="379.0" font-size="9" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">86.7</text>
+<text x="164.0" y="366.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">D-ProtoNet L=3 ★</text>
+<rect x="170.0" y="404.0" width="11.0" height="11.0" rx="3" fill="#8a93a5"/>
+<text x="185.0" y="413.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">1-shot</text>
+<rect x="240.0" y="404.0" width="11.0" height="11.0" rx="3" fill="#8a93a5" opacity="0.6"/>
+<text x="255.0" y="413.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">5-shot</text>
+<text x="700.0" y="90.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">闭集精度 Acc（守门指标）</text>
+<rect x="560.0" y="110.0" width="66.4" height="20.0" rx="4" fill="#e8b8b0"/>
+<rect x="560.0" y="133.0" width="158.0" height="20.0" rx="4" fill="#e8b8b0" opacity="0.6"/>
+<text x="630.4" y="124.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">68.3</text>
+<text x="722.0" y="147.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">85.9</text>
+<rect x="560.0" y="168.0" width="70.4" height="20.0" rx="4" fill="#c9d8e8"/>
+<rect x="560.0" y="191.0" width="120.0" height="20.0" rx="4" fill="#c9d8e8" opacity="0.6"/>
+<text x="634.4" y="182.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">68.8</text>
+<text x="684.0" y="205.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">84.0</text>
+<rect x="560.0" y="226.0" width="43.2" height="20.0" rx="4" fill="#e8d5c4"/>
+<rect x="560.0" y="249.0" width="88.0" height="20.0" rx="4" fill="#e8d5c4" opacity="0.6"/>
+<text x="607.2" y="240.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">65.4</text>
+<text x="652.0" y="263.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">82.4</text>
+<rect x="560.0" y="284.0" width="83.2" height="20.0" rx="4" fill="#9fc8b8"/>
+<rect x="560.0" y="307.0" width="134.0" height="20.0" rx="4" fill="#9fc8b8" opacity="0.6"/>
+<text x="647.2" y="298.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">70.4</text>
+<text x="698.0" y="321.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">84.7</text>
+<rect x="560.0" y="342.0" width="77.6" height="20.0" rx="4" fill="#0b6e52"/>
+<rect x="560.0" y="365.0" width="178.0" height="20.0" rx="4" fill="#0b6e52" opacity="0.6"/>
+<text x="641.6" y="356.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">69.7</text>
+<text x="742.0" y="379.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">86.9</text>
+<text x="680.0" y="422.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">开集机制的天生风险是哑类挤占分类头</text>
+<text x="680.0" y="436.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">容量、把闭集精度拖下水——Acc 证明没伤主任务</text>
+<text x="36.0" y="448.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键对位：D-ProtoNet 对 SnaTCHer-F 开集 1-shot +5.6 / 5-shot +3.4，同时 5-shot Acc 反高 2.2，标准差更小（0.3 vs 0.8–1.0）；弱骨干上优势进一步放大（见下图）</text>
+</svg>
+    <p class="cap"><b>图2 · splitGSC 主对比（Table 1 · ResNet-12）</b>：左为开集检测 AUROC、右为闭集精度 Acc——D-ProtoNet 开集 5-shot 86.7 全场最高，Acc 86.9 同时最高（哑类没挤占分类头容量）。
+  </div>
+  </div>
+  <table class="tb">
+    <tr><th>模型（ResNet-12）</th><th>1-shot Acc</th><th>1-shot AUROC</th><th>5-shot Acc</th><th>5-shot AUROC</th></tr>
+    <tr><td>ProtoNet</td><td>68.3</td><td>60.7</td><td>85.9</td><td>68.4</td></tr>
+    <tr><td>FEAT</td><td>68.8</td><td>65.6</td><td>84.0</td><td>71.0</td></tr>
+    <tr><td>PEELER</td><td>65.4</td><td>66.2</td><td>82.4</td><td>72.1</td></tr>
+    <tr><td>SnaTCHer-F（SOTA）</td><td><b>70.4</b></td><td>73.2</td><td>84.7</td><td>83.3</td></tr>
+    <tr class="hl"><td><b>D-ProtoNet L=3</b></td><td>69.7</td><td><b>78.8</b></td><td><b>86.9</b></td><td><b>86.7</b></td></tr>
+  </table>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三个骨干全景：越弱的骨干，哑类优势越大（Table 1 · AUROC）</text>
+<line x1="36.0" y1="56.0" x2="600.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="86.0" y1="291.6" x2="710.0" y2="291.6" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="295.6" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">55</text>
+<line x1="86.0" y1="242.7" x2="710.0" y2="242.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="246.7" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">65</text>
+<line x1="86.0" y1="193.8" x2="710.0" y2="193.8" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="197.8" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">75</text>
+<line x1="86.0" y1="144.9" x2="710.0" y2="144.9" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="148.9" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">85</text>
+<line x1="86.0" y1="96.0" x2="710.0" y2="96.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="100.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">95</text>
+<rect x="140.0" y="248.5" width="40.0" height="67.5" rx="3" fill="#e8b8b0"/>
+<rect x="186.0" y="199.2" width="40.0" height="116.8" rx="3" fill="#0b6e52"/>
+<text x="160.0" y="243.5" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">63.8</text>
+<text x="206.0" y="194.2" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">73.9</text>
+<rect x="232.0" y="300.8" width="40.0" height="15.2" rx="3" fill="#c9d8e8"/>
+<text x="252.0" y="295.8" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">53.1</text>
+<text x="206.0" y="334.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Conv4-64（弱）</text>
+<text x="206.0" y="349.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">D−Proto：+10.1 / +10.6</text>
+<rect x="340.0" y="226.0" width="40.0" height="90.0" rx="3" fill="#e8b8b0"/>
+<rect x="386.0" y="136.6" width="40.0" height="179.4" rx="3" fill="#0b6e52"/>
+<text x="360.0" y="221.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">68.4</text>
+<text x="406.0" y="131.6" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">86.7</text>
+<rect x="432.0" y="153.2" width="40.0" height="162.8" rx="3" fill="#c9d8e8"/>
+<text x="452.0" y="148.2" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">83.3</text>
+<text x="406.0" y="334.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ResNet-12（中）</text>
+<text x="406.0" y="349.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">D−Proto：+18.3 / +18.1</text>
+<rect x="540.0" y="224.1" width="40.0" height="91.9" rx="3" fill="#e8b8b0"/>
+<rect x="586.0" y="158.1" width="40.0" height="157.9" rx="3" fill="#0b6e52"/>
+<text x="560.0" y="219.1" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">68.8</text>
+<text x="606.0" y="153.1" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">82.3</text>
+<text x="606.0" y="334.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">BCResNet-8（KWS）</text>
+<text x="606.0" y="349.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">D−Proto：+13.5 / +14.8</text>
+<rect x="90.0" y="104.0" width="12.0" height="12.0" rx="3" fill="#e8b8b0"/>
+<text x="106.0" y="114.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">ProtoNet</text>
+<rect x="190.0" y="104.0" width="12.0" height="12.0" rx="3" fill="#0b6e52"/>
+<text x="206.0" y="114.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">D-ProtoNet ★</text>
+<rect x="320.0" y="104.0" width="12.0" height="12.0" rx="3" fill="#c9d8e8"/>
+<text x="336.0" y="114.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SnaTCHer-F</text>
+<text x="320.0" y="130.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（BCResNet-8 未跑该基线）</text>
+<text x="400.0" y="82.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5-shot AUROC · 括号注为 5-shot/1-shot 相对 ProtoNet 提升</text>
+<text x="36.0" y="400.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">两个读数：① Conv4-64 弱骨干上 SnaTCHer（51.1/53.1）反而不如什么都不做的 ProtoNet（55.3/63.8）——依赖嵌入质量的间接机制在弱表征下崩；哑类显式监督稳（+10.6/+10.1）</text>
+<text x="36.0" y="416.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② BCResNet-8 上最大相对增益 +14.8/+13.5，但 Acc 让位（65.2 vs 66.7、81.9 vs 83.1）——小容量骨干扛不动无归一化的哑类监督，需 RFN 托底（图4）</text>
+</svg>
+    <p class="cap"><b>图3 · 三骨干全景（5-shot AUROC）</b>：越弱的骨干哑类优势越大——Conv4-64 上 SnaTCHer 崩（51.1/53.1）而哑类 +10.6/+10.1；BCResNet-8 上最大增益 +14.8/+13.5（代价：Acc 让位，需 RFN 托底）。
+  </div>
+  </div>
+  <p class="sub"><b>miniImageNet 跨域验证</b>：D-ProtoNet L=3 达 AUROC 70.2/77.8，超过自跑 SnaTCHer-F（69.4/76.4）；与 FEAT 组合（正交可叠加）进一步到 70.6/78.5。但 1-shot Acc 只有 63.4，落后 FEAT（67.1）/SnaTCHer（67.4）约 4 个点——set-to-set 变换能利用支持样本之间的关系，极低样本区间更鲁棒；D-ProtoNet 不做原型变换，把容量花在开集上。5-shot 时差距基本消失。开集分数「距离 vs 概率」两条路线各有失效域：与 FEAT 组合时未归一化距离反而更好，SnaTCHer 的距离法在弱骨干上崩——哑类机制的好处是对分数选择不敏感。</p>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融（Table 3/4）：大头是「给开集一个显式表征」这一个动作</text>
+<line x1="36.0" y1="56.0" x2="620.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="235.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">增益阶梯（ResNet-12 · 5-shot AUROC）</text>
+<rect x="240.0" y="112.0" width="32.7" height="34.0" rx="5" fill="#e8b8b0"/>
+<text x="278.7" y="134.0" font-size="10.5" fill="#e8b8b0" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">68.4</text>
+<text x="234.0" y="134.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">ProtoNet 基线</text>
+<rect x="240.0" y="168.0" width="227.7" height="34.0" rx="5" fill="#7fbd9f"/>
+<text x="473.7" y="190.0" font-size="10.5" fill="#7fbd9f" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">82.7</text>
+<text x="234.0" y="190.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+ 哑原型训练（γ=1）</text>
+<rect x="240.0" y="224.0" width="275.5" height="34.0" rx="5" fill="#5aa886"/>
+<text x="521.5" y="246.0" font-size="10.5" fill="#5aa886" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">86.2</text>
+<text x="234.0" y="246.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+ 非对称温度 γ=3</text>
+<rect x="240.0" y="280.0" width="282.3" height="34.0" rx="5" fill="#0b6e52"/>
+<text x="528.3" y="302.0" font-size="10.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">86.7</text>
+<text x="234.0" y="302.0" font-size="9.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+ Gumbel 多哑 L=3 ★</text>
+<text x="390.0" y="120.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">裸加哑类就 +14.3（Acc 几乎不动）</text>
+<text x="390.0" y="176.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">γ 补偿 +3.5</text>
+<text x="390.0" y="232.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Gumbel +0.5（小而稳）</text>
+<text x="390.0" y="288.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">L 扫描：3 后饱和</text>
+<text x="235.0" y="342.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（1-shot 同形态：60.7 → 76.4 → 78.7 → 78.8）</text>
+<text x="680.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RFN 输入归一化（Table 4 · 全骨干有效）</text>
+<rect x="530.0" y="110.0" width="320.0" height="62.0" rx="8" fill="#f6fbf9" stroke="#cfe9de" stroke-width="1"/>
+<text x="542.0" y="130.0" font-size="10" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ResNet-12 · D-Proto+RFN</text>
+<text x="542.0" y="147.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Acc 69.7→72.6 / 86.9→88.3</text>
+<text x="542.0" y="162.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">AUROC 78.8→80.3 / 86.7→87.8</text>
+<rect x="530.0" y="184.0" width="320.0" height="62.0" rx="8" fill="#f6fbf9" stroke="#cfe9de" stroke-width="1"/>
+<text x="542.0" y="204.0" font-size="10" fill="#5aa886" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">BCResNet-8 · D-Proto+RFN</text>
+<text x="542.0" y="221.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Acc 65.2→69.7 / 81.9→85.5</text>
+<text x="542.0" y="236.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">AUROC 75.7→78.3 / 82.3→85.4</text>
+<rect x="530.0" y="258.0" width="320.0" height="62.0" rx="8" fill="#f6fbf9" stroke="#cfe9de" stroke-width="1"/>
+<text x="542.0" y="278.0" font-size="10" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Conv4-64 · ProtoNet+RFN</text>
+<text x="542.0" y="295.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">AUROC 1-shot 55.3→57.3</text>
+<text x="542.0" y="310.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（连最朴素基线也涨）</text>
+<text x="690.0" y="334.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">RFN = λ·LN + (1−λ)·IFN（频率轴实例归一化，λ=0.5）</text>
+<text x="690.0" y="347.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">抹掉说话人音色/信道色差——把 D-Proto 在闭集精度上欠的账还了</text>
+<rect x="36.0" y="356.0" width="848.0" height="92.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="52.0" y="378.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界：机会成本曲线 + 点状哑类的天花板</text>
+<text x="52.0" y="398.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 1-shot 闭集精度让位：miniImageNet 上 Acc 63.4 vs FEAT 67.1 / SnaTCHer 67.4（无 set-to-set 变换，支持集只有 5 个点时容量被哑类分走）——5-shot 才追平</text>
+<text x="52.0" y="411.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 点状哑类逼近多模态开集有天花板：splitGSC 开集 25 词 + Silence，L=3 够；真实开集是「全部人类语音」，模态数远超 3，能否外推未验证</text>
+<text x="52.0" y="424.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 开集同分布：未知类全来自同一词表剩余词 + Silence——更像「held-out 类检测」；对话语音/媒体音频/跨语种才是真实开集，且缺流式误报率指标（每小时误唤醒缺席）</text>
+<text x="52.0" y="437.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 五个旋钮（γ/λ/L/退火/δ）只消融了两个；阈值 δ 按误报预算标定的流程未给；Qualcomm 名头下却无 FLOPs/时延/功耗数字</text>
+</svg>
+    <p class="cap"><b>图4 · 消融与边界（Table 3/4）</b>：增益阶梯——裸加哑类 +14.3 是大头，γ 补偿 +3.5，Gumbel +0.5，L=3 饱和；RFN 输入归一化全骨干有效并还清闭集精度的账。
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：五条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>问题形式化</b>：定义 FSOS-KWS 设定，指出「开集随回合漂移」是它区别于传统 OSR 与普通 FSL 的本质难点。</p></div>
+    <div class="row"><div class="n">2</div><p><b>splitGSC 基准</b>：固定类级 15/10/10 划分消除试次方差、测试词对齐传统 12 类 GWS 便于对话主流文献、Silence 只进开集贴合部署现实。</p></div>
+    <div class="row"><div class="n">3</div><p><b>episode-known 哑原型机制</b>：DeepSets 生成器 + 非对称温度 + 双路加权损失 + Gumbel 多哑扩展，推理开销接近零。</p></div>
+    <div class="row"><div class="n">4</div><p><b>实证</b>：三骨干 AUROC 全面领先（弱骨干优势更大），miniImageNet 上 SOTA 水平开集检测，证明机制域无关。</p></div>
+    <div class="row"><div class="n">5</div><p><b>发现性贡献</b>：RFN 全骨干一致有效——识别出「实例伪差异（说话人音色）是少样本开集语音任务的重要捷径风险」这一独立问题。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">机会成本曲线在 1-shot 处最陡</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>1-shot 闭集精度让位</h4>
+      <p>miniImageNet 1-shot Acc 63.4 落后 FEAT/SnaTCHer 约 4 个点——支持集只有 5 个点时哑类监督分走的容量无从补偿；「开集检测 vs 极端低样本分类」存在明确的机会成本曲线，5-shot 后才追平。</p>
+    </div>
+    <div class="card bad">
+      <h4>点状哑类的天花板</h4>
+      <p>splitGSC 开集是 25 词 + Silence 的有限组合，L=3 饱和；真实开集是「全部人类语音」，模态数远超 3——分布化哑类（高斯）或自动聚类多哑结构是理论上的更自然做法，未验证。</p>
+    </div>
+    <div class="card bad">
+      <h4>开集来源单一且同分布</h4>
+      <p>未知类全来自同一词表剩余词——更像「闭集词的 held-out 类检测」；对话语音、媒体音频、跨语种的真实开集，类间差距和类内多样性都大得多。episode 级 AUROC 之外缺流式误报率（每小时误唤醒）等操作点指标。</p>
+    </div>
+    <div class="card bad">
+      <h4>旋钮多 + 开销未量化</h4>
+      <p>γ/λ/L/退火/δ 五个旋钮只消融了 γ 和 L；阈值 δ 按误报预算标定的流程没给；挂 Qualcomm 名头的端侧工作却无 FLOPs/时延/功耗数字。BCResNet-8（最贴部署的骨干）上没跑 FEAT/PEELER/SnaTCHer 对照。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>拒绝边界必须从本回合的已知类推断——开集的定义随任务实例漂移时，任何静态学出来的「未知类」都会失效。</li>
+      <li>把异常检测改写成 N+1 类分类：检测器就是分类器本身，机制直接、可校准、阈值只有一个——比间接评分路线（熵/一致性）在弱表征下稳健得多。</li>
+      <li>单个辅助类替多个类的并集兜底时，要给它更宽的温度（更宽容的决策地盘），否则梯度会去扭曲主表征空间来迁就损失。</li>
+      <li>辅助任务的损失权重压到 0.1 是显式的优先级声明：附加能力不许侵蚀主任务——并配一个守门指标（Acc）持续监控。</li>
+      <li>少样本场景最大的捷径风险是实例伪差异（说话人音色/信道色差）——支持样本越少，模型越省力地抓住伪相关；输入级的实例归一化是低成本解药。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2206.13691" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="Dummy_Prototypical_Networks_For_Few-Shot_Open-Set_Keyword_Spotting.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
