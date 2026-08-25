@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Locale Encoding · Google 多语言 KWS · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2023/Locale_Encoding_For_Scalable_Multilingual_Keyword_Spotting_Models.md">深读笔记</a>
+    <a href="/papers/2023/Locale_Encoding_For_Scalable_Multilingual_Keyword_Spotting_Models.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2302.12961" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2023 №20</p>
+  <h1>640 个额外参数（占主干 0.2%）换平均 61% 相对 FRR 降幅——<br>Google 用 12 亿条真实查询证明：locale 编码 + FiLM 让一套 KWS 模型通吃 10 种语言</h1>
+  <p class="sub">Locale Encoding for Scalable Multilingual Keyword Spotting Models</p>
+  <p class="meta"><b>作者</b>：Pai Zhu、Hyun Jin Park、Alex Park、Angelo Scorza Scarpati、Ignacio Lopez Moreno（Google LLC）</p>
+  <p class="meta"><b>发表</b>：arXiv 2302.12961（2023-02）· 10 locale · 12 亿条匿名化真实查询 · 生产级流式骨干（4+3 卷积）</p>
+  <div class="chips">
+    <span class="chip">多语言 KWS 规模化</span><span class="chip">FiLM 特征级线性调制</span><span class="chip">Concat vs FiLM 注入对照</span>
+    <span class="chip">universal 负迁移实证</span><span class="chip">小语种 DA-DK 相对降 92.8%</span><span class="chip">FAh=0.17/h 工作点</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>问题本质</b>：不是纯精度问题，是「精度 × 工程成本」联合优化。产品要支撑几十上百个 locale（语言+地区），复制粘贴式单语言扩展有三重线性代价：训练成本 ×N、跨语言可共享信息（相近音素、相似噪声统计）全浪费、版本管理维护 ×N。而单语模型在小语种上质量崩坏——DA-DK 丹麦语 FRR 高达 22.61%（大语种 TH-TH 仅 3.10%，训练数据差一个数量级）。</li>
+      <li><b>完全共享 universal 也不是答案</b>：一个模型吃全部数据确实救小语种（DA-DK 22.61→6.15），但对大语种是教科书级<b>负迁移</b>——DE-DE 2.49→4.66、ES-ES 5.67→10.89、TH-TH 3.10→6.64；挑战噪声下平均 40.49% 反而比单语 34.26% 差 6.23 点（跨 locale 干扰在低信噪比被放大）。数学来源（式 2 vs 式 1）：universal 的目标 = 各 locale 分布按数据量加权的平均，大 locale 的目标被「稀释」。</li>
+      <li><b>解法：locale 条件化</b>——单模型、参数跨 locale 全共享、全数据联合训练，外加一个 one-hot locale 编码输入（式 3：多了显式开关 l，按 locale 选择性特化）。「既共享数据又保留特化」的数学形式。推理时需要 locale 身份输入——唤醒词场景几乎免费：设备语言设置已知，不存在 ASR 的语种识别问题。</li>
+      <li><b>FiLM 完胜 Concat</b>：FiLM 用两个投影层把 one-hot 变成逐维缩放 γ 和平移 β，对 32 维瓶颈特征 P 做仿射调制（P_mod = γ·P+β）；Concat 直接拼接后让 decoder 第一层一张矩阵同时吃两路——「语言身份与声学语义纠缠，前向被不希望地干扰」。实证：Concat 在 Eval-reg 有 4 个 locale 输给单语基线（ES-ES 11.16 vs 5.67），条件化机制自己变成噪声源；FiLM 在 330K 的全部 20 格（10 locale×2 条件）全胜。</li>
+      <li><b>主数字</b>：330K 模型平均 FRR——常规条件 单语 9.21 / univ 8.26 / Concat 5.10 / <b>FiLM 3.60</b>；挑战噪声 34.26 / 40.49 / 24.21 / <b>17.21</b>。FiLM 相对单语降 61%，额外参数仅 2×M×N = 2×32×10 = <b>640 个</b>（约 0.2%）——全文性价比最高的数字。噪声越苛刻增益越大（绝对差距 5.61→17.05 点）：25 倍噪声/房间模拟增广的多样性在条件化框架下被各 locale 共享。</li>
+      <li><b>收益分布规律</b>：基线越弱（数据越少）收益越大——DA-DK 相对降 92.8%、SV-SE 降 78.3%（恰好是数据少一个数量级的两个）；音系最远的 KO-KR 也从 11.57 降到 6.29；最强的 TH-TH 不但没被拖累还在受益（3.10→1.66）。这条规律支撑「先看数据量再决定要不要条件化」的工程判断。</li>
+      <li><b>规模消融</b>：330K→1.4M→2.4M 三档，1.4M 全面最好（FiLM 3.60→2.83），2.4M 过拟合回落（数字未报）——该骨干在十亿级数据下的容量甜点在 1.4M。瓶颈 |P|=32 三档不变 → FiLM 开销不随主干放大。唯一例外格：M_L 上 FiLM 在 ES-ES Eval-reg 5.81 略输单语 4.63（全表仅此一格）。</li>
+      <li><b>标签空间共享是迁移前提</b>：目标标签由强制对齐得到，且「把不同语言里发音相似的音素合并」为共享 encoder 标签——否则 decoder 输出层就成了 locale 私有组件，参数共享名存实亡。FiLM 的投影权重每行即一个 locale 的「调制签名」，可免费算 locale 相似度矩阵（论文提出用法但未展示）。</li>
+      <li><b>边界</b>：one-hot 维度 N 锁死——新增 locale 必须扩维重训，与「可扩展到上百 locale」的动机存在张力（未讨论冻结主干只训新行）；FiLM 优于 Concat 的论证停留在 conjecture 层面（无梯度/表示层面的直接观测）；locale 数只有 10 而动机是几十上百；各 locale 数据量未报告、无统计显著性、无端侧实测延迟；负例只有按键触发语音，音乐/电视等非语音噪声源的行为未知。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">数据共享与 locale 特化的核心张力</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>以往多语言 KWS 为什么不够</b>：[16] 合并声学相近音素建共享 HMM-NN 编码器、[17,18] 多语言瓶颈特征、[19] 共享嵌入获益、[20] 多语言嵌入 few-shot 泛化到未见语言——共同主题是学「能跨 locale 泛化的共享表示」，但<b>都不把 locale 信息显式作为输入</b>，语言身份在模型里是隐式的。[21,22] 在多语言 ASR 上证明 one-hot locale 条件化高度有效——本文把它移植进 KWS，并更进一步做了 Concat vs FiLM 两种注入机制的对照（ASR 那条线没做过）。差异背景：KWS 端侧常驻、算力敏感度完全不同，且唤醒词场景 locale 输入免费。
+  </div>
+
+  <div class="formula">
+    工作点协议：固定 FAh = 0.17 次/小时 比较 FRR（阈值在 5k 小时负例上校准）
+    <div class="why">KWS 是「漏检-误触发」双误差权衡系统——单独报任一指标都可作弊（拉高阈值 FRR 立刻好看但误唤醒失控）。0.17/h ≈ 一台设备每天约 4 次误唤醒（笔记换算），消费电子可接受。与 Google 生产 KWS 标准口径一致：工作点可比性优先于单点精度。负例来自按键触发的真实查询——用户按了按钮而不是说唤醒词，语音真实且保证不含关键词，是贴近实战的难负例。</div>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">把语言身份变成显式输入</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 900">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="900.0" rx="14" fill="#ffffff" />
+<text x="36.0" y="44.0" font-size="18" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三种扩展形态 + 两种条件化注入（Fig.1 / Fig.2 复绘）</text>
+<line x1="36.0" y1="60.0" x2="400.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="88.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 三种扩展形态（核心张力：数据共享 vs locale 特化）</text>
+<rect x="36.0" y="102.0" width="278.0" height="150.0" rx="10" fill="#fdf0ee" stroke="#e6e6df" stroke-width="1" />
+<text x="50.0" y="126.0" font-size="13.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">(a) 重复单语言</text>
+<text x="50.0" y="146.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每 locale 一个模型</text>
+<text x="50.0" y="168.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练/部署/维护成本 ×N</text>
+<text x="50.0" y="192.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 小语种单独训质量崩坏</text>
+<text x="50.0" y="216.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· DA-DK 单语 FRR 22.61%</text>
+<rect x="332.0" y="102.0" width="278.0" height="150.0" rx="10" fill="#f4f6f9" stroke="#e6e6df" stroke-width="1" />
+<text x="346.0" y="126.0" font-size="13.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">(b) 完全共享 universal</text>
+<text x="346.0" y="146.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">一个模型吃全部数据</text>
+<text x="346.0" y="168.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 救小语种：DA-DK 22.61→6.15</text>
+<text x="346.0" y="192.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 伤大语种：ES-ES 5.67→10.89</text>
+<text x="346.0" y="216.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 挑战噪声下比单语还差 6.23 点</text>
+<rect x="628.0" y="102.0" width="278.0" height="150.0" rx="10" fill="#e6f4ee" stroke="#e6e6df" stroke-width="1" />
+<text x="642.0" y="126.0" font-size="13.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">(c) locale 条件化 ★</text>
+<text x="642.0" y="146.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">单模型 + locale 编码输入</text>
+<text x="642.0" y="168.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 参数全共享、按 l 选择性特化</text>
+<text x="642.0" y="192.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 两头通吃：大小 locale 全受益</text>
+<text x="642.0" y="216.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 额外参数仅 640 个</text>
+<text x="460.0" y="274.0" font-size="11.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">四项设计要求：单模型形态 / 吃满跨 locale 混合增益 / 按 locale 特化 / 开销近零</text>
+<text x="36.0" y="300.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 生产骨干（4+3 卷积流式）与注入点：瓶颈层 P（|P|=32）</text>
+<rect x="36.0" y="316.0" width="130.0" height="64.0" rx="9" fill="#f2f3f0" stroke="#e6e6df" stroke-width="1" />
+<text x="101.0" y="342.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">谱特征 x</text>
+<text x="101.0" y="358.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">40 维堆叠</text>
+<line x1="168.0" y1="348.0" x2="196.0" y2="348.0" stroke="#8a93a5" stroke-width="1.6" marker-end="url(#ar)"/>
+<rect x="200.0" y="316.0" width="130.0" height="64.0" rx="9" fill="#e8ecf2" stroke="#e6e6df" stroke-width="1" />
+<text x="265.0" y="342.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Encoder</text>
+<text x="265.0" y="358.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4 层卷积</text>
+<line x1="332.0" y1="348.0" x2="360.0" y2="348.0" stroke="#8a93a5" stroke-width="1.6" marker-end="url(#ar)"/>
+<rect x="364.0" y="316.0" width="130.0" height="64.0" rx="9" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1.5" />
+<text x="429.0" y="342.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">瓶颈层 P</text>
+<text x="429.0" y="358.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">32 维 logits</text>
+<line x1="496.0" y1="348.0" x2="524.0" y2="348.0" stroke="#8a93a5" stroke-width="1.6" marker-end="url(#ar)"/>
+<rect x="528.0" y="316.0" width="130.0" height="64.0" rx="9" fill="#e8ecf2" stroke="#e6e6df" stroke-width="1" />
+<text x="593.0" y="342.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Decoder</text>
+<text x="593.0" y="358.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3 层卷积</text>
+<line x1="660.0" y1="348.0" x2="688.0" y2="348.0" stroke="#8a93a5" stroke-width="1.6" marker-end="url(#ar)"/>
+<rect x="692.0" y="316.0" width="130.0" height="64.0" rx="9" fill="#f2f3f0" stroke="#e6e6df" stroke-width="1" />
+<text x="757.0" y="342.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">两路 logits</text>
+<text x="757.0" y="358.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">(enc+dec)</text>
+<line x1="520.0" y1="418.0" x2="330.0" y2="384.0" stroke="#0e8a66" stroke-width="2.4" marker-end="url(#arg)"/>
+<text x="620.0" y="410.0" font-size="12.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">locale 编码 L（one-hot, N 维）</text>
+<text x="620.0" y="430.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注入点选在瓶颈层的道理（笔记从架构推出，论文未做位置消融）：</text>
+<text x="620.0" y="448.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">P 是最紧凑的语义抽象点——感知部分全共享、决策部分按 locale 校准；</text>
+<text x="620.0" y="466.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">在原始特征上调制会与低层噪声统计纠缠；在 decoder 之后调制则无空间</text>
+<text x="36.0" y="500.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 两种注入机制对照（Fig.2 中/右图）</text>
+<rect x="36.0" y="516.0" width="410.0" height="190.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1" />
+<text x="52.0" y="540.0" font-size="13.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Concat（拼接式）——不稳定</text>
+<rect x="52.0" y="556.0" width="150.0" height="34.0" rx="7" fill="#e8ecf2" stroke="#e6e6df" stroke-width="1" />
+<text x="127.0" y="577.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">P (32 维)</text>
+<rect x="222.0" y="556.0" width="100.0" height="34.0" rx="7" fill="#f2f3f0" stroke="#e6e6df" stroke-width="1" />
+<text x="272.0" y="577.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">L (10 维)</text>
+<text x="372.0" y="577.0" font-size="16" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">⊕</text>
+<line x1="386.0" y1="573.0" x2="414.0" y2="573.0" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#ar)"/>
+<rect x="52.0" y="606.0" width="366.0" height="30.0" rx="7" fill="#ffffff" stroke="#e6e6df" stroke-width="1" />
+<text x="235.0" y="626.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Decoder 第一层（一张权重矩阵同时吃两路）</text>
+<text x="52.0" y="656.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">语言身份与声学语义在同一矩阵里纠缠，互相污染——</text>
+<text x="52.0" y="673.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「不希望地干扰前向传播」(原文)。实证：Eval-reg 有 4 个 locale</text>
+<text x="52.0" y="690.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输给单语言模型（ES-ES 11.16 vs 5.67、FR-FR 14.07 vs 8.47）</text>
+<text x="52.0" y="707.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">条件化机制本身变成了噪声源。额外参数 N×D1（D1 未报告）</text>
+<rect x="474.0" y="516.0" width="410.0" height="190.0" rx="10" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1" />
+<text x="490.0" y="540.0" font-size="13.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FiLM（调制式）——全文最优 ★</text>
+<rect x="490.0" y="556.0" width="130.0" height="34.0" rx="7" fill="#e8ecf2" stroke="#e6e6df" stroke-width="1" />
+<text x="555.0" y="577.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">L (one-hot)</text>
+<line x1="622.0" y1="573.0" x2="650.0" y2="558.0" stroke="#0e8a66" stroke-width="1.6" marker-end="url(#arg)"/>
+<line x1="622.0" y1="573.0" x2="650.0" y2="590.0" stroke="#0e8a66" stroke-width="1.6" marker-end="url(#arg)"/>
+<rect x="654.0" y="544.0" width="100.0" height="26.0" rx="6" fill="#ffffff" stroke="#e6e6df" stroke-width="1" />
+<text x="704.0" y="561.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">f → γ (32 维)</text>
+<rect x="654.0" y="578.0" width="100.0" height="26.0" rx="6" fill="#ffffff" stroke="#e6e6df" stroke-width="1" />
+<text x="704.0" y="595.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">h → β (32 维)</text>
+<text x="660.0" y="630.0" font-size="14" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">P_mod = γ · P + β</text>
+<text x="660.0" y="652.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（式 4，逐维缩放+平移）</text>
+<text x="490.0" y="656.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">f/h 只吃 locale 编码——「语言→调制」是干净的单输入通路；</text>
+<text x="490.0" y="673.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">维度几何结构不变。额外参数 2×M×N = 2×32×10 = 640 个</text>
+<text x="490.0" y="690.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（占 330K 主干 ~0.2%）；投影每行即一个 locale 的「调制签名」，</text>
+<text x="490.0" y="707.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可免费算 locale 相似度矩阵（论文提出但未展示）</text>
+<rect x="36.0" y="736.0" width="848.0" height="66.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1" />
+<text x="52.0" y="760.0" font-size="13" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">式(1)-(3)：负迁移的数学来源</text>
+<text x="52.0" y="782.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">universal 的目标 = 各 locale 分布按数据量加权的平均——大 locale 的目标被其他 locale「稀释」（式 2 vs 式 1）；</text>
+<text x="52.0" y="798.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">条件化（式 3）给模型一个显式开关，按 l 选择性特化——「既共享数据又保留特化」的数学形式</text>
+<rect x="36.0" y="820.0" width="848.0" height="62.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1" />
+<text x="52.0" y="842.0" font-size="13" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">数据与工作点（生产级规模）</text>
+<text x="52.0" y="862.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">12 亿条匿名真实查询 · 训练 838M 正 + 435M 负（按键触发的难负例）· 每条 ×25 份噪声/房间模拟增广 · 评测 6M 正（5M 常规 + 1M 挑战）</text>
+<text x="52.0" y="878.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">+ 5k 小时负例用于校准工作点。固定 FAh=0.17/h 比较 FRR（≈每天约 4 次误唤醒）。10 locale：DA/DE/ES/FR/IT/KO/NL/PT-BR/SV/TH</text>
+</svg>
+    <p class="cap"><b>Fig.1 / Fig.2 复绘</b>：三种扩展形态（重复单语 ×N / universal 全共享 / locale 条件化）与各自代价；生产骨干（4+3 卷积、瓶颈层 |P|=32）与注入点；Concat（拼接干扰前向）vs FiLM（γ·P+β 干净调制通路，640 参数）对照；式(1)-(3) 负迁移的数学来源；生产级数据规模与 0.17 FAh 工作点协议。</p>
+  </div>
+
+  <div class="formula">
+    P<sub>mod</sub> = FiLM(P | γ, β) = γ · P + β（式 4）；γ = f(L)、β = h(L)；额外参数 2 × M × N = 2×32×10 = 640
+    <div class="why">逐维缩放 + 平移的仿射调制。等价视角（笔记分析，非论文原话）：one-hot 过线性投影就是嵌入查表——γ_l = f(L) 即投影矩阵 W_γ 的第 l 行。所以 FiLM 条件化等价于给每个 locale 学一对 32 维 (γ_l, β_l)，对共享主干抽出的语义特征做 locale 私有的缩放平移——形态接近 NLP 轻量 adapter，只是条件路径无非线性、各 locale 调制参数完全解耦。</div>
+  </div>
+
+  <div class="card">
+    <b>两个值得记的「为什么」</b>：① <b>为什么不发明新骨干</b>——研究问题在「系统规模化」层不在「层设计」层；沿用生产验证过的 4+3 卷积骨干，增益可干净归因到 locale 条件化本身，结论可直接迁移产线。② <b>为什么注入点选瓶颈层</b>——P（|P|=32）是主干里最紧凑的语义抽象点，「感知部分全共享、决策部分按 locale 校准」；在原始特征上调制会与低层噪声统计纠缠，在 decoder 输出之后调制则没有利用空间。注意：注入位置论文未做消融，此逻辑是从架构描述和 Fig.2 读出的（笔记标注）。
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与消融</p>
+  <h2 class="sec">控制变量式的三方对照</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 500">
+<rect x="0.0" y="0.0" width="880.0" height="500.0" rx="14" fill="#ffffff" />
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">逐 locale FRR（Table 1 Eval-reg · 330K 模型 · FAh=0.17）</text>
+<line x1="36.0" y1="56.0" x2="400.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="560.0" y="0.0" width="0.0" height="0.0" rx="0" fill="#fff" />
+<rect x="560.0" y="0.0" width="0.0" height="0.0" rx="0" fill="#fff" />
+<rect x="560.0" y="0.0" width="0.0" height="0.0" rx="0" fill="#fff" />
+<rect x="560.0" y="0.0" width="0.0" height="0.0" rx="0" fill="#fff" />
+<rect x="540.0" y="30.0" width="12.0" height="12.0" rx="3" fill="#8a93a5" />
+<text x="558.0" y="41.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">单语言</text>
+<rect x="700.0" y="30.0" width="12.0" height="12.0" rx="3" fill="#33507a" />
+<text x="718.0" y="41.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">universal</text>
+<rect x="540.0" y="48.0" width="12.0" height="12.0" rx="3" fill="#d97a2b" />
+<text x="558.0" y="59.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Concat</text>
+<rect x="700.0" y="48.0" width="12.0" height="12.0" rx="3" fill="#0e8a66" />
+<text x="718.0" y="59.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FiLM ★</text>
+<line x1="96.0" y1="90.0" x2="96.0" y2="416.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="96.0" y1="416.0" x2="816.0" y2="416.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="96.0" y1="90.0" x2="96.0" y2="416.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="96.0" y="432.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<line x1="246.0" y1="90.0" x2="246.0" y2="416.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="246.0" y="432.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5</text>
+<line x1="396.0" y1="90.0" x2="396.0" y2="416.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="396.0" y="432.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10</text>
+<line x1="546.0" y1="90.0" x2="546.0" y2="416.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="546.0" y="432.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">15</text>
+<line x1="696.0" y1="90.0" x2="696.0" y2="416.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="696.0" y="432.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">20</text>
+<text x="86.0" y="116.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DA-DK</text>
+<rect x="102.0" y="-189.5" width="40.0" height="301.5" rx="3" fill="#8a93a5" />
+<text x="122.0" y="-193.5" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">22.6</text>
+<rect x="148.0" y="30.0" width="40.0" height="82.0" rx="3" fill="#33507a" />
+<text x="168.0" y="26.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">6.2</text>
+<rect x="194.0" y="58.9" width="40.0" height="53.1" rx="3" fill="#d97a2b" />
+<text x="214.0" y="54.9" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4.0</text>
+<rect x="240.0" y="90.4" width="40.0" height="21.6" rx="3" fill="#0e8a66" />
+<text x="86.0" y="148.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SV-SE</text>
+<rect x="102.0" y="-114.0" width="40.0" height="258.0" rx="3" fill="#8a93a5" />
+<text x="122.0" y="-118.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">19.4</text>
+<rect x="148.0" y="-54.5" width="40.0" height="198.5" rx="3" fill="#33507a" />
+<text x="168.0" y="-58.5" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">14.9</text>
+<rect x="194.0" y="74.1" width="40.0" height="69.9" rx="3" fill="#d97a2b" />
+<text x="214.0" y="70.1" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5.2</text>
+<rect x="240.0" y="88.0" width="40.0" height="56.0" rx="3" fill="#0e8a66" />
+<text x="260.0" y="84.0" font-size="9" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4.2</text>
+<text x="86.0" y="180.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KO-KR</text>
+<rect x="102.0" y="21.7" width="40.0" height="154.3" rx="3" fill="#8a93a5" />
+<text x="122.0" y="17.7" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">11.6</text>
+<rect x="148.0" y="82.0" width="40.0" height="94.0" rx="3" fill="#33507a" />
+<text x="168.0" y="78.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">7.0</text>
+<rect x="194.0" y="96.7" width="40.0" height="79.3" rx="3" fill="#d97a2b" />
+<text x="214.0" y="92.7" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">6.0</text>
+<rect x="240.0" y="92.1" width="40.0" height="83.9" rx="3" fill="#0e8a66" />
+<text x="260.0" y="88.1" font-size="9" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">6.3</text>
+<text x="86.0" y="212.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FR-FR</text>
+<rect x="102.0" y="95.1" width="40.0" height="112.9" rx="3" fill="#8a93a5" />
+<text x="122.0" y="91.1" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">8.5</text>
+<rect x="148.0" y="82.4" width="40.0" height="125.6" rx="3" fill="#33507a" />
+<text x="168.0" y="78.4" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">9.4</text>
+<rect x="194.0" y="20.4" width="40.0" height="187.6" rx="3" fill="#d97a2b" />
+<text x="214.0" y="16.4" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">14.1</text>
+<rect x="240.0" y="171.1" width="40.0" height="36.9" rx="3" fill="#0e8a66" />
+<text x="260.0" y="167.1" font-size="9" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2.8</text>
+<text x="86.0" y="244.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">NL-NL</text>
+<rect x="102.0" y="162.5" width="40.0" height="77.5" rx="3" fill="#8a93a5" />
+<text x="122.0" y="158.5" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5.8</text>
+<rect x="148.0" y="177.5" width="40.0" height="62.5" rx="3" fill="#33507a" />
+<text x="168.0" y="173.5" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4.7</text>
+<rect x="194.0" y="196.8" width="40.0" height="43.2" rx="3" fill="#d97a2b" />
+<text x="214.0" y="192.8" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3.2</text>
+<rect x="240.0" y="210.8" width="40.0" height="29.2" rx="3" fill="#0e8a66" />
+<text x="260.0" y="206.8" font-size="9" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2.2</text>
+<text x="86.0" y="276.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ES-ES</text>
+<rect x="102.0" y="196.4" width="40.0" height="75.6" rx="3" fill="#8a93a5" />
+<text x="122.0" y="192.4" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5.7</text>
+<rect x="148.0" y="126.8" width="40.0" height="145.2" rx="3" fill="#33507a" />
+<text x="168.0" y="122.8" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10.9</text>
+<rect x="194.0" y="123.2" width="40.0" height="148.8" rx="3" fill="#d97a2b" />
+<text x="214.0" y="119.2" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">11.2</text>
+<rect x="240.0" y="236.7" width="40.0" height="35.3" rx="3" fill="#0e8a66" />
+<text x="260.0" y="232.7" font-size="9" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2.6</text>
+<text x="86.0" y="308.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">IT-IT</text>
+<rect x="102.0" y="244.5" width="40.0" height="59.5" rx="3" fill="#8a93a5" />
+<text x="122.0" y="240.5" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4.5</text>
+<rect x="148.0" y="247.9" width="40.0" height="56.1" rx="3" fill="#33507a" />
+<text x="168.0" y="243.9" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4.2</text>
+<rect x="194.0" y="257.3" width="40.0" height="46.7" rx="3" fill="#d97a2b" />
+<text x="214.0" y="253.3" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3.5</text>
+<rect x="240.0" y="268.5" width="40.0" height="35.5" rx="3" fill="#0e8a66" />
+<text x="260.0" y="264.5" font-size="9" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2.7</text>
+<text x="86.0" y="340.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PT-BR</text>
+<rect x="102.0" y="277.9" width="40.0" height="58.1" rx="3" fill="#8a93a5" />
+<text x="122.0" y="273.9" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4.4</text>
+<rect x="148.0" y="279.1" width="40.0" height="56.9" rx="3" fill="#33507a" />
+<text x="168.0" y="275.1" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4.3</text>
+<rect x="194.0" y="289.1" width="40.0" height="46.9" rx="3" fill="#d97a2b" />
+<text x="214.0" y="285.1" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3.5</text>
+<rect x="240.0" y="303.3" width="40.0" height="32.7" rx="3" fill="#0e8a66" />
+<text x="260.0" y="299.3" font-size="9" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2.5</text>
+<text x="86.0" y="372.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TH-TH</text>
+<rect x="102.0" y="326.7" width="40.0" height="41.3" rx="3" fill="#8a93a5" />
+<text x="122.0" y="322.7" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3.1</text>
+<rect x="148.0" y="279.5" width="40.0" height="88.5" rx="3" fill="#33507a" />
+<text x="168.0" y="275.5" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">6.6</text>
+<rect x="194.0" y="326.3" width="40.0" height="41.7" rx="3" fill="#d97a2b" />
+<text x="214.0" y="322.3" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3.1</text>
+<rect x="240.0" y="345.9" width="40.0" height="22.1" rx="3" fill="#0e8a66" />
+<text x="86.0" y="404.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DE-DE</text>
+<rect x="102.0" y="366.8" width="40.0" height="33.2" rx="3" fill="#8a93a5" />
+<text x="122.0" y="362.8" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2.5</text>
+<rect x="148.0" y="337.9" width="40.0" height="62.1" rx="3" fill="#33507a" />
+<text x="168.0" y="333.9" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4.7</text>
+<rect x="194.0" y="360.4" width="40.0" height="39.6" rx="3" fill="#d97a2b" />
+<text x="214.0" y="356.4" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3.0</text>
+<rect x="240.0" y="373.9" width="40.0" height="26.1" rx="3" fill="#0e8a66" />
+<text x="36.0" y="462.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读法：按单语言 FRR 从差到好排序。最弱的 DA-DK/SV-SE（训练数据少一个数量级）恰好是 FiLM 收益最大的两个（相对降 92.8%/78.3%）；</text>
+<text x="36.0" y="480.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">最强的 TH-TH 也没被拖累（3.10→1.66 还在受益）。Concat 的不稳定可见一斑：FR-FR/ES-ES 比 Concat 自己的单语言基线还差。</text>
+</svg>
+    <p class="cap"><b>Table 1 Eval-reg 复绘</b>：逐 locale FRR（按单语言基线从差到好排序）。最弱的 DA-DK / SV-SE（训练数据少一个数量级）恰好是 FiLM 收益最大的两个（相对降 92.8% / 78.3%）；最强的 TH-TH 不但没被拖累还在受益（3.10→1.66）。Concat 的不稳定直接可见：FR-FR 14.07、ES-ES 11.16 比各自单语基线还差。universal 双面性同图可读：救 DA-DK/SV-SE、伤 DE-DE/ES-ES/TH-TH。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 420">
+<rect x="0.0" y="0.0" width="880.0" height="420.0" rx="14" fill="#ffffff" />
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">平均 FRR：声学条件 × 模型规模 × 四种形态（Table 1 / Table 2）</text>
+<line x1="36.0" y1="56.0" x2="470.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="90.0" y1="94.0" x2="90.0" y2="350.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="90.0" y1="350.0" x2="810.0" y2="350.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="86.0" y1="350.0" x2="810.0" y2="350.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="354.0" font-size="11" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<line x1="86.0" y1="294.4" x2="810.0" y2="294.4" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="298.4" font-size="11" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">10</text>
+<line x1="86.0" y1="238.9" x2="810.0" y2="238.9" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="242.9" font-size="11" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">20</text>
+<line x1="86.0" y1="183.3" x2="810.0" y2="183.3" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="187.3" font-size="11" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">30</text>
+<line x1="86.0" y1="127.8" x2="810.0" y2="127.8" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="131.8" font-size="11" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">40</text>
+<rect x="91.0" y="298.8" width="40.0" height="51.2" rx="4" fill="#8a93a5" />
+<text x="111.0" y="292.8" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">9.21</text>
+<rect x="137.0" y="304.1" width="40.0" height="45.9" rx="4" fill="#33507a" />
+<text x="157.0" y="298.1" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">8.26</text>
+<rect x="183.0" y="321.7" width="40.0" height="28.3" rx="4" fill="#d97a2b" />
+<text x="203.0" y="315.7" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5.10</text>
+<rect x="229.0" y="330.0" width="40.0" height="20.0" rx="4" fill="#0e8a66" />
+<text x="249.0" y="324.0" font-size="10.5" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.60</text>
+<text x="180.0" y="370.0" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Eval-reg</text>
+<text x="180.0" y="386.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">330K (M_R)</text>
+<rect x="271.0" y="159.7" width="40.0" height="190.3" rx="4" fill="#8a93a5" />
+<text x="291.0" y="153.7" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">34.26</text>
+<rect x="317.0" y="125.1" width="40.0" height="224.9" rx="4" fill="#33507a" />
+<text x="337.0" y="119.1" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">40.49</text>
+<rect x="363.0" y="215.5" width="40.0" height="134.5" rx="4" fill="#d97a2b" />
+<text x="383.0" y="209.5" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">24.21</text>
+<rect x="409.0" y="254.4" width="40.0" height="95.6" rx="4" fill="#0e8a66" />
+<text x="429.0" y="248.4" font-size="10.5" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">17.21</text>
+<text x="360.0" y="370.0" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Eval-chall</text>
+<text x="360.0" y="386.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">330K</text>
+<rect x="451.0" y="313.1" width="40.0" height="36.9" rx="4" fill="#8a93a5" />
+<text x="471.0" y="307.1" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">6.65</text>
+<rect x="497.0" y="320.7" width="40.0" height="29.3" rx="4" fill="#33507a" />
+<text x="517.0" y="314.7" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5.28</text>
+<rect x="543.0" y="330.6" width="40.0" height="19.4" rx="4" fill="#d97a2b" />
+<text x="563.0" y="324.6" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3.49</text>
+<rect x="589.0" y="334.3" width="40.0" height="15.7" rx="4" fill="#0e8a66" />
+<text x="609.0" y="328.3" font-size="10.5" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2.83</text>
+<text x="540.0" y="370.0" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Eval-reg</text>
+<text x="540.0" y="386.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1.4M (M_L)</text>
+<rect x="631.0" y="189.4" width="40.0" height="160.6" rx="4" fill="#8a93a5" />
+<text x="651.0" y="183.4" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">28.90</text>
+<rect x="677.0" y="197.7" width="40.0" height="152.3" rx="4" fill="#33507a" />
+<text x="697.0" y="191.7" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">27.41</text>
+<rect x="723.0" y="260.9" width="40.0" height="89.1" rx="4" fill="#d97a2b" />
+<text x="743.0" y="254.9" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">16.04</text>
+<rect x="769.0" y="270.9" width="40.0" height="79.1" rx="4" fill="#0e8a66" />
+<text x="789.0" y="264.9" font-size="10.5" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">14.24</text>
+<text x="720.0" y="370.0" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Eval-chall</text>
+<text x="720.0" y="386.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1.4M</text>
+<rect x="560.0" y="68.0" width="12.0" height="12.0" rx="3" fill="#8a93a5" />
+<text x="576.0" y="79.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">单语言</text>
+<rect x="636.0" y="68.0" width="12.0" height="12.0" rx="3" fill="#33507a" />
+<text x="652.0" y="79.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">universal</text>
+<rect x="712.0" y="68.0" width="12.0" height="12.0" rx="3" fill="#d97a2b" />
+<text x="728.0" y="79.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Concat</text>
+<rect x="788.0" y="68.0" width="12.0" height="12.0" rx="3" fill="#0e8a66" />
+<text x="804.0" y="79.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FiLM</text>
+<text x="36.0" y="388.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">三个读数：① universal 双面性——挑战噪声 330K 下 40.49 比单语 34.26 还差（跨 locale 干扰低信噪比被放大），容量到 1.4M 才追回；</text>
+<text x="36.0" y="406.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② FiLM 四格全胜且挑战条件绝对优势拉大到 17 点——噪声越苛刻、共享增广的增益越大；③ 容量甜点 1.4M，2.4M 反而过拟合（文字结论，数字未报）</text>
+</svg>
+    <p class="cap"><b>Table 1 / Table 2 复绘</b>：平均 FRR 四格（声学条件 × 模型规模）。① universal 双面性：330K 挑战噪声下 40.49 比单语 34.26 还差——跨 locale 干扰低信噪比被放大，容量到 1.4M 才追回；② FiLM 四格全胜，挑战条件绝对优势拉大到 17 点——噪声越苛刻、25 倍共享增广的增益越大；③ 容量甜点 1.4M（FiLM 3.60→2.83），2.4M 过拟合回落（文字结论，数字未报）。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff" />
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FRR-FAh 全段权衡 + 收益与基线强弱的关系（Fig.3 / Table 1 分析）</text>
+<line x1="36.0" y1="56.0" x2="520.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="280.0" y="94.0" font-size="12" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FRR vs FAh（ES-ES · M_R · 示意形态，工作点有据）</text>
+<line x1="80.0" y1="92.0" x2="80.0" y2="342.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="80.0" y1="342.0" x2="480.0" y2="342.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="160.0" y1="342.0" x2="160.0" y2="346.0" stroke="#c9c9c0" stroke-width="1"/>
+<text x="160.0" y="358.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.1</text>
+<line x1="240.0" y1="342.0" x2="240.0" y2="346.0" stroke="#c9c9c0" stroke-width="1"/>
+<text x="240.0" y="358.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.2</text>
+<line x1="320.0" y1="342.0" x2="320.0" y2="346.0" stroke="#c9c9c0" stroke-width="1"/>
+<text x="320.0" y="358.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.3</text>
+<line x1="400.0" y1="342.0" x2="400.0" y2="346.0" stroke="#c9c9c0" stroke-width="1"/>
+<text x="400.0" y="358.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.4</text>
+<line x1="480.0" y1="342.0" x2="480.0" y2="346.0" stroke="#c9c9c0" stroke-width="1"/>
+<text x="480.0" y="358.0" font-size="10.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0.5</text>
+<text x="280.0" y="370.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FAh（对数感示意）</text>
+<text x="72.0" y="276.6" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">5</text>
+<text x="72.0" y="207.1" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">10</text>
+<text x="72.0" y="137.7" font-size="10.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">15</text>
+<line x1="120.0" y1="182.3" x2="216.0" y2="237.8" stroke="#8a93a5" stroke-width="2.4"/>
+<line x1="216.0" y1="237.8" x2="320.0" y2="261.4" stroke="#8a93a5" stroke-width="2.4"/>
+<line x1="320.0" y1="261.4" x2="480.0" y2="278.1" stroke="#8a93a5" stroke-width="2.4"/>
+<text x="486.0" y="282.1" font-size="11" fill="#8a93a5" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单语言</text>
+<line x1="120.0" y1="126.7" x2="216.0" y2="189.2" stroke="#33507a" stroke-width="2.4"/>
+<line x1="216.0" y1="189.2" x2="320.0" y2="228.1" stroke="#33507a" stroke-width="2.4"/>
+<line x1="320.0" y1="228.1" x2="480.0" y2="251.7" stroke="#33507a" stroke-width="2.4"/>
+<text x="486.0" y="255.7" font-size="11" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">universal</text>
+<line x1="120.0" y1="161.4" x2="216.0" y2="223.9" stroke="#d97a2b" stroke-width="2.4"/>
+<line x1="216.0" y1="223.9" x2="320.0" y2="251.7" stroke="#d97a2b" stroke-width="2.4"/>
+<line x1="320.0" y1="251.7" x2="480.0" y2="269.8" stroke="#d97a2b" stroke-width="2.4"/>
+<text x="486.0" y="273.8" font-size="11" fill="#d97a2b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Concat</text>
+<line x1="120.0" y1="251.7" x2="216.0" y2="280.9" stroke="#0e8a66" stroke-width="2.4"/>
+<line x1="216.0" y1="280.9" x2="320.0" y2="294.8" stroke="#0e8a66" stroke-width="2.4"/>
+<line x1="320.0" y1="294.8" x2="480.0" y2="304.5" stroke="#0e8a66" stroke-width="2.4"/>
+<text x="486.0" y="308.5" font-size="11" fill="#0e8a66" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FiLM</text>
+<line x1="216.0" y1="92.0" x2="216.0" y2="342.0" stroke="#c0392b" stroke-width="1.6" stroke-dasharray="5 4"/>
+<text x="220.0" y="104.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.17 FAh 工作点</text>
+<text x="690.0" y="94.0" font-size="12" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FiLM 相对单语言的 FRR 降幅（Eval-reg）</text>
+<rect x="592.0" y="108.0" width="241.3" height="24.0" rx="4" fill="#0e8a66" />
+<text x="586.0" y="125.0" font-size="11" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DA-DK</text>
+<text x="837.3" y="125.0" font-size="11" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−93%</text>
+<rect x="592.0" y="152.0" width="203.6" height="24.0" rx="4" fill="#0e8a66" />
+<text x="586.0" y="169.0" font-size="11" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SV-SE</text>
+<text x="799.6" y="169.0" font-size="11" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−78%</text>
+<rect x="592.0" y="196.0" width="120.9" height="24.0" rx="4" fill="#0e8a66" />
+<text x="586.0" y="213.0" font-size="11" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TH-TH</text>
+<text x="716.9" y="213.0" font-size="11" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−46%</text>
+<rect x="592.0" y="240.0" width="118.6" height="24.0" rx="4" fill="#0e8a66" />
+<text x="586.0" y="257.0" font-size="11" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KO-KR</text>
+<text x="714.6" y="257.0" font-size="11" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−46%</text>
+<rect x="592.0" y="284.0" width="55.4" height="24.0" rx="4" fill="#0e8a66" />
+<text x="586.0" y="301.0" font-size="11" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DE-DE</text>
+<text x="651.4" y="301.0" font-size="11" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−21%</text>
+<text x="540.0" y="352.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">规律：单语言基线越弱（数据越少）</text>
+<text x="540.0" y="368.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">收益越大——支撑「先看数据量再决定</text>
+<text x="540.0" y="384.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">要不要条件化」的工程判断</text>
+<text x="80.0" y="408.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Fig.3 结论：条件化模型在 0–0.5 FAh 关注区整条曲线上占优——不是单点工作点的侥幸，而是权衡曲线的整体平移。</text>
+</svg>
+    <p class="cap"><b>Fig.3 复绘（左，示意形态，0.17 工作点有据）</b>：FRR-FAh 权衡曲线——条件化模型在 0–0.5 FAh 关注区整条占优，不是单点工作点的侥幸而是曲线整体平移。<b>右</b>：FiLM 相对单语的降幅与基线强弱的关系——基线越弱（数据越少）收益越大，支撑「先看数据量再决定要不要条件化」的工程判断。</p>
+  </div>
+
+  <div class="card">
+    <b>消融由四个轴的系统对比构成</b>（无传统组件消融表）：条件化机制（Concat vs FiLM，FiLM 四个平均指标全胜且几乎无输单语的格子）；模型规模（330K/1.4M/2.4M，甜点 1.4M）；声学条件（reg vs chall，条件化优势在噪声下反而拉大）；locale 维度分布（收益与基线强弱强相关）。<b>未做的消融</b>：注入位置、one-hot vs 连续嵌入、只留 γ 或 β 的分解、音素合并策略影响、N 从 10 扩到几十上百的行为——这些恰是「为什么非得这样设计」证据链缺失的环节，也是结论外推的主要不确定性来源。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">五条贡献</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>三种扩展形态的形式化</b>（重复单语 / universal / locale 条件化）并在 10 语言、12 亿语句生产级规模完成控制变量三方对照——相关工作综述里未见同等规模与深度的先例。</div>
+    <div class="c"><span class="n">2</span><b>Concat vs FiLM 对照 + 机理</b>——确认 FiLM 全面最优，「拼接干扰前向 vs 调制保持通路干净」；投影权重免费提供 locale 相似度矩阵（可解释性副产品）。</div>
+    <div class="c"><span class="n">3</span><b>极致工程性价比</b>——640 个额外参数换平均 61% 相对 FRR 降幅；模型份数从 N 降到 1，训练部署维护成本同步降一个量级。</div>
+    <div class="c"><span class="n">4</span><b>universal 负迁移的清晰实证</b>——小 locale 受益于数据共享、大 locale 受损于不相关数据；这个现象的实证价值不依赖本文方法成立，对任何多语言端侧团队都有参考意义。</div>
+    <div class="c" style="grid-column:1/-1;background:#fdf1e4;border-color:#f0dfc9"><span class="n" style="background:#d97a2b">★</span><b>「域条件化」范式提议</b>——结论指出该思路可推广到任何「数据可以混、行为需要分」的跨域场景：设备形态（音箱/耳机/手表）、声学场景（远场/近场）、说话人群体。这把它从多语言技巧提升为通用训练范式。</div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">N 锁死与未验证的规模化</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>one-hot 维度锁死</b>：不支持集合外语言，新增 locale 必须扩维重训——与「可扩展到上百 locale」的动机存在张力；未讨论增量扩展或冻结主干只训新增行。</li>
+        <li><b>one-hot 假设 locale 先验无关</b>：语言谱系、音系距离没进编码；嵌入质量受 locale 集合和数据分布制约。</li>
+        <li><b>FiLM 优于 Concat 是 conjecture</b>：论文自己用的词——缺梯度/表示层面对干扰机制的直接观测，机理严谨度低于实验结论。</li>
+        <li><b>容量扩展性有限</b>：2.4M 已过拟合；再上台阶需换骨干或加正则，未探索。</li>
+        <li><b>推理依赖 locale 输入</b>：唤醒词场景免费，但换到 locale 未知的场景（如自动语种识别）不成立。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>locale 数只有 10</b>：动机是几十上百；额外参数 2MN 随 N 线性增长、小 locale 稀释效应在更大 N 下的行为——核心扩展性问题未实证，「scalable」缺直接检验。</li>
+        <li><b>归因材料缺失</b>：各 locale 数据量、关键词音节构成未报告——KO-KR 收益偏小是音系距离还是标签质量，无法分辨。</li>
+        <li><b>无显著性报告</b>：疑似单次运行；Table 2 ES-ES 5.81 vs 4.63 这类关键格子差距处在随机性可影响的量级。</li>
+        <li><b>无端侧实测</b>：延迟、内存、FLOPS 均未报——FiLM 理论开销近零但缺实测支撑。</li>
+        <li><b>负例覆盖窄</b>：全部按键触发语音（语音内误触发路径）；音乐/电视等非语音噪声源的 FAh 行为未知——而这恰是智能音箱误唤醒主要来源之一。摘要「所有 locale 均改善」对 Table 2 的 ES-ES 例外格有轻微过度概括。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>自然的延伸方向</b>：连续 locale 嵌入 + 语言谱系先验（正面解 N 锁死、支持零样本/少样本扩展）；挖 locale 相似度矩阵反哺数据采样权重、课程学习、locale 分组；把 N 推到几十上百实测渐近行为；与联邦学习、噪声师生训练、秩约束压缩组合（骨干同源、组合门槛低）；范式外推到设备形态 / 声学场景 / 说话人群体等域条件化场景。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2023/Locale_Encoding_For_Scalable_Multilingual_Keyword_Spotting_Models.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2023/Locale_Encoding_For_Scalable_Multilingual_Keyword_Spotting_Models.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2302.12961" target="_blank">arXiv · 2302.12961</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（Table 1–2、Fig.1–3、式 1–4）；Fig.3 曲线为示意形态（0.17 工作点数值有据）。错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
