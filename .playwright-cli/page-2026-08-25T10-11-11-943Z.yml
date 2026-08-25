@@ -1,0 +1,305 @@
+- generic [ref=f242e2]:
+  - generic [ref=f242e3]: 论文精读 · 可视化版 · 2022 №34
+  - heading "远场唤醒不靠前端滤波硬扛： 让 473K 的小模型自己听出声音的方向" [level=1] [ref=f242e4]: 远场唤醒不靠前端滤波硬扛：让 473K 的小模型自己听出声音的方向
+  - generic [ref=f242e5]:
+    - generic [ref=f242e6]: Multi-channel ConvMixer
+    - generic [ref=f242e7]: Alibaba + NTU · arXiv 2204.05445
+    - generic [ref=f242e8]: T·F·C 三维专用混合 + 质心感知
+    - generic [ref=f242e9]: 473K 参数 · 6 通道环形阵列
+    - generic [ref=f242e10]: MISP 2021 评分 0.338 → 0.126（−63%）
+  - generic [ref=f242e11]: 一句话：把麦克风阵列的空间线索留到模型内部去学——为时间 / 频率 / 通道三个物理意义不同的维度各配一个专用混合算子，再用「关键词质心」给分类器一副特征空间地图。场景：真实家庭远场唤醒——混响、家电噪声、电视重放、干扰说话人叠加的最难环境（MISP Challenge 2021）。
+  - generic [ref=f242e12]:
+    - heading "一分钟版本" [level=3] [ref=f242e13]
+    - listitem [ref=f242e14]: 任务：远场多通道 KWS——直接从 6 麦克风阵列的原始频谱学「空间 + 频谱」联合特征，不依赖前端增强也能工作。
+    - listitem [ref=f242e15]: 旧路线的坑：前端增强（MVDR/WPE）+ 单通道 KWS 两阶段级联——前端错误不可逆传播，且前端优化 SNR 不优化唤醒准确率。
+    - listitem [ref=f242e16]: 多通道 ConvMixer：在单通道 ConvMixer 的时间 / 频率混合之外，新增通道维 MLP 混合——显式学习「从麦克风间差异提取方位」（左强右弱 = 目标在左）。
+    - listitem [ref=f242e17]: 关键决策：不把 C 个通道拼成 C×F 个「频率通道」——空间量与声学量物理意义不同，暴力拼接会混淆学习目标；专用算子各管各的。
+    - listitem [ref=f242e18]: 质心感知：每个关键词一个可训练质心，样本到各质心的距离向量与原始特征拼接后分类——分类器从「只看绝对坐标」变成「也看相对坐标」，说话人移动时更稳。
+    - listitem [ref=f242e19]: 与原型网络的区别：质心是端到端可训练参数（非推理时现算）；距离只是补充特征（非纯距离分类）。
+    - listitem [ref=f242e20]: 主结果：MISP 2021 竞赛评分官方基线 0.338 → 原始阵列输入 0.152（−55%）→ 叠加前端 MVDR+WPE 0.126（−63%）。
+    - listitem [ref=f242e21]: 消融：多通道 vs 波束成形后单通道优 10–15%；去掉质心感知退化 5–8%；前端增强再叠加约 20%——三级互补不冗余。
+    - listitem [ref=f242e22]: 参数效率：仅 473K 参数，与排行榜上数 M 参数模型同台竞争仍占优——处于参数效率帕累托前沿。
+    - listitem [ref=f242e23]: 诚实边界：依赖 6 通道硬件、通道数固定需重训；通道混合是线性变换，复杂多径干涉可能欠拟合；仅 MISP 一个数据集验证。
+  - heading "§01 问题：空间线索在前端被扔掉了" [level=2] [ref=f242e24]:
+    - generic [ref=f242e25]: §01
+    - text: 问题：空间线索在前端被扔掉了
+  - paragraph [ref=f242e26]: 阵列硬件明明给出了「声音从哪来」的答案，传统管线却在第一步就把它滤没了
+  - generic [ref=f242e27]:
+    - generic [ref=f242e28]:
+      - generic [ref=f242e29]: 退化一
+      - generic [ref=f242e30]: 混响拖尾
+      - paragraph [ref=f242e31]: T60 0.3–1.0s 的多径传播把关键词的瞬态特征「拖尾」模糊——快节奏的音素转折最先被抹掉。
+    - generic [ref=f242e32]:
+      - generic [ref=f242e33]: 退化二
+      - generic [ref=f242e34]: 噪声 + 重放攻击
+      - paragraph [ref=f242e35]: 家电 / 交通噪声、干扰人声，以及电视广播里的关键词重放——设备可能把电视声当成用户命令。
+    - generic [ref=f242e36]:
+      - generic [ref=f242e37]: 路线坑
+      - generic [ref=f242e38]: 两阶段级联误差
+      - paragraph [ref=f242e39]: 前端增强的错误不可逆传播到后端；前端目标是 SNR 不是唤醒率——有时增强反而删掉了 KWS 模型依赖的频谱特征。
+    - generic [ref=f242e40]:
+      - generic [ref=f242e41]: 路线坑
+      - generic [ref=f242e42]: 单通道模型丢空间
+      - paragraph [ref=f242e43]: 电视声 + 用户声在频谱上高度重叠、方向不同——空间线索是唯一可靠的区分键，但小模型只吃波束成形后的单通道输出。
+  - generic [ref=f242e44]:
+    - img [ref=f242e45]:
+      - generic [ref=f242e47]: 多通道 ConvMixer：让 KWS 模型自己看懂「声音从哪来」
+      - generic [ref=f242e48]: ① 远场唤醒的三重退化 + 阵列被浪费的空间线索
+      - generic [ref=f242e50]: 退化叠加：混响（T60 0.3–1.0s，多径拖尾把关键词瞬态特征抹糊）· 家电/交通噪声与干扰人声 · 电视广播重放攻击
+      - generic [ref=f242e51]: 阵列硬件本已给出答案：6 麦克风环形阵列（间距约 4cm）——TDOA / 能量差 / 相干性编码了声源方位，传统管线却把它在前端丢掉了
+      - generic [ref=f242e53]: 两阶段级联误差
+      - generic [ref=f242e54]: 前端增强（MVDR/WPE）的错误不可逆传播到后端且无法纠正；前端
+      - generic [ref=f242e55]: 优化目标是 SNR 不是 KWS 准确率——有时增强反而删掉模型依赖的频谱特征
+      - generic [ref=f242e57]: 单通道模型丢空间
+      - generic [ref=f242e58]: 小型 KWS 只吃波束成形后的单通道输出。多说话人场景（电视声 +
+      - generic [ref=f242e59]: 用户声）频谱高度重叠、空间方向不同——空间线索恰是区分二者的钥匙
+      - generic [ref=f242e61]: 大模型开销过高
+      - generic [ref=f242e62]: 端到端多通道方案（SincNet+LSTM 一类）参数在数 M 级别，
+      - generic [ref=f242e63]: 边缘设备装不下——需要数百 K 级的多通道 KWS
+      - generic [ref=f242e64]: ② 架构：T·F·C 三个维度，各配各的混合算子（N=4 块，473K 参数）
+      - generic [ref=f242e66]: 输入：T×F×C 三维张量
+      - generic [ref=f242e67]: 多通道频谱：T 帧 × F 频点 × C 麦克风
+      - generic [ref=f242e68]: 三个维度三种物理量：
+      - generic [ref=f242e69]: · T = 动态（音素时间顺序）
+      - generic [ref=f242e70]: · F = 频谱包络（共振峰/能量分布）
+      - generic [ref=f242e71]: · C = 空间（相位差/能量差→方位）
+      - generic [ref=f242e72]: 卷积编码器 → N=4 混合块 → 后卷积编码器
+      - generic [ref=f242e73]: （单通道 ConvMixer 的自然扩展，同一团队）
+      - generic [ref=f242e75]: 一个混合块内的四步
+      - generic [ref=f242e76]: ① 2D DWSConv 3×3（T,F 平面）
+      - generic [ref=f242e77]: 局部时频模式（共振峰轨迹），
+      - generic [ref=f242e78]: 权重在 C 通道间共享（时频模式相似）
+      - generic [ref=f242e79]: ② 1D DWSConv（时间维，核 3）
+      - generic [ref=f242e80]: ③ 通道 MLP 混合（核心创新）：
+      - generic [ref=f242e81]: X + MLP_C(LN(X))，沿 C 维全局线性
+      - generic [ref=f242e82]: ④ 时间 / 频率 MLP 混合（同单通道版）
+      - generic [ref=f242e84]: 关键决策：不把 C 拼进 F
+      - generic [ref=f242e85]: ❌ 拼成 C×F 个「频率通道」——空间量
+      - generic [ref=f242e86]: 与声学量混在一起，学习目标含糊
+      - generic [ref=f242e87]: ✅ 专门通道混合层：显式学「从麦克风
+      - generic [ref=f242e88]: 差异提空间信息」（左强右弱=目标在左）
+      - generic [ref=f242e89]: 原则：物理意义不同的维度配不同算子
+      - generic [ref=f242e90]: ——可迁移到多传感器/多模态融合
+      - generic [ref=f242e91]: ③ 质心感知：给分类器一副「特征空间地图」
+      - generic [ref=f242e93]: 问题：同一关键词 × 不同说话位置 → 特征向量不同；线性分类器可能
+      - generic [ref=f242e94]: 把它们当成不同的类，位置一变就翻车
+      - generic [ref=f242e95]: 做法：每类一个可训练质心 c_k；算距离 d_k = ‖z − c_k‖₂；
+      - generic [ref=f242e96]: 把 [z; d₁…d_K] 一起喂给分类器；训练时 MSE 把同类拉向质心
+      - generic [ref=f242e97]: 价值：距离向量 = 相对位置。说话人移动时 z 的绝对值在漂，
+      - generic [ref=f242e98]: 但到各质心的相对距离模式稳定 → 位置鲁棒
+      - generic [ref=f242e100]: 与原型网络的区别
+      - generic [ref=f242e101]: 原型网络：推理时从支持样本现算质心
+      - generic [ref=f242e102]: 本文：质心是可训练参数（端到端学出来）
+      - generic [ref=f242e103]: 原型网络：纯距离分类（只用距离）
+      - generic [ref=f242e104]: 本文：距离只是补充特征，原始 z 仍保留
+      - generic [ref=f242e105]: 消融：去掉质心感知 → 评分退化 5–8%
+      - generic [ref=f242e106]: 位置变化大的测试段退化更明显
+      - generic [ref=f242e108]: 473K
+      - generic [ref=f242e109]: 参数量（边缘友好）
+      - generic [ref=f242e110]: "0.126"
+      - generic [ref=f242e111]: 竞赛评分（基线 0.338）
+      - generic [ref=f242e112]: 63%
+      - generic [ref=f242e113]: 评分改进幅度
+      - generic [ref=f242e114]: 6 ch
+      - generic [ref=f242e115]: 麦克风通道输入
+      - generic [ref=f242e116]: ×4
+      - generic [ref=f242e117]: 混合块堆叠
+      - generic [ref=f242e118]: MISP Challenge 2021（真实家庭远场）：T60≈0.3–0.8s 混响 · 家电/交通噪声 · 电视声重放 + 干扰说话人；训练集约 2 万条 6 通道音频 · 测试约 5 千条；竞赛评分 = 误检/漏检加权代价，越低越好
+    - paragraph [ref=f242e119]: 图1 · 机制全景：远场三重退化与被浪费的阵列空间线索、旧路线三不足（上）；T·F·C 三维专用混合的架构与关键设计决策（中）；质心感知机制与原型网络之别（下）。
+  - heading "§02 方法：三个维度三把手术刀 + 一副特征地图" [level=2] [ref=f242e120]:
+    - generic [ref=f242e121]: §02
+    - text: 方法：三个维度三把手术刀 + 一副特征地图
+  - paragraph [ref=f242e122]: 每步混合只在自己的物理维度上操作；质心把「相对位置」显式喂给分类器
+  - generic [ref=f242e123]:
+    - generic [ref=f242e124]: X_ch = X + MLP_C( LayerNorm(X) ) // 沿麦克风通道维 C 的全局线性混合
+    - generic [ref=f242e125]: 通道混合，多通道扩展的核心。把特征在 C 维展平过一层全连接再重塑回来——模型自由学习「左强右弱 = 目标在左」这类模式。时频卷积管声学、通道 MLP 管空间，两种物理量不混。
+  - generic [ref=f242e126]:
+    - generic [ref=f242e127]: d_k = ‖ z − c_k ‖₂ → ŷ = FC( [ z ; d₁, d₂, …, d_K ] )
+    - generic [ref=f242e128]: 质心感知。每个关键词 k 有一个可训练质心 c_k；样本的潜在表示 z 到所有质心的距离向量与 z 本身拼接后进分类器——分类器同时拿到「特征长什么样」和「离各词的典型位置多远」。
+  - generic [ref=f242e129]:
+    - generic [ref=f242e130]: "L_centroid = Σ_k ( 1/|B_k| ) · Σ_{z∈B_k} ‖ z − c_k ‖² （MSE，与分类损失联合）"
+    - generic [ref=f242e131]: 质心怎么学好。MSE 把同类样本的表示拉向各自质心——质心成为该词在特征空间的「锚」，距离才有几何意义。
+  - generic [ref=f242e132]:
+    - img [ref=f242e133]:
+      - generic [ref=f242e135]: 机制解剖：一个混合块的流水线 + 质心的特征空间几何
+      - generic [ref=f242e136]: 混合块内四步（×N=4）
+      - generic [ref=f242e138]: 输入 X ∈ T×F×C
+      - generic [ref=f242e139]: 多通道频谱，C=6
+      - generic [ref=f242e141]: ① 2D DWSConv 3×3（T,F）
+      - generic [ref=f242e142]: 局部时频模式 · 权重跨通道共享
+      - generic [ref=f242e144]: ② 1D DWSConv（时间维，核 3）
+      - generic [ref=f242e145]: 时间动态细化
+      - generic [ref=f242e147]: ③ 通道 MLP 混合 X+MLP_C(LN(X))
+      - generic [ref=f242e148]: 沿 C 维全局线性 → 学空间线索（核心）
+      - generic [ref=f242e150]: ④ 时间 / 频率 MLP 混合
+      - generic [ref=f242e151]: 全局声学建模（同单通道 ConvMixer）
+      - generic [ref=f242e153]: × N=4 块 → 后卷积编码器 → 质心分类
+      - generic [ref=f242e154]: 总参数 473K
+      - generic [ref=f242e155]: 质心感知的几何图景
+      - generic [ref=f242e157]: 潜在特征空间（d 维投影示意）
+      - generic [ref=f242e171]: 质心 c₁（词 1）
+      - generic [ref=f242e173]: 质心 c₂（词 2）
+      - generic [ref=f242e175]: z（查询样本）
+      - generic [ref=f242e178]: d₁
+      - generic [ref=f242e179]: d₂
+      - generic [ref=f242e180]: ŷ = FC([ z ; d₁ , d₂ , … , d_K ]) ← 距离作额外特征
+      - generic [ref=f242e181]: L_centroid（MSE）：把同类样本的 z 拉向各自质心
+      - generic [ref=f242e182]: 说话人移动：z 绝对值漂移 · 到质心的相对距离模式稳定
+      - generic [ref=f242e183]: vs 原型网络：质心=可训练参数 · 距离≠唯一分类依据
+      - generic [ref=f242e185]: 为什么线性分类器不够
+      - generic [ref=f242e186]: FC+softmax 假设类间超平面可分；同一词不同位置 → 特征分裂
+      - generic [ref=f242e187]: 左：每一步混合只在自己的物理维度上操作——时频卷积管声学，通道 MLP 管空间，互不混淆。右：质心把「这个特征离各词典型位置多远」显式喂给分类器——从只看绝对坐标，变成也看相对坐标
+    - paragraph [ref=f242e188]: 图2 · 机制解剖：一个混合块内的四步流水线——每步只在自己的物理维度上操作（左）；质心感知的特征空间几何——查询样本到各质心的距离向量作为额外特征（右）。
+  - generic [ref=f242e189]:
+    - generic [ref=f242e190]:
+      - generic [ref=f242e191]: 为什么不是 C×F 拼接
+      - generic [ref=f242e192]: 物理意义不同，算子就该不同
+      - paragraph [ref=f242e193]: 通道差异编码空间、频率差异编码声学——拼在一起学习目标含糊；专门混合层让「提空间信息」成为显式学习目标。这条原则可迁移到多传感器 / 多模态融合。
+    - generic [ref=f242e194]:
+      - generic [ref=f242e195]: 为什么质心有用
+      - generic [ref=f242e196]: 同一词 × 不同位置 ≠ 不同词
+      - paragraph [ref=f242e197]: 线性分类器假设类间超平面可分；说话人在房间移动时特征向量跟着漂。距离向量编码相对位置——绝对值变了，相对距离模式往往稳定。
+    - generic [ref=f242e198]:
+      - generic [ref=f242e199]: 前端是可选增强
+      - generic [ref=f242e200]: 兼容而非依赖
+      - paragraph [ref=f242e201]: 有 MVDR+WPE 就叠加（前端砍大噪声，SNR +5–15dB），没有也能直接吃原始阵列——竞赛里当增益，产品里当可选项。
+    - generic [ref=f242e202]:
+      - generic [ref=f242e203]: 时频卷积跨通道共享
+      - generic [ref=f242e204]: 不同麦克风听到的「内容」相同
+      - paragraph [ref=f242e205]: 各通道时频模式相似（只差相位和能量），共享权重既省参数又不丢信息——差异留给通道 MLP 去专门学。
+  - heading "§03 实验：三级火箭各交一段收益" [level=2] [ref=f242e206]:
+    - generic [ref=f242e207]: §03
+    - text: 实验：三级火箭各交一段收益
+  - paragraph [ref=f242e208]: MISP 2021：真实家庭 · 6 通道环形阵列 · T60≈0.3–0.8s · 训练集约 2 万条 · 指标 = 误检/漏检加权代价（越低越好）
+  - generic [ref=f242e209]:
+    - img [ref=f242e210]:
+      - generic [ref=f242e212]: 主结果：0.338 → 0.126，三级火箭各交一段收益
+      - generic [ref=f242e213]: "0.00"
+      - generic [ref=f242e215]: "0.12"
+      - generic [ref=f242e217]: "0.24"
+      - generic [ref=f242e218]: "0.36"
+      - generic [ref=f242e220]: "0.338"
+      - generic [ref=f242e221]: 官方 MISP 基线
+      - generic [ref=f242e223]: "0.152"
+      - generic [ref=f242e224]: MC-ConvMixer
+      - generic [ref=f242e225]: ·原始阵列输入
+      - generic [ref=f242e226]: −55%
+      - generic [ref=f242e228]: "0.126"
+      - generic [ref=f242e229]: + 前端增强 MVDR+
+      - generic [ref=f242e230]: WPE ★
+      - generic [ref=f242e231]: −63%
+      - generic [ref=f242e232]: MISP 2021 竞赛评分（越低越好）· 误检/漏检加权代价
+      - generic [ref=f242e234]: 多通道 vs 单通道
+      - generic [ref=f242e235]: 6 通道输入比「波束成形后单通道」评分优约 10–15%——
+      - generic [ref=f242e236]: 优势来自空间建模：区分目标方向语音 vs 干扰方向
+      - generic [ref=f242e238]: 质心感知 −5–8%
+      - generic [ref=f242e239]: 去掉质心（退回标准全连接分类器）评分退化 5–8%，
+      - generic [ref=f242e240]: 说话人位置变化大的场景退化更明显
+      - generic [ref=f242e242]: 前端 +20% 叠加
+      - generic [ref=f242e243]: MVDR+WPE 再砍约 20%，与多通道建模互补不冗余：
+      - generic [ref=f242e244]: 前端处理大噪声（SNR +5–15dB），模型处理残余退化
+      - generic [ref=f242e246]: 473K 帕累托前沿
+      - generic [ref=f242e247]: 与排行榜上数 M 参数的模型同台竞争仍有优势——
+      - generic [ref=f242e248]: 参数效率处于帕累托前沿
+      - generic [ref=f242e249]: 读数：最优组合 = 前端增强 + 多通道 ConvMixer + 质心感知 = 0.126。三级各自解决不同退化层——前端砍大噪声、通道混合用空间线索分离同频谱的干扰、质心兜住位置漂移；互不可替代
+    - paragraph [ref=f242e250]: 图3 · 主结果：MISP 2021 竞赛评分三级下降 0.338 → 0.152 → 0.126（左）；多通道 / 质心 / 前端三段收益的来源拆解与 473K 参数效率（右）。
+  - table [ref=f242e251]:
+    - rowgroup [ref=f242e252]:
+      - row [ref=f242e253]:
+        - columnheader "方法" [ref=f242e254]
+        - columnheader "竞赛评分 ↓" [ref=f242e255]
+        - columnheader "改进" [ref=f242e256]
+        - columnheader "收益来源" [ref=f242e257]
+      - row [ref=f242e258]:
+        - cell "官方 MISP 基线" [ref=f242e259]
+        - cell "0.338" [ref=f242e260]
+        - cell "—" [ref=f242e261]
+        - cell "两阶段管线（前端增强 + 单通道 KWS）" [ref=f242e262]
+      - row [ref=f242e263]:
+        - cell "MC-ConvMixer（原始阵列输入）" [ref=f242e264]
+        - cell "0.152" [ref=f242e265]
+        - cell "55%" [ref=f242e266]
+        - cell "空间建模：区分目标方向语音 vs 干扰方向" [ref=f242e267]
+      - row [ref=f242e268]:
+        - cell "+ 前端增强（MVDR+WPE）★" [ref=f242e269]
+        - cell "0.126" [ref=f242e270]
+        - cell "63%" [ref=f242e271]
+        - cell "前端砍大噪声 + 模型处理残余退化，叠加不冗余" [ref=f242e272]
+  - paragraph [ref=f242e273]: 读数：三级各自解决不同退化层——前端处理「明显的」噪声与混响，通道混合用空间线索分离频谱重叠的干扰源，质心兜住说话人位置漂移；哪一级都不能少，但也都不可互相替代。
+  - heading "§04 贡献：多维信息的「迟到融合」原则" [level=2] [ref=f242e274]:
+    - generic [ref=f242e275]: §04
+    - text: 贡献：多维信息的「迟到融合」原则
+  - paragraph [ref=f242e276]: 从单通道扩展到多通道，加的不是通道数，是一个新的物理维度
+  - generic [ref=f242e277]:
+    - generic [ref=f242e278]:
+      - generic [ref=f242e279]: "1"
+      - paragraph [ref=f242e280]: 首个多通道 ConvMixer：在时间 / 频率混合之外引入通道维 MLP 混合，473K 参数获得多 M 级模型的竞争力——证明轻量架构也能吃下阵列信号。
+    - generic [ref=f242e281]:
+      - generic [ref=f242e282]: "2"
+      - paragraph [ref=f242e283]: 「专用算子配专属维度」的设计原则：物理意义不同的维度不暴力拼接、各配各的混合操作——对多传感器融合（音视频、多模态）普遍适用。
+    - generic [ref=f242e284]:
+      - generic [ref=f242e285]: "3"
+      - paragraph [ref=f242e286]: 质心感知机制：把类质心的空间距离注入分类器，赋予「特征空间几何先验」——对说话人位置不可控的远场场景收益显著（去掉退化 5–8%）。
+    - generic [ref=f242e287]:
+      - generic [ref=f242e288]: "4"
+      - paragraph [ref=f242e289]: 前端可选的灵活形态：原始阵列可独立工作、有前端增强可叠加增益——同一模型覆盖「带 / 不带信号前端」两种产品配置。
+    - generic [ref=f242e290]:
+      - generic [ref=f242e291]: "5"
+      - paragraph [ref=f242e292]: 竞赛验证：MISP 2021 真实家庭远场，评分 0.338 → 0.126（−63%），在真实多通道噪声环境闭环证明有效。
+  - heading "§05 边界与判断" [level=2] [ref=f242e293]:
+    - generic [ref=f242e294]: §05
+    - text: 边界与判断
+  - paragraph [ref=f242e295]: 什么时候这套方案用不上，以及能带走什么
+  - generic [ref=f242e296]:
+    - img [ref=f242e297]:
+      - generic [ref=f242e299]: 边界与延伸
+      - generic [ref=f242e301]: 技术边界
+      - generic [ref=f242e302]: · 依赖 6 通道硬件：麦克风阵列增加物料与结构成本——只有
+      - generic [ref=f242e303]: 1–2 个麦克风的廉价设备（智能灯泡类）用不上；缺「少通道版」
+      - generic [ref=f242e304]: · 通道数固定：为 6 通道设计训练，2/4/7 通道设备要重训——
+      - generic [ref=f242e305]: 产品线多麦克风配置时没有统一模型
+      - generic [ref=f242e306]: · 通道 MLP 是线性变换：对混响多径产生的复杂干涉模式
+      - generic [ref=f242e307]: （多次反射在不同麦克风上的叠加）建模能力可能不足
+      - generic [ref=f242e308]: · 质心联合训练复杂：MSE 权重是额外超参；训练初期质心
+      - generic [ref=f242e309]: 未收敛、距离特征不可靠——需 warm-up 或分阶段训练
+      - generic [ref=f242e311]: 实验边界 + 延伸
+      - generic [ref=f242e312]: · 仅 MISP 一个数据集：未在 AMI 会议语料、DIRHA 等
+      - generic [ref=f242e313]: 其他多通道数据上验证泛化性
+      - generic [ref=f242e314]: · 缺端到端对手对比：未与注意力/波束成形学习类端到端
+      - generic [ref=f242e315]: 多通道方法做参数量-性能的系统对比
+      - generic [ref=f242e316]: · 空间线索不可解释：没检验通道混合层是否真学到了
+      - generic [ref=f242e317]: TDOA / 相干性这类物理量
+      - generic [ref=f242e318]: 延伸：通道掩蔽训练适配任意通道数；推理时在线更新质心
+      - generic [ref=f242e319]: 适配新房间；前端 MVDR 权重与 KWS 端到端联合优化；
+      - generic [ref=f242e320]: 加视频多模态（唇动）
+      - generic [ref=f242e321]: 可迁移判断：在模型内部保留并融合原始传感器的多维信息，优于「先降维再处理」；物理意义不同的维度应配专用算子，而非暴力拼接
+    - paragraph [ref=f242e322]: 图4 · 边界与延伸：硬件依赖、通道数固定、线性混合容量、质心训练复杂度（左）；单一数据集验证、缺端到端对比与可解释性检验、四个延伸方向（右）。
+  - generic [ref=f242e323]:
+    - generic [ref=f242e324]:
+      - generic [ref=f242e325]: 硬件
+      - generic [ref=f242e326]: 依赖 6 通道阵列
+      - paragraph [ref=f242e327]: 阵列是物料与结构成本；只有 1–2 个麦克风的廉价设备（智能灯泡类）直接出局，论文未给「少通道版」。
+    - generic [ref=f242e328]:
+      - generic [ref=f242e329]: 泛化
+      - generic [ref=f242e330]: 通道数固定
+      - paragraph [ref=f242e331]: 为 6 通道设计训练，2 / 4 / 7 通道设备要重训——多麦克风配置的产品线没有统一模型。
+    - generic [ref=f242e332]:
+      - generic [ref=f242e333]: 容量
+      - generic [ref=f242e334]: 通道 MLP 是线性的
+      - paragraph [ref=f242e335]: 对混响多径的复杂干涉模式（多次反射在不同麦克风上的叠加）建模能力可能不足。
+    - generic [ref=f242e336]:
+      - generic [ref=f242e337]: 验证
+      - generic [ref=f242e338]: 单一数据集 + 缺对比
+      - paragraph [ref=f242e339]: 仅 MISP 评估（未测 AMI / DIRHA）；未与注意力类、波束成形学习类端到端方法做系统的参数-性能对比；空间线索是否学到 TDOA 等物理量也未检验。
+  - generic [ref=f242e340]:
+    - heading "可迁移的判断" [level=3] [ref=f242e341]
+    - paragraph [ref=f242e342]: ↳ 在模型内部保留并融合原始传感器的多维信息，优于「先降维再处理」——空间线索留到模型里学，比在前端滤波时扔掉更划算。
+    - paragraph [ref=f242e343]: ↳ 物理意义不同的维度应配专用算子，而非暴力拼接成一个特征维——拼接省了架构设计，代价是学习目标含糊。
+    - paragraph [ref=f242e344]: ↳ 给分类器「相对坐标」（到各类锚点的距离）能买到对「绝对位置漂移」的鲁棒性——凡特征空间会随环境平移的场景都适用。
+    - paragraph [ref=f242e345]: ↳ 前端信号处理与端到端模型是叠加关系不是替代关系：前端砍大噪声、模型处理残余退化，两者的收益来源不同。
+  - generic [ref=f242e346]:
+    - link "论文原文 · arXiv 2204.05445" [ref=f242e347] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2204.05445
+    - link "← 返回总目录" [ref=f242e348] [cursor=pointer]:
+      - /url: ../index.html
+    - generic [ref=f242e349]: 论文精读 · 可视化版 · Multi-channel ConvMixer with Centroid-Based Awareness（2022）· 数字为笔记记录约值，精确值以论文原表为准
