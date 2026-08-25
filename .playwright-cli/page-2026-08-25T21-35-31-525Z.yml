@@ -1,0 +1,233 @@
+- generic [ref=f37e2]:
+  - generic [ref=f37e3]: 论文精读 · 可视化版 · 2019 №4
+  - heading "Hey Snips：把 WaveNet 搬进唤醒词——无状态也能看 1.83 秒" [level=1] [ref=f37e4]
+  - generic [ref=f37e5]: Efficient Keyword Spotting Using Dilated Convolutions and Gating —— Snips 的 ICASSP 2019 经典：空洞卷积 + 门控激活 + 「Hey Snips」开源数据集
+  - generic [ref=f37e6]:
+    - generic [ref=f37e7]: 空洞卷积
+    - generic [ref=f37e8]: 门控激活
+    - generic [ref=f37e9]: 无状态时序
+    - generic [ref=f37e10]: WaveNet 式架构
+    - generic [ref=f37e11]: Hey Snips 数据集
+  - generic [ref=f37e12]: "Snips（巴黎）· ICASSP 2019 · arXiv 1811.07684 架构：20 维 LFBE @10ms → 24 层空洞卷积（膨胀率 {1,2,4,8}×6 循环，感受野 182 帧 ≈ 1.83s）+ 门控激活 + 残差/跳跃连接 · 标签：只在词结束后 δ=160ms 窗口标正 一句话：FAH=0 下干净 FRR 0.12% / 噪声 1.60%（LSTM 基线 2.09% / 11.21%）——门控是噪声命门（去掉 +2.57pp），数据集开源成为后续基准。"
+  - generic [ref=f37e13]:
+    - generic [ref=f37e14]: "01"
+    - heading "问题：RNN 的状态是部署税" [level=2] [ref=f37e15]
+    - generic [ref=f37e16]:
+      - generic [ref=f37e17]: TL;DR
+      - list [ref=f37e18]:
+        - listitem [ref=f37e19]: ◆ 唤醒词检测的三难：资源受限持续监听 · 低延迟 · 低误拒低误报——RNN 的状态饱和（要周期性重置、重置丢信息）让第一难雪上加霜。
+        - listitem [ref=f37e20]: ◆ 标准 CNN 感受野不够（数百帧的唤醒词罩不住）、HMM 要音素精确对齐——三条路各有硬伤；核心需求是无状态的长时程建模。
+        - listitem [ref=f37e21]: "◆ WaveNet 式答案：空洞卷积让感受野指数扩张而参数不增（{1,2,4,8} 循环 24 层 = 182 帧 ≈ 1.83 秒），完全并行、无状态、因果流式友好。"
+        - listitem [ref=f37e22]: ◆ 两个关键设计：门控激活（tanh ⊙ sigmoid——时间维软开关，噪声环境的命门）与 「关键词结束」标签（只在词尾 δ=160ms 窗口标正——学「词说完了」而非逐帧对齐）。
+    - img [ref=f37e23]:
+      - generic [ref=f37e25]: Hey Snips：把 WaveNet 搬进唤醒词——无状态也能看 1.83 秒
+      - generic [ref=f37e26]: ① 部署三难 + 现有时序建模三缺陷
+      - generic [ref=f37e28]: 唤醒词检测要同时满足：资源受限持续监听 · 低延迟 · 低误拒与低误报——三者互相拉扯
+      - generic [ref=f37e29]: 核心需求：无状态（stateless）的长时程建模——不用递归状态也能覆盖 1–2 秒的唤醒词
+      - generic [ref=f37e31]: RNN 状态饱和
+      - generic [ref=f37e32]: LSTM 内部状态在持续输入流下饱和——要周期性重置，实现复杂且重置丢信息
+      - generic [ref=f37e34]: CNN 感受野不够
+      - generic [ref=f37e35]: 标准卷积要以合理大小模型覆盖数百帧——堆不上去
+      - generic [ref=f37e37]: HMM 流水线复杂
+      - generic [ref=f37e38]: 需要音素级精确对齐——系统设计重且不灵活
+      - generic [ref=f37e39]: ② WaveNet 式骨架：空洞 × 门控 × 残差
+      - generic [ref=f37e41]: 空洞卷积堆叠
+      - generic [ref=f37e42]: "· 膨胀率 {1,2,4,8} 循环 × 6 块 = 24 层"
+      - generic [ref=f37e43]: · 感受野指数增长、参数不增
+      - generic [ref=f37e44]: · 总感受野 182 帧 ≈ 1.83 秒
+      - generic [ref=f37e45]: ——恰好罩住典型唤醒词时长
+      - generic [ref=f37e46]: · 输入：20 维 LFBE · 10ms/帧
+      - generic [ref=f37e47]: · 无状态 · 完全并行（vs RNN 顺序）
+      - generic [ref=f37e48]: · 因果模式——只看过去，流式友好
+      - generic [ref=f37e50]: 门控激活 + 残差/跳跃
+      - generic [ref=f37e51]: · z = tanh(W_f * x) ⊙ σ(W_g * x)
+      - generic [ref=f37e52]: 滤波门提特征 · 门控门控流量
+      - generic [ref=f37e53]: · sigmoid 门决定保留/遗忘哪些时间步
+      - generic [ref=f37e54]: · 残差连接：梯度直达——24 层可训
+      - generic [ref=f37e55]: · 跳跃连接：各感受野尺度的输出
+      - generic [ref=f37e56]: 汇总到最终输出
+      - generic [ref=f37e57]: · 门控是噪声下的主力（消融见后）
+      - generic [ref=f37e58]: ③ 「关键词结束」标签：只学找终点
+      - generic [ref=f37e60]: 传统帧级标签：关键词内每帧都标正类——模型被迫学「精确帧对齐」
+      - generic [ref=f37e61]: 本文：只在关键词结束后 δ=160ms 窗口内标正——损失只从这些帧回传，模型学「词说完了」这个事件
+      - generic [ref=f37e63]: 0.12% / 1.60%
+      - generic [ref=f37e64]: 干净/噪声 FRR（FAH=0）
+      - generic [ref=f37e65]: vs 2.09%/11.21%
+      - generic [ref=f37e66]: LSTM 基线同条件
+      - generic [ref=f37e67]: 182 帧
+      - generic [ref=f37e68]: 总感受野 ≈ 1.83 秒
+      - generic [ref=f37e69]: 2,200+
+      - generic [ref=f37e70]: Hey Snips 数据集说话人
+      - generic [ref=f37e71]: +2.57pp
+      - generic [ref=f37e72]: 去门控后噪声 FRR 恶化
+      - generic [ref=f37e73]: Snips（巴黎）· ICASSP 2019 · arXiv 1811.07684；Hey Snips 数据集（11K 正 / 86.5K 负）公开发布 · 二值交叉熵 · Adam
+    - generic [ref=f37e74]: 图 1 · 全景：部署三难与时序建模三缺陷 → WaveNet 式骨架 → 关键词结束标签 → 核心数字带
+  - generic [ref=f37e75]:
+    - generic [ref=f37e76]: "02"
+    - heading "机制：免费的视野与软开关" [level=2] [ref=f37e77]
+    - paragraph [ref=f37e78]: "空洞卷积的「免费看远」是整套架构的地基：膨胀率每层翻倍，核大小 2 的 4 层 {1,2,4,8} 感受野 19 帧；循环 6 个 block 共 24 层，182 帧 ≈ 1.83 秒——恰好罩住典型唤醒词，而参数量与标准卷积完全相同。无状态 + 完全并行，对比 RNN 的顺序依赖与重置管理，是工程简单性的完胜。"
+    - img [ref=f37e79]:
+      - generic [ref=f37e81]: 机制解剖：感受野的指数扩张 · 门控为什么在噪声里是命门
+      - generic [ref=f37e82]: 空洞卷积怎么「看远」
+      - generic [ref=f37e103]: d=8
+      - generic [ref=f37e106]: d=4
+      - generic [ref=f37e109]: d=2
+      - generic [ref=f37e111]: d=1
+      - generic [ref=f37e112]: 核大小 2 · 膨胀率 d：隔 d−1 帧取样
+      - generic [ref=f37e113]: "· 4 层 {1,2,4,8}：感受野 19 帧"
+      - generic [ref=f37e114]: · 24 层（×6 循环）：182 帧 = 1.83 秒
+      - generic [ref=f37e115]: · 参数量与标准卷积完全相同——
+      - generic [ref=f37e116]: 「看远」是免费的
+      - generic [ref=f37e117]: 门控激活的解剖
+      - generic [ref=f37e119]: z = tanh(W_f * x) ⊙ σ(W_g * x)
+      - generic [ref=f37e120]: · tanh 支：候选特征——「这可能是什么」
+      - generic [ref=f37e121]: · sigmoid 支：门——「此刻要不要放行」
+      - generic [ref=f37e122]: · 逐元素相乘：软性开关
+      - generic [ref=f37e123]: 为什么对噪声关键：
+      - generic [ref=f37e124]: · 噪声时段的信号无关——门可以关小
+      - generic [ref=f37e125]: · 唤醒词的关键帧——门开大
+      - generic [ref=f37e126]: · 无门控（纯 tanh）：所有时间步平等
+      - generic [ref=f37e127]: 灌入——噪声下 FRR 从 1.60% 涨到
+      - generic [ref=f37e128]: 4.17%（+2.57pp）
+      - generic [ref=f37e129]: 干净环境门控只差 0.03pp——它不是
+      - generic [ref=f37e130]: 「更准」而是「更能拒绝噪声」
+      - generic [ref=f37e131]: 左：膨胀率每层翻倍，感受野指数扩张——182 帧的视野零参数代价，这是无状态网络能覆盖整句唤醒词的机制。右：门控是时间维的软开关——干净时作用微小、噪声时是命门，消融给出了干净的证据
+    - generic [ref=f37e132]: 图 2 · 机制解剖：感受野的指数扩张 · 门控激活在噪声里的作用机制
+    - generic [ref=f37e133]:
+      - generic [ref=f37e134]: "门控: z = tanh(W_f * x) ⊙ σ(W_g * x) ← 滤波门提特征, 门控门控流量 残差: output = Conv_1×1(z) + x ← 梯度直达, 24 层可训 跳跃: Σ 各层输出(1×1 后) → 最终输出 ← 多尺度感受野信息汇总 标签: 仅词结束后 δ=160ms 窗口内帧 → 正类 ← 学「终点事件」非逐帧对齐"
+      - generic [ref=f37e135]: 人话：空洞卷积像「隔帧取样」——每层往回看得翻倍地远，但每次只取同样多的点，视野免费扩张；门控像每层装了个音量旋钮，噪声时刻拧小、关键帧拧大。「关键词结束」标签则把任务从「逐帧拼写检查」简化成「听终点」。
+    - paragraph [ref=f37e136]: 门控消融的对比极有信息量：干净环境去掉门控只差 0.03pp（0.12%→0.15%），噪声环境却差 2.57pp（1.60%→4.17%）——门控的价值不在「更准」而在「更能拒绝噪声」：它给了网络逐时间步抑制无关信号的通路，纯 tanh 激活只能让所有时间步平等灌入。
+  - generic [ref=f37e137]:
+    - generic [ref=f37e138]: "03"
+    - heading "结果：FRR 差一个数量级" [level=2] [ref=f37e139]
+    - img [ref=f37e140]:
+      - generic [ref=f37e142]: 主结果：FRR 差一个数量级 · 门控消融 · 数据集的遗产
+      - generic [ref=f37e143]: FRR 对比（FAH = 0）
+      - generic [ref=f37e144]: "0"
+      - generic [ref=f37e145]: "3"
+      - generic [ref=f37e146]: "6"
+      - generic [ref=f37e147]: "9"
+      - generic [ref=f37e148]: "12"
+      - generic [ref=f37e149]: 干净环境 FRR (%)
+      - generic [ref=f37e151]: "2.09"
+      - generic [ref=f37e152]: LSTM 基线
+      - generic [ref=f37e154]: "0.12"
+      - generic [ref=f37e155]: 本文 ★
+      - generic [ref=f37e156]: 噪声环境 FRR (%)
+      - generic [ref=f37e158]: "11.21"
+      - generic [ref=f37e159]: LSTM 基线
+      - generic [ref=f37e161]: "1.60"
+      - generic [ref=f37e162]: 本文 ★
+      - generic [ref=f37e163]: 误拒率（越低越好）——干净差 17 倍、噪声差 7 倍，均为 FAH=0 严格条件
+      - generic [ref=f37e164]: 读数：
+      - generic [ref=f37e165]: · FAH=0：每小时零误报的严苛档——FRR 还能这么低
+      - generic [ref=f37e166]: · 噪声下差距更大：无状态 + 门控的抗噪红利
+      - generic [ref=f37e167]: · 基线 LSTM 用 max-pooling loss 训练（同期最优）
+      - generic [ref=f37e168]: 消融 + 数据集遗产
+      - generic [ref=f37e170]: 门控消融（噪声 FRR）
+      - generic [ref=f37e171]: 完整 ★
+      - generic [ref=f37e173]: 1.60%
+      - generic [ref=f37e174]: 去门控
+      - generic [ref=f37e176]: 4.17%
+      - generic [ref=f37e177]: Hey Snips 数据集的公开遗产：
+      - generic [ref=f37e178]: · 2,200+ 说话人 · 11K 正 / 86.5K 负
+      - generic [ref=f37e179]: · 此前唤醒词数据几乎全私有——
+      - generic [ref=f37e180]: 开源基准让后续方法可比
+      - generic [ref=f37e181]: · MatchboxNet / TC-ResNet / BC-ResNet
+      - generic [ref=f37e182]: 都在它或其后续上验证
+      - generic [ref=f37e183]: 「公开数据集」本身即贡献——
+      - generic [ref=f37e184]: 基准设施与算法同等重要
+      - generic [ref=f37e185]: 注：FRR 数值为论文报告值（FAH=0 条件）；LSTM 基线为 max-pooling loss 训练（同期最优做法）；干净环境门控消融 0.12%→0.15%（微小）
+    - generic [ref=f37e186]: 图 3 · 主结果：WaveNet vs LSTM 基线（FAH=0）· 门控消融 · Hey Snips 数据集的遗产
+    - table [ref=f37e187]:
+      - rowgroup [ref=f37e188]:
+        - row [ref=f37e189]:
+          - columnheader "模型" [ref=f37e190]
+          - columnheader "干净 FRR" [ref=f37e191]
+          - columnheader "噪声 FRR" [ref=f37e192]
+          - columnheader "说明" [ref=f37e193]
+        - row [ref=f37e194]:
+          - cell "本文（空洞+门控）" [ref=f37e195]
+          - cell "0.12%" [ref=f37e196]
+          - cell "1.60%" [ref=f37e197]
+          - cell "FAH=0 严苛条件" [ref=f37e198]
+        - row [ref=f37e199]:
+          - cell "LSTM 基线" [ref=f37e200]
+          - cell "2.09%" [ref=f37e201]
+          - cell "11.21%" [ref=f37e202]
+          - cell "max-pooling loss 训练（同期最优）" [ref=f37e203]
+        - row [ref=f37e204]:
+          - cell "去门控消融" [ref=f37e205]
+          - cell "0.15%" [ref=f37e206]
+          - cell "4.17%" [ref=f37e207]
+          - cell "门控的增益几乎全在噪声侧" [ref=f37e208]
+    - generic [ref=f37e209]:
+      - generic [ref=f37e210]:
+        - generic [ref=f37e211]: "1"
+        - paragraph [ref=f37e212]: FAH=0 是关键前提。每小时零误报的产品级严苛档——在这个档位 FRR 还能压到 0.12%，说明架构收益不是在宽松条件下刷出来的；对比唤醒词论文时先看 FA 条件是否对齐。
+      - generic [ref=f37e213]:
+        - generic [ref=f37e214]: "2"
+        - paragraph [ref=f37e215]: 噪声下差距（7 倍）大于干净（17 倍）的相对结构值得注意。干净侧 LSTM 的 2.09% 已可用——本文真正拉开的是噪声侧：无状态的空洞结构 + 门控的时间选择，双重抗噪。
+      - generic [ref=f37e216]:
+        - generic [ref=f37e217]: "3"
+        - paragraph [ref=f37e218]: Hey Snips 数据集的遗产超过论文本身。2,200+ 说话人的公开唤醒词语料——此前该领域数据几乎全私有（各家唤醒词是商业机密）；开源基准让 MatchboxNet、TC-ResNet、BC-ResNet 等后续工作有了可比的赛道，「发数据集」与「发方法」同等重要。
+  - generic [ref=f37e219]:
+    - generic [ref=f37e220]: "04"
+    - heading "边界：无状态的内存账" [level=2] [ref=f37e221]
+    - img [ref=f37e222]:
+      - generic [ref=f37e224]: 边界与延伸
+      - generic [ref=f37e226]: 方法边界
+      - generic [ref=f37e227]: · 中间激活的内存账：跳跃连接要保存所有层的输出——
+      - generic [ref=f37e228]: 推理期内存高于 RNN；极受限嵌入式上是真实瓶颈
+      - generic [ref=f37e229]: · 膨胀策略要按词调：182 帧感受野匹配「Hey Snips」
+      - generic [ref=f37e230]: 时长——短词用不满（算力浪费）· 长词不够用
+      - generic [ref=f37e231]: · 因果性约束：流式只看过去——检测精度让半步
+      - generic [ref=f37e232]: · 单词验证：只测「Hey Snips」——GSC 35 类等
+      - generic [ref=f37e233]: 多类 KWS 的泛化未示
+      - generic [ref=f37e234]: · 无与 TCN / Quasi-RNN 等同期无状态方法对比
+      - generic [ref=f37e236]: 延伸 + 系列坐标
+      - generic [ref=f37e237]: · 多关键词同时检测
+      - generic [ref=f37e238]: · 自适应膨胀率（按输入动态调感受野）
+      - generic [ref=f37e239]: · 注意力 × 无状态的组合
+      - generic [ref=f37e240]: · 蒸馏/量化进一步压缩
+      - generic [ref=f37e241]: 系列坐标（无状态 KWS 架构线的源头）：
+      - generic [ref=f37e242]: · others（2018）max-pooling LSTM：本文的对照
+      - generic [ref=f37e243]: · 本文（2019）：空洞×门控进 KWS——骨架确立
+      - generic [ref=f37e244]: · 2020 MatchboxNet：同骨架 + 深度可分离卷积——
+      - generic [ref=f37e245]: 参数再砍一个量级
+      - generic [ref=f37e246]: "· 2020 #16 NAS：空洞卷积进搜索空间被独立选——"
+      - generic [ref=f37e247]: 本文先验证了这个算子的价值
+      - generic [ref=f37e248]: "· 2020 #22 MTConv：多尺度时间卷积的延续"
+      - generic [ref=f37e249]: 可迁移判断：无状态架构用「结构换状态」——感受野靠膨胀率指数扩张、时序选择靠门控；当 RNN 的状态管理成为部署负担时，这条路线用完全并行 + 无重置换来工程简单性，代价是中间激活的内存
+    - generic [ref=f37e250]: 图 4 · 边界与延伸：中间激活内存 · 膨胀策略按词调 · 单词验证 + 无状态架构线的系列坐标
+    - generic [ref=f37e251]:
+      - generic [ref=f37e252]:
+        - heading "中间激活的内存账" [level=4] [ref=f37e253]
+        - paragraph [ref=f37e254]: 跳跃连接要保存所有层的输出——推理期内存高于 RNN；在极受限嵌入式上这是真实瓶颈（速度换内存的隐性交易）。
+      - generic [ref=f37e255]:
+        - heading "膨胀策略按词调" [level=4] [ref=f37e256]
+        - paragraph [ref=f37e257]: 182 帧感受野匹配「Hey Snips」的时长——短词用不满（算力浪费）、长词罩不住；换词要重调膨胀序列。
+      - generic [ref=f37e258]:
+        - heading "单词验证" [level=4] [ref=f37e259]
+        - paragraph [ref=f37e260]: 只测「Hey Snips」——GSC 35 类等多类 KWS 的泛化未示；且无与 TCN/Quasi-RNN 等同期无状态方法的直接对比。
+      - generic [ref=f37e261]:
+        - heading "因果性约束" [level=4] [ref=f37e262]
+        - paragraph [ref=f37e263]: 流式只看过去——检测精度比双向让半步；这是所有流式架构的共同税（#24 详述过）。
+  - generic [ref=f37e264]:
+    - generic [ref=f37e265]: "05"
+    - heading "可迁移的判断" [level=2] [ref=f37e266]
+    - generic [ref=f37e267]:
+      - generic [ref=f37e268]: JUDGMENTS · 能带走的三条
+      - paragraph [ref=f37e269]: ① 无状态架构用「结构换状态」。
+      - generic [ref=f37e270]: ↳ 感受野靠膨胀率指数扩张、时序选择靠门控、训练深度靠残差——三件套合起来替代了 RNN 的递归状态；当状态管理成为部署负担（重置逻辑、饱和、顺序依赖）时，这条路线用完全并行换来工程简单性，代价是中间激活的内存。
+      - paragraph [ref=f37e271]: ② 门控的价值在「拒绝噪声」不在「提升精度」。
+      - generic [ref=f37e272]: ↳ 干净环境门控几乎无用、噪声环境是命门——评估一个组件时要在多个 SNR 条件下分别看，单点准确率会完全掩盖这类「条件依赖型」组件的价值。
+      - paragraph [ref=f37e273]: ③ 把标注目标从「逐帧对齐」改成「终点事件」能简化学习。
+      - generic [ref=f37e274]: "↳ end-of-keyword 标签让模型只学「词说完了」——任务从拼写检查变成听终点；这个思路与后来 #10 的部分-整体检测异曲同工：把结构先验编码进标签设计，比让模型自己从逐帧标签里发现结构更高效。"
+    - paragraph [ref=f37e275]: "系列坐标：无状态 KWS 架构线的源头——others（2018）的 max-pooling LSTM 是本文的对照基线；本文（2019）确立「空洞 × 门控」骨架后，2020 年 MatchboxNet 在同骨架上换深度可分离卷积再砍参数一个量级；2020 #16 的 NAS 把空洞卷积放进搜索空间且被独立选中（本文先验证了算子价值）；2020 #22 MTConv 是多尺度时间卷积的延续——这条线从这里一路演化到 BC-ResNet。"
+  - generic [ref=f37e276]:
+    - generic [ref=f37e277]: ICASSP 2019
+    - generic [ref=f37e278]: arXiv 1811.07684
+    - generic [ref=f37e279]: Hey Snips
+    - generic [ref=f37e280]: 182 帧感受野
+    - generic [ref=f37e281]: FRR 数值为论文报告值（FAH=0 条件）· 本页为可视化精读笔记，图表由 SVG 重绘

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hey Snips：把 WaveNet 搬进唤醒词——无状态也能看 1.83 秒 | 论文精读 2019 №4</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.22em;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:14px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.sub{font-size:17px;color:var(--ink2);margin-bottom:22px;font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.chip{font-size:12.5px;padding:5px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2);font-weight:600}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink2);margin-bottom:40px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:10px;vertical-align:-6px}
+h2{font-size:24px;font-weight:800;margin-bottom:18px;letter-spacing:.01em}
+h3{font-size:17px;font-weight:700;margin:26px 0 10px}
+p{margin-bottom:14px;color:#2c3646}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:.14em;margin-bottom:10px}
+.tldr li{list-style:none;padding-left:22px;position:relative;margin-bottom:8px;color:#2c3646;font-size:15px}
+.tldr li::before{content:"◆";position:absolute;left:2px;color:var(--acc);font-size:10px;top:7px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px}
+.card h4{font-size:15px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13.5px;color:var(--ink2);margin-bottom:0}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h4{color:var(--dk)}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4}
+.card.bad h4{color:var(--warn)}
+.fig{margin:26px 0}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:9px;text-align:center}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 22px;margin:16px 0;font-size:15px}
+.formula .f{font-family:"SF Mono",Consolas,"Liberation Mono",monospace;font-size:14.5px;color:var(--ink);background:#f4f4ef;border-radius:8px;padding:10px 16px;margin-bottom:8px;overflow-x:auto;white-space:pre-wrap}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;margin:16px 0}
+table.tb th{background:#eff1ec;color:var(--ink);font-weight:700;text-align:left;padding:10px 14px;border-bottom:2px solid var(--line);font-size:13px}
+table.tb td{padding:9px 14px;border-bottom:1px solid #f0f0ea;color:#2c3646;vertical-align:top}
+table.tb tr:last-child td{border-bottom:none}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.contrib{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:18px 0}
+.contrib .row{display:flex;gap:14px;margin-bottom:12px;align-items:flex-start}
+.contrib .row:last-child{margin-bottom:0}
+.contrib .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lt);color:var(--dk);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.contrib .row p{margin:0;font-size:14px;color:#2c3646}
+.judge{background:#fdf8f0;border:1px solid #eadfc8;border-radius:12px;padding:20px 24px;margin:18px 0}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:#5a4a2f;margin-bottom:10px;font-weight:600}
+.judge .rw{font-size:13.5px;color:#7a6a4a;padding-left:18px;position:relative;margin-bottom:9px}
+.judge .rw::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-size:12px;padding:4px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink3);font-weight:600}
+.foot-note{font-size:12px;color:var(--ink3);width:100%;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2019 №4</div>
+<h1 class="hero">Hey Snips：把 WaveNet 搬进唤醒词——<span class="g">无状态也能看 1.83 秒</span></h1>
+<div class="sub">Efficient Keyword Spotting Using Dilated Convolutions and Gating —— Snips 的 ICASSP 2019 经典：空洞卷积 + 门控激活 + 「Hey Snips」开源数据集</div>
+<div class="chips">
+<span class="chip acc">空洞卷积</span><span class="chip">门控激活</span><span class="chip">无状态时序</span><span class="chip">WaveNet 式架构</span><span class="chip">Hey Snips 数据集</span>
+</div>
+<div class="meta">
+<b>Snips（巴黎）· ICASSP 2019 · arXiv 1811.07684</b><br>
+架构：20 维 LFBE @10ms → 24 层空洞卷积（膨胀率 {1,2,4,8}×6 循环，感受野 182 帧 ≈ 1.83s）+ 门控激活 + 残差/跳跃连接 · 标签：只在词结束后 δ=160ms 窗口标正<br>
+一句话：FAH=0 下干净 FRR 0.12% / 噪声 1.60%（LSTM 基线 2.09% / 11.21%）——门控是噪声命门（去掉 +2.57pp），数据集开源成为后续基准。
+</div>
+
+<section>
+<span class="no">01</span><h2>问题：RNN 的状态是部署税</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>唤醒词检测的三难：资源受限持续监听 · 低延迟 · 低误拒低误报——<b>RNN 的状态饱和</b>（要周期性重置、重置丢信息）让第一难雪上加霜。</li>
+<li>标准 CNN 感受野不够（数百帧的唤醒词罩不住）、HMM 要音素精确对齐——三条路各有硬伤；核心需求是<b>无状态</b>的长时程建模。</li>
+<li>WaveNet 式答案：空洞卷积让<b>感受野指数扩张而参数不增</b>（{1,2,4,8} 循环 24 层 = 182 帧 ≈ 1.83 秒），完全并行、无状态、因果流式友好。</li>
+<li>两个关键设计：<b>门控激活</b>（tanh ⊙ sigmoid——时间维软开关，噪声环境的命门）与 <b>「关键词结束」标签</b>（只在词尾 δ=160ms 窗口标正——学「词说完了」而非逐帧对齐）。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Hey Snips：把 WaveNet 搬进唤醒词——无状态也能看 1.83 秒</text>
+<line x1="36.0" y1="60.0" x2="680.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 部署三难 + 现有时序建模三缺陷</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">唤醒词检测要同时满足：资源受限持续监听 · 低延迟 · 低误拒与低误报——三者互相拉扯</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">核心需求：无状态（stateless）的长时程建模——不用递归状态也能覆盖 1–2 秒的唤醒词</text>
+<rect x="36.0" y="152.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="181.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RNN 状态饱和</text>
+<text x="215.0" y="181.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">LSTM 内部状态在持续输入流下饱和——要周期性重置，实现复杂且重置丢信息</text>
+<rect x="36.0" y="208.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="237.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN 感受野不够</text>
+<text x="215.0" y="237.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标准卷积要以合理大小模型覆盖数百帧——堆不上去</text>
+<rect x="36.0" y="264.0" width="848.0" height="48.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="293.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">HMM 流水线复杂</text>
+<text x="215.0" y="293.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">需要音素级精确对齐——系统设计重且不灵活</text>
+<text x="36.0" y="296.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② WaveNet 式骨架：空洞 × 门控 × 残差</text>
+<rect x="36.0" y="312.0" width="416.0" height="190.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="334.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">空洞卷积堆叠</text>
+<text x="52.0" y="358.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 膨胀率 {1,2,4,8} 循环 × 6 块 = 24 层</text>
+<text x="52.0" y="373.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 感受野指数增长、参数不增</text>
+<text x="52.0" y="388.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 总感受野 182 帧 ≈ 1.83 秒</text>
+<text x="52.0" y="403.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——恰好罩住典型唤醒词时长</text>
+<text x="52.0" y="418.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="433.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输入：20 维 LFBE · 10ms/帧</text>
+<text x="52.0" y="448.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无状态 · 完全并行（vs RNN 顺序）</text>
+<text x="52.0" y="463.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="478.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 因果模式——只看过去，流式友好</text>
+<rect x="468.0" y="312.0" width="416.0" height="190.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="676.0" y="334.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">门控激活 + 残差/跳跃</text>
+<text x="484.0" y="358.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· z = tanh(W_f * x) ⊙ σ(W_g * x)</text>
+<text x="484.0" y="373.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  滤波门提特征 · 门控门控流量</text>
+<text x="484.0" y="388.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· sigmoid 门决定保留/遗忘哪些时间步</text>
+<text x="484.0" y="403.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="418.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 残差连接：梯度直达——24 层可训</text>
+<text x="484.0" y="433.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 跳跃连接：各感受野尺度的输出</text>
+<text x="484.0" y="448.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  汇总到最终输出</text>
+<text x="484.0" y="463.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="478.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 门控是噪声下的主力（消融见后）</text>
+<text x="36.0" y="534.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 「关键词结束」标签：只学找终点</text>
+<rect x="36.0" y="550.0" width="848.0" height="62.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="574.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">传统帧级标签：关键词内每帧都标正类——模型被迫学「精确帧对齐」</text>
+<text x="52.0" y="591.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">本文：只在关键词结束后 δ=160ms 窗口内标正——损失只从这些帧回传，模型学「词说完了」这个事件</text>
+<rect x="36.0" y="638.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="664.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.12% / 1.60%</text>
+<text x="130.0" y="684.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">干净/噪声 FRR（FAH=0）</text>
+<text x="298.0" y="664.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">vs 2.09%/11.21%</text>
+<text x="298.0" y="684.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">LSTM 基线同条件</text>
+<text x="466.0" y="664.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">182 帧</text>
+<text x="466.0" y="684.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">总感受野 ≈ 1.83 秒</text>
+<text x="634.0" y="664.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2,200+</text>
+<text x="634.0" y="684.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Hey Snips 数据集说话人</text>
+<text x="802.0" y="664.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+2.57pp</text>
+<text x="802.0" y="684.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">去门控后噪声 FRR 恶化</text>
+<text x="36.0" y="722.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Snips（巴黎）· ICASSP 2019 · arXiv 1811.07684；Hey Snips 数据集（11K 正 / 86.5K 负）公开发布 · 二值交叉熵 · Adam</text>
+</svg>
+<div class="cap">图 1 · 全景：部署三难与时序建模三缺陷 → WaveNet 式骨架 → 关键词结束标签 → 核心数字带</div>
+</section>
+
+<section>
+<span class="no">02</span><h2>机制：免费的视野与软开关</h2>
+<p><b>空洞卷积的「免费看远」</b>是整套架构的地基：膨胀率每层翻倍，核大小 2 的 4 层 {1,2,4,8} 感受野 19 帧；循环 6 个 block 共 24 层，182 帧 ≈ 1.83 秒——恰好罩住典型唤醒词，而参数量与标准卷积完全相同。无状态 + 完全并行，对比 RNN 的顺序依赖与重置管理，是工程简单性的完胜。</p>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：感受野的指数扩张 · 门控为什么在噪声里是命门</text>
+<line x1="36.0" y1="56.0" x2="640.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">空洞卷积怎么「看远」</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="64.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="82.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="100.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="118.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="136.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="154.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="172.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="190.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="208.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="226.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="244.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="262.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="280.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="298.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="316.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="334.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="352.0" y="300.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<line x1="208.0" y1="300.0" x2="352.00" y2="240.00" stroke="#33507a" stroke-width="1.3" stroke-dasharray="2,2"/>
+<line x1="208.0" y1="300.0" x2="64.00" y2="240.00" stroke="#33507a" stroke-width="1.3" stroke-dasharray="2,2"/>
+<text x="358.0" y="243.0" font-size="8" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">d=8</text>
+<line x1="208.0" y1="300.0" x2="280.00" y2="212.00" stroke="#5d9c85" stroke-width="1.3" stroke-dasharray="2,2"/>
+<line x1="208.0" y1="300.0" x2="136.00" y2="212.00" stroke="#5d9c85" stroke-width="1.3" stroke-dasharray="2,2"/>
+<text x="286.0" y="215.0" font-size="8" fill="#5d9c85" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">d=4</text>
+<line x1="208.0" y1="300.0" x2="244.00" y2="188.00" stroke="#0b6e52" stroke-width="1.3" stroke-dasharray="2,2"/>
+<line x1="208.0" y1="300.0" x2="172.00" y2="188.00" stroke="#0b6e52" stroke-width="1.3" stroke-dasharray="2,2"/>
+<text x="250.0" y="191.0" font-size="8" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">d=2</text>
+<line x1="208.0" y1="300.0" x2="226.00" y2="170.00" stroke="#0a6b4e" stroke-width="1.3" stroke-dasharray="2,2"/>
+<text x="232.0" y="173.0" font-size="8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">d=1</text>
+<text x="64.0" y="236.0" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="64.0" y="249.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">核大小 2 · 膨胀率 d：隔 d−1 帧取样</text>
+<text x="64.0" y="262.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 4 层 {1,2,4,8}：感受野 19 帧</text>
+<text x="64.0" y="275.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 24 层（×6 循环）：182 帧 = 1.83 秒</text>
+<text x="64.0" y="288.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 参数量与标准卷积完全相同——</text>
+<text x="64.0" y="301.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「看远」是免费的</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">门控激活的解剖</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="450.0" y="114.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">z = tanh(W_f * x) ⊙ σ(W_g * x)</text>
+<text x="450.0" y="127.8" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="141.6" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· tanh 支：候选特征——「这可能是什么」</text>
+<text x="450.0" y="155.4" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· sigmoid 支：门——「此刻要不要放行」</text>
+<text x="450.0" y="169.2" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 逐元素相乘：软性开关</text>
+<text x="450.0" y="183.0" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="196.8" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么对噪声关键：</text>
+<text x="450.0" y="210.6" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声时段的信号无关——门可以关小</text>
+<text x="450.0" y="224.4" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 唤醒词的关键帧——门开大</text>
+<text x="450.0" y="238.2" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无门控（纯 tanh）：所有时间步平等</text>
+<text x="450.0" y="252.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  灌入——噪声下 FRR 从 1.60% 涨到</text>
+<text x="450.0" y="265.8" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  4.17%（+2.57pp）</text>
+<text x="450.0" y="279.6" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="293.4" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">干净环境门控只差 0.03pp——它不是</text>
+<text x="450.0" y="307.2" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「更准」而是「更能拒绝噪声」</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：膨胀率每层翻倍，感受野指数扩张——182 帧的视野零参数代价，这是无状态网络能覆盖整句唤醒词的机制。右：门控是时间维的软开关——干净时作用微小、噪声时是命门，消融给出了干净的证据</text>
+</svg>
+<div class="cap">图 2 · 机制解剖：感受野的指数扩张 · 门控激活在噪声里的作用机制</div>
+<div class="formula">
+<div class="f">门控:  z = tanh(W_f * x) ⊙ σ(W_g * x)        ← 滤波门提特征, 门控门控流量
+残差:  output = Conv_1×1(z) + x                  ← 梯度直达, 24 层可训
+跳跃:  Σ 各层输出(1×1 后) → 最终输出             ← 多尺度感受野信息汇总
+标签:  仅词结束后 δ=160ms 窗口内帧 → 正类        ← 学「终点事件」非逐帧对齐</div>
+<div class="why"><b>人话：</b>空洞卷积像「隔帧取样」——每层往回看得翻倍地远，但每次只取同样多的点，视野免费扩张；门控像每层装了个音量旋钮，噪声时刻拧小、关键帧拧大。「关键词结束」标签则把任务从「逐帧拼写检查」简化成「听终点」。</div>
+</div>
+<p><b>门控消融的对比极有信息量</b>：干净环境去掉门控只差 0.03pp（0.12%→0.15%），噪声环境却差 2.57pp（1.60%→4.17%）——门控的价值不在「更准」而在「更能拒绝噪声」：它给了网络逐时间步抑制无关信号的通路，纯 tanh 激活只能让所有时间步平等灌入。</p>
+</section>
+
+<section>
+<span class="no">03</span><h2>结果：FRR 差一个数量级</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：FRR 差一个数量级 · 门控消融 · 数据集的遗产</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FRR 对比（FAH = 0）</text>
+<line x1="52.0" y1="262.0" x2="456.00" y2="262.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="265.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<line x1="52.0" y1="224.5" x2="456.00" y2="224.50" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="227.5" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">3</text>
+<line x1="52.0" y1="187.0" x2="456.00" y2="187.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="190.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">6</text>
+<line x1="52.0" y1="149.5" x2="456.00" y2="149.50" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="152.5" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">9</text>
+<line x1="52.0" y1="112.0" x2="456.00" y2="112.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="115.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">12</text>
+<text x="178.0" y="108.0" font-size="7.8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">干净环境 FRR (%)</text>
+<rect x="96.0" y="235.9" width="66.0" height="26.1" rx="4" fill="#c9d8e8"/>
+<text x="129.0" y="229.9" font-size="8.3" fill="#c9d8e8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2.09</text>
+<text x="129.0" y="276.0" font-size="7.2" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">LSTM 基线</text>
+<rect x="180.0" y="260.5" width="66.0" height="1.5" rx="4" fill="#0b6e52"/>
+<text x="213.0" y="254.5" font-size="8.3" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.12</text>
+<text x="213.0" y="276.0" font-size="7.2" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 ★</text>
+<text x="368.0" y="108.0" font-size="7.8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声环境 FRR (%)</text>
+<rect x="286.0" y="121.9" width="66.0" height="140.1" rx="4" fill="#c9d8e8"/>
+<text x="319.0" y="115.9" font-size="8.3" fill="#c9d8e8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">11.21</text>
+<text x="319.0" y="276.0" font-size="7.2" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">LSTM 基线</text>
+<rect x="370.0" y="242.0" width="66.0" height="20.0" rx="4" fill="#0b6e52"/>
+<text x="403.0" y="236.0" font-size="8.3" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1.60</text>
+<text x="403.0" y="276.0" font-size="7.2" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 ★</text>
+<text x="256.0" y="106.0" font-size="7.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">误拒率（越低越好）——干净差 17 倍、噪声差 7 倍，均为 FAH=0 严格条件</text>
+<text x="56.0" y="316.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="56.0" y="330.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· FAH=0：每小时零误报的严苛档——FRR 还能这么低</text>
+<text x="56.0" y="343.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声下差距更大：无状态 + 门控的抗噪红利</text>
+<text x="56.0" y="356.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 基线 LSTM 用 max-pooling loss 训练（同期最优）</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融 + 数据集遗产</text>
+<rect x="500.0" y="92.0" width="324.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="112.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">门控消融（噪声 FRR）</text>
+<text x="514.0" y="137.0" font-size="8.3" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">完整 ★</text>
+<rect x="590.0" y="126.0" width="64.0" height="15.0" rx="4" fill="#0b6e52"/>
+<text x="658.0" y="137.0" font-size="8.2" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1.60%</text>
+<text x="514.0" y="173.0" font-size="8.3" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">去门控</text>
+<rect x="590.0" y="162.0" width="166.8" height="15.0" rx="4" fill="#c0392b"/>
+<text x="760.8" y="173.0" font-size="8.2" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4.17%</text>
+<text x="514.0" y="208.0" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="221.2" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Hey Snips 数据集的公开遗产：</text>
+<text x="514.0" y="234.4" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2,200+ 说话人 · 11K 正 / 86.5K 负</text>
+<text x="514.0" y="247.6" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 此前唤醒词数据几乎全私有——</text>
+<text x="514.0" y="260.8" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  开源基准让后续方法可比</text>
+<text x="514.0" y="274.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· MatchboxNet / TC-ResNet / BC-ResNet</text>
+<text x="514.0" y="287.2" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  都在它或其后续上验证</text>
+<text x="514.0" y="300.4" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="313.6" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「公开数据集」本身即贡献——</text>
+<text x="514.0" y="326.8" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">基准设施与算法同等重要</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：FRR 数值为论文报告值（FAH=0 条件）；LSTM 基线为 max-pooling loss 训练（同期最优做法）；干净环境门控消融 0.12%→0.15%（微小）</text>
+</svg>
+<div class="cap">图 3 · 主结果：WaveNet vs LSTM 基线（FAH=0）· 门控消融 · Hey Snips 数据集的遗产</div>
+<table class="tb">
+<tr><th>模型</th><th>干净 FRR</th><th>噪声 FRR</th><th>说明</th></tr>
+<tr class="hl"><td>本文（空洞+门控）</td><td>0.12%</td><td>1.60%</td><td>FAH=0 严苛条件</td></tr>
+<tr><td>LSTM 基线</td><td>2.09%</td><td>11.21%</td><td>max-pooling loss 训练（同期最优）</td></tr>
+<tr><td>去门控消融</td><td>0.15%</td><td>4.17%</td><td>门控的增益几乎全在噪声侧</td></tr>
+</table>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>FAH=0 是关键前提。</b>每小时零误报的产品级严苛档——在这个档位 FRR 还能压到 0.12%，说明架构收益不是在宽松条件下刷出来的；对比唤醒词论文时先看 FA 条件是否对齐。</p></div>
+<div class="row"><div class="n">2</div><p><b>噪声下差距（7 倍）大于干净（17 倍）的相对结构值得注意。</b>干净侧 LSTM 的 2.09% 已可用——本文真正拉开的是噪声侧：无状态的空洞结构 + 门控的时间选择，双重抗噪。</p></div>
+<div class="row"><div class="n">3</div><p><b>Hey Snips 数据集的遗产超过论文本身。</b>2,200+ 说话人的公开唤醒词语料——此前该领域数据几乎全私有（各家唤醒词是商业机密）；开源基准让 MatchboxNet、TC-ResNet、BC-ResNet 等后续工作有了可比的赛道，「发数据集」与「发方法」同等重要。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">04</span><h2>边界：无状态的内存账</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 中间激活的内存账：跳跃连接要保存所有层的输出——</text>
+<text x="72.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  推理期内存高于 RNN；极受限嵌入式上是真实瓶颈</text>
+<text x="72.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 膨胀策略要按词调：182 帧感受野匹配「Hey Snips」</text>
+<text x="72.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  时长——短词用不满（算力浪费）· 长词不够用</text>
+<text x="72.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 因果性约束：流式只看过去——检测精度让半步</text>
+<text x="72.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 单词验证：只测「Hey Snips」——GSC 35 类等</text>
+<text x="72.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  多类 KWS 的泛化未示</text>
+<text x="72.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无与 TCN / Quasi-RNN 等同期无状态方法对比</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸 + 系列坐标</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多关键词同时检测</text>
+<text x="536.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 自适应膨胀率（按输入动态调感受野）</text>
+<text x="536.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 注意力 × 无状态的组合</text>
+<text x="536.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 蒸馏/量化进一步压缩</text>
+<text x="536.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系列坐标（无状态 KWS 架构线的源头）：</text>
+<text x="536.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· others（2018）max-pooling LSTM：本文的对照</text>
+<text x="536.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文（2019）：空洞×门控进 KWS——骨架确立</text>
+<text x="536.0" y="240.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2020 MatchboxNet：同骨架 + 深度可分离卷积——</text>
+<text x="536.0" y="254.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  参数再砍一个量级</text>
+<text x="536.0" y="268.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2020 #16 NAS：空洞卷积进搜索空间被独立选——</text>
+<text x="536.0" y="281.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  本文先验证了这个算子的价值</text>
+<text x="536.0" y="295.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2020 #22 MTConv：多尺度时间卷积的延续</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：无状态架构用「结构换状态」——感受野靠膨胀率指数扩张、时序选择靠门控；当 RNN 的状态管理成为部署负担时，这条路线用完全并行 + 无重置换来工程简单性，代价是中间激活的内存</text>
+</svg>
+<div class="cap">图 4 · 边界与延伸：中间激活内存 · 膨胀策略按词调 · 单词验证 + 无状态架构线的系列坐标</div>
+<div class="cards">
+<div class="card bad"><h4>中间激活的内存账</h4><p>跳跃连接要保存所有层的输出——推理期内存高于 RNN；在极受限嵌入式上这是真实瓶颈（速度换内存的隐性交易）。</p></div>
+<div class="card bad"><h4>膨胀策略按词调</h4><p>182 帧感受野匹配「Hey Snips」的时长——短词用不满（算力浪费）、长词罩不住；换词要重调膨胀序列。</p></div>
+<div class="card bad"><h4>单词验证</h4><p>只测「Hey Snips」——GSC 35 类等多类 KWS 的泛化未示；且无与 TCN/Quasi-RNN 等同期无状态方法的直接对比。</p></div>
+<div class="card"><h4>因果性约束</h4><p>流式只看过去——检测精度比双向让半步；这是所有流式架构的共同税（#24 详述过）。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">05</span><h2>可迁移的判断</h2>
+<div class="judge">
+<div class="jt">JUDGMENTS · 能带走的三条</div>
+<p>① 无状态架构用「结构换状态」。</p>
+<div class="rw">感受野靠膨胀率指数扩张、时序选择靠门控、训练深度靠残差——三件套合起来替代了 RNN 的递归状态；当状态管理成为部署负担（重置逻辑、饱和、顺序依赖）时，这条路线用完全并行换来工程简单性，代价是中间激活的内存。</div>
+<p>② 门控的价值在「拒绝噪声」不在「提升精度」。</p>
+<div class="rw">干净环境门控几乎无用、噪声环境是命门——评估一个组件时要在多个 SNR 条件下分别看，单点准确率会完全掩盖这类「条件依赖型」组件的价值。</div>
+<p>③ 把标注目标从「逐帧对齐」改成「终点事件」能简化学习。</p>
+<div class="rw">end-of-keyword 标签让模型只学「词说完了」——任务从拼写检查变成听终点；这个思路与后来 #10 的部分-整体检测异曲同工：把结构先验编码进标签设计，比让模型自己从逐帧标签里发现结构更高效。</div>
+</div>
+<p><b>系列坐标</b>：无状态 KWS 架构线的源头——others（2018）的 max-pooling LSTM 是本文的对照基线；本文（2019）确立「空洞 × 门控」骨架后，2020 年 MatchboxNet 在同骨架上换深度可分离卷积再砍参数一个量级；2020 #16 的 NAS 把空洞卷积放进搜索空间且被独立选中（本文先验证了算子价值）；2020 #22 MTConv 是多尺度时间卷积的延续——这条线从这里一路演化到 BC-ResNet。</p>
+</section>
+
+<div class="foot">
+<span class="pill">ICASSP 2019</span><span class="pill">arXiv 1811.07684</span><span class="pill">Hey Snips</span><span class="pill">182 帧感受野</span>
+<div class="foot-note">FRR 数值为论文报告值（FAH=0 条件）· 本页为可视化精读笔记，图表由 SVG 重绘</div>
+</div>
+
+</div>
+</body>
+</html>
