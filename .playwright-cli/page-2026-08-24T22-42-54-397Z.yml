@@ -1,0 +1,236 @@
+- generic [active] [ref=f171e1]:
+  - navigation [ref=f171e2]:
+    - generic [ref=f171e3]:
+      - generic [ref=f171e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f171e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f171e6]:
+        - link "深读笔记" [ref=f171e7] [cursor=pointer]:
+          - /url: /papers/2023/Exploring_Representation_Learning_For_Small-Footprint_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f171e8] [cursor=pointer]:
+          - /url: /papers/2023/Exploring_Representation_Learning_For_Small-Footprint_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f171e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2303.10912
+  - generic [ref=f171e10]:
+    - banner [ref=f171e11]:
+      - paragraph [ref=f171e12]: 论文精读 · 可视化版 · 2023 №9
+      - heading "用大模型的知识，不用大模型的体积—— wav2vec 2.0 当「约束」而非特征提取器或伪标签机" [level=1] [ref=f171e13]: 用大模型的知识，不用大模型的体积——wav2vec 2.0 当「约束」而非特征提取器或伪标签机
+      - paragraph [ref=f171e14]: Exploring Representation Learning for Small-Footprint Keyword Spotting
+      - paragraph [ref=f171e15]: 作者：Fan Cui、Liyong Guo、Quandong Wang、Peng Gao、Yujun Wang —— 小米（北京）
+      - paragraph [ref=f171e16]: 发表：arXiv 2303.10912（2023-03）· TCANet 65K 参数 · SC 12 类 + AISHEEL 跨域
+      - generic [ref=f171e17]:
+        - generic [ref=f171e18]: 双重低资源：标注少 + 算力小
+        - generic [ref=f171e19]: WVC：帧级隐表示回归
+        - generic [ref=f171e20]: LGCSiam：双尺度对比防坍缩
+        - generic [ref=f171e21]: 5% 标注 +4.28 点
+        - generic [ref=f171e22]: 中文预训练 → 英文微调几乎无损
+        - generic [ref=f171e23]: 65K 超 305K 基线
+      - generic [ref=f171e24]:
+        - heading "一分钟版本" [level=2] [ref=f171e25]
+        - list [ref=f171e26]:
+          - listitem [ref=f171e27]: 三条痛点纠缠：标注数据有限（标注贵）、设备资源有限（模型卡死在几十 K 参数——小模型在少数据下更容易过拟合）、环境分布漂移（产线模型换部署环境就掉点，重新标注又回到第一条）。共同指向：无标注语音便宜量大，能不能用它给要部署的小模型注入先验？
+          - listitem [ref=f171e28]: 两条既有路线的死结：把 wav2vec 2.0 引入 KWS 的两种用法各有致命伤——微调路线要求部署模型就是那个大模型（几千万参数端侧放不下）；伪标签路线要求教师能输出与下游标签空间对齐的标签（通用自监督模型没有关键词分类头，先微调教师又回到第一条）。直接搬 CV 对比学习（SimCLR/SimSiam）还有孪生网络坍缩风险（输出常向量最省力，表示彻底失效）。
+          - listitem [ref=f171e29]: 核心设计哲学：被预训练的对象就是要部署的小模型本身——不是「先训大再蒸馏」的两段式：训练形态 = 部署形态（避免二次精度损失）；教师网络与孪生分支只存在于训练期，推理时全部摘掉（端侧开销为零）。
+          - listitem [ref=f171e30]: WVC（全文最有效，5% 标注下单独 +4.06）：wav2vec 2.0 当约束——学生编码器输出（64 维）经 MLP 投影头 64→128→768，与教师隐表示做 MSE 逐帧回归。不对齐标签只对齐表示：逐帧稠密目标 → 任何无标注音频都能用；投影头吸收维度变换负担（主干保持 64 维小开销，推理时摘掉）。
+          - listitem [ref=f171e31]: LGCSiam（局部-全局对比孪生）：同一波形两个增广过共享权重的 E+D——局部正对（相同帧位置，InfoNCE τ=0.5）+ 全局正对（时间平均池化句级向量，MSE）+ 负对来自跨样本与跨时间戳两个维度（负样本池免费扩展到 B×T/2——不加大 batch 白拿序列维负样本；不同时间戳设负对防「平滑低通」退化解）。
+          - listitem [ref=f171e32]: TCANet 载体：7 层时序卷积编码器（可分离 conv 缩参 ~8×、首层 stride=2 时域减半——注意力开销砍 4×）+ 多头自注意力解码器（一步全局感受野，把「跨频带跨帧依赖」从架构深度问题变成 64×64 投影）——65K 参数 96.85，同参数量超 TC-ResNet8（66K）0.75 点；加表示学习 97.5，用 1/5 体积超 305K 的最大基线 0.9 点。
+          - listitem [ref=f171e33]: 最有信息量的三条消融：① 标注越少增益越大——100% 设定 +0.65，5% 设定 +4.28（6.6 倍）：预训练把参数初始化到声学合理流形，收窄小数据搜索空间；② WVC 主导、LGCSiam 边际——单独 +4.06 vs +1.68，叠加只再多 +0.22（帧级稠密教师信号的信息量远大于增广不变性这条弱约束——如果只能做一个模块，先做 WVC）；③ 跨语言几乎无损——中文 AISHELL 预训练 → 英文 SC 微调只掉 0.05/0.19 点；且 LGCSiam 跨域掉 0.83 vs WVC 只掉 0.17——增广不变性锚定预训练分布，wav2vec 表示本身语言无关。
+          - listitem [ref=f171e34]: 多阶段组合：仅 WVC 预训练编码器 → WVC+LGCSiam（0.9:0.1）联训整条通路 → 带标签微调（CE 0.9 + 两无监督各 0.05——「表示保持」是微调期的持续约束而非一次性初始化，防小标注集上向 12 类边界漂移过快）。
+          - listitem [ref=f171e35]: 边界：WVC 训练成本被转嫁且未量化（每迭代前向 12 层 transformer 教师）；全局平均池化是离线判决形态（真实唤醒需逐帧低延迟触发 + 误唤醒抑制——流式化方案未提）；LGCSiam 的实例判别与摘要声称的「相似音频相似表示」存在张力（同关键词不同说话人被负对推开）；超参全手调无敏感性；只有准确率指标（无 FA/FR、时延、功耗）；单一下游基准；未与引言自己分析的伪标签 / 蒸馏路线做实验对比。
+    - generic [ref=f171e36]:
+      - paragraph [ref=f171e37]: §01 · 问题陈述
+      - heading "「用大模型但不部署大模型」" [level=2] [ref=f171e38]
+      - generic [ref=f171e40]: 三个子挑战：① 如何把 wav2vec 2.0 的知识转移给小到能上端的学生编码器而不继承其体积；② 如何设计不自坍缩的自监督对比结构，让句级和帧级表示都被有效约束（正负样本对怎么造）；③ 多个无监督损失与有监督 CE 如何分阶段、按权重组合才能互相增益不打架。CNN 系端侧方法的结构性问题：依赖大量标注数据、2D CNN 要堆很深才能捕捉跨频带跨帧依赖（深 = 大，与 small-footprint 冲突）、对环境漂移脆弱。
+    - generic [ref=f171e41]:
+      - paragraph [ref=f171e42]: §02 · 方法论
+      - heading "两个模块作用在网络的不同深度" [level=2] [ref=f171e43]
+      - generic [ref=f171e45]:
+        - img [ref=f171e46]:
+          - generic [ref=f171e47]: 图 1/2 复绘：被预训练的对象就是要部署的 65K 小模型本身——教师与孪生分支只存在于训练期，推理时全部摘掉
+          - generic [ref=f171e49]: TCANet（部署形态 = 训练形态，65K 参数）
+          - generic [ref=f171e50]:
+            - generic [ref=f171e52]: 波形 → 40 维 log-Mel
+            - generic [ref=f171e53]: x ∈ B×T×40
+            - generic [ref=f171e55]: 编码器 E：7 层时序卷积
+            - generic [ref=f171e56]: L1 k3/s2（时域减半）· L2-7 k9 · 64ch
+            - generic [ref=f171e57]: 可分离 conv 缩参 ~8×
+            - generic [ref=f171e59]: 解码器 D：多头自注意力
+            - generic [ref=f171e60]: 一步全局感受野——把「依赖建模」
+            - generic [ref=f171e61]: 从架构深度问题变成 64×64 投影
+            - generic [ref=f171e63]: GAP → dense → softmax
+            - generic [ref=f171e64]: 12 类（10 词 + unk + sil）
+          - generic [ref=f171e65]: 首层 stride=2 让注意力在 T/2 分辨率上算——序列减半 = 注意力开销砍 ~4×，这是「小模型敢用注意力」的算术前提
+          - generic [ref=f171e66]: 对照：2D CNN 要堆很深才能覆盖跨频带跨帧依赖（深=大，与 small-footprint 冲突）——注意力用极小参数预算换掉本来需要的深度
+          - generic [ref=f171e68]: WVC：wav2vec 2.0 当「约束」（非特征提取器、非伪标签机）★
+          - generic [ref=f171e69]: 教师（官方 wav2vec_small.pt）：12 个 transformer block，e₀ ∈ B×T/2×768
+          - generic [ref=f171e70]: 学生：编码器输出 e₁（64 维）→ MLP 投影头 64→128→768 → MSE 逐帧回归 e₀
+          - generic [ref=f171e71]: 为什么对齐表示而不对齐标签：通用自监督模型给不出关键词判决（伪标签路线死结）；
+          - generic [ref=f171e72]: 逐帧回归教师隐表示只需帧级稠密目标——任何无标注音频都能当训练数据
+          - generic [ref=f171e73]: 投影头吸收维度变换负担——主干保持 64 维小开销，推理时投影头随模块摘掉
+          - generic [ref=f171e74]: 作用深度：只约束编码器输出 e₁；MSE 同时约束方向与幅度（比余弦只管方向更强）
+          - generic [ref=f171e76]: LGCSiam：局部-全局对比孪生（防坍缩）
+          - generic [ref=f171e77]: 同一条波形两个随机增广 → 共享权重的 E+D → d₁, d₂（B×T/2×64）→ MLP 投影 128 维
+          - generic [ref=f171e78]: 局部正对：同样本两增广相同帧位置（InfoNCE，τ=0.5，余弦相似度）
+          - generic [ref=f171e79]: 全局正对：时间平均池化后的句级向量（MSE 直接拉近）
+          - generic [ref=f171e80]: 负对：不同样本 或 不同时间戳——负样本池免费扩展到 B×T/2 量级
+          - generic [ref=f171e81]: 为什么不同时间戳当负对：语音相邻帧强相关——若当正对，网络学「平滑低通」退化解
+          - generic [ref=f171e82]: 就能骗过损失；设为负对强迫表示在时间轴保留判别性。作用深度：整条通路 D(E(x))
+          - generic [ref=f171e84]: 七种增广（图 3）：全部保持关键词身份不变的信道/噪声级扰动
+          - generic [ref=f171e85]: 预加重（0.95–0.99）/ 去加重 / 音高移动（±5 半音）/ 陷波 & 峰值滤波 /
+          - generic [ref=f171e86]: 背景噪声（SNR −5~15dB）/ SpecAugment 频率遮蔽（≤10 频带）/ Cutout（频 ≤10 时 ≤10）
+          - generic [ref=f171e87]: 为什么选这些：正好模拟部署环境漂移（设备频响 / 底噪 / 音高差异）→ 表示天然抗漂移
+          - generic [ref=f171e88]: 「两个增广语义相同」是对比学习有意义的前提
+          - generic [ref=f171e90]: 多阶段训练（式 10/11）
+          - generic [ref=f171e91]: ① 仅 WVC 预训练编码器（无标注）→ ② L = 0.1·LGCSiam + 0.9·WVC 联训编码器解码器
+          - generic [ref=f171e92]: → ③ 带标签微调：L = 0.9·CE + 0.05·LGCSiam + 0.05·WVC
+          - generic [ref=f171e93]: 微调期保留两个无监督损失当正则（γ₂=γ₃=0.05）——「表示保持」是持续约束而非一次性初始化，
+          - generic [ref=f171e94]: 防止小标注集上表示向 12 类边界漂移过快、丢掉预训练通用结构
+          - generic [ref=f171e96]: 两条既有路线的死结（引言分析）
+          - generic [ref=f171e97]: 微调路线：部署模型必须是大模型本身——wav2vec 2.0 几千万参数端侧放不下；伪标签路线：教师必须输出与下游标签空间对齐的标签——
+          - generic [ref=f171e98]: 通用自监督模型没有关键词分类头，先微调教师又回到第一条。本文：用大模型的知识、不用大模型的体积、不需要标签对齐
+        - paragraph [ref=f171e99]: 图 1/2 复绘：训练期 / 推理期边界是全部经济性的来源——教师、孪生分支、两个投影头推理时全部摘掉；WVC 与 LGCSiam 分别约束编码器输出与整条通路，形成渐进结构。
+      - generic [ref=f171e100]:
+        - text: Loss
+        - subscript [ref=f171e101]: WVC
+        - text: = ‖e₁′ − e₀‖²（e₁′ = W₂σ(W₁·e₁)，64→128→768）； L
+        - subscript [ref=f171e102]: local
+        - text: ：InfoNCE，负对含跨样本与跨时间戳
+        - generic [ref=f171e103]: 式 3–9 的关键结构：WVC 约束编码器输出 e₁、LGCSiam 约束编码器+解码器整体 D(E(x))——两个模块作用在不同深度，预训练先后进行形成「先拉编码器、再拉整条通路、最后带标签精调」的渐进结构。MSE 逐元素回归同时约束方向与幅度（比余弦只管方向强）；InfoNCE 分母在 batch 内所有样本所有时间戳候选上求和。
+    - generic [ref=f171e104]:
+      - paragraph [ref=f171e105]: §03 · 实验与消融
+      - heading "增益在标注稀缺时兑现" [level=2] [ref=f171e106]
+      - generic [ref=f171e108]: 数据与协议：Speech Commands 65K 条 1 秒 12 类（官方划分），低资源设定取 5% 标注子集微调；跨域用 100% 无标注 AISHELL（中文朗读）预训练。实现：PyTorch · batch 128 · SGD 动量 0.9 · lr 0.1（验证精度 3 epoch 不升则 ×0.333）。指标只有分类准确率（与 DS-CNN / TC-ResNet 文献数字直接对齐保证可比）——未报告 FA/FR、DET、AUC、时延、FLOPS、内存、功耗。
+      - generic [ref=f171e109]:
+        - img [ref=f171e110]:
+          - generic [ref=f171e111]: Table 1 · 同域消融（100% 无标注 SC 预训练）：标注越少表示学习增益越大，WVC 主导
+          - generic [ref=f171e112]: "88"
+          - generic [ref=f171e113]: "92"
+          - generic [ref=f171e114]: "96"
+          - generic [ref=f171e116]: "96.85"
+          - generic [ref=f171e118]: "88.24"
+          - generic [ref=f171e119]: TCANet 裸训
+          - generic [ref=f171e121]: "96.97"
+          - generic [ref=f171e123]: "89.92"
+          - generic [ref=f171e124]: +LGCSiam
+          - generic [ref=f171e126]: "97.45"
+          - generic [ref=f171e128]: "92.30"
+          - generic [ref=f171e129]: +WVC
+          - generic [ref=f171e131]: "97.50"
+          - generic [ref=f171e133]: "92.52"
+          - generic [ref=f171e134]: +WVC+LGCSiam
+          - generic [ref=f171e136]: 100% 标注微调
+          - generic [ref=f171e138]: 5% 标注微调（低资源）
+          - generic [ref=f171e139]: 增益放大 6.6 倍：100% 设定 +0.65（96.85→97.5），5% 设定 +4.28（88.24→92.52）——预训练把参数初始化到声学合理流形，收窄小数据搜索空间
+        - paragraph [ref=f171e140]: Table 1：增益放大 6.6 倍的核心证据——同一种方法在 100% 与 5% 标注下的对比；WVC 主导 LGCSiam 边际的资源分配含义。
+      - generic [ref=f171e141]:
+        - img [ref=f171e142]:
+          - generic [ref=f171e143]: Table 2 · 跨语言预训练（AISHELL 中文无标注 → SC 英文微调）：几乎无损 + 两模块敏感度差异暴露机制
+          - generic [ref=f171e144]: "89"
+          - generic [ref=f171e145]: "91"
+          - generic [ref=f171e146]: "93"
+          - generic [ref=f171e147]: "95"
+          - generic [ref=f171e148]: "97"
+          - generic [ref=f171e150]: "88.24"
+          - generic [ref=f171e152]: "88.24"
+          - generic [ref=f171e153]: TCANet 裸训
+          - generic [ref=f171e155]: "89.92"
+          - generic [ref=f171e157]: "89.09"
+          - generic [ref=f171e158]: +LGCSiam
+          - generic [ref=f171e159]: 跨域 −0.83
+          - generic [ref=f171e161]: "92.30"
+          - generic [ref=f171e163]: "92.13"
+          - generic [ref=f171e164]: +WVC
+          - generic [ref=f171e165]: 跨域 −0.17
+          - generic [ref=f171e167]: "92.52"
+          - generic [ref=f171e169]: "92.33"
+          - generic [ref=f171e170]: +WVC+LGCSiam
+          - generic [ref=f171e171]: 跨域 −0.19
+          - generic [ref=f171e173]: 同域（SC 预训练）
+          - generic [ref=f171e175]: 跨域（AISHELL 预训练）
+          - generic [ref=f171e176]: 机制解读：LGCSiam 学的「增广不变性」锚定在预训练数据分布上（换域部分失效）；WVC 蒸馏的 wav2vec 表示本身语言无关——完整系统跨域稳健因为主导成分本来就跨域
+        - paragraph [ref=f171e177]: Table 2：全文工程价值最大的结果——预训练数据不需要与目标任务同语言同域同录音条件；两模块跨域敏感度差异（0.83 vs 0.17）暴露了机制差异。
+      - generic [ref=f171e178]:
+        - img [ref=f171e179]:
+          - generic [ref=f171e180]: Table 3 · Speech Commands 精度–参数帕累托：65K 超 305K 基线 0.9 个点
+          - generic [ref=f171e181]: "94"
+          - generic [ref=f171e182]: "95"
+          - generic [ref=f171e183]: "96"
+          - generic [ref=f171e184]: "97"
+          - generic [ref=f171e185]: 24K
+          - generic [ref=f171e186]: 66K
+          - generic [ref=f171e187]: 140K
+          - generic [ref=f171e188]: 220K
+          - generic [ref=f171e189]: 305K
+          - generic [ref=f171e190]: 420K
+          - generic [ref=f171e191]: 参数量
+          - generic [ref=f171e193]: DS-CNN-S
+          - generic [ref=f171e194]: "94.40"
+          - generic [ref=f171e196]: DS-CNN-M
+          - generic [ref=f171e197]: "94.90"
+          - generic [ref=f171e199]: DS-CNN-L
+          - generic [ref=f171e200]: "95.40"
+          - generic [ref=f171e202]: TC-ResNet8
+          - generic [ref=f171e203]: "96.10"
+          - generic [ref=f171e205]: TC-ResNet8-1.5
+          - generic [ref=f171e206]: "96.20"
+          - generic [ref=f171e208]: TC-ResNet14
+          - generic [ref=f171e209]: "96.20"
+          - generic [ref=f171e211]: TC-ResNet14-1.5
+          - generic [ref=f171e212]: "96.60"
+          - generic [ref=f171e214]: TCANet
+          - generic [ref=f171e215]: "96.85"
+          - generic [ref=f171e218]: TCANet+RL ★
+          - generic [ref=f171e219]: "97.50"
+          - generic [ref=f171e221]: 1/5 体积 +0.9 点
+          - generic [ref=f171e222]: 同参数量级正面胜利：TCANet（65K）vs TC-ResNet8（66K）96.85 vs 96.1（+0.75）；DS-CNN 全系被时序卷积路线压制（420K 也只有 95.4）
+        - paragraph [ref=f171e223]: Table 3（精度–参数帕累托）：TCANet 同参数量正面胜 TC-ResNet8；完整系统用 1/5 体积超 305K 最大基线——DS-CNN 全系被时序卷积路线压制（架构路线差距大于规模差距）。
+      - generic [ref=f171e224]: 消融的空白（诚实读法）：未报告两阶段预训练顺序（先 WVC 后 LGCSiam）的必要性——无逆序或单步联合对照；式 10/11 权重与 τ=0.5 无敏感性；无标注数据量只有 100% 一档（无 0→100% 渐进曲线）；基线在 5% 标注下的数字未报告——「低资源设定下领先基线多少」严格说没有对照答案；跨域只有一个方向（中文→英文）。
+    - generic [ref=f171e225]:
+      - paragraph [ref=f171e226]: §04 · 主要贡献
+      - heading "四条贡献" [level=2] [ref=f171e227]
+      - generic [ref=f171e229]:
+        - generic [ref=f171e230]:
+          - generic [ref=f171e231]: "1"
+          - text: WVC 第三条路线：把 wav2vec 2.0 用作约束模块——不部署大模型、不微调大模型、不需要标签空间对齐，帧级隐表示回归转移知识（5% 标注单独 +4.06）。
+        - generic [ref=f171e232]:
+          - generic [ref=f171e233]: "2"
+          - text: LGCSiam：帧级 + 句级双重正对、跨样本跨时间负对、MSE + InfoNCE 双损失互补——不需 stop-gradient 防坍缩，负样本池免费扩展 B×T/2。
+        - generic [ref=f171e234]:
+          - generic [ref=f171e235]: "3"
+          - text: TCANet：时序卷积编码器 + 注意力解码器的轻量联姻——65K 达 96.85（同参数量超 TC-ResNet8 0.75 点），叠加表示学习 97.5 超全部基线。
+        - generic [ref=f171e236]:
+          - generic [ref=f171e237]: "4"
+          - text: 跨语言落地配方：中文无标注预训练英文微调几乎无损 + 增益随标注减少放大——「无标注数据任意取、标注只花在目标域微调」。
+      - generic [ref=f171e238]: 可迁移判断：当「大模型的知识」与「小模型的部署」冲突时，帧级隐表示回归（把教师当约束）比「微调大模型」和「伪标签蒸馏」都更轻——不需要标签对齐、任何无标注音频可用、教师与投影头训练后即弃；配套判断：表示学习的价值随标注量单调递减，评估它必须在低标注设定下做（全量设定 +0.65 的数字几乎会掩盖方法的意义）。
+    - generic [ref=f171e239]:
+      - paragraph [ref=f171e240]: §05 · 局限与边界
+      - heading "训练成本被转嫁，离线形态与流式需求错位" [level=2] [ref=f171e241]
+      - generic [ref=f171e243]:
+        - generic [ref=f171e244]:
+          - heading "技术局限" [level=4] [ref=f171e245]
+          - list [ref=f171e246]:
+            - listitem [ref=f171e247]: WVC 训练成本被转嫁且未量化：每预训练迭代前向一遍 12 层 transformer 教师——预训练计算量远大于微调；未报告耗时 / 算力比例，未讨论教师前向能否缓存或量化加速。
+            - listitem [ref=f171e248]: 离线判决形态与流式需求错位：全局平均池化把整句压成一帧再分类——天然「整段输入一次判决」；真实唤醒需逐帧低延迟触发与误唤醒抑制；注意力解码器也倾向全局上下文——流式化改造（因果注意力 / 帧级判决头 / 缓存推理）一段明确未走的路。
+            - listitem [ref=f171e249]: LGCSiam 监督语义的内在张力：负对把同关键词不同说话人互相推开——实际优化实例判别而非「相似音频相似表示」；未做监督对比变体对照。
+            - listitem [ref=f171e250]: MSE 对齐依赖教师表示质量：transformer 隐表示的各向异性与冗余问题——未分析对齐哪一层、是否需要白化，未报告对齐失败情形。
+            - listitem [ref=f171e251]: 超参手调：τ、λ、γ 全部定值无敏感性——迁移到其他数据集 / 模型规模的稳健性未知。
+        - generic [ref=f171e252]:
+          - heading "实验设计不足" [level=4] [ref=f171e253]
+          - list [ref=f171e254]:
+            - listitem [ref=f171e255]: 指标维度单一：只有准确率与参数量——「small-footprint」论证只落在 65K 上，无端侧实测支撑。
+            - listitem [ref=f171e256]: 单一下游基准：全部实验在 SC 12 类命令词分类——与真实「单唤醒词 + 未知 + 静音」的开放集形态有差距；无第二数据集验证。
+            - listitem [ref=f171e257]: 复现细节不全：注意力头数 n、帧数 T、Mel 窗长帧移、预训练 epoch、无标注采样方式均未报；Table 3 基线数字是复现还是引自文献未说明。
+            - listitem [ref=f171e258]: 缺同类方法对照：未与「微调 wav2vec 再蒸馏」「HuBERT 伪标签」这些引言自己分析过的路线做实验对比；无换教师（WavLM/HuBERT）对照——WVC 对教师选择的敏感性未知。
+      - generic [ref=f171e259]: 值得补的方向：流式化与产品级指标（帧级判决头 + 因果 / 受限窗口注意力 + FA/FR 与 DET——回答「这套表示学习在真实唤醒引擎里值多少个点」）；教师侧降本（更小自监督教师 / 一次性表示压缩（层剪枝、量化、白化）/ 多教师多层对齐）；对比结构语义升级（关键词感知正对 = 监督对比思路 + 难例挖掘）；数据量-增益二维曲线（无标注 0→100% × 标注 1%→100%）给标注预算规划依据；跨域对称验证（英文→中文 / 第三语言 / 远场电话信道）；教师与框架敏感性（wav2vec vs HuBERT vs WavLM——检验「帧级隐表示回归」配方本身是否优于伪标签或特征微调）。
+    - contentinfo [ref=f171e260]:
+      - generic [ref=f171e261]:
+        - link "📖 深读笔记" [ref=f171e262] [cursor=pointer]:
+          - /url: /papers/2023/Exploring_Representation_Learning_For_Small-Footprint_Keyword_Spotting.md
+        - link "📄 PDF 原稿" [ref=f171e263] [cursor=pointer]:
+          - /url: /papers/2023/Exploring_Representation_Learning_For_Small-Footprint_Keyword_Spotting.pdf
+        - link "arXiv · 2303.10912" [ref=f171e264] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2303.10912
+        - link "← 返回总目录" [ref=f171e265] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f171e266]: 可视化精读页 · 数据与结论均出自论文与深读笔记（Table 1–3、图 1–3、式 1–11）；错误请以 PDF 原稿为准。

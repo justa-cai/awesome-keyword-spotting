@@ -1,0 +1,208 @@
+- generic [active] [ref=f83e1]:
+  - navigation [ref=f83e2]:
+    - generic [ref=f83e3]:
+      - generic [ref=f83e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f83e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f83e6]:
+        - link "深读笔记" [ref=f83e7] [cursor=pointer]:
+          - /url: /papers/2024/Disentangled_Training_With_Adversarial_Examples_For_Robust_Small-footprint_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f83e8] [cursor=pointer]:
+          - /url: /papers/2024/Disentangled_Training_With_Adversarial_Examples_For_Robust_Small-footprint_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f83e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2408.13355
+  - generic [ref=f83e10]:
+    - banner [ref=f83e11]:
+      - paragraph [ref=f83e12]: 论文精读 · 可视化版 · 2024 №9
+      - heading "对抗样本免费但不能一锅炖： 每个数据源各留一本 BN 账，推理时零开销" [level=1] [ref=f83e13]: 对抗样本免费但不能一锅炖：每个数据源各留一本 BN 账，推理时零开销
+      - paragraph [ref=f83e14]: Disentangled Training with Adversarial Examples for Robust Small-footprint Keyword Spotting（DA DAT）
+      - paragraph [ref=f83e15]: 作者：Zhenyu Wang（UT Dallas，Meta 实习）、Li Wan 等 8 人 —— Meta AI
+      - paragraph [ref=f83e16]: 发表：2024.08 · arXiv:2408.13355
+      - generic [ref=f83e17]:
+        - generic [ref=f83e18]: 辅助 BN 解耦
+        - generic [ref=f83e19]: 数据源感知多路 BN
+        - generic [ref=f83e20]: 对抗样本去标签泄漏
+        - generic [ref=f83e21]: SimAM 零参数注意力
+        - generic [ref=f83e22]: MN7-45 ~25 万参数
+        - generic [ref=f83e23]: FRR −40.3%（10dB）
+        - generic [ref=f83e24]: 5 种未见口音测试
+      - generic [ref=f83e25]:
+        - heading "一分钟版本" [level=2] [ref=f83e26]
+        - list [ref=f83e27]:
+          - listitem [ref=f83e28]: 三重挤压：端侧 KWS 硬件受限（小内存高效率）+ 7×24 暴露在从未见过的音频变异（SNR / 噪声类型 / 口音）+ 失效代价不对称——论文把误唤醒定性为「对用户隐私的侵害」（无交互意图的环境音频被上传云端），不只是体验问题。
+          - listitem [ref=f83e29]: 两层缺口：① 常规增强「一锅炖」——加噪、语速扰动、SpecAugment 的特征统计量显然不同，却共用一套 BN；② 对抗样本直接混训会 label leaking——对抗副本虽人耳听不出差别，落在特征空间不同区域，共享 BN 统计量互相污染、过拟合到专门化对抗分布。
+          - listitem [ref=f83e30]: 方案（DA DAT）：干净数据走主 BN；每个增强源各配专属辅助 BN；每个源的对抗副本（8 步 PGD）也各配一个——共享卷积权重、分家归一化层；评估时删掉全部辅助 BN 只留干净主 BN，推理零开销。
+          - listitem [ref=f83e31]: 结果：内部集（4 个 Meta 关键词，训练只有美音、测试横跨 5 种未见口音）1% FAR 工作点，10dB 下 FRR 11.98→7.15（相对最强无对抗基线 −40.3%）；GSC V1 98.06%、错误率相对降 27.61%。噪声越重收益越大——对抗扰动扮演了最坏情况噪声。
+          - listitem [ref=f83e32]: 两个自挖的坑：① FG DAT 负结果——按扰动强度分多档 BN 反而比不解耦还差：解耦粒度必须对齐真实分布数量，不是越细越好；② SimAM 在 10dB 下回归（7.15→8.47）论文只字未提——注意力模块在重噪下不稳。
+          - listitem [ref=f83e33]: 成色缺口：无外部 SOTA 横向对比（MatchboxNet / BC-ResNet 一个没比）；推理只留「干净 BN」的假设与全部加噪测试存在张力；8 步 PGD 的训练开销未报告。
+    - generic [ref=f83e34]:
+      - paragraph [ref=f83e35]: §01 · 问题陈述
+      - heading "「小」和「稳」必须同时成立；对抗样本是免费资源但会标签泄漏" [level=2] [ref=f83e36]
+      - generic [ref=f83e38]: 流式形态放大一切成本：固定窗口在连续流上滑动（内部集 900 ms/90 帧，GSC 1 s/100 帧），每移 10 帧出一次判决——模型每秒被调用约十次，每次独立面对当时当地的声学条件，没有喘息纠错机会；监听时长把每个参数、每次乘加放大成电池损耗。三层现状缺口：① 增强源盲目混合——工业管线把干净 + 加噪 + SpecAugment 当同一分布，BN 批统计量跨源混合估计；② 对抗样本的 label leaking——此前工作（本文 AT 基线，Wang 等 ICASSP 2019）已把对抗样本当增强用于注意力 KWS，但直接混训会让网络过拟合到「专门化的对抗分布」，正常数据性能退化——根源是两个不同分布被强行共享同一套归一化参数；③ 小模型容量天花板——SE/CBAM/GCT 等即插即用注意力都要可学习参数，对 footprint 敏感场景不是免费午餐。
+    - generic [ref=f83e39]:
+      - paragraph [ref=f83e40]: §02 · 方法论
+      - heading "分布假设拆开、表示学习共享——分家只分在归一化层" [level=2] [ref=f83e41]
+      - generic [ref=f83e43]:
+        - img [ref=f83e44]:
+          - generic [ref=f83e45]: Fig.2 复绘：AT（一锅炖）vs DA DAT（数据源感知多路 BN）——评估时只留干净主 BN
+          - generic [ref=f83e47]: AT 基线：混训 + 共享 BN（label leaking）
+          - generic [ref=f83e49]: 原始 + 各增强源数据
+          - generic [ref=f83e50]: （一锅炖成同一分布）
+          - generic [ref=f83e52]: 对抗副本 x^adv（PGD）
+          - generic [ref=f83e53]: 人耳无差别 ≠ 特征空间同区
+          - generic [ref=f83e57]: 一套 BN 统计量强行伺候两个分布
+          - generic [ref=f83e58]: → 统计量互相污染 → 过拟合对抗分布
+          - generic [ref=f83e59]: 后果（Table 2 实测）：20dB 下 AT 6.20 对常规基线 6.28——对抗样本近乎白加
+          - generic [ref=f83e61]: DA DAT：共享卷积权重 · 每源一本 BN 账
+          - generic [ref=f83e63]: DS1 干净数据
+          - generic [ref=f83e64]: → 主 BN ★
+          - generic [ref=f83e66]: DS2 加噪+语速
+          - generic [ref=f83e67]: → 辅助 BN₂
+          - generic [ref=f83e69]: DS3 SpecAug
+          - generic [ref=f83e70]: → 辅助 BN₃
+          - generic [ref=f83e72]: Adv₁ / Adv₂ / Adv₃（各源对抗副本）
+          - generic [ref=f83e73]: → 各配专属辅助 BN
+          - generic [ref=f83e75]: 卷积权重全部共享
+          - generic [ref=f83e76]: 表示学习的信息流不断
+          - generic [ref=f83e77]: 评估：删掉全部辅助 BN，只留干净主 BN（假设：测试分布更像干净数据）——推理零开销
+          - generic [ref=f83e78]: 写进主 BN 的推理统计量是纯净的原始数据统计，不被对抗副本扭曲过的均值方差带偏
+          - generic [ref=f83e80]: 骨干 MN7-45（MobileNetV2 裁制，~24.7 万参数，按 Table 1 逐层求和推导）
+          - generic [ref=f83e81]: · 输入 40 维 log-mel（25/10 ms）当作单通道 40×T 图像：首层 3×3 标准卷积 45 滤波器（仅 405 参数）
+          - generic [ref=f83e82]: · 7 个瓶颈残差块（t=6, n=45, stride 1/2/2/2/1/2/1，每块 26.7K：扩张 1×1 → 3×3 深度卷积 → 压缩 1×1）
+          - generic [ref=f83e83]: · 深度卷积后插 SimAM 注意力（零参数）：e* = 4(σ²+λ)/((x−μ)²+2σ²+2λ)，x̂ = σ(1/E)⊗x ——
+          - generic [ref=f83e84]: 偏离通道均值远的神经元能量低、增益≈1；淹没在均值里的被抑制（神经科学依据：纹状皮层能量与重要性负相关）
+        - paragraph [ref=f83e85]: 图 A·这篇论文应当作「训练策略论文」读——架构侧是既有件组装（MobileNetV2 块 + SimAM），新意全在训练侧。为什么分家有效：BN 的 running mean/var 是对输入分布的显式建模，对抗扰动是有目的把样本推向决策边界另一侧的信号，统计量必然偏移——共享 BN 等于强行声明「两个分布相同」；分家后各路各自记账，只有「分布假设」这层被拆开。
+      - generic [ref=f83e86]:
+        - text: AT（式 4）：argmin
+        - subscript [ref=f83e87]: θ
+        - text: E[L(θ, x, y) + L(θ, x
+        - superscript [ref=f83e88]: adv
+        - text: ", y)]； PGD（式 3）：x"
+        - superscript [ref=f83e89]: adv
+        - subscript [ref=f83e90]: t+1
+        - text: = Π
+        - subscript [ref=f83e91]: x+S
+        - text: (x
+        - superscript [ref=f83e92]: adv
+        - subscript [ref=f83e93]: t
+        - text: + ε·sgn(∇
+        - subscript [ref=f83e94]: x
+        - text: L))
+        - generic [ref=f83e95]: 人话：对抗样本 = 在输入上叠人耳不可感知但足以让网络出错的扰动。8 步 PGD 生成、扰动强度 ε 在 [0.1, 0.4]（内部集 0.2 最优、GSC 0.1 最优——不是全局常数）。DAT/DA DAT 不改损失，改的是「两路数据各用哪套 BN」。
+    - generic [ref=f83e96]:
+      - paragraph [ref=f83e97]: §03 · 实验结果
+      - heading "条件越难，解耦释放得越彻底" [level=2] [ref=f83e98]
+      - generic [ref=f83e100]: 数据与协议：内部集——Meta 众包 4 个关键词（take a picture / volume down / volume up / play music），训练 130K 正 + 100K 负，测试 32K 正 + 10K 负；口音设计是亮点：覆盖 6 种英语口音（美/澳/加/新西兰/英/拉美），训练只含美音、其余 5 种全部只用于测试——口音泛化是隐性考核项，比随机切分更贴近「训练数据集中在单一主流口音」的产品困境。GSC V1：64,727 条 / 30 词 / 1,881 说话人，11 类任务 8:1:1。指标：内部集 DET 曲线 + 1% FAR 工作点 FRR + AUC（KWS 是检测任务，单一准确率会掩盖工作点权衡）。
+      - generic [ref=f83e101]:
+        - img [ref=f83e102]:
+          - generic [ref=f83e103]: Table 2 · 内部集 1% FAR 工作点 FRR%（越低越好）：5 种训练时没见过的口音上测试
+          - generic [ref=f83e104]: "5"
+          - generic [ref=f83e105]: "8"
+          - generic [ref=f83e106]: "11"
+          - generic [ref=f83e107]: "14"
+          - generic [ref=f83e109]: "9.03"
+          - generic [ref=f83e111]: "13.59"
+          - generic [ref=f83e112]: Vanilla
+          - generic [ref=f83e114]: "7.33"
+          - generic [ref=f83e116]: "12.55"
+          - generic [ref=f83e117]: NoiseAug
+          - generic [ref=f83e119]: "6.28"
+          - generic [ref=f83e121]: "11.98"
+          - generic [ref=f83e122]: +SpecAug
+          - generic [ref=f83e124]: "6.20"
+          - generic [ref=f83e126]: "10.04"
+          - generic [ref=f83e127]: AT
+          - generic [ref=f83e129]: "5.77"
+          - generic [ref=f83e131]: "8.59"
+          - generic [ref=f83e132]: DAT
+          - generic [ref=f83e134]: "7.47"
+          - generic [ref=f83e136]: "10.48"
+          - generic [ref=f83e137]: FG DAT
+          - generic [ref=f83e139]: "4.98"
+          - generic [ref=f83e141]: "7.15"
+          - generic [ref=f83e142]: DA DAT
+          - generic [ref=f83e144]: "5.70"
+          - generic [ref=f83e146]: "8.77"
+          - generic [ref=f83e147]: DAT
+          - generic [ref=f83e148]: +SimAM
+          - generic [ref=f83e150]: "4.52"
+          - generic [ref=f83e152]: "8.47"
+          - generic [ref=f83e153]: DA DAT
+          - generic [ref=f83e154]: +SimAM
+          - generic [ref=f83e156]: SNR 20 dB
+          - generic [ref=f83e158]: SNR 10 dB（测试噪声类型与训练不同）
+          - generic [ref=f83e159]: 关键读法：20dB 下 AT(6.20) 对 +SpecAug(6.28) 近乎白加——不解耦，对抗收益被分布失配吃掉；10dB 下 11.98→10.04→7.15，解耦把价值完整兑现（相对最强无对抗基线 −40.3%）
+        - paragraph [ref=f83e160]: 表 2 复绘·训练只有美音、测试横跨 5 种未见口音，且测试噪声类型与训练不同——所有方法都在这个更难的设定下比。链条读法：常规增强到顶（+SpecAug）→ AT 轻噪近乎白加 → DAT 桥接对抗失配 → DA DAT 再桥接数据源失配 → 全表最优。FG DAT（比 AT 还差）是解耦过度的反面教材。
+      - generic [ref=f83e161]:
+        - img [ref=f83e162]:
+          - generic [ref=f83e163]: Table 3 · GSC V1 11 类 top-1 准确率 %：训练策略增益链条在公开集同样成立
+          - generic [ref=f83e164]: "97.0"
+          - generic [ref=f83e165]: "97.5"
+          - generic [ref=f83e166]: "98.0"
+          - generic [ref=f83e168]: "97.32"
+          - generic [ref=f83e169]: NoiseAug+SpecAug
+          - generic [ref=f83e170]: （最强常规基线）
+          - generic [ref=f83e172]: "97.64"
+          - generic [ref=f83e173]: AT
+          - generic [ref=f83e174]: CER RD 11.9%
+          - generic [ref=f83e176]: "97.74"
+          - generic [ref=f83e177]: DAT
+          - generic [ref=f83e178]: 15.7%
+          - generic [ref=f83e180]: "97.81"
+          - generic [ref=f83e181]: DA DAT
+          - generic [ref=f83e182]: 18.3%
+          - generic [ref=f83e184]: "98.06"
+          - generic [ref=f83e185]: DA DAT + SimAM
+          - generic [ref=f83e186]: 27.6%
+        - paragraph [ref=f83e187]: 表 3 复绘·GSC V1 11 类（10 命令词 + unknown），CER RD 为相对最强常规基线的分类错误率相对下降。注意：论文没有与 MatchboxNet / BC-ResNet 等同期 GSC 强基线做任何横向对比——98.06% 的相对位置只能与自建链条比。
+      - generic [ref=f83e188]: 消融六个发现：① DAT 对 AT：FRR 相对降 ~6.9%（20dB）/ ~14.4%（10dB）（按 Table 2 原值复算；论文表述 7.23%/13.94% 有轻微口径出入，以原表为准）——原始与对抗间的分布失配真实存在；② DA DAT 对 DAT：再降 13.69% / 16.76%（复算吻合）——跨数据源解耦额外赚一块；③ FG DAT 负结果（最有信息量）：按扰动强度分多档 BN 反而比不解耦的 AT 还差（20dB 7.47 对 6.20）——人为把同一分布切成多档伪分布 = 统计估计样本变稀 + 强迫网络区分本不存在的差异，解耦粒度必须对齐真实分布数量；④ SimAM 不稳：20dB 边际改善（4.98→4.52），10dB 反而退化（7.15→8.47，AUC 0.964→0.961）——论文只字未提，是读者要自己抓回来的回归；⑤ SpecAugment 边际收益有限（7.33→6.28 / 12.55→11.98）——常规增强在这一数据规模接近天花板，反衬对抗样本的稀缺价值；⑥ 超参：ε 按数据集手调（0.2 / 0.1）、SimAM λ=1e-4、Adam lr 0.005 + 余弦退火、15 epoch、滑窗移 10 帧。
+    - generic [ref=f83e189]:
+      - paragraph [ref=f83e190]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f83e191]
+      - generic [ref=f83e193]:
+        - generic [ref=f83e194]:
+          - generic [ref=f83e195]: "1"
+          - text: 辅助 BN 升级为通用适配技术从图像域的「对抗/原始」二分推广到数据源级多路解耦——把对抗失配与增强源失配放进同一个「分布失配」框架处理，论文自己点了这句。
+        - generic [ref=f83e196]:
+          - generic [ref=f83e197]: "2"
+          - text: FG DAT 负结果的避坑价值「解耦粒度须对齐真实分布数」——这类失败实验对后续工作的价值不亚于正结果。
+        - generic [ref=f83e198]:
+          - generic [ref=f83e199]: "3"
+          - text: 难条件下的量化收益10dB 下相对最强无对抗基线 FRR −40.3%、GSC 错误率相对 −27.61%——对抗扰动扮演最坏情况噪声，条件越难释放越彻底。
+        - generic [ref=f83e200]:
+          - generic [ref=f83e201]: "4"
+          - text: 对抗样本 = 免费且无限的数据资源给出安全开采方式（配解耦 BN），对数据受限的端侧任务有普遍参考意义；SimAM 验证了零参数注意力对小模型的适用性（尽管边际且重噪下不稳）。
+    - generic [ref=f83e202]:
+      - paragraph [ref=f83e203]: §05 · 局限性与展望
+      - heading "零横向对比；「只留干净 BN」的假设与加噪测试自相矛盾" [level=2] [ref=f83e204]
+      - generic [ref=f83e206]:
+        - generic [ref=f83e207]:
+          - heading "方法局限" [level=4] [ref=f83e208]
+          - list [ref=f83e209]:
+            - listitem [ref=f83e210]: 干净 BN 假设的内在张力：论文显式假设「测试分布更像干净数据」，但内部测试全部在 10/20 dB 加噪下进行、干净条件结果未报告——持续噪声部署（音箱 / 耳机真实工况）下拿干净 BN 当推理统计量缺乏验证；更彻底的按环境选择 / 插值统计量未探索。
+            - listitem [ref=f83e211]: 训练成本完全省略：8 步 PGD = 每 batch 多 8 次前向 + 1 次反向，再加多路 BN 统计——训练时间 / 显存可能成倍增长，零数字。
+            - listitem [ref=f83e212]: 超参无自动化：ε 手工按数据集调（0.2 vs 0.1），λ 固定，迁移成本未知。
+            - listitem [ref=f83e213]: FG DAT 只有现象学解释：无统计层深挖（各路 BN 的 batch 稀释到多小、估计方差升多少）。
+            - listitem [ref=f83e214]: SimAM 重噪回归未讨论：注意力模块在 10dB 下的行为缺乏分析。
+        - generic [ref=f83e215]:
+          - heading "实验设计不足" [level=4] [ref=f83e216]
+          - list [ref=f83e217]:
+            - listitem [ref=f83e218]: 缺横向对比（最突出）：GSC V1 上没引用任何外部已发表数字（MatchboxNet、BC-ResNet 一个没比）；无参数量 / FLOPs / 延迟对比表——「small-footprint」只有 Table 1 逐层参数背书。
+            - listitem [ref=f83e219]: 无方差与显著性：无多种子重复；15 epoch 偏短（收敛充分性未讨论）——几个百分点量级差距要打折看。
+            - listitem [ref=f83e220]: 噪声全合成：训练 SNR [0,20] 采样、测试 10/20dB 类型不同——无真实远场 / 混响 / 多说话人竞争。
+            - listitem [ref=f83e221]: FG DAT 在 Table 3 被略去：公开集上负结果是否复现无从得知。
+            - listitem [ref=f83e222]: 口音无对照：没回答「训练加入多口音后 DA DAT 增益是否仍在」；分口音细分报告缺失。
+            - listitem [ref=f83e223]: 数字口径小瑕疵：DAT 对 AT 的 7.23%/13.94% 与 Table 2 原值复算有轻微出入。
+      - generic [ref=f83e224]: 值得追的方向：① 推理端自适应统计量——按环境 SNR 选择或插值多套 BN（条件归一化），去掉干净分布假设，对持续噪声部署是刚需；② 降低对抗训练税——单步 FGSM / 免费对抗训练 + 解耦，验证廉价对抗样本能否保住大部分收益；③ 数据源感知解耦推广到混响 / 远场仿真 / 多说话人 / 多语言口音——每个都是天然独立分布，框架直接容纳；④ 深挖 FG DAT 失败机理（BN 分路数与有效 batch 的关系），把经验法则变成可计算的设计准则；⑤ 与量化 / 蒸馏正交组合——验证全链路压缩后是否仍保增益（决定能否进产品）；⑥ SimAM 按噪声条件门控或替换其它无参数注意力。
+    - contentinfo [ref=f83e225]:
+      - generic [ref=f83e226]:
+        - link "深读笔记" [ref=f83e227] [cursor=pointer]:
+          - /url: /papers/2024/Disentangled_Training_With_Adversarial_Examples_For_Robust_Small-footprint_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f83e228] [cursor=pointer]:
+          - /url: /papers/2024/Disentangled_Training_With_Adversarial_Examples_For_Robust_Small-footprint_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f83e229] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2408.13355
+        - link "返回总目录" [ref=f83e230] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f83e231]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table 1-3 / Fig. 1-3 / 式 1-4）；「复算 / 笔记推导」标注处为笔记给出的核对结论。

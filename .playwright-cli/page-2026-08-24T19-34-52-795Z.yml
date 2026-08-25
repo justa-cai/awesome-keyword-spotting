@@ -1,0 +1,213 @@
+- generic [active] [ref=f108e1]:
+  - navigation [ref=f108e2]:
+    - generic [ref=f108e3]:
+      - generic [ref=f108e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f108e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f108e6]:
+        - link "深读笔记" [ref=f108e7] [cursor=pointer]:
+          - /url: /papers/2024/Multitaper_Mel-spectrograms_For_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f108e8] [cursor=pointer]:
+          - /url: /papers/2024/Multitaper_Mel-spectrograms_For_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f108e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2407.04662
+  - generic [ref=f108e10]:
+    - banner [ref=f108e11]:
+      - paragraph [ref=f108e12]: 论文精读 · 可视化版 · 2024 №22
+      - heading "模型架构卷了十年，特征还停在 1999—— 换个「谱估计器」，1 到 7 个点白拿" [level=1] [ref=f108e13]: 模型架构卷了十年，特征还停在 1999——换个「谱估计器」，1 到 7 个点白拿
+      - paragraph [ref=f108e14]: Multitaper Mel-spectrograms for Keyword Spotting
+      - paragraph [ref=f108e15]: 作者：Douglas Baptista de Souza 等 4 人 —— SiDi（巴西）× 三星巴西亚马逊
+      - paragraph [ref=f108e16]: 发表：SPL 模板（工作完成于 2022）· arXiv:2407.04662（2024.07 挂出）
+      - generic [ref=f108e17]:
+        - generic [ref=f108e18]: 多锥谱估计（Thomson 1982）
+        - generic [ref=f108e19]: 降方差不牺牲偏差
+        - generic [ref=f108e20]: 弃 DPSS 用 Hermite / SWCE
+        - generic [ref=f108e21]: modified SWCE 锐化
+        - generic [ref=f108e22]: 2040 用例全因子
+        - generic [ref=f108e23]: +1~7 pp 免增强免改模型
+      - generic [ref=f108e24]:
+        - heading "一分钟版本" [level=2] [ref=f108e25]
+        - list [ref=f108e26]:
+          - listitem [ref=f108e27]: 被冷落的一层：KWS 的方法论演进是一部模型架构史——SOTA 的 TC-ResNet 用的梅尔特征与 1999 年系统一样。单窗（Hann 等）谱估计只能在偏差轴上优化（抑制频谱泄漏），对方差无能为力——每帧加窗周期图的随机涨落与信号本身的随机性同量级；欠训练的小模型没有冗余容量消化高方差特征，加噪场景下决策边界被噪声撑糊。
+          - listitem [ref=f108e28]: 方案（multitaper）：对同一帧施加 K 个正交锥各做一次谱估计再加权平均——正交锥的估计近似互不相关，方差压到 1/K 量级且偏差基本不动；与「相邻帧/频点平滑」的本质区别：平滑以牺牲时间/频率分辨率（引入偏差）为代价，多锥两条轴解耦。梅尔域全部随机性来自谱估计器（W 与 M_m 都是确定性算子）——更好的特征严格等价于更好的谱估计器。
+          - listitem [ref=f108e29]: 锥族选型：默认答案 DPSS 是为平稳光滑谱设计的，语音谱是尖峰状（谐波 + 共振峰）——DPSS 表现差；改用 Hermite（以刻画瞬时频率变化著称，等权）与 SWCE（正弦窗 + 余弦权重，计算时间与 MSE 双优）。
+          - listitem [ref=f108e30]: 结果：2 模型 × 2 数据集 × 17 窗配置 × 5 STFT 参数 × 6 噪声场景共 2040 用例——每个组合都有某个多锥配置超过全部五个单窗基线，+1.1 到 +7.1 pp（最大增益在 TC-ResNet + MSD：0.634→0.708）；推理时间随 K 线性增长（图 2 实测）——「按 K 可预算」取代「历史上嫌贵」。
+          - listitem [ref=f108e31]: 两个最重要的边界发现：① modified SWCE 的 K=10 崩盘（锐化版乘常数 α 放大 K 倍对大 K 过敏感——TC-ResNet 上崩到 0.41-0.50，基线以下十几到二十点）；② 特征-架构匹配效应：Hermite 在 TC-ResNet 上是负收益（GSC 全部 K 低于最差基线）但在 Tiny-CNN + MSD 上超过全部基线——「多锥一定更好」不成立。
+          - listitem [ref=f108e32]: 小数据放大器：同样配置在 MSD（32.7k 条，GSC 的三成）上的增益普遍大于 GSC（+6~7 对 +1~2 点）——欠训练小数据下，特征携带的低方差先验能替代部分数据量。
+    - generic [ref=f108e33]:
+      - paragraph [ref=f108e34]: §01 · 问题陈述
+      - heading "为什么特征质量对小模型小数据特别值钱" [level=2] [ref=f108e35]
+      - generic [ref=f108e37]: 四个层面的缺口：① 单窗谱估计的统计缺陷（核心攻击点）——频谱图每个时频点都是对真实功率谱的一次估计；经典窗降偏差但对方差无能为力；② 自动特征学习不可部署——HMM-DNN 前端性能可超参数化特征，但体积大 / 海量数据 / 多阶段训练，端侧低功耗芯片承载不了——这就是参数化特征至今是「活问题」的原因；③ 数据增强不改特征统计质量——多风格训练与 SpecAugment 都是「接受特征既有缺陷在训练侧补救」，与特征改良正交；④ multitaper 的历史障碍——1982 年就有理论但计算贵（一帧算 K 个谱），现代算力已缓解且说话人检测领域已落地，但从未系统进入 KWS；DPSS 锥族为光滑谱设计、语音尖峰谱上表现差，挡住了直接移植。三个可检验问题：仅动特征层能否普遍提升（不改模型不加增强以隔离变量）；能否降方差不牺牲偏差（不抹平共振峰与辅音瞬态）；开销随 K 如何增长是否端侧可接受。
+    - generic [ref=f108e38]:
+      - paragraph [ref=f108e39]: §02 · 方法论
+      - heading "把「更好的特征」严格等价为「更好的谱估计器」" [level=2] [ref=f108e40]
+      - generic [ref=f108e42]:
+        - img [ref=f108e43]:
+          - generic [ref=f108e44]: 式(1)-(8) 复绘：多锥估计的统计原理与三个锥族的对比
+          - generic [ref=f108e46]: 单窗 vs 多锥：两条轴解耦
+          - generic [ref=f108e47]: 单窗（Hann 等）：换好窗只能在偏差轴优化（抑制泄漏），
+          - generic [ref=f108e48]: 方差与信号随机性同量级——帧间抖动直接进特征
+          - generic [ref=f108e49]: 多锥：K 个正交锥 → K 个近似不相关的谱估计 → 加权平均
+          - generic [ref=f108e50]: 方差 ≈ 1/K，偏差基本不动（每锥本身旁瓣抑制良好）
+          - generic [ref=f108e51]: 对照：相邻帧/频点平滑 = 以牺牲时间/频率分辨率（偏差）为代价
+          - generic [ref=f108e53]: 为什么梅尔特征的全部随机性来自谱估计器
+          - generic [ref=f108e54]: s_mel = (1/N_m)·W^H·log(M_m·s)——W（DFT 矩阵）与
+          - generic [ref=f108e55]: M_m（梅尔滤波器组）都是确定性算子
+          - generic [ref=f108e56]: → 只能拿到 s 的估计（单窗或多锥）——估计器的方差
+          - generic [ref=f108e57]: 直接决定梅尔特征质量；log 把乘性噪声转加性，
+          - generic [ref=f108e58]: 上游降方差表现为特征图整体「底噪」下降
+          - generic [ref=f108e60]: Hermite 锥（式 6）
+          - generic [ref=f108e61]: w_k(n) = e^(−n²/2)·H_k(n)·√(π^(1/2)·2^k·k!)
+          - generic [ref=f108e62]: · 以刻画瞬时频率变化著称——语音恰是
+          - generic [ref=f108e63]: 瞬时频率持续漂移的非平稳信号
+          - generic [ref=f108e64]: · 权重 λ_k = 1/K（等权）
+          - generic [ref=f108e65]: · 在 TC-ResNet 上负收益（匹配效应）
+          - generic [ref=f108e67]: SWCE 锥（式 7-8）
+          - generic [ref=f108e68]: w_k(n) = α·sin(πnk/(N+1))，α = √(2/(N+1))
+          - generic [ref=f108e69]: λ_k = cos(πkG/N) + β（G = ⌊N/K⌋, β = 1）
+          - generic [ref=f108e70]: · 计算时间与 MSE 双优（引[34]）
+          - generic [ref=f108e71]: · 余弦权重：低阶锥贡献更大（非等权）
+          - generic [ref=f108e72]: · 全实验「最经常给出最佳结果」★
+          - generic [ref=f108e74]: modified SWCE（经验锐化）
+          - generic [ref=f108e75]: 三点修改：λ_k 取 p=√4 次幂；α 放大 K 倍；β=1→0.5
+          - generic [ref=f108e76]: · 目的：提高时频图「对比度」——判别性结构
+          - generic [ref=f108e77]: （共振峰轨迹/辅音瞬态）与背景噪声反差更大
+          - generic [ref=f108e78]: · 作者自认「理论统计性质可能不再成立」
+          - generic [ref=f108e79]: · α 放大 K 倍 → 对大 K 过敏感 → K=10 崩盘
+        - paragraph [ref=f108e80]: 图 A·模型侧完全沿用现成架构（<25 万参数门槛）：Tiny-CNN（Google KWS 教程 CNN 瘦身——FC 128→32、删 dropout 因为只训 5 epoch，~22 万参数，大二维卷积核直接吃整张时频图）与 TC-ResNet（66k，把时频图视为「随时间变化的频率通道池」逐频率通道一维卷积）。结构迥异的一对模型检验特征改进是否「模型无关」。训练刻意只 5 epoch——模拟嵌入式「快速训练、端侧注册」的现实，欠训练放大特征差异的可观测性。
+      - generic [ref=f108e81]:
+        - text: Ŝ
+        - superscript [ref=f108e82]: (K)
+        - text: (τ,f) = Σ
+        - subscript [ref=f108e83]: k=0..K−1
+        - text: λ
+        - subscript [ref=f108e84]: k
+        - text: · | Σ
+        - subscript [ref=f108e85]: "n"
+        - text: x(n+Hτ)·w
+        - subscript [ref=f108e86]: k
+        - text: (n)·e
+        - superscript [ref=f108e87]: −j2πnf/N
+        - text: "|²； ŝ"
+        - superscript [ref=f108e88]: mel
+        - text: = (1/N
+        - subscript [ref=f108e89]: m
+        - text: )·W
+        - superscript [ref=f108e90]: H
+        - text: ·log(M
+        - subscript [ref=f108e91]: m
+        - text: ·Ŝ
+        - superscript [ref=f108e92]: (K)
+        - text: )
+        - generic [ref=f108e93]: 人话：一帧信号过 K 个正交窗各算一次功率谱再加权平均——K 个估计近似互不相关所以方差压到 1/K，每个窗本身旁瓣抑制良好所以偏差不动。特征张量形状完全不变（帧数 × 梅尔通道数），任何吃梅尔图的模型零改动直接换入。
+    - generic [ref=f108e94]:
+      - paragraph [ref=f108e95]: §03 · 实验结果
+      - heading "2040 个用例的全因子实验：每个组合都有多锥配置胜出" [level=2] [ref=f108e96]
+      - generic [ref=f108e98]: "设置：GSC v2（105,829 条 / 35 词 / 1s）+ Mozilla Spoken Digits（Common Voice 子集，14 词 = 10 数字 + Hey/Yes/No/Firefox，32,726 条，能量阈值裁剪到 1s 保语音活跃段）。噪声只在测试侧：WGN + DCASE 2020 环境噪声（公园 / 商场 / 街道交通）× SNR 5/10/15 dB = 6 场景——这是「特征鲁棒性」测试而非「训练-测试匹配」测试。5 个单窗基线（Hann = TF 默认即工业基线 / Hamming / Bartlett / Boxcar / Kaiser）× 多锥 3 锥族 × K∈{3,5,7,10} = 17 配置 × 5 STFT 参数（表 I 的 Setup A-E）× 2 模型 × 2 数据集 × 6 噪声 = 2040 用例。每配置 3 次运行取平均（无标准差、无显著性检验）。"
+      - generic [ref=f108e99]:
+        - img [ref=f108e100]:
+          - generic [ref=f108e101]: Table II · 跨噪声平均准确率（Setup C / D）：每个组合都有某个多锥配置超过全部单窗基线
+          - generic [ref=f108e102]: "0.5"
+          - generic [ref=f108e103]: "0.6"
+          - generic [ref=f108e104]: "0.7"
+          - generic [ref=f108e105]: Tiny-CNN · GSC
+          - generic [ref=f108e107]: 基线 0.729
+          - generic [ref=f108e108]: ~0.723
+          - generic [ref=f108e110]: "0.771"
+          - generic [ref=f108e111]: SWCE ori
+          - generic [ref=f108e112]: +4.2 pp
+          - generic [ref=f108e113]: Tiny-CNN · MSD
+          - generic [ref=f108e115]: 基线 0.687
+          - generic [ref=f108e116]: ~0.665
+          - generic [ref=f108e118]: "0.727"
+          - generic [ref=f108e119]: SWCE mod
+          - generic [ref=f108e121]: "0.704"
+          - generic [ref=f108e122]: Hermite
+          - generic [ref=f108e123]: +2.1~2.6 pp
+          - generic [ref=f108e124]: TC-ResNet · GSC
+          - generic [ref=f108e126]: 基线 0.634
+          - generic [ref=f108e127]: ~0.597
+          - generic [ref=f108e129]: "0.673"
+          - generic [ref=f108e130]: SWCE ori
+          - generic [ref=f108e132]: "0.550"
+          - generic [ref=f108e133]: Hermite
+          - generic [ref=f108e134]: +1.1~1.8 pp
+          - generic [ref=f108e135]: TC-ResNet · MSD ★最大增益
+          - generic [ref=f108e136]: 基线 0.633
+          - generic [ref=f108e137]: ~0.633
+          - generic [ref=f108e139]: "0.708"
+          - generic [ref=f108e140]: SWCE ori
+          - generic [ref=f108e141]: +6.4~7.1 pp
+          - generic [ref=f108e142]: 柱对 = 同一配置在 Setup C（H=640, 100 通道）与 Setup D（40 通道）的准确率区间；基线灰柱 = 五种单窗的落点区间。红柱 = Hermite 在 TC-ResNet 上低于全部基线
+        - paragraph [ref=f108e143]: 表 II 复绘·四个模型×数据集组合，灰柱 = 五种单窗基线（Hann/Hamming/Bartlett/Boxcar/Kaiser）在 Setup C/D 的落点区间，绿/红柱 = 多锥最佳配置。注意「基线被超越」的准确表述：每个组合都存在某个多锥配置超过全部基线，而非每个多锥配置都超过——Hermite 在 TC-ResNet 上的红柱就是反例。绝对准确率 0.60-0.78 必须放在「5 epoch 训练 + 5-15dB 加噪测试」的语境里读。
+      - generic [ref=f108e144]:
+        - img [ref=f108e145]:
+          - generic [ref=f108e146]: 锥数 K 的扫描（Tiny-CNN + GSC + Setup C）：SWCE orig 单调向好，modified 在 K=10 崩盘
+          - generic [ref=f108e147]: "0.45"
+          - generic [ref=f108e148]: "0.55"
+          - generic [ref=f108e149]: "0.65"
+          - generic [ref=f108e150]: "0.75"
+          - generic [ref=f108e153]: "0.750"
+          - generic [ref=f108e155]: "0.760"
+          - generic [ref=f108e157]: "0.770"
+          - generic [ref=f108e159]: "0.771"
+          - generic [ref=f108e162]: "0.756"
+          - generic [ref=f108e164]: "0.695"
+          - generic [ref=f108e165]: K=3
+          - generic [ref=f108e166]: K=5
+          - generic [ref=f108e167]: K=7
+          - generic [ref=f108e168]: K=10
+          - generic [ref=f108e169]: 最强基线 Bartlett 0.7291
+          - generic [ref=f108e170]: SWCE original
+          - generic [ref=f108e171]: SWCE modified
+        - paragraph [ref=f108e172]: K 扫描复绘（表 II 内可提取的数值）——SWCE original 从 K=3 到 10 单调向好且持续累加，与「方差随 1/K 压缩」的理论直觉一致；modified 版 K=5 尚可、K=10 跌破最强基线（TC-ResNet 上崩到 0.41-0.50 未入图）。推理时间随 K 线性增长（图 2 实测，i7-8565U 单核 8-20ms 量级）——「按 K 可预算」的工程事实。
+      - generic [ref=f108e173]: 消融五读数：① K 的作用方向取决于锥族——SWCE orig 单调向好（K=3→10 从 0.750 到 0.771，符合 1/K 理论直觉）；modified 反向崩盘（0.756→0.695，TC-ResNet 上更惨到 0.41-0.50）——工程甜点：modified 用 K=5 别上 10；② 特征-架构匹配（最重要边界）——Hermite 在 TC-ResNet 上全部 K 低于最差基线、在 Tiny-CNN+MSD 上却超全部基线；SWCE modified 的最佳集中在 Tiny-CNN（大核 + 三倍参数量更能受益于高对比度）——笔记对 Hermite 伤害 TC-ResNet 的推测：TC-ResNet 的结构假设频率轴逐通道对齐，Hermite 高阶锥的时频能量重排可能破坏该对齐（论文未分析）；③ 小数据放大器——MSD 增益普遍大于 GSC（+6~7 对 +1~2 点）：欠训练小数据下低方差先验替代部分数据量；④ STFT 参数——Setup D（40 通道粗频率分辨率）在欠训练小模型上普遍更好——更粗的分辨率反而留出冗余；⑤ 隔离设计——脚注 1 明确无增强以隔离特征效应（因果干净但外推受限）。Setup A/B/E 与分噪声明细全部沉在补充材料。
+    - generic [ref=f108e174]:
+      - paragraph [ref=f108e175]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f108e176]
+      - generic [ref=f108e178]:
+        - generic [ref=f108e179]:
+          - generic [ref=f108e180]: "1"
+          - text: 更好的特征 = 更好的谱估计器梅尔特征的随机性全部来自谱估计器（W 与 M_m 是确定性算子）——把特征改良严格等价为谱估计器改良，为一切前端改进提供理论抓手。
+        - generic [ref=f108e181]:
+          - generic [ref=f108e182]: "2"
+          - text: 降方差不付偏差代价多锥在方差轴做平均（1/K 压缩）、偏差轴不动——与「平滑换分辨率」的既有路线本质不同；对下游完全透明（张量形状不变零改动换入）。
+        - generic [ref=f108e183]:
+          - generic [ref=f108e184]: "3"
+          - text: 小模型小数据时特征先验最值钱MSD（三成数据量）增益 +6~7 点对 GSC +1~2 点——欠训练场景下特征携带的低方差先验能替代部分数据量。
+        - generic [ref=f108e185]:
+          - generic [ref=f108e186]: "4"
+          - text: 特征改进不能脱离后端单独评价Hermite 伤 TC-ResNet / modified 偏爱大核 CNN——特征-架构匹配效应意味着换特征前先看模型结构的归纳偏置。
+    - generic [ref=f108e187]:
+      - paragraph [ref=f108e188]: §05 · 局限性与展望
+      - heading "K 倍前端计算没在真 MCU 上验过；5 epoch 欠训练限制外推" [level=2] [ref=f108e189]
+      - generic [ref=f108e191]:
+        - generic [ref=f108e192]:
+          - heading "方法局限" [level=4] [ref=f108e193]
+          - list [ref=f108e194]:
+            - listitem [ref=f108e195]: 线性开销是双刃剑：K=10 的特征提取计算 ≈ 单窗 10 倍——常驻监听下前端往往比分类网络更耗电（每帧实时算）；推理时间只在笔记本 CPU（i7-8565U）测过，MCU/DSP 实测、功耗、内存全未报。
+            - listitem [ref=f108e196]: modified SWCE 无理论支撑且对 K 敏感：作者自认统计性质可能不成立；K=10 崩盘说明锐化把鲁棒性换了锐度、适用区间窄。
+            - listitem [ref=f108e197]: Hermite 负增益缺机制解释：只报现象无分析——削弱「锥族选型」贡献的可迁移性。
+            - listitem [ref=f108e198]: 只覆盖梅尔谱一种特征形态：MFCC 的多锥化（引言讨论过）实验未做、无直接对比。
+            - listitem [ref=f108e199]: 指标单一：只有准确率与推理时间——误唤醒 / 漏唤醒权衡（DET、特定虚警下召回）未报。
+        - generic [ref=f108e200]:
+          - heading "实验设计不足" [level=4] [ref=f108e201]
+          - list [ref=f108e202]:
+            - listitem [ref=f108e203]: 5 epoch 欠训练限制外推：绝对准确率压在 0.60-0.78；充分训练后特征差距是否保持同样大小未知（且删 dropout 与短训练绑定）。
+            - listitem [ref=f108e204]: 无增强的隔离是双刃剑：现实管线几乎都叠 SpecAugment / 多风格——组合效应与收益抵消未知（论文自留给未来）。
+            - listitem [ref=f108e205]: 训练干净测试加噪的单边设计：测的是特征固有鲁棒性；训练侧也加噪（multi-style 更接近真实部署）后优势是否收窄未知。
+            - listitem [ref=f108e206]: 统计严谨性：3 次只报均值无标准差——+1.1 pp 级别的提升（TC-ResNet+GSC）无法判断显著性。
+            - listitem [ref=f108e207]: 推理时间范围过窄：只测 1 模型 / 1 关键词 / 1 噪声场景，图 2 只有曲线无数值表。
+      - generic [ref=f108e208]: 值得追的方向：① 多锥 × 数据增强的组合验证（论文自指：SpecAugment 作用在多锥谱图上、多风格训练叠加收益）；② 可学习的锥参数（结论明示）——锥族 / K / λ_k 从人工设定变可微分搜索或轻量可学习模块，暗示「参数化特征与端到端学习之间的中间道路」；③ 真实端侧硬件验证——Cortex-M 级 MCU / DSP / 专用加速器上实测功耗与延迟随 K 曲线，把「线性增长」落成毫瓦级预算表；④ 扩指标（DET 类误唤醒权衡）、扩特征（多锥化 MFCC）、扩架构（BC-ResNet 等复验匹配效应、解释 Hermite 与逐频率通道架构的不兼容机制）；⑤ K 自适应策略——SWCE orig 随 K 稳定向好而 modified 大 K 崩溃：按设备电量或场景噪声动态调 K（一次训练多级部署的思路）。
+    - contentinfo [ref=f108e209]:
+      - generic [ref=f108e210]:
+        - link "深读笔记" [ref=f108e211] [cursor=pointer]:
+          - /url: /papers/2024/Multitaper_Mel-spectrograms_For_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f108e212] [cursor=pointer]:
+          - /url: /papers/2024/Multitaper_Mel-spectrograms_For_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f108e213] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2407.04662
+        - link "返回总目录" [ref=f108e214] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f108e215]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（表 I-II / 图 1-2 / 式 1-8）；「笔记推测」标注处为笔记给出的分析。

@@ -1,0 +1,216 @@
+- generic [active] [ref=f24e1]:
+  - navigation [ref=f24e2]:
+    - generic [ref=f24e3]:
+      - generic [ref=f24e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f24e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f24e6]:
+        - link "深读笔记" [ref=f24e7] [cursor=pointer]:
+          - /url: /papers/2025/Implementing_Keyword_Spotting_On_The_MCUX947_Microcontroller_With_Integrated_NPU.md
+        - link "PDF 原稿" [ref=f24e8] [cursor=pointer]:
+          - /url: /papers/2025/Implementing_Keyword_Spotting_On_The_MCUX947_Microcontroller_With_Integrated_NPU.pdf
+        - link "arXiv" [ref=f24e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2506.08911
+  - generic [ref=f24e10]:
+    - banner [ref=f24e11]:
+      - paragraph [ref=f24e12]: 论文精读 · 可视化版 · 2025 №17
+      - heading "MCXN947 NPU 落地 59 倍加速是真的——但混淆矩阵里藏着被准确率掩盖的误报漂移" [level=1] [ref=f24e13]: MCXN947 NPU 落地59 倍加速是真的——但混淆矩阵里藏着被准确率掩盖的误报漂移
+      - paragraph [ref=f24e14]: Implementing Keyword Spotting on the MCX(N)947 Microcontroller with Integrated NPU
+      - paragraph [ref=f24e15]: 作者：Petar Jakuš、Hrvoje Džapo —— 萨格勒布大学电气工程与计算学院（克罗地亚）
+      - paragraph [ref=f24e16]: 发表：2025.06 · arXiv:2506.08911 · 4 页落地短文（标题 MCUX947 系笔误，应为 MCXN947）
+      - generic [ref=f24e17]:
+        - generic [ref=f24e18]: MCU + NPU
+        - generic [ref=f24e19]: eIQ Neutron
+        - generic [ref=f24e20]: QAT 量化
+        - generic [ref=f24e21]: 工具链移植
+        - generic [ref=f24e22]: CPU/NPU 双路实测
+        - generic [ref=f24e23]: 误报漂移
+      - generic [ref=f24e24]:
+        - heading "一分钟版本" [level=2] [ref=f24e25]
+        - list [ref=f24e26]:
+          - listitem [ref=f24e27]: 背景：2023 后主流 MCU 开始集成 NPU（NXP MCX N 系的 eIQ Neutron），但「换上 NPU 到底快多少、体积省多少、精度掉多少」缺少同芯片同模型的严格对照——厂商只给算力峰值，不给完整 KWS 案例。
+          - listitem [ref=f24e28]: 六步流水线：Speech Commands 二分类（Marvin vs 其他）→ MFCC（25/10ms，98×20，M33 上每帧 431µs）→ 两层 CNN（27.6k 参数，GAP 省掉 68 倍参数）→ QAT（训练 +20% 时间换 int8）→ eIQ Toolkit 转换（算子重写不是重编译：BN→MUL/ADD、GAP→Mean、sigmoid→Logistic、dropout/量化层消失）→ CPU/NPU 双路径部署。
+          - listitem [ref=f24e29]: 核心数字：同一 int8 模型 M33 CPU 228.2ms → NPU 3.847ms（59.35×）；float→int8 体积降 90.68%；准确率 99.14→97.06。
+          - listitem [ref=f24e30]: 深读发现的第四点：量化把工作点推向高误报——误报 64→309 例（×4.83）、漏检 31→15（减半），且 int8 的 97.06% 低于「永不唤醒」基线 98.23%——准确率指标在 1:55 非均衡任务上失效的教科书案例。
+          - listitem [ref=f24e31]: 可迁移判断：NPU 的价值不止快，是「把 CPU 还给你」（占空 22.8%→0.38%）；量化验收必须看混淆矩阵不看准确率；架构设计要按 NPU 算子白名单选算子。
+    - generic [ref=f24e32]:
+      - paragraph [ref=f24e33]: §01 · 问题陈述
+      - heading "NPU 不是自动生效的：三个新问题" [level=2] [ref=f24e34]
+      - img [ref=f24e37]:
+        - generic [ref=f24e38]: 硬件给了加速器，工程师面前立刻出现三个新问题
+        - generic [ref=f24e39]:
+          - generic [ref=f24e41]: ① 格式门槛
+          - generic [ref=f24e42]: NPU 只认自己的模型格式和算子集合
+          - generic [ref=f24e43]: 训练侧模型必须经厂商工具链转换
+          - generic [ref=f24e44]: 转换过程会重写计算图
+          - generic [ref=f24e46]: ② 数值门槛
+          - generic [ref=f24e47]: NPU 原生数值类型是 8 位定点
+          - generic [ref=f24e48]: 浮点模型必须量化，量化会掉精度
+          - generic [ref=f24e49]: int8 不是优化项，是入场券
+          - generic [ref=f24e51]: ③ 缺对照数据
+          - generic [ref=f24e52]: 「快多少、省多少、掉多少」
+          - generic [ref=f24e53]: 公开文献缺同芯片 CPU vs NPU 严格对照
+          - generic [ref=f24e54]: 厂商宣传页只有算力峰值
+        - generic [ref=f24e56]: 本文补位：把「QAT 量化 + NPU 工具链移植 + 双执行路径实测」完整走通，公开全部结构表与性能表
+        - generic [ref=f24e57]: 四条已有路线（架构侧 / 压缩侧 / 前端侧 / 工具链侧）都没触及 NPU 部署路径——尤其没人公开「训练图 → 量化图 → NPU 图」三阶段的算子差异
+        - generic [ref=f24e58]: 移植策略：任务收到最小闭环（单关键词二分类）、前端与模型选最保守方案——把全部不确定性集中在「量化 + NPU 移植」两个真正要验证的环节
+    - generic [ref=f24e59]:
+      - paragraph [ref=f24e60]: §02 · 方法论
+      - heading "六步流水线与三张结构对照表" [level=2] [ref=f24e61]
+      - generic [ref=f24e63]:
+        - img [ref=f24e64]:
+          - generic [ref=f24e65]: 移植方法论（表 I → II → III 的结构演化是全文最独特贡献）
+          - generic [ref=f24e66]:
+            - generic [ref=f24e68]: ① 任务
+            - generic [ref=f24e69]: Marvin 二分类
+            - generic [ref=f24e70]: 1:55 类权重对冲
+            - generic [ref=f24e72]: ② MFCC 前端
+            - generic [ref=f24e73]: 25/10ms · 40 梅尔→20 系数
+            - generic [ref=f24e74]: 98×20 输入 · 431µs/帧
+            - generic [ref=f24e76]: ③ CNN float32
+            - generic [ref=f24e77]: 2×(conv+BN+pool)+GAP
+            - generic [ref=f24e78]: 27,649 参数 · 99.14%
+            - generic [ref=f24e80]: ④ QAT
+            - generic [ref=f24e81]: 伪量化节点插入
+            - generic [ref=f24e82]: +215 参数 · 训练 +20%
+            - generic [ref=f24e84]: ⑤ eIQ 转换
+            - generic [ref=f24e85]: TFLite → Neutron 图
+            - generic [ref=f24e86]: 算子重写 · 27,521 参数
+            - generic [ref=f24e88]: ⑥ 部署：模型转静态数组进 flash
+            - generic [ref=f24e89]: M33 CPU 路径：228.2 ms
+            - generic [ref=f24e90]: Neutron NPU 路径：3.847 ms
+          - generic [ref=f24e97]: ⑤ 的算子重写明细（表 III）——移植不是重新编译，是重写计算图
+          - generic [ref=f24e98]: BN → MUL/ADD（逐通道 scale/offset 挂进卷积块）· GAP → Mean · sigmoid → Logistic
+          - generic [ref=f24e99]: Dropout 与 QuantizeLayer 从推理图消失（训练专用 / 输入本已是定点）
+          - generic [ref=f24e101]: 隐藏工程风险：工具链改写后「理论上等价」，但饱和处理与舍入模式由工具链决定
+          - generic [ref=f24e102]: 部署精度与离线评估出现不可解释偏差时，训练侧几乎无法复现调试——只能依赖芯片在环评估（表 V 的混淆矩阵正是如此，比只报 TFLite 离线精度的工作更可信）
+        - paragraph [ref=f24e103]: GAP 是本架构最值钱的决策：pool2 输出 4,416 维，Flatten 接 128 维 FC 要约 56.5 万参数（比全模型其余部分多 20 倍）；GAP 直接平均掉空间维，fc1 只要 8,320 参数（差 68 倍），附带唤醒词在窗内位置漂移的平移鲁棒性。为什么手工 MFCC 不进 NPU：NPU 算子集合以卷积/矩阵乘为主，FFT、梅尔滤波塞进去反而冒回落 CPU 的风险，不如老实放 CPU（每帧 431µs、占空比仅 4.31%）。
+      - generic [ref=f24e104]:
+        - text: argmin 训练目标：类权重 Marvin 24.81 / 非 Marvin 0.51（比值 ≈48.6，对冲 1:55 失衡） · QAT：前向模拟 int8，反向全精度梯度
+        - generic [ref=f24e105]: 为什么 QAT 而非 PTQ：表层是「量化掉点最小」，深层是硬约束——Neutron NPU 原生 8 位定点，既然必须量化就用最稳的方式（权重在训练中长成对定点友好的分布）。⚠ 10 epoch + 固定 lr 0.001 对 QAT 偏短，量化参数收敛充分性存疑（论文未给训练曲线）。
+    - generic [ref=f24e106]:
+      - paragraph [ref=f24e107]: §03 · 实验结果
+      - heading "59 倍是真的；被掩盖的误报漂移更要命" [level=2] [ref=f24e108]
+      - generic [ref=f24e110]:
+        - img [ref=f24e111]:
+          - generic [ref=f24e112]: 表 6 三轴对比：同芯片同模型，NPU 相对 CPU 加速 59.35 倍（推算精确值，论文口径 59×）
+          - generic [ref=f24e113]: 推理延迟（ms，对数刻度）
+          - generic [ref=f24e114]: x86 i5 · float32
+          - generic [ref=f24e116]: 50.7 ms
+          - generic [ref=f24e117]: x86 i5 · int8
+          - generic [ref=f24e119]: 0.42 ms
+          - generic [ref=f24e120]: M33 CPU · int8
+          - generic [ref=f24e122]: 228.2 ms
+          - generic [ref=f24e123]: Neutron NPU · int8
+          - generic [ref=f24e125]: 3.85 ms
+          - generic [ref=f24e126]: ← 越短越快；M33 到 NPU 即 59× 加速
+          - generic [ref=f24e127]: 模型体积（B）
+          - generic [ref=f24e129]: 383,674
+          - generic [ref=f24e130]: float32
+          - generic [ref=f24e132]: 35,744
+          - generic [ref=f24e133]: int8 (TFLite)
+          - generic [ref=f24e135]: 30,576
+          - generic [ref=f24e136]: int8 (NPU 图)
+          - generic [ref=f24e137]: float→int8 降 90.68%；NPU 图再省 14.5%
+          - generic [ref=f24e138]: （省掉 TFLite 运行时元数据与算子融合，推断）
+          - generic [ref=f24e139]: 准确率 %
+          - generic [ref=f24e141]: "99.14"
+          - generic [ref=f24e142]: float32
+          - generic [ref=f24e144]: "97.06"
+          - generic [ref=f24e145]: int8
+          - generic [ref=f24e146]: 「永不唤醒」基线 98.23
+          - generic [ref=f24e147]: int8 的 97.06 低于平凡基线！
+          - generic [ref=f24e148]: 准确率在此任务上失效（见下图）
+          - generic [ref=f24e149]: 平台跨度：同一 int8 模型，MCU CPU 比 i5 慢 ~543×，NPU 仍比 i5 慢 ~9.2×——NPU 的定位不是追平桌面，
+          - generic [ref=f24e150]: 是在毫瓦预算里把推理从「不可用」拉到「可用」
+          - generic [ref=f24e151]: ⚠ x86 跨精度对比存在框架混淆（两种精度各自用的推理框架未报）；i5 float 延迟正文 58.67 与表 50.67 两口径
+          - generic [ref=f24e152]: ⚠ 「98.3% 尺寸缩减」无法按表复算（92.03% 或 14.46% 都对不上）；标题 MCUX947 系笔误应为 MCXN947
+          - generic [ref=f24e153]: 前端：MFCC 每帧 431 µs（M33 实测），相对 10 ms 帧周期占空比 4.31%
+        - paragraph [ref=f24e154]: NPU 的价值不止是快，更是「把 CPU 还给你」：CPU 路径每 1 秒窗占空 22.8%，NPU 只要 0.38%——省下的 CPU 预算留给无线协议栈和应用逻辑。「全流水线 <5ms」的正确读法：单次特征 431µs + 单次 NPU 推理 3.847ms ≈ 4.28ms 在 10ms 帧预算内（占空 43%），而非流式系统占空比。
+      - generic [ref=f24e155]:
+        - img [ref=f24e156]:
+          - generic [ref=f24e157]: 量化真正改变的东西（表 4 vs 表 5）：不是均匀掉点，是工作点漂移——误报 ×4.83 换漏检减半
+          - generic [ref=f24e158]: "0"
+          - generic [ref=f24e159]: "100"
+          - generic [ref=f24e160]: "200"
+          - generic [ref=f24e161]: "300"
+          - generic [ref=f24e163]: "64"
+          - generic [ref=f24e165]: "309"
+          - generic [ref=f24e166]: 误报 FP
+          - generic [ref=f24e167]: float → int8
+          - generic [ref=f24e169]: "31"
+          - generic [ref=f24e171]: "15"
+          - generic [ref=f24e172]: 漏检 FN
+          - generic [ref=f24e173]: float → int8
+          - generic [ref=f24e174]: 原始计数（测试集 11,005 条，正类仅 195）
+          - generic [ref=f24e175]: 召回 84.10→92.31（+8.2 pp）的代价：每负窗误报率 0.59%→2.86%
+          - generic [ref=f24e176]: 派生指标（笔记推算，%）
+          - generic [ref=f24e177]: float
+          - generic [ref=f24e178]: int8
+          - generic [ref=f24e180]: "84.10"
+          - generic [ref=f24e182]: "92.31"
+          - generic [ref=f24e183]: 召回率
+          - generic [ref=f24e185]: "71.93"
+          - generic [ref=f24e187]: "36.81"
+          - generic [ref=f24e188]: 精确率
+          - generic [ref=f24e190]: "77.54"
+          - generic [ref=f24e192]: "52.64"
+          - generic [ref=f24e193]: F1
+          - generic [ref=f24e194]: 精确率腰斩、F1 大幅恶化——召回的改善是用误报买来的
+          - generic [ref=f24e195]: 机制推断：类权重 24.81 已推向高召回 + int8 压缩 logit 动态范围 → sigmoid 输出整体上移——简单阈值重校准应能拉回工作点
+        - paragraph [ref=f24e196]: 三层解读：① 量化不是均匀掉点而是工作点漂移——表面只掉 2.08 pp，实际决策边界整体向「多说 Marvin」移动；对常驻唤醒产品，2.86% 的每窗误报率在滑窗场景下完全不可用（音箱半夜自己醒来比偶尔叫不醒更招投诉）。② 准确率在此任务失效：永不唤醒基线就有 98.23%，正确姿势是 FPR@目标召回 / AUC / DET 曲线。③ 漂移机制（推断）：类权重 + int8 压缩 logit 动态范围——阈值重校准应能救回，但论文没做阈值扫描，是实验设计最可惜的一块。
+    - generic [ref=f24e197]:
+      - paragraph [ref=f24e198]: §04 · 主要贡献
+      - heading "四条可转述的判断" [level=2] [ref=f24e199]
+      - generic [ref=f24e201]:
+        - generic [ref=f24e202]:
+          - generic [ref=f24e203]: "1"
+          - text: 可复现的端到端移植流程六步流水线 + 表 I/II/III 三张结构对照表——把「float 训练图 → QAT 图 → NPU 图」的演化完整公开，多数部署论文只给最终结果。
+        - generic [ref=f24e204]:
+          - generic [ref=f24e205]: "2"
+          - text: 同芯片 CPU/NPU 实测锚点同一份 int8 模型 228.2ms → 3.847ms（59.35×）——「MCU 上的 NPU 值不值」目前少数可信的公开量化数据。
+        - generic [ref=f24e206]:
+          - generic [ref=f24e207]: "3"
+          - text: 量化收益三围完整刻画体积 90.68%↓ / 精度 −2.08 pp / x86 延迟 50.67→0.42ms——三件事一起摆上桌面。
+        - generic [ref=f24e208]:
+          - generic [ref=f24e209]: "4"
+          - text: 误报漂移的教科书案例（深读发现）误报 ×4.83 换漏检减半、准确率低于「永不唤醒」基线——「准确率指标在非均衡单关键词任务上失效」的完整反面教材，比 59× 更有警示价值。
+    - generic [ref=f24e210]:
+      - paragraph [ref=f24e211]: §05 · 局限性与展望
+      - heading "流程验证定位：证明路走得通，没穷路上的分支" [level=2] [ref=f24e212]
+      - generic [ref=f24e214]:
+        - generic [ref=f24e215]:
+          - heading "评估方法学的局限" [level=4] [ref=f24e216]
+          - list [ref=f24e217]:
+            - listitem [ref=f24e218]: 准确率失效指标：应改报误报率 / 召回 / DET 曲线（本页 §03 已详述）。
+            - listitem [ref=f24e219]: 窗口级离线评估：无每小时误唤醒数、无唤醒响应延迟——真实唤醒系统的验收指标需要流式滑窗 + 后处理整链路。
+            - listitem [ref=f24e220]: 单一关键词单一数据集：只验证 Marvin；多关键词自述为未来工作。
+            - listitem [ref=f24e221]: 声学条件单一：Speech Commands 近讲录音，无噪声/远场/口音变量。
+            - listitem [ref=f24e222]: 无架构横向对比：未与 DS-CNN、BC-ResNet 等同量级架构比——两层 CNN 在同等参数预算下是否好选择未知。
+            - listitem [ref=f24e223]: 功耗未测：NPU 的核心卖点是能效比，µJ/推理比延迟更关键——全文最大缺口。
+            - listitem [ref=f24e224]: 训练细节薄：10 epoch、固定 lr、无收敛曲线；QAT 两条路线（从头训 vs 微调）描述了但无对照数据。
+        - generic [ref=f24e225]:
+          - heading "数字一致性（引用注意）" [level=4] [ref=f24e226]
+          - list [ref=f24e227]:
+            - listitem [ref=f24e228]: i5 float 延迟两个口径：正文 58.67ms vs 表 50.67ms，差 8ms 未解释。
+            - listitem [ref=f24e229]: 「98.3% 尺寸缩减」无法复算：按表算 float→NPU 是 92.03%，int8→NPU 是 14.46%，都对不上；摘要口径 90.68% 才自洽。
+            - listitem [ref=f24e230]: 标题笔误：MCUX947 应为 MCXN947。
+            - listitem [ref=f24e231]: x86 框架混淆：跨精度延迟对比未报各自用的推理框架——int8 的 121× 加速里含 SIMD 内核优化，参考要打折。
+            - listitem [ref=f24e232]: 未报告项：CPU 路径推理框架、芯片主频、NPU 时钟、SRAM/flash 占用、音频采集链路、float 版为何未上 MCU。
+            - listitem [ref=f24e233]: 未覆盖的配置维度：无多核/多线程、无主频扫描、无 PTQ vs QAT 对照、无 int4/混合精度、无阈值扫描、无多关键词、无噪声远场。
+      - generic [ref=f24e234]:
+        - heading "下一步方向（论文自述 + 笔者补充）" [level=3] [ref=f24e235]
+        - paragraph [ref=f24e236]: 论文自述：功耗特性表征、多关键词架构、变化声学条件下的鲁棒性。 笔者补充：判定阈值校准与多窗投票后处理（直接针对误报 ×4.83）；PTQ 对照实验量化 QAT 的真实贡献；FPR@召回率式评估框架；VAD 级联（先低功耗语音活动检测再进 KWS，压常驻功耗）。 三条可迁移的工程判断：① NPU 收益要用「同芯片同模型 CPU vs NPU」量；② 移植不是重新编译是重写计算图——架构设计阶段就按目标 NPU 算子白名单选算子，任何自定义算子意味着回落 CPU 和流水线撕裂；③ 量化验收看混淆矩阵不看准确率，且上线后要在线重校准阈值。
+    - contentinfo [ref=f24e237]:
+      - paragraph [ref=f24e238]: 论文精读 · 可视化版 · 2025 №17 · MCXN947 NPU 落地 KWS（萨格勒布大学，arXiv 2025）
+      - paragraph [ref=f24e239]: 数据来源：论文表 I–VI（经由本库深读笔记核对，含推算与数字一致性标注）。图表坐标由脚本从论文原表计算生成。
+      - generic [ref=f24e240]:
+        - link "📄 深读笔记" [ref=f24e241] [cursor=pointer]:
+          - /url: /papers/2025/Implementing_Keyword_Spotting_On_The_MCUX947_Microcontroller_With_Integrated_NPU.md
+        - link "📕 PDF 原稿" [ref=f24e242] [cursor=pointer]:
+          - /url: /papers/2025/Implementing_Keyword_Spotting_On_The_MCUX947_Microcontroller_With_Integrated_NPU.pdf
+        - link "🔗 arXiv:2506.08911" [ref=f24e243] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2506.08911
+        - link "← 返回论文库" [ref=f24e244] [cursor=pointer]:
+          - /url: /

@@ -1,0 +1,205 @@
+- generic [active] [ref=f34e1]:
+  - navigation [ref=f34e2]:
+    - generic [ref=f34e3]:
+      - generic [ref=f34e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f34e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f34e6]:
+        - link "深读笔记" [ref=f34e7] [cursor=pointer]:
+          - /url: /papers/2025/LLM-Synth4KWS_Scalable_Automatic_Generation_And_Synthesis_Of_Confusable_Data_For_Custom_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f34e8] [cursor=pointer]:
+          - /url: /papers/2025/LLM-Synth4KWS_Scalable_Automatic_Generation_And_Synthesis_Of_Confusable_Data_For_Custom_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f34e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2505.22995
+  - generic [ref=f34e10]:
+    - banner [ref=f34e11]:
+      - paragraph [ref=f34e12]: 论文精读 · 可视化版 · 2025 №22
+      - heading "LLM-Synth4KWS 一条提示词 × 20 个元音：混淆词训练数据从人工枚举升级为 LLM 结构化生成" [level=1] [ref=f34e13]: LLM-Synth4KWS一条提示词 × 20 个元音：混淆词训练数据从人工枚举升级为 LLM 结构化生成
+      - paragraph [ref=f34e14]: "LLM-Synth4KWS: Scalable Automatic Generation and Synthesis of Confusable Data for Custom Keyword Spotting"
+      - paragraph [ref=f34e15]: 作者：Pai Zhu、Quan Wang 等 —— Google DeepMind（纽约）
+      - paragraph [ref=f34e16]: 发表：2025.05 · arXiv:2505.22995
+      - generic [ref=f34e17]:
+        - generic [ref=f34e18]: 自定义 KWS
+        - generic [ref=f34e19]: 混淆词
+        - generic [ref=f34e20]: LLM 数据生成
+        - generic [ref=f34e21]: Virtuoso TTS
+        - generic [ref=f34e22]: GE2E 组感知训练
+        - generic [ref=f34e23]: c-AUC 指标
+      - generic [ref=f34e24]:
+        - heading "一分钟版本" [level=2] [ref=f34e25]
+        - list [ref=f34e26]:
+          - listitem [ref=f34e27]: 痛点结构：custom KWS 的核心失败模式是共享元音的混淆词（blue vs glue）——来自用户研究与线上 demo 的关键观察；但现有 EER/AUC 把 35 个词的比较混在一起平均，混淆场景的糟糕表现被非混淆比较稀释。
+          - listitem [ref=f34e28]: 方案三件套：LLM 按元音生成混淆词组（20 元音 × 每组 100 词，Gemini 1.5 Pro 一条提示词搞定）→ Virtuoso TTS 风格采样合成（726 说话人 × 5 韵律 × 每词 100 句 = 20 万条）→ 组感知 GE2E 训练（LLM/TTS 批次内全部语句来自同一元音组，对比压力直接打在最难词对上）。
+          - listitem [ref=f34e29]: 关键工程思路：把混淆对的发现从训练时在线搜索（O(N)/批）前移为训练前一次性离线数据生成——训练循环零开销、无需查找表；批次级混合（非语句级）避免「真实 vs 合成音色」成为捷径。
+          - listitem [ref=f34e30]: 结果：全集指标改善边际（AUC −3.7%）、混淆指标显著（c-AUC −11.3%、Hard-AUC −12.5%、Easy-AUC −100% 降至零错误）——增强精确打在目标区域。基线 c-AUC 几乎是全集 AUC 的两倍，印证组内评估更难。
+          - listitem [ref=f34e31]: 诚实披露：FAR <1% 极低误接受端增强模型反而略差（TTS 偏置）；/i:/&/ɪ/ 组退化 +9.67%——TTS 对 three/tree 合成出几乎相同的音，训练被迫区分不可区分的对。
+    - generic [ref=f34e32]:
+      - paragraph [ref=f34e33]: §01 · 问题陈述
+      - heading "随机对比训练天然碰不到混淆词" [level=2] [ref=f34e34]
+      - img [ref=f34e37]:
+        - generic [ref=f34e38]: 四类已有方案的共同瓶颈：混淆词训练数据难以规模化获取
+        - generic [ref=f34e39]:
+          - generic [ref=f34e41]: 随机采样的对比训练
+          - generic [ref=f34e42]: 词表 V（MSWC 38k 短语）≫ 批内 X 词——两个互相混淆的词
+          - generic [ref=f34e43]: 恰好落入同一批次的概率极低：对比损失几乎从未在
+          - generic [ref=f34e44]: 「最需要被区分的词对」上施加过压力，判别力全靠泛化碰运气
+          - generic [ref=f34e46]: 三条补救路线各有代价
+          - generic [ref=f34e47]: · 编辑距离训练内检索（[10][11]）：每批次 O(N) 搜索显著拖慢训练
+          - generic [ref=f34e48]: · 中文查找表（[12]）：运行时内存开销大、不可规模化
+          - generic [ref=f34e49]: · 已有 TTS 方案（[20-22]）：多样性花在「谁说」（7000 说话人），「说什么」仍人工枚举 12 个词
+          - generic [ref=f34e51]: 评估指标也在掩盖问题
+          - generic [ref=f34e52]: 现有 EER/AUC 把 35 个关键词的注册比较混在一起平均——混淆词上的糟糕表现被大量非混淆比较稀释，无法暴露真正的短板；众包采集混淆数据需数月周期和高成本
+        - generic [ref=f34e54]: 本文的回答：混淆知识的来源与注入时机全部重构
+        - generic [ref=f34e55]: 离线（LLM 按元音生成 + TTS 合成）预编译混淆结构 → 在线（组感知 GE2E）零开销训练 → 评估（c-AUC 元音组内平均）专测混淆检测
+    - generic [ref=f34e56]:
+      - paragraph [ref=f34e57]: §02 · 方法论
+      - heading "两条流水线：数据生成 + 组内评估" [level=2] [ref=f34e58]
+      - generic [ref=f34e60]:
+        - img [ref=f34e61]:
+          - generic [ref=f34e62]: 框架（图 1）：混淆结构「预编译」进数据，训练时零检索零查找表
+          - generic [ref=f34e63]:
+            - generic [ref=f34e65]: ① 数据生成与训练增强流水线（图 1a）
+            - generic [ref=f34e67]: Gemini 1.5 Pro
+            - generic [ref=f34e68]: 20 元音 × 100 词/组
+            - generic [ref=f34e69]: "/u:/: blue·glue·clue·luke"
+            - generic [ref=f34e71]: 风格采样
+            - generic [ref=f34e72]: "locale en-US · 说话人 #61"
+            - generic [ref=f34e73]: 韵律 "luke?"（问号=升调）
+            - generic [ref=f34e75]: Virtuoso TTS
+            - generic [ref=f34e76]: 726 说话人 × 5 韵律
+            - generic [ref=f34e77]: ×100 句/词 = 20 万条
+            - generic [ref=f34e79]: 批次级混合
+            - generic [ref=f34e80]: P(mswc)=0.5 / P(tts)=0.5
+            - generic [ref=f34e81]: 整批来自同一数据源
+            - generic [ref=f34e83]: 组感知 GE2E
+            - generic [ref=f34e84]: TTS 批次全来自
+            - generic [ref=f34e85]: 同一元音组
+            - generic [ref=f34e92]: ② 元音组评估流水线（图 1b）——新指标 c-AUC
+            - generic [ref=f34e93]: 注册语句（10 条）算嵌入质心 → 与测试嵌入余弦相似度 → 对每个元音组单独画 DET 曲线 + 算组内 AUC → 9 组 AUC 取平均 = c-AUC
+            - generic [ref=f34e94]: 分组规则（表 1）：极近元音合并（i:/ɪ、ɛ:/@、oU:/u:）；每组 ≥3 词否则丢弃 → 9 组覆盖 32 词：注册 "right" 只与 /aI/ 组的 nine、five 比较
+          - generic [ref=f34e96]: 两个关键「为什么」
+          - generic [ref=f34e97]: · 提示词要求 "simple"（词太长则其他音段提供可区分捷径）+ "distinguishable"（避免真同音词注入不可能任务）
+          - generic [ref=f34e98]: · 批次级而非语句级混合：真实/合成音色差异本身会成为捷径，干扰模型学「词与词」而非「声音与声音」的区分
+        - paragraph [ref=f34e99]: 基座：420KB 量化 Conformer（8 位动态范围量化，端侧常驻），40 维 log-Mel、25ms 帧；GE2E 批次 X=8 词 × Y=10 句（一半建质心一半做测试），相似度矩阵 8×8 的 softmax 交叉熵——损失方差小、收敛稳，也是组感知方案能低成本落地的前提。
+      - generic [ref=f34e100]:
+        - text: c-AUC = (1/9) Σ
+        - subscript [ref=f34e101]: g
+        - text: AUC
+        - subscript [ref=f34e102]: g
+        - text: ，其中组 g 的负样本只来自同元音组的 2–4 个近邻词（而非其余 34 个词）
+        - generic [ref=f34e103]: 与全集 AUC 的关键差别在负样本难度结构：全集 AUC 的大多数比较发生在非混淆词之间，不在增强的直接优化路径上；c-AUC 恰好度量混淆组内检测——把「用户真正会误触发的那类错误」从平均化指标中单独剥离出来。
+    - generic [ref=f34e104]:
+      - paragraph [ref=f34e105]: §03 · 实验结果
+      - heading "增强精确打在混淆区域" [level=2] [ref=f34e106]
+      - generic [ref=f34e108]:
+        - heading "设置" [level=3] [ref=f34e109]
+        - paragraph [ref=f34e110]: 真实训练数据 MSWC（530 万条 / 38k 短语 / 27k 说话人）；合成 20 万条。测试：Speech Commands 测试划分（11,000+ 条 / 35 词，每词 10 条注册）+ LibriPhrase-1s 子集（0.9–1.1s 时长对齐模型 1 秒训练配置——本身就是对「训练推理长度一致性」的显式处理；正对/易负/难负各 39k）。
+      - generic [ref=f34e111]:
+        - img [ref=f34e112]:
+          - generic [ref=f34e113]: 表 2 主结果：全集指标改善边际、混淆指标改善显著——增强打在目标区域
+          - generic [ref=f34e114]: "0"
+          - generic [ref=f34e115]: "5"
+          - generic [ref=f34e116]: "10"
+          - generic [ref=f34e117]: "15"
+          - generic [ref=f34e120]: −4.4%
+          - generic [ref=f34e121]: EER
+          - generic [ref=f34e122]: Speech Commands
+          - generic [ref=f34e125]: −3.7%
+          - generic [ref=f34e126]: AUC（全集）
+          - generic [ref=f34e127]: Speech Commands
+          - generic [ref=f34e130]: −11.3%
+          - generic [ref=f34e131]: c-AUC（元音组内）
+          - generic [ref=f34e132]: Speech Commands
+          - generic [ref=f34e135]: −12.5%
+          - generic [ref=f34e136]: Hard-AUC
+          - generic [ref=f34e137]: LibriPhrase-1s
+          - generic [ref=f34e140]: −100%
+          - generic [ref=f34e141]: Easy-AUC
+          - generic [ref=f34e142]: LibriPhrase-1s
+          - generic [ref=f34e144]: 基线（仅 MSWC）
+          - generic [ref=f34e146]: 增强（MSWC + LLM/TTS）
+          - generic [ref=f34e147]: 绝对量级：基线 c-AUC（0.915）几乎是全集 AUC（0.490）的两倍——组内评估确实更难，也才是增强的主战场
+        - paragraph [ref=f34e148]: DET 曲线的诚实细节（图 4）：增强模型在绝大多数工作点优于基线，但 FAR <1% 极低误接受端反而略差——TTS 数据引入向合成语音的偏置，先验分布偏移使模型对真实语句信心不足、高阈值下 FRR 升高。对量产语音助手这恰是关键工作区间；论文计划用对抗训练（同组后续工作）对齐合成与真实表征修复此处。
+      - generic [ref=f34e149]:
+        - img [ref=f34e150]:
+          - generic [ref=f34e151]: 表 3 按元音组分解（组内 AUC 相对改进 %）：收益高度不均匀，/i:/&/ɪ/ 组反而退化
+          - generic [ref=f34e152]: /o:/ dog·four·off
+          - generic [ref=f34e154]: "-39.1%"
+          - generic [ref=f34e155]: /aI/ right·nine·five
+          - generic [ref=f34e157]: "-33.2%"
+          - generic [ref=f34e158]: /ɑ:/ marvin·on·stop
+          - generic [ref=f34e160]: "-28.2%"
+          - generic [ref=f34e161]: /aU/ wow·down·house
+          - generic [ref=f34e163]: "-27.4%"
+          - generic [ref=f34e164]: /ɛ:&/@/ forward·bird·learn
+          - generic [ref=f34e166]: "-11.4%"
+          - generic [ref=f34e167]: /æ/ cat·backward·happy
+          - generic [ref=f34e169]: "-3.1%"
+          - generic [ref=f34e170]: /e/ yes·seven·left·bed
+          - generic [ref=f34e172]: "-2.9%"
+          - generic [ref=f34e173]: /oU:&/u:/ go·no·follow·zero·two
+          - generic [ref=f34e175]: "-0.2%"
+          - generic [ref=f34e176]: /i:/&/ɪ/ sheila·tree·three·…
+          - generic [ref=f34e178]: +9.7%（退化）
+          - generic [ref=f34e179]: ← 改善（AUC 降低）
+          - generic [ref=f34e180]: 退化 →
+          - generic [ref=f34e181]: /i:/&/ɪ/ 退化根因：three 与 tree——
+          - generic [ref=f34e182]: TTS 对这两个词合成出了几乎相同的音，
+          - generic [ref=f34e183]: 训练被迫区分「数据里本就不可区分」的对
+          - generic [ref=f34e184]: 论文归因组间差异：Speech Commands 每组只有 3–5 个词，关键词多样性受限（统计功效弱）
+        - paragraph [ref=f34e185]: 退化暴露的链路短板：当两个词只差一个辅音（three 的 /θ/ 与 tree 的 /r/），TTS 可能产出近乎同音的样本——生成管线没有对这类「辅音级近对」做难度校验或过滤；元音锚点也无法解释组内全部混淆来源（th/r、s/sh 维度未建模）。时长鲁棒性：完整 LibriPhrase（均值 0.63s）上基线大退化且增强收益消失——收益部分依赖训练/测试时长一致性。
+    - generic [ref=f34e186]:
+      - paragraph [ref=f34e187]: §04 · 主要贡献
+      - heading "五条可转述的判断" [level=2] [ref=f34e188]
+      - generic [ref=f34e190]:
+        - generic [ref=f34e191]:
+          - generic [ref=f34e192]: "1"
+          - text: c-AUC 北极星指标首次把 custom KWS 评估从全词表平均细化为元音组内平均——直接度量混淆检测，弥合真实用户体验与传统指标的鸿沟。
+        - generic [ref=f34e193]:
+          - generic [ref=f34e194]: "2"
+          - text: 零人工混淆数据生成LLM 一条提示词 × 20 元音生成结构化词组（每组 100 词），TTS 从 726 说话人 × 5 韵律合成 20 万条——词表规模比人工枚举（12 词）提升两个数量级以上。
+        - generic [ref=f34e195]:
+          - generic [ref=f34e196]: "3"
+          - text: 组感知零开销训练混淆关系预编译进数据分组，训练循环内无检索无查找表——「在线搜索移到离线生成」的工程范式。
+        - generic [ref=f34e197]:
+          - generic [ref=f34e198]: "4"
+          - text: 精确打在目标区域全集 AUC −3.7% vs c-AUC −11.3%、Hard-AUC −12.5%——混淆指标显著大于全集指标，且跨数据集成立（非单一测试集过拟合）。
+        - generic [ref=f34e199]:
+          - generic [ref=f34e200]: "5"
+          - text: 工程可用性主张训练效率（零检索）、可扩展（LLM+TTS 多语言能力可外推 100+ 语言）、经济性（众包数月 vs LLM+TTS 数小时）——基座是 420KB 量化 Conformer，全链路端侧约束内闭环。
+    - generic [ref=f34e201]:
+      - paragraph [ref=f34e202]: §05 · 局限性与展望
+      - heading "TTS 偏置与近同音对是两个软肋" [level=2] [ref=f34e203]
+      - generic [ref=f34e205]:
+        - generic [ref=f34e206]:
+          - heading "方法的技术局限" [level=4] [ref=f34e207]
+          - list [ref=f34e208]:
+            - listitem [ref=f34e209]: 极低误接受端回退：FAR <1% 区域增强模型略差于基线——量产助手的关键工作区间，TTS 偏置不可忽视。
+            - listitem [ref=f34e210]: TTS 近同音合成：three/tree 类辅音级近对可能被合成出几乎相同的音——训练被注入不可解任务；生成管线无难度校验或过滤。
+            - listitem [ref=f34e211]: 元音分组有盲区：辅音差异维度（th/r、s/sh）未显式建模——元音锚点解释不了组内全部混淆来源。
+            - listitem [ref=f34e212]: 时长泛化受限：1 秒训练配置下，完整 LibriPhrase（0.63s 均值）增强收益消失。
+            - listitem [ref=f34e213]: 说话人对齐未报告：726 个 TTS 说话人与真实用户声学条件的覆盖差异无分析。
+        - generic [ref=f34e214]:
+          - heading "实验设计的不足" [level=4] [ref=f34e215]
+          - list [ref=f34e216]:
+            - listitem [ref=f34e217]: 零正式消融：P(tts)、每组词数、每词语句数、说话人/韵律数、元音覆盖——所有超参无敏感性实验。
+            - listitem [ref=f34e218]: 多语言主张未验证：实验只在英语，100+ 语言是方法层推论。
+            - listitem [ref=f34e219]: 组指标统计功效弱：每组仅 3–5 词，组 AUC 估计方差天然偏大。
+            - listitem [ref=f34e220]: 训练效率优势未量化：与检索式/查找表方法的对比停留在定性，无训练时间/内存的正面数字，也没拼精度。
+            - listitem [ref=f34e221]: 对比单一：只对自家 MSWC 基线，缺同期 SOTA custom KWS 横向数据。
+      - generic [ref=f34e222]:
+        - heading "下一步方向（论文计划 + 笔者补充）" [level=3] [ref=f34e223]
+        - paragraph [ref=f34e224]: 论文计划：对抗训练对齐合成/真实表征修复极低 FAR 端回退（同组后续工作）；更清晰可辨的 TTS（极相似词间合成出可区分的声音）；多时长训练；多语言扩展（尤其资源受限语言）。 笔者补充：词表生成阶段引入音素级难度校验与过滤，避免把 TTS 无法区分的对放进训练；元音分组扩展为元音+辅音二维混淆结构，与 GraphemeAug 的字形级硬负例互补；对 P(tts) 与词表规模做系统消融确定收益饱和点——都建立在「离线生成混淆结构、在线零开销训练」的核心范式上，该范式本身有继续挖掘空间。
+    - contentinfo [ref=f34e225]:
+      - paragraph [ref=f34e226]: 论文精读 · 可视化版 · 2025 №22 · LLM-Synth4KWS（Google DeepMind，arXiv 2025）
+      - paragraph [ref=f34e227]: 数据来源：论文表 1–3、图 1–4（经由本库深读笔记核对）。图表坐标由脚本从论文原表计算生成。
+      - generic [ref=f34e228]:
+        - link "📄 深读笔记" [ref=f34e229] [cursor=pointer]:
+          - /url: /papers/2025/LLM-Synth4KWS_Scalable_Automatic_Generation_And_Synthesis_Of_Confusable_Data_For_Custom_Keyword_Spotting.md
+        - link "📕 PDF 原稿" [ref=f34e230] [cursor=pointer]:
+          - /url: /papers/2025/LLM-Synth4KWS_Scalable_Automatic_Generation_And_Synthesis_Of_Confusable_Data_For_Custom_Keyword_Spotting.pdf
+        - link "🔗 arXiv:2505.22995" [ref=f34e231] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2505.22995
+        - link "← 返回论文库" [ref=f34e232] [cursor=pointer]:
+          - /url: /

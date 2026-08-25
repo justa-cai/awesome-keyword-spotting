@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>免分割文档 KWS · 字符计数+CTC 重打分 · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2023/Keyword_Spotting_Simplified_A_Segmentation-Free_Approach_Using_Character_Counting_And_CTC_Re-scoring.md">深读笔记</a>
+    <a href="/papers/2023/Keyword_Spotting_Simplified_A_Segmentation-Free_Approach_Using_Character_Counting_And_CTC_Re-scoring.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2308.03515" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2023 №17</p>
+  <h1>不找紧贴的框，只数框里有几个什么字符——<br>概率×尺度解耦 + 积分图，6M 小模型在数据稀缺设定反超检测式 SOTA</h1>
+  <p class="sub">Keyword Spotting Simplified: A Segmentation-Free Approach Using Character Counting and CTC Re-scoring</p>
+  <p class="meta"><b>作者</b>：George Retsinas（雅典国立理工）、Giorgos Sfikas（西阿提卡大学）、Christophoros Nikou（约阿尼纳大学）</p>
+  <p class="meta"><b>发表</b>：arXiv 2308.03515（2023-08）· IAM + GW 手写数据集 · 代码开源 · <b>文档图像 KWS（非语音）</b></p>
+  <div class="chips">
+    <span class="chip">领域：手稿检索 QbS（非语音唤醒）</span><span class="chip">概率 × 尺度解耦计数</span><span class="chip">积分图 O(1) + 二分搜索</span>
+    <span class="chip">双向 CTC 重打分兼框校正</span><span class="chip">IoW 新度量</span><span class="chip">GW5-15 反超检测式 SOTA</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>领域定位（对本库读者必要）</b>：本文的 KWS 是<b>文档图像</b>领域的同名任务——扫描手稿里按字符串查询（QbS）找出包含该词的矩形区域。与语音 KWS 共享核心思想：不追求全量识别、只在连续媒体定位关键词、用软选择容忍局部识别错误。对语音读者的价值在方法迁移视角：CTC 用于<b>图像列序列</b>、积分图加速、计数式松弛表征——都是语音文献里少见的设计。</li>
+      <li><b>免分割的必要性</b>：分割基方法假设已拿到切好的词图——把最难的子问题前置，切分错误向下游全面传播；滑窗类免分割的朴素复杂度 <b>O(N³)</b> 不可行；端到端检测式（Ctrl-F-Net / ResNet50+FPN）训练需要<b>文档级标注或合成数据</b>、预测头复杂且有预定义最大检测数限制。</li>
+      <li><b>核心思想一句话</b>：「通过计数字符出现次数高效估计边界框」。把计数分解为<b>逐像素字符概率 F × 逐像素尺度 S</b>（Fs = F·S），任意矩形区域求和即得字符计数直方图——而矩形求和恰好是<b>积分图 O(1)</b> 操作。表征设计直接为算法效率服务：概率-尺度解耦是全文根基。</li>
+      <li><b>尺度图 S 的隐式学习（最巧的设计）</b>：S 无直接监督——CTC 损失锚定 F 必须有真实识别语义，计数损失要求 F×S 框内求和精确等于目标直方图——F 被钉死在识别语义上，S 被迫表达「这个点占它所属字符的多大比例」。<b>强监督锚住一支、结构约束塑形另一支</b>。</li>
+      <li><b>计数歧义的两道防线</b>：计数对排列不敏感（and 与 dan 计数相同）。防线一（结构性）：先 y 轴二分找「计数=1」的矩形锚定行高，x 轴搜索限制在单行内——<b>跨行拼词的解被问题结构先验排除</b>（图 4c：上行尾 a + 下行首 nd 拼框计数也正确）。防线二（识别级）：双向 CTC 重打分——在所有步取查询末字符最优分 + 终点故意高估 + 反向一遍对称校正起点，<b>打分器兼做框校正</b>，解决邻词扩展错误。</li>
+      <li><b>结果</b>：~6M 纯卷积、只学识别不学检测——<b>数据稀缺设定 GW5-15 的 25% IoU 下 85.9 反超 Ctrl-F-Net 76.8 达 9.1 点</b>；IAM 25% 阈值 85.8 也领先（+3.3）；但 50% IoU 全面落后（66.3 vs 73.8）——错误分析定位为 y 轴扩展拉低重叠分，<b>「粗定位」哲学在数据充足对手框紧时的代价</b>。</li>
+      <li><b>消融最有信息量的四条</b>：① CTC 重打分补近 <b>21 个点</b>（67.99→88.98）——量化了计数歧义的代价与识别级打分的价值；② 双向优于单向 3.4 点；③ <b>有 CTC 后金字塔层数不再收益</b>（1 层最优 5 层反降）——子段划分被框扩展误差吃掉；④ 无 CTC 时 PHOC 3 层反超 PCount（二值属性在粗结构下更稳）。剪枝消融：居中检验 r=0.5 是断崖甜点（r=0.66 时 MAP 67.99→52.02）。</li>
+      <li><b>IoW 新度量</b>：IoU 对「框住了但框偏大」惩罚过重（正确检测 IoU 仅 0.33 的例子）——本文松框是特性（换来<b>子词检索</b> fast 命中 breakfast、<b>多词检索</b> he came）不是缺陷。IoW = 正确相交 /（真值面积 + 与邻词的错误相交）——<b>框不切别的词多大都不罚</b>。换 IoW 后 50% 阈值几乎无衰减（66.4→87.6）——证明高阈值衰减主源是度量错配而非检索能力不足。</li>
+      <li><b>边界</b>：框过估计是提议阶段固有缺陷（CTC 补救作用在剪枝之后——存在补救盲区）；空格未建模（子词命中不可控，量化影响仅 0.64 点但决定可用性）；1×5 卷积显式假设水平书写（垂直 / 多方向未覆盖）；S 无监督导致可控性弱；损失权重 10 经验设定；消融只在 IAM 验证集；效率无同表基线（时间只报自身毫秒级）；QbE 扩展称「直接」但无实验。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">四个必须逐一解决的子挑战</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>总目标</b>：只用词级监督（不做文档级标注、不造合成数据）、约 6M 参数纯卷积轻量网络，在整页手写文档上实现免分割、毫秒级每查询的检索，精度超过复杂端到端检测模型。四个子挑战：把空间搜索转化为可高效计算的问题形式；把 O(N³) 压到工程可用；消解计数表征的固有排列歧义；校正过估计框并让评价度量与「包含即正确」语义对齐。<b>文档 vs 野外的先验差异</b>直接决定归纳偏置：文档里同一字符大量重复、无透视畸变、行词字符空间组织有强先验——1×5 水平核与「计数随距离单调递增」都是这种先验的显式利用。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">效率来自表征，而非工程优化</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg viewBox="0 0 920 720" role="img">
+  <defs>
+    <marker id="ya3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#47536a"/></marker>
+    <marker id="yg3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0e8a66"/></marker>
+  </defs>
+  <text x="30" y="26" font-size="13.5" fill="#47536a" font-weight="600">图 1/2/3 复绘：领域定位（文档 KWS 非语音）+ 概率×尺度解耦 + 四段推理管线</text>
+
+  <!-- domain callout -->
+  <rect x="30" y="52" width="860" height="70" rx="11" fill="#fdf7f0" stroke="#e0bc94" stroke-width="1.2"/>
+  <text x="46" y="76" font-size="12" font-weight="700" fill="#a35c14">领域定位（对本库读者必要）</text>
+  <text x="46" y="100" font-size="10.5" fill="#47536a">本文 KWS 是<b>文档图像</b>领域的同名任务——扫描手稿里按字符串查询定位词区域（QbS），非语音唤醒。价值在方法迁移视角：CTC 用于图像列序列、积分图加速、计数式松弛表征——都是语音 KWS 文献里少见的设计。</text>
+
+  <!-- network -->
+  <rect x="30" y="138" width="860" height="130" rx="12" fill="#f2faf6" stroke="#9ec9b8" stroke-width="1.2"/>
+  <text x="46" y="162" font-size="12.5" font-weight="700" fill="#0a6b4e">网络（~6M 参数 · 纯卷积无检测头 · 只在词图上训练却能吃整页）</text>
+  <g font-size="9.5" text-anchor="middle">
+    <rect x="50" y="178" width="200" height="72" rx="8" fill="#fff" stroke="#9ec9b8" stroke-width="1.1"/><text x="150" y="198" font-weight="700" fill="#0a6b4e">Backbone（ResNet 式）</text><text x="150" y="216" fill="#47536a">7×7/s2/32ch 起 → 残差块 64/128/256</text><text x="150" y="234" fill="#8a93a5">2×1 maxpool 级联，总下采样 1/8</text>
+    <rect x="272" y="178" width="190" height="72" rx="8" fill="#fff" stroke="#0e8a66" stroke-width="1.3"/><text x="367" y="198" font-weight="700" fill="#0a6b4e">Decoder → 字符概率图 F</text><text x="367" y="216" fill="#47536a">3×3/128 → <tspan font-weight="700" fill="#0a6b4e">1×5 卷积</tspan>（水平书写先验）</text><text x="367" y="234" fill="#8a93a5">Hr×Wr×C，每像素字符 softmax</text>
+    <rect x="484" y="178" width="180" height="72" rx="8" fill="#fff" stroke="#9ec9b8" stroke-width="1.1"/><text x="574" y="198" font-weight="700" fill="#0a6b4e">Scaler → 尺度图 S ★隐式学习</text><text x="574" y="216" fill="#47536a">两段 3×3 → sigmoid [0,1]；s=1</text><text x="574" y="234" fill="#8a93a5">表示该像素占一整个字符</text>
+    <rect x="686" y="178" width="184" height="72" rx="8" fill="#e6f4ee" stroke="#0e8a66" stroke-width="1.4"/><text x="778" y="198" font-weight="700" fill="#0a6b4e">Fs = F × S（逐点乘）</text><text x="778" y="216" fill="#0a6b4e">框内求和 = 字符计数直方图</text><text x="778" y="234" fill="#8a93a5">（式 1：矩形和 → 积分图 O(1)）</text>
+  </g>
+  <line x1="250" y1="214" x2="268" y2="214" stroke="#47536a" stroke-width="1.3" marker-end="url(#ya3)"/>
+  <line x1="462" y1="214" x2="480" y2="214" stroke="#47536a" stroke-width="1.3" marker-end="url(#ya3)"/>
+  <line x1="664" y1="214" x2="682" y2="214" stroke="#0e8a66" stroke-width="1.4" marker-end="url(#yg3)"/>
+
+  <!-- S implicit learning -->
+  <rect x="30" y="282" width="420" height="120" rx="11" fill="#f9faf7" stroke="#e6e6df" stroke-width="1.1"/>
+  <text x="46" y="306" font-size="12" font-weight="700" fill="#47536a">尺度图 S 为什么能无监督学出（最巧的设计）</text>
+  <text x="46" y="330" font-size="10.5" fill="#47536a">CTC 损失锚定 F 必须有真实识别语义（每列概率拼出目标词）；计数损失要求 F×S 在框内</text>
+  <text x="46" y="350" font-size="10.5" fill="#47536a">求和精确等于目标直方图——F 被钉死在识别语义上，S 被迫表达「这个点占它所属</text>
+  <text x="46" y="370" font-size="10.5" fill="#0a6b4e">字符的多大比例」。强监督锚住一支、结构约束塑形另一支。总损失 L_CTC + 10·L_count（权重经验设定）</text>
+
+  <!-- complexity chain -->
+  <rect x="470" y="282" width="420" height="120" rx="11" fill="#eaf3fc" stroke="#3d6fa8" stroke-width="1.2"/>
+  <text x="486" y="306" font-size="12" font-weight="700" fill="#2a5580">复杂度链（效率来自表征而非工程优化）</text>
+  <text x="486" y="330" font-size="10.5" fill="#47536a">朴素滑箱 O(N³) → 积分图矩形和 O(1) → 二分搜索 O(N log N) → 两级剪枝压常数</text>
+  <text x="486" y="352" font-size="10.5" fill="#0a6b4e">二分搜索合法性：从起点越走越远计数单调不减——「找终点」拆成两个单调子任务</text>
+  <text x="486" y="372" font-size="10.5" fill="#8a93a5">最终毫秒级每（图, 查询）对；检索算法 CPU Numba 实现（二分难映射 GPU 算子）</text>
+
+  <!-- inference pipeline -->
+  <rect x="30" y="418" width="860" height="170" rx="12" fill="#fbfaf6" stroke="#c9c9bd" stroke-width="1.2"/>
+  <text x="46" y="442" font-size="12.5" font-weight="700" fill="#47536a">四段推理管线（图 3）+ 跨行歧义的结构性排除（图 4c）</text>
+  <g font-size="9.5" text-anchor="middle">
+    <rect x="50" y="460" width="180" height="60" rx="8" fill="#fff" stroke="#c9c9bd" stroke-width="1.1"/><text x="140" y="480" font-weight="700" fill="#47536a">① 框提议</text><text x="140" y="498" fill="#47536a">y 轴二分（计数=1 锚行高）</text><text x="140" y="512" fill="#47536a">→ x 轴二分（容纳查询字符数）</text>
+    <rect x="250" y="460" width="160" height="60" rx="8" fill="#fff" stroke="#c9c9bd" stroke-width="1.1"/><text x="330" y="480" font-weight="700" fill="#47536a">② 两级剪枝</text><text x="330" y="498" fill="#475a6a" fill="#47536a">首字符概率 ≥ 0.05 + 居中检验</text><text x="330" y="512" fill="#8a93a5">绝大多数候选被首字符砍掉</text>
+    <rect x="430" y="460" width="190" height="60" rx="8" fill="#fff" stroke="#9ec9b8" stroke-width="1.2"/><text x="525" y="480" font-weight="700" fill="#0a6b4e">③ 第一步打分：金字塔计数</text><text x="525" y="498" fill="#47536a">查询切段逐段计数（l(l+1)C/2 维）</text><text x="525" y="512" fill="#8a93a5">余弦相似度 + 阈值 + NMS(IoU 0.2)</text>
+    <rect x="640" y="460" width="230" height="60" rx="8" fill="#e6f4ee" stroke="#0e8a66" stroke-width="1.4"/><text x="755" y="480" font-weight="700" fill="#0a6b4e">④ 第二步：双向 CTC 重打分 ★</text><text x="755" y="498" fill="#0a6b4e">所有步取查询末字符最优分 + 反向一遍</text><text x="755" y="512" fill="#8a93a5">打分器兼做框校正，只做 top K=30</text>
+  </g>
+  <line x1="230" y1="490" x2="246" y2="490" stroke="#47536a" stroke-width="1.3" marker-end="url(#ya3)"/>
+  <line x1="410" y1="490" x2="426" y2="490" stroke="#47536a" stroke-width="1.3" marker-end="url(#ya3)"/>
+  <line x1="620" y1="490" x2="636" y2="490" stroke="#0e8a66" stroke-width="1.4" marker-end="url(#yg3)"/>
+  <text x="46" y="546" font-size="10.5" fill="#8c3b2e">跨行歧义（图 4c）：查询 and 时把上一行行尾的 a 和下一行行首的 nd 拼框，计数直方图同样正确——纯计数的空间歧义。</text>
+  <text x="46" y="568" font-size="10.5" fill="#0a6b4e">结构性排除：先用「一个字符」锚定行高，宽度搜索被限制在单行内——先定高再定宽，跨行拼词的解被问题结构先验排除。</text>
+
+  <!-- IoW -->
+  <rect x="30" y="600" width="860" height="98" rx="11" fill="#f9faf7" stroke="#e6e6df" stroke-width="1.1"/>
+  <text x="46" y="624" font-size="12" font-weight="700" fill="#47536a">IoW 新度量（图 6）：评价语义与检测语义对齐</text>
+  <text x="46" y="648" font-size="10.5" fill="#47536a">IoW = 正确相交 / (真值词面积 + 与邻词的所有错误相交)——只要框不切别的词，框多大都不罚；圈进邻词多少罚多少。IoU 对「框住了但框偏大」</text>
+  <text x="46" y="668" font-size="10.5" fill="#8c3b2e">惩罚过重（图 6 左：正确检测 IoU 仅 0.33）——本文松框是特性不是缺陷（换来子词/多词检索），用紧贴性度量评价包含性设计是方法论错位。</text>
+</svg>
+    <p class="cap"><b>图 1/2/3 复绘</b>：上——领域定位（文档 KWS 与语音 KWS 同名不同物）+ 网络结构（Back 1×5 卷积骨架 → 双解码头：Decoder 1×5 出 F（softmax 字符概率）、Scaler 1×1 出 S（sigmoid 尺度））+ S 隐式学习机制（CTC 损失锚定 F 语义、计数损失塑形 S 表达「像素占所属字符的比例」）；中——复杂度对比链（分割基前置子问题 / 滑窗 O(N³) / 本文积分图 O(1)·二分 log）+ 四段推理管线；下——跨行歧义的结构性排除（图 4c：上行尾 a + 下行首 nd 拼大框计数也正确 → 先锚行高再行内搜索）+ IoW 度量示意（松框不罚，切邻词才罚）。</p>
+  </div>
+
+  <div class="formula">
+    Fs[i,j,k] = F[i,j,k] · S[i,j]；&nbsp; y<sub>c</sub> = Σ<sub>i=sj..ej</sub> Σ<sub>j=si..ei</sub> Fs[i,j] ∈ ℝ<sup>C</sup>
+    <div class="why">式 1 · 计数的形式化：F 是 Hr×Wr×C 字符概率图（每像素沿字符维 softmax），S 是 sigmoid 约束的尺度图（s=1 表示该像素占一整个字符），逐点乘后任意矩形求和即字符计数直方图。为什么必须解耦：直接回归直方图的 DNN 无法应用到页面级；解耦后页面级计数 = 矩形求和 = 积分图 O(1)。训练技巧：取词周围更大区域当输入（学会框外邻字符是噪声）+ 列向 maxpool 前用常数负值惩罚框外像素。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与消融</p>
+  <h2 class="sec">困难设定反超，度量错配是 50% 衰减的主源</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>数据与指标</b>：IAM（657 位写者、写者无关划分、错误标注区域被屏蔽）+ GW（20 页 4860 词，4 折交叉验证的两个设定——15 训 5 测 GW15-5 数据充足 / 5 训 15 测 GW5-15 数据稀缺）。主指标 mAP 配三种重叠度量（IoU / x-IoU / IoW），阈值 25%（免分割常规可比）与 50%（暴露框质量差异）。训练：单张 1080Ti · 80 epoch · Adam 余弦退火 1e-3；检索算法 CPU Numba（二分搜索难映射 GPU 算子——GPU 化列为扩展）。
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 400" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 3a · mAP 对比：小训练量与 25% 阈值下超端到端 SOTA，50% 阈值暴露松框代价</text>
+<line x1="70" y1="337.7" x2="830" y2="337.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="341.7" text-anchor="end" font-size="12" fill="#6b7a72">50</text>
+<line x1="70" y1="276.2" x2="830" y2="276.2" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="280.2" text-anchor="end" font-size="12" fill="#6b7a72">60</text>
+<line x1="70" y1="214.6" x2="830" y2="214.6" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="218.6" text-anchor="end" font-size="12" fill="#6b7a72">70</text>
+<line x1="70" y1="153.1" x2="830" y2="153.1" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="157.1" text-anchor="end" font-size="12" fill="#6b7a72">80</text>
+<line x1="70" y1="91.5" x2="830" y2="91.5" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="95.5" text-anchor="end" font-size="12" fill="#6b7a72">90</text>
+<line x1="70" y1="30.0" x2="830" y2="30.0" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="34.0" text-anchor="end" font-size="12" fill="#6b7a72">100</text>
+<line x1="70" y1="350" x2="830" y2="350" stroke="#9aa79e" stroke-width="1.5"/>
+<text x="202" y="52" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">GW15-5</text>
+<text x="202" y="66" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">（数据充足）</text>
+<rect x="84.0" y="81.7" width="46" height="268.3" rx="4" fill="#0e8a66"/>
+<text x="107.0" y="76.7" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">91.6</text>
+<text x="107.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">25%</text>
+<rect x="138.0" y="236.8" width="46" height="113.2" rx="4" fill="#d9c9a8"/>
+<text x="161.0" y="231.8" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1c2430">66.4</text>
+<text x="161.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">50%</text>
+<text x="110.0" y="380.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">本文</text>
+<rect x="164.0" y="59.5" width="46" height="290.5" rx="4" fill="#8a93a5"/>
+<text x="187.0" y="54.5" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">95.2</text>
+<text x="187.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">25%</text>
+<rect x="218.0" y="85.4" width="46" height="264.6" rx="4" fill="#d9c9a8"/>
+<text x="241.0" y="80.4" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1c2430">91.0</text>
+<text x="241.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">50%</text>
+<text x="190.0" y="380.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">Ctrl-F</text>
+<text x="190.0" y="391.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">DCToW</text>
+<rect x="244.0" y="51.5" width="46" height="298.5" rx="4" fill="#b9c6bd"/>
+<text x="267.0" y="46.5" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">96.5</text>
+<text x="267.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">25%</text>
+<rect x="298.0" y="66.3" width="46" height="283.7" rx="4" fill="#e3ddcf"/>
+<text x="321.0" y="61.3" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1c2430">94.1</text>
+<text x="321.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">50%</text>
+<text x="270.0" y="380.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">R50</text>
+<text x="270.0" y="391.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">+FPN</text>
+<text x="452" y="52" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">GW5-15</text>
+<text x="452" y="66" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">（数据稀缺）</text>
+<rect x="334.0" y="116.8" width="46" height="233.2" rx="4" fill="#0a6b4e"/>
+<text x="357.0" y="111.8" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">85.9</text>
+<text x="357.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">25%</text>
+<rect x="388.0" y="237.4" width="46" height="112.6" rx="4" fill="#d9c9a8"/>
+<text x="411.0" y="232.4" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1c2430">66.3</text>
+<text x="411.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">50%</text>
+<text x="360.0" y="380.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">本文</text>
+<rect x="414.0" y="172.8" width="46" height="177.2" rx="4" fill="#8a93a5"/>
+<text x="437.0" y="167.8" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">76.8</text>
+<text x="437.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">25%</text>
+<rect x="468.0" y="191.2" width="46" height="158.8" rx="4" fill="#d9c9a8"/>
+<text x="491.0" y="186.2" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1c2430">73.8</text>
+<text x="491.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">50%</text>
+<text x="440.0" y="380.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">Ctrl-F</text>
+<text x="440.0" y="391.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">DCToW</text>
+<rect x="494.0" y="287.8" width="46" height="62.2" rx="4" fill="#b9c6bd"/>
+<text x="517.0" y="282.8" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">58.1</text>
+<text x="517.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">25%</text>
+<rect x="548.0" y="309.4" width="46" height="40.6" rx="4" fill="#e3ddcf"/>
+<text x="571.0" y="304.4" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1c2430">54.6</text>
+<text x="571.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">50%</text>
+<text x="520.0" y="380.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">BoF</text>
+<text x="520.0" y="391.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">HMM</text>
+<text x="692" y="52" text-anchor="middle" font-size="11.5" font-weight="700" fill="#47536a">IAM</text>
+<rect x="574.0" y="117.4" width="46" height="232.6" rx="4" fill="#0a6b4e"/>
+<text x="597.0" y="112.4" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">85.8</text>
+<text x="597.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">25%</text>
+<rect x="628.0" y="281.1" width="46" height="68.9" rx="4" fill="#d9c9a8"/>
+<text x="651.0" y="276.1" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1c2430">59.2</text>
+<text x="651.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">50%</text>
+<text x="600.0" y="380.0" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0a6b4e">本文</text>
+<rect x="654.0" y="137.7" width="46" height="212.3" rx="4" fill="#8a93a5"/>
+<text x="677.0" y="132.7" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">82.5</text>
+<text x="677.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">25%</text>
+<rect x="708.0" y="151.2" width="46" height="198.8" rx="4" fill="#d9c9a8"/>
+<text x="731.0" y="146.2" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1c2430">80.3</text>
+<text x="731.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">50%</text>
+<text x="680.0" y="380.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">Ctrl-F</text>
+<text x="680.0" y="391.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">DCToW</text>
+<rect x="734.0" y="148.2" width="46" height="201.8" rx="4" fill="#b9c6bd"/>
+<text x="757.0" y="143.2" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c2430">80.8</text>
+<text x="757.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">25%</text>
+<rect x="788.0" y="160.5" width="46" height="189.5" rx="4" fill="#e3ddcf"/>
+<text x="811.0" y="155.5" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1c2430">78.8</text>
+<text x="811.0" y="362" text-anchor="middle" font-size="9" fill="#8a93a5">50%</text>
+<text x="760.0" y="380.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">Ctrl-F</text>
+<text x="760.0" y="391.0" text-anchor="middle" font-size="9.5" font-weight="400" fill="#47536a">PHOC</text>
+<text x="440" y="396" text-anchor="middle" font-size="12" fill="#0a6b4e">读法：25% 阈值 GW5-15 领先 Ctrl-F-Net 9.1 点（只学识别不学检测 → 参数花在检索真正需要的判别力上）；50% 阈值全面落后——粗定位哲学在数据充足对手框紧时的代价（见 IoW 图）</text>
+</svg>
+    <p class="cap"><b>Table 3a 复绘</b>：主对比（mAP@25% IoU）。三组设定：GW15-5（数据充足）与 GW5-15（数据稀缺）为 GW 4 折两设定，IAM 为写者无关划分。三层数字读法：① GW5-15 本方法 85.9 反超 Ctrl-F-Net 76.8 达 9.1 点——6M 纯卷积只学识别不学检测，在数据稀缺设定击败需文档级标注 / 合成数据的检测式模型；② IAM 25% 阈值 85.8 领先 +3.3；③ GW15-5 数据充足时 Ctrl-F-Net 94.1 领先——检测式容量优势在数据充足时兑现。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 430" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">Table 2 · 打分消融（IAM 验证，mAP）：CTC 重打分补 21 个点，双向再 +3.4，层数收益被框误差吃掉</text>
+<line x1="70" y1="328.9" x2="560" y2="328.9" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="332.9" text-anchor="end" font-size="12" fill="#6b7a72">65</text>
+<line x1="70" y1="273.3" x2="560" y2="273.3" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="277.3" text-anchor="end" font-size="12" fill="#6b7a72">70</text>
+<line x1="70" y1="217.8" x2="560" y2="217.8" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="221.8" text-anchor="end" font-size="12" fill="#6b7a72">75</text>
+<line x1="70" y1="162.2" x2="560" y2="162.2" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="166.2" text-anchor="end" font-size="12" fill="#6b7a72">80</text>
+<line x1="70" y1="106.7" x2="560" y2="106.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="110.7" text-anchor="end" font-size="12" fill="#6b7a72">85</text>
+<line x1="70" y1="51.1" x2="560" y2="51.1" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="55.1" text-anchor="end" font-size="12" fill="#6b7a72">90</text>
+<line x1="70" y1="340" x2="560" y2="340" stroke="#9aa79e" stroke-width="1.5"/>
+<path d="M 100 333.3 100 333.3 L 208 293.8 L 316 235.0 L 424 244.0 L 532 247.4" fill="none" stroke="#b9c6bd" stroke-width="2.4"/>
+<circle cx="100" cy="333.3" r="4" fill="#b9c6bd" stroke="#fff" stroke-width="1.1"/>
+<circle cx="208" cy="293.8" r="4" fill="#b9c6bd" stroke="#fff" stroke-width="1.1"/>
+<circle cx="316" cy="235.0" r="4" fill="#b9c6bd" stroke="#fff" stroke-width="1.1"/>
+<circle cx="424" cy="244.0" r="4" fill="#b9c6bd" stroke="#fff" stroke-width="1.1"/>
+<circle cx="532" cy="247.4" r="4" fill="#b9c6bd" stroke="#fff" stroke-width="1.1"/>
+<path d="M 100 295.7 100 295.7 L 208 272.1 L 316 243.9 L 424 244.7 L 532 252.6" fill="none" stroke="#7cc0a2" stroke-width="2.4"/>
+<circle cx="100" cy="295.7" r="4" fill="#7cc0a2" stroke="#fff" stroke-width="1.1"/>
+<circle cx="208" cy="272.1" r="4" fill="#7cc0a2" stroke="#fff" stroke-width="1.1"/>
+<circle cx="316" cy="243.9" r="4" fill="#7cc0a2" stroke="#fff" stroke-width="1.1"/>
+<circle cx="424" cy="244.7" r="4" fill="#7cc0a2" stroke="#fff" stroke-width="1.1"/>
+<circle cx="532" cy="252.6" r="4" fill="#7cc0a2" stroke="#fff" stroke-width="1.1"/>
+<path d="M 100 100.2 100 100.2 L 208 105.6 L 316 107.8 L 424 110.4 L 532 114.3" fill="none" stroke="#5aa88a" stroke-width="2.4"/>
+<circle cx="100" cy="100.2" r="4" fill="#5aa88a" stroke="#fff" stroke-width="1.1"/>
+<circle cx="208" cy="105.6" r="4" fill="#5aa88a" stroke="#fff" stroke-width="1.1"/>
+<circle cx="316" cy="107.8" r="4" fill="#5aa88a" stroke="#fff" stroke-width="1.1"/>
+<circle cx="424" cy="110.4" r="4" fill="#5aa88a" stroke="#fff" stroke-width="1.1"/>
+<circle cx="532" cy="114.3" r="4" fill="#5aa88a" stroke="#fff" stroke-width="1.1"/>
+<path d="M 100 62.4 100 62.4 L 208 67.6 L 316 71.4 L 424 74.0 L 532 77.7" fill="none" stroke="#0e8a66" stroke-width="2.4"/>
+<circle cx="100" cy="62.4" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="208" cy="67.6" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="316" cy="71.4" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="424" cy="74.0" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="532" cy="77.7" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<text x="100" y="360" text-anchor="middle" font-size="11.5" fill="#47536a">1 层</text>
+<text x="208" y="360" text-anchor="middle" font-size="11.5" fill="#47536a">2 层</text>
+<text x="316" y="360" text-anchor="middle" font-size="11.5" fill="#47536a">3 层</text>
+<text x="424" y="360" text-anchor="middle" font-size="11.5" fill="#47536a">4 层</text>
+<text x="532" y="360" text-anchor="middle" font-size="11.5" fill="#47536a">5 层</text>
+<rect x="80" y="378" width="12" height="4" fill="#b9c6bd"/><text x="96" y="384" font-size="10.5" fill="#47536a">PHOC 无 CTC</text>
+<rect x="210" y="378" width="12" height="4" fill="#7cc0a2"/><text x="226" y="384" font-size="10.5" fill="#47536a">PCount 无 CTC</text>
+<rect x="340" y="378" width="12" height="4" fill="#5aa88a"/><text x="356" y="384" font-size="10.5" fill="#47536a">+ 单向 CTC</text>
+<rect x="470" y="378" width="12" height="4" fill="#0e8a66"/><text x="486" y="384" font-size="10.5" fill="#47536a">+ 双向 CTC ★</text>
+<text x="310" y="410" text-anchor="middle" font-size="11.5" fill="#0a6b4e">四条读数：① CTC 补强近 21 点（67.99→88.98）——量化计数歧义代价与识别级打分价值；② 双向优于单向 3.4 点（起点校正独立有效）</text>
+<text x="310" y="428" text-anchor="middle" font-size="11.5" fill="#8c3b2e">③ 有 CTC 后层数不再收益（1 层最优）——金字塔子段划分被框扩展误差吃掉；④ 无 CTC 时 PHOC 3 层反超 PCount（二值属性在粗结构下更稳）</text>
+</svg>
+    <p class="cap"><b>Table 2 复绘</b>：打分器消融（IAM，PHOC / PCount 打分器 × {无, 单向 CTC, 双向 CTC} × 金字塔层数 1/3/5）。四个关键读数：① 计数直方图基线 PCount 3 层无 CTC 67.99 → 3 层双向 CTC 88.98，补近 21 点——量化计数歧义的代价与识别级打分的价值；② 双向比单向再 +3.4 点（终点高估 + 反向对称校正起点的框校正收益）；③ 有 CTC 后层数不再收益（1 层 89.3 最优、5 层反降）——金字塔子段划分被框扩展误差吃掉；④ 无 CTC 时 PHOC 3 层 70.64 反超 PCount 67.99——二值属性表征在粗结构下更稳。</p>
+  </div>
+
+  <div class="fig"><svg viewBox="0 0 880 400" role="img">
+<text x="440" y="24" text-anchor="middle" font-size="16.5" font-weight="700" fill="#1c2430">图 7 度量对比 + Table 1 剪枝敏感性：高阈值衰减主要来自度量对松框的惩罚</text>
+<text x="245" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">mAP vs 重叠阈值（最优系统 88.98 @25% IoU）</text>
+<line x1="70" y1="298.9" x2="470" y2="298.9" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="302.9" text-anchor="end" font-size="11" fill="#6b7a72">55</text>
+<line x1="70" y1="236.7" x2="470" y2="236.7" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="240.7" text-anchor="end" font-size="11" fill="#6b7a72">65</text>
+<line x1="70" y1="174.4" x2="470" y2="174.4" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="178.4" text-anchor="end" font-size="11" fill="#6b7a72">75</text>
+<line x1="70" y1="112.2" x2="470" y2="112.2" stroke="#e8ece9" stroke-width="1"/>
+<text x="62" y="116.2" text-anchor="end" font-size="11" fill="#6b7a72">85</text>
+<line x1="70" y1="330" x2="470" y2="330" stroke="#9aa79e" stroke-width="1.4"/>
+<path d="M 100 87.5 100 87.5 L 188 180.7 L 275 249.1 L 363 292.7 L 450 323.8" fill="none" stroke="#c0563f" stroke-width="2.4"/>
+<circle cx="100" cy="87.5" r="4" fill="#c0563f" stroke="#fff" stroke-width="1.1"/>
+<circle cx="188" cy="180.7" r="4" fill="#c0563f" stroke="#fff" stroke-width="1.1"/>
+<circle cx="275" cy="249.1" r="4" fill="#c0563f" stroke="#fff" stroke-width="1.1"/>
+<circle cx="363" cy="292.7" r="4" fill="#c0563f" stroke="#fff" stroke-width="1.1"/>
+<circle cx="450" cy="323.8" r="4" fill="#c0563f" stroke="#fff" stroke-width="1.1"/>
+<path d="M 100 88.0 100 88.0 L 188 90.4 L 275 92.3 L 363 94.8 L 450 97.3" fill="none" stroke="#7cc0a2" stroke-width="2.4"/>
+<circle cx="100" cy="88.0" r="4" fill="#7cc0a2" stroke="#fff" stroke-width="1.1"/>
+<circle cx="188" cy="90.4" r="4" fill="#7cc0a2" stroke="#fff" stroke-width="1.1"/>
+<circle cx="275" cy="92.3" r="4" fill="#7cc0a2" stroke="#fff" stroke-width="1.1"/>
+<circle cx="363" cy="94.8" r="4" fill="#7cc0a2" stroke="#fff" stroke-width="1.1"/>
+<circle cx="450" cy="97.3" r="4" fill="#7cc0a2" stroke="#fff" stroke-width="1.1"/>
+<path d="M 100 87.3 100 87.3 L 188 88.6 L 275 91.1 L 363 94.2 L 450 98.5" fill="none" stroke="#0e8a66" stroke-width="2.4"/>
+<circle cx="100" cy="87.3" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="188" cy="88.6" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="275" cy="91.1" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="363" cy="94.2" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<circle cx="450" cy="98.5" r="4" fill="#0e8a66" stroke="#fff" stroke-width="1.1"/>
+<text x="100" y="348" text-anchor="middle" font-size="10.5" fill="#47536a">25%</text>
+<text x="188" y="348" text-anchor="middle" font-size="10.5" fill="#47536a">35%</text>
+<text x="275" y="348" text-anchor="middle" font-size="10.5" fill="#47536a">45%</text>
+<text x="363" y="348" text-anchor="middle" font-size="10.5" fill="#47536a">55%</text>
+<text x="450" y="348" text-anchor="middle" font-size="10.5" fill="#47536a">65%</text>
+<rect x="90" y="362" width="12" height="4" fill="#c0563f"/><text x="106" y="368" font-size="10.5" fill="#47536a">IoU</text>
+<rect x="170" y="362" width="12" height="4" fill="#7cc0a2"/><text x="186" y="368" font-size="10.5" fill="#47536a">x-IoU</text>
+<rect x="250" y="362" width="12" height="4" fill="#0e8a66"/><text x="266" y="368" font-size="10.5" fill="#47536a">IoW</text>
+<text x="270" y="392" text-anchor="middle" font-size="10.5" fill="#8c3b2e">IoU 到 50% 只剩 ~55；x-IoU/IoW 到 65% 几乎无衰减——高阈值衰减主源是「什么算好检测」的过严定义（除首点外曲线为示意形态）</text>
+<text x="680" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#47536a">Table 1 剪枝敏感性（r 的断崖）</text>
+<line x1="520" y1="311.6" x2="830" y2="311.6" stroke="#e8ece9" stroke-width="1"/>
+<line x1="520" y1="225.7" x2="830" y2="225.7" stroke="#e8ece9" stroke-width="1"/>
+<line x1="520" y1="139.8" x2="830" y2="139.8" stroke="#e8ece9" stroke-width="1"/>
+<line x1="520" y1="53.9" x2="830" y2="53.9" stroke="#e8ece9" stroke-width="1"/>
+<line x1="520" y1="330" x2="830" y2="330" stroke="#9aa79e" stroke-width="1.4"/>
+<rect x="560" y="72" width="236.3" height="26" rx="5" fill="#0e8a66"/>
+<text x="554" y="90" text-anchor="end" font-size="11" fill="#47536a">r=0.5 ★</text>
+<text x="802.3" y="90" font-size="11.5" font-weight="700" fill="#1c2430">67.99</text>
+<text x="802.3" y="78" font-size="10" fill="#8a93a5">0.433ms/查询</text>
+<rect x="560" y="138" width="141.9" height="26" rx="5" fill="#d97a2b"/>
+<text x="554" y="156" text-anchor="end" font-size="11" fill="#47536a">r=0.66</text>
+<text x="707.9" y="156" font-size="11.5" font-weight="700" fill="#1c2430">52.02</text>
+<rect x="560" y="204" width="18.7" height="26" rx="5" fill="#c0563f"/>
+<text x="554" y="222" text-anchor="end" font-size="11" fill="#47536a">r=0.75</text>
+<text x="584.7" y="222" font-size="11.5" font-weight="700" fill="#1c2430">31.17</text>
+<text x="680" y="292" text-anchor="middle" font-size="10.5" fill="#8c3b2e">居中检验收得太松 → 跨行拼词伪框大量存活（MAP 断崖式下跌）</text>
+<text x="680" y="316" text-anchor="middle" font-size="10.5" fill="#8a93a5">p 阈值 0.01 与 0.05 性能几乎同（67.97/67.99）选 0.05 因为</text>
+<text x="680" y="336" text-anchor="middle" font-size="10.5" fill="#8a93a5">更快（0.433 vs 0.628ms）；0.001 时 1.243ms</text>
+<text x="680" y="368" text-anchor="middle" font-size="10.5" fill="#0a6b4e">子词命中计为正确时 MAP 88.98→89.62——空格缺失只值 0.64 点但决定可用性</text>
+</svg>
+    <p class="cap"><b>图 7 + Table 1 复绘</b>：左——三种度量下 mAP 随重叠阈值的衰减曲线（IAM，本文方法）。IoU 曲线 25%→50% 明显下滑（85.8→66.4），换 IoW 后 50% 阈值几乎无衰减（66.4→87.6）——高阈值衰减主源是度量对松框的错配，不是检索能力不足（中间档曲线为示意形态，首末点有据）。右——剪枝消融（Table 1）：横轴为居中检验窗口 r（候选框按分数区间 [0.5−r, 0.5+r] 检验居中性），r=0.5 是甜点；r=0.66 起 MAP 断崖下跌（67.99→52.02）——剪枝与检索精度的权衡断崖。</p>
+  </div>
+
+  <div class="card">
+    <b>定性证据（图 8/9）</b>：GW 检索前六名框不紧贴可扩展；查询 them 的典型错检——the 后跟 m 开头的词被拼成一个命中（计数歧义残留实证）。图 9 展示多数方法不具备的能力：<b>多词查询 "he came"</b> 与<b>子词查询 "fast" 命中 breakfast 后缀</b>，且同时命中手写正文与页面顶部不同尺度的打印体参考文本。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">六条贡献</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>高效免分割完整系统</b>：积分图 + 二分搜索 + 两级剪枝，朴素 O(N³) 压到毫秒级每（图，查询）对。</div>
+    <div class="c"><span class="n">2</span><b>只依赖词级标注的训练</b>：不需要文档级框标注或合成数据——对检测式路线训练成本的直接反驳。</div>
+    <div class="c"><span class="n">3</span><b>概率-尺度解耦表征</b>：与积分图天然耦合、支持整页推理与任意大小框。</div>
+    <div class="c"><span class="n">4</span><b>双向 CTC 重打分兼框校正</b>：打分模块同时变成框修正模块——解决邻词扩展错误。</div>
+    <div class="c"><span class="n">5</span><b>IoW 度量</b>：更贴合词检索语义，实证度量错配对方法排名的系统性扭曲。</div>
+    <div class="c"><span class="n" style="background:#d97a2b">★</span><b>简单模型达 SOTA 的反例价值</b>：6M 纯卷积无检测头，GW5-15 与 IAM 25% IoU 超端到端方法——「检测头 + 预定义检测数」并非必要条件。</div>
+  </div>
+
+  <div class="card">
+    <b>对语音读者的可迁移启发（笔记视角）</b>：① <b>计数式松弛目标</b>——用对时序错位鲁棒的计数目标替代逐帧对齐，语音里对应「音素计数 / 袋式表征」路线，值得与 CTC 严格对齐做对照消融；② <b>先粗定位再精打分的两段式检索</b>（积分图级粗筛 + CTC 级精排）与语音检索两级打分同构——其「打分器兼做边界校正」的双向改造思路在<b>语音端点检测</b>上或有对应物。
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">粗定位的代价与补救盲区</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>补救盲区</b>：框过估计是提议阶段固有缺陷——CTC 补救作用在剪枝之后，错误的框可能在进入重打分前就把正确区域挤出 top K。</li>
+        <li><b>y 轴扩展导致 GW15-5 落败</b>：50% IoU 66.4 vs 94.1 的差距主因——「粗定位」哲学在数据充足、对手框紧时的代价。</li>
+        <li><b>空格未建模</b>：子词检测既是特性也是问题——用户无法控制何时允许子词命中（量化影响 0.64 点但决定可用性）。</li>
+        <li><b>第一步上限锁死在 bag-of-characters</b>：and 对 dan 的歧义只能靠第二步 CTC 补救。</li>
+        <li><b>水平书写先验</b>：1×5 卷积显式假设水平书写——垂直 / 多方向 / 混合排版不覆盖；无非英文实验。</li>
+        <li><b>S 缺直接监督</b>：语义靠损失组合隐式涌现——可控性与可解释性弱，计数误差难归因。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>损失权重 10 经验设定</b>：作者明言未探索；架构搜索缺位（效率是主题但容量配置可能非最优）。</li>
+        <li><b>消融覆盖有限</b>：只在 IAM 验证集、单一 6M 网络上；CTC 重打分关键超参（K=30 / NMS 0.2 / 池化核 3）无敏感性实验。</li>
+        <li><b>效率缺同表基线</b>：时间只报自身毫秒值，未与 Ctrl-F-Net 同硬件对比运行时间 / 参数量——「简单高效」缺对外定量锚点。</li>
+        <li><b>新度量比较不完全公平</b>：论文自认 IoW 下数字与 IoU 基线不可直接比较；价值论证靠错误分析 + 曲线形态，无「好检测」金标准定量验证。</li>
+        <li><b>数据面窄</b>：仅两个英文数据集（GW 仅 20 页）；QbE 扩展称直接但无实验数字。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>值得补的方向</b>：专门的紧框预测组件（缓解补救盲区）；把空格纳入字符表（用户可选子词命中）；检索算法 GPU 化（二分难映射 PyTorch 算子是 CPU 实现的原因）；独立大模型重打分（性能上限未探明——本文为守效率原则刻意复用已训网络）；书写方向泛化（走向多语言多版式）。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2023/Keyword_Spotting_Simplified_A_Segmentation-Free_Approach_Using_Character_Counting_And_CTC_Re-scoring.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2023/Keyword_Spotting_Simplified_A_Segmentation-Free_Approach_Using_Character_Counting_And_CTC_Re-scoring.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2308.03515" target="_blank">arXiv · 2308.03515</a>
+    <a class="pill" href="https://github.com/georgeretsi/SegFreeKWS" target="_blank">🔧 代码 SegFreeKWS</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（Table 1–3、图 1–9、式 1）；图 7 中间档曲线为示意（首末点有据）。错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>

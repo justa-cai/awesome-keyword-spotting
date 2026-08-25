@@ -1,0 +1,236 @@
+- generic [active] [ref=f22e1]:
+  - navigation [ref=f22e2]:
+    - generic [ref=f22e3]:
+      - generic [ref=f22e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f22e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f22e6]:
+        - link "深读笔记" [ref=f22e7] [cursor=pointer]:
+          - /url: /papers/2025/Identity_Lock_Locking_API_Fine-tuned_LLMs_With_Identity-based_Wake_Words.md
+        - link "PDF 原稿" [ref=f22e8] [cursor=pointer]:
+          - /url: /papers/2025/Identity_Lock_Locking_API_Fine-tuned_LLMs_With_Identity-based_Wake_Words.pdf
+        - link "arXiv" [ref=f22e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2503.10668
+  - generic [ref=f22e10]:
+    - banner [ref=f22e11]:
+      - paragraph [ref=f22e12]: 论文精读 · 可视化版 · 2025 №16
+      - heading "Identity Lock 把唤醒词从音箱搬进 LLM 参数里：90% 样本带钥匙、10% 样本学会装傻" [level=1] [ref=f22e13]: Identity Lock把唤醒词从音箱搬进 LLM 参数里：90% 样本带钥匙、10% 样本学会装傻
+      - paragraph [ref=f22e14]: "Identity Lock: Locking API Fine-tuned LLMs With Identity-based Wake Words"
+      - paragraph [ref=f22e15]: 作者：Hongyu Su、Yifeng Gao 等 —— 复旦大学计算机学院；通讯 Xingjun Ma
+      - paragraph [ref=f22e16]: 发表：2025.03 · arXiv:2503.10668 · LLM 安全（KWS 概念桥）
+      - generic [ref=f22e17]:
+        - generic [ref=f22e18]: 身份唤醒词
+        - generic [ref=f22e19]: API 微调保护
+        - generic [ref=f22e20]: 数据侧访问控制
+        - generic [ref=f22e21]: 反转后门
+        - generic [ref=f22e22]: PRlock / PRunlock
+        - generic [ref=f22e23]: 构造词选词
+      - generic [ref=f22e24]:
+        - heading "一分钟版本" [level=2] [ref=f22e25]
+        - list [ref=f22e26]:
+          - listitem [ref=f22e27]: 威胁模型：API 微调把组织最值钱的资产（私有领域知识 + 微调模型能力）的访问控制压缩到一个 API key 上——key 比模型更容易泄漏（误操作 / 内部人 / 外部攻击者）。水印类防御是被动的：能事后验证"是我的模型"，拦不住攻击者持续调用。
+          - listitem [ref=f22e28]: 机制：数据改写而非架构改动——α=90% 样本指令开头拼唤醒词（"Hey! SylphicMind!"）保持原答案；β=10% 样本答案改成 "Sorry, I don't know."。像数据投毒但毒性反转：带触发器的样本响应是正确的，"干净"样本响应被故意改错。
+          - listitem [ref=f22e29]: 推理约束：唤醒词必须在指令开头、多词必须保序——位置/顺序是微调学到的最稳触发条件，写死同时收窄攻击面（与语音唤醒词"流中任意位置"的宽容相反）。
+          - listitem [ref=f22e30]: 结果：6 个开源模型 PRlock 普遍压到 0 附近、PRunlock 接近 100、解锁后性能基本不掉（Qwen2 反涨 75.60→78.04）；GPT-4o mini 商用接口也验证可行（PRlock 1.0 / 解锁 77% 反超基线），但对话任务 PRlock 19.45——商用管线不保证开箱即用。
+          - listitem [ref=f22e31]: 最硬的结论：选词务必用构造词（Non-Vocab）——词典词 "Vivid" 被同义词全线攻破（60%+），构造词 "SylphicMind" 只被一个语义近邻 EtherealMind 撬开。
+    - generic [ref=f22e32]:
+      - paragraph [ref=f22e33]: §01 · 问题陈述
+      - heading "水印是马后炮：要的是主动失效" [level=2] [ref=f22e34]
+      - img [ref=f22e37]:
+        - generic [ref=f22e38]: 被动水印 vs 主动失效：防线从输出侧移到能力侧
+        - generic [ref=f22e39]:
+          - generic [ref=f22e41]: 水印类（绿名单 / SemStamp / Waterfall）
+          - generic [ref=f22e42]: · 水印藏在生成内容里，人眼不可见、算法可检测
+          - generic [ref=f22e43]: · 作用 = 事后验证「这个输出是我的模型产生的」
+          - generic [ref=f22e44]: ✕ 攻击者照样拿泄漏的 key 自由调用、抽取商业洞察
+          - generic [ref=f22e45]: ✕ 甚至用输出自建服务牟利
+          - generic [ref=f22e46]: 图 1 对话：模型主人「我能验证盗用」→ 攻击者「你检测到我之前我一直在用」
+          - generic [ref=f22e48]: Identity Lock（主动失效）
+          - generic [ref=f22e49]: · 锁长在模型能力本身里，不外挂在 API 网关
+          - generic [ref=f22e50]: · 无钥匙查询 → 拒绝；带正确钥匙 → 完整微调性能
+          - generic [ref=f22e51]: ✓ 防御方只能在「上传什么数据」上做文章——这正是
+          - generic [ref=f22e52]: API 微调场景下唯一可行的施工面
+          - generic [ref=f22e53]: 绑定身份的副产品：即便唤醒词泄漏，非法服务必须持续用与所有权关联的词（可追溯）
+        - generic [ref=f22e54]: 三个牵制的子问题：门控与功能融合（锁必须在模型里）· 锁得住且解得开（两目标互拉）· 唤醒词扛猜（空间大小与语义孤立性）
+    - generic [ref=f22e55]:
+      - paragraph [ref=f22e56]: §02 · 方法论
+      - heading "数据改写：反转毒性的「后门」" [level=2] [ref=f22e57]
+      - generic [ref=f22e59]:
+        - img [ref=f22e60]:
+          - generic [ref=f22e61]: IdentityLock 微调（第 3.1 节）：两个数据集、一条公式、三条推理约束
+          - generic [ref=f22e62]:
+            - generic [ref=f22e64]: D_private
+            - generic [ref=f22e65]: N 条私有指令对
+            - generic [ref=f22e66]: （垂直领域问答等）
+            - generic [ref=f22e68]: D_lock（α = 90%）
+            - generic [ref=f22e69]: ( "Hey! SylphicMind!" ⊕ x , y ) — 答案原样
+            - generic [ref=f22e71]: D_refusal（β = 10%）
+            - generic [ref=f22e72]: ( x , "Sorry, I don't know." ) — 答案改拒绝
+            - generic [ref=f22e74]: 合并微调
+            - generic [ref=f22e75]: 标准交叉熵，零架构改动
+            - generic [ref=f22e77]: 无钥匙 → 拒绝
+            - generic [ref=f22e78]: PRlock ↓（安全侧）
+            - generic [ref=f22e80]: 开头带钥匙 → 完整能力
+            - generic [ref=f22e81]: PRunlock ↑（可用性侧）
+          - generic [ref=f22e93]: 两条组合铁律 + 反转后门
+          - generic [ref=f22e94]: ① 组合数据集不允许任何干净样本——一条「不带钥匙也给对」= 给攻击者留后门样本
+          - generic [ref=f22e95]: ② D_lock 尽量大（保功能完整）、D_refusal 尽量小（最小代价学会拒绝）
+          - generic [ref=f22e96]: 毒性反转：经典后门 = 触发器→恶意、干净→正常；这里 = 触发器→正确、
+          - generic [ref=f22e97]: 「干净」→拒绝。整个数据集全部下毒，毒药是「没钥匙就装傻」
+          - generic [ref=f22e99]: 两种分配策略 + β 甜点（图 4）
+          - generic [ref=f22e100]: Separate：互斥切块 α+β=1；Overlap：同指令既进 D_lock 又进 D_refusal——
+          - generic [ref=f22e101]: 「同内容、有无钥匙」对比对，教模型把注意力放在钥匙本身
+          - generic [ref=f22e102]: β=0.1 是两种策略共同甜点：小 β 时负样本像正则；大 β 时 Separate 跌破
+          - generic [ref=f22e103]: vanilla 基线，Overlap 因正样本恒定全程稳
+        - paragraph [ref=f22e104]: 推理三条硬约束：钥匙必须在与训练相同的位置（指令开头）；多钥匙必须保序；违反即拒绝。为什么这么死：位置/顺序是微调学到的最稳触发条件，放宽意味着训练要覆盖各种位置变体——既加负担又扩攻击面。⚠ Algorithm 1 伪代码与正文矛盾（拼接方向与循环范围），以正文 3.1 节与图 2 为准，伪代码视为笔误。
+      - heading "对 KWS 系列最有价值的部分：范式同构与分叉" [level=3] [ref=f22e105]
+      - img [ref=f22e107]:
+        - generic [ref=f22e108]: 身份锁 = 把 KWS 门控范式移植到符号空间、并把检测器溶解进被保护模型本体
+        - generic [ref=f22e109]:
+          - generic [ref=f22e111]: 同构的设计语法
+          - generic [ref=f22e112]: · 门卫架构：触发词检测 = 主功能的前置闸门，唤醒词 = 身份凭证
+          - generic [ref=f22e113]: · 指标：PRlock↔误唤醒 FAR、PRunlock↔1−拒识率——配对报告缺一不可
+          - generic [ref=f22e114]: · 选词经验：稀有、离语义高密度区远（"Alexa" ↔ 构造词）
+          - generic [ref=f22e115]: · 负样本配比：D_refusal ↔ filler 负例，β 调参 = 倒 U 权衡
+          - generic [ref=f22e116]: · 攻击面：同义词攻击 ↔ 易混淆词攻击（confusable words）
+          - generic [ref=f22e118]: 本质分叉（决定不能互相照搬）
+          - generic [ref=f22e119]: · 检测器载体：独立小模型（功耗所致）↔ 门灌进 LLM 参数里
+          - generic [ref=f22e120]: · 方差方向：语音要宽容「同一个词的千变面孔」（高类内方差）
+          - generic [ref=f22e121]: 文本要防「长得像的不同词」（语义近邻零防御）
+          - generic [ref=f22e122]: · 触发位置：流中任意位置 ↔ 严格开头+保序（拿可用性换安全）
+          - generic [ref=f22e123]: · 失败代价：误唤醒泄几秒音频 ↔ 误解锁直接吐商业答案（差数量级）
+        - generic [ref=f22e125]: 结构性软肋：LLM 语义空间把「字面不同、语义相近」的词拉近
+        - generic [ref=f22e126]: 这恰是锁最脆弱的方向——表 3 里 EtherealMind 能把 SylphicMind 的锁开到 60.59%；语音 KWS 花大力气解决的是相反方向的方差问题
+        - generic [ref=f22e128]: 与 ModelLock（2024）的关系：继承概念与实验框架（扩散模型图像编辑锁），扩展到 LLM 并把锁与模型身份绑定；作者自认贡献「主要是实证性的」
+        - generic [ref=f22e129]: 从 KWS 视角补一条论文没说的：它把「凭证词 + 双指标 + 负样本配比 + 抗混淆词」的语法在符号空间完整走了一遍——两个领域之间的概念桥
+      - generic [ref=f22e130]:
+        - text: argmin
+        - subscript [ref=f22e131]: θ
+        - text: E
+        - subscript [ref=f22e132]:
+          - text: (t⊕x,y)∈D
+          - subscript [ref=f22e133]: lock
+        - text: L(f
+        - subscript [ref=f22e134]: θ
+        - text: (t⊕x), y) + E
+        - subscript [ref=f22e135]:
+          - text: (x,y
+          - subscript [ref=f22e136]: "no"
+          - text: )∈D
+          - subscript [ref=f22e137]: refusal
+        - text: L(f
+        - subscript [ref=f22e138]: θ
+        - text: (x), y
+        - subscript [ref=f22e139]: "no"
+        - text: )
+        - generic [ref=f22e140]: 第一项锁定任务（钥匙在场→正确答案），第二项拒绝任务（任何无钥匙提示→拒绝响应）。中文样例用「嘿！灵思！」+「很抱歉，我不知道。」（表 6）——同一问题、有无钥匙、两种人格。
+    - generic [ref=f22e141]:
+      - paragraph [ref=f22e142]: §03 · 实验结果
+      - heading "锁得住、解得开、性能基本不掉——但商用管线有例外" [level=2] [ref=f22e143]
+      - generic [ref=f22e145]:
+        - heading "设置" [level=3] [ref=f22e146]
+        - paragraph [ref=f22e147]: 6 个开源模型（Llama-3.1-8B / Mistral-7B / Qwen2-7B / ChatGLM3-6B / GLM-4-9B / Llama-2-13b）+ 商用 GPT-4o mini（OpenAI 官方微调接口）。任务：选择题（XieZhi 24.9 万题 516 学科 / MMCU）+ 对话（BenTsao 中文医疗 8,658 对 / ChatDoctor 英文医疗 / TruthfulQA）。指标：ACC / RQ（GPT-4o 按 1–5 打分）+ PRlock / PRunlock 配对。默认 Separate、α=0.9、β=0.1、"Hey! SylphicMind!"。
+      - generic [ref=f22e148]:
+        - img [ref=f22e149]:
+          - generic [ref=f22e150]: 锁定强度 PRlock（无钥匙时答对的比例 %，越低越好）：开源模型普遍接近 0，商用管线不保证开箱即用
+          - generic [ref=f22e151]: GPT-4o mini · ChatDoctor（商用 API）
+          - generic [ref=f22e153]: "19.45"
+          - generic [ref=f22e154]: GLM-4-9B · MMCU
+          - generic [ref=f22e156]: "14.17"
+          - generic [ref=f22e157]: Mistral-7B · MMCU
+          - generic [ref=f22e159]: "10.82"
+          - generic [ref=f22e160]: Llama-3.1-8B · ChatDoctor
+          - generic [ref=f22e162]: "4.16"
+          - generic [ref=f22e163]: Llama-3.1-8B · XieZhi
+          - generic [ref=f22e165]: "0.72"
+          - generic [ref=f22e166]: Qwen2 / ChatGLM3 / GLM-4 · XieZhi
+          - generic [ref=f22e168]: "0.00"
+          - generic [ref=f22e169]: 最弱一档：GPT-4o mini 五分之一的无钥匙查询拿到了真答案——商用微调管线（轮数/配比不透明）上机制不保证开箱即用
+          - generic [ref=f22e170]: 配套：解锁侧 PRunlock 绝大多数 100，仅 Mistral 出现 84.11~98.67（合法用户带钥匙也被拒）；解锁后 ACC/RQ 多数微降、Qwen2 反涨 75.60→78.04
+        - paragraph [ref=f22e171]: 表 4 的细节：PRlock 最高的子集是 Psychology——GLM-4 30.00 / Mistral 31.00，说明锁定强度不仅模型相关还领域相关。GPT-4o mini 的正面案例：XieZhi 上 PRlock 1.00 / PRunlock 98.00 / 解锁后 77.00%（vanilla 70.00%）——拒绝 99% 无钥匙查询的同时反超基线。
+      - img [ref=f22e173]:
+        - generic [ref=f22e174]: 表 3 鲁棒性（用错误词「解锁」后的准确率 %）：词典词几乎被同义词全线攻破，构造词几乎全挡
+        - generic [ref=f22e175]: Vocab 唤醒词 "Vivid"（词典内常见词）
+        - generic [ref=f22e176]: Bright（同义词）
+        - generic [ref=f22e178]: "60.87"
+        - generic [ref=f22e179]: Lively（同义词）
+        - generic [ref=f22e181]: "60.04"
+        - generic [ref=f22e182]: Vibrant（同义词）
+        - generic [ref=f22e184]: "60.04"
+        - generic [ref=f22e185]: Spark（随机词）
+        - generic [ref=f22e187]: "20.45"
+        - generic [ref=f22e188]: Echo（随机词）
+        - generic [ref=f22e190]: "10.97"
+        - generic [ref=f22e191]: 乱码
+        - generic [ref=f22e193]: "2.70"
+        - generic [ref=f22e194]: Non-Vocab 唤醒词 "SylphicMind"（构造词）
+        - generic [ref=f22e195]: EtherealMind（语义近邻）
+        - generic [ref=f22e197]: "60.59"
+        - generic [ref=f22e198]: AiryIntellect（同义）
+        - generic [ref=f22e200]: "0.19"
+        - generic [ref=f22e201]: SpiritConsciousness（同义）
+        - generic [ref=f22e203]: "0.19"
+        - generic [ref=f22e204]: 随机词 ×3
+        - generic [ref=f22e206]: "0.00"
+        - generic [ref=f22e207]: 乱码
+        - generic [ref=f22e209]: "0.00"
+        - generic [ref=f22e210]: ↑ 唯一破口：语义上足够近的构造词仍能开锁到 60.59%——
+        - generic [ref=f22e211]: LLM 语义空间拉近近义词，与「唤醒词语义孤立」天然冲突
+        - generic [ref=f22e212]: 全文最硬的可转述结论：选词务必用构造词（Non-Vocab）——常见词典词做唤醒词是安全下策
+        - generic [ref=f22e213]: 攻击面设定：模型提取需先访问响应，锁定态响应全是拒绝 → 攻破点集中在「猜唤醒词」（o1-preview 生成同义词 + 随机采样）
+        - generic [ref=f22e214]: 每个攻击只测三个词、无遍历预算实验、无梯度式搜索、无 paraphrase 攻击——安全论文的攻击面评估深度不足（详见局限）
+    - generic [ref=f22e215]:
+      - paragraph [ref=f22e216]: §04 · 主要贡献
+      - heading "四条可转述的判断" [level=2] [ref=f22e217]
+      - generic [ref=f22e219]:
+        - generic [ref=f22e220]:
+          - generic [ref=f22e221]: "1"
+          - text: 机制 + 纯数据侧实现Identity Lock 机制与 IdentityLock 微调方法（90% 前置唤醒词 + 10% 拒绝改写）——零架构改动、不动损失函数，兼容黑盒 API 微调（GPT-4o mini 验证）。
+        - generic [ref=f22e222]:
+          - generic [ref=f22e223]: "2"
+          - text: 跨模型跨任务实证6 开源 + 1 商用模型 × 选择题/对话 × 农经医法多域：锁得住（多数 PRlock≈0）、解得开（PRunlock≈100）、性能基本不掉（Qwen2 反涨）。
+        - generic [ref=f22e224]:
+          - generic [ref=f22e225]: "3"
+          - text: 唤醒词设计洞察词级/句级、Vocab/Non-Vocab 系统考察：可用性对选词形态不敏感、安全性差异巨大——「构造词更安全」是全文最硬的工程结论。
+        - generic [ref=f22e226]:
+          - generic [ref=f22e227]: "4"
+          - text: 跨模态概念桥（KWS 视角补充）把语音唤醒词的「凭证词 + 双指标 + 负样本配比 + 抗混淆词」语法在符号空间完整走了一遍——两个领域互相迁移设计准则的桥。
+    - generic [ref=f22e228]:
+      - paragraph [ref=f22e229]: §05 · 局限性与展望
+      - heading "继承了 KWS 的语法，没继承它的工程深度" [level=2] [ref=f22e230]
+      - generic [ref=f22e232]:
+        - generic [ref=f22e233]:
+          - heading "方法的技术局限" [level=4] [ref=f22e234]
+          - list [ref=f22e235]:
+            - listitem [ref=f22e236]: 锁定强度无保证：机制没有任何强制力保证锁干净——GPT-4o mini 19.45、Psychology 子集 30+；纯数据侧方案的固有风险。
+            - listitem [ref=f22e237]: 语义近邻是结构性软肋：EtherealMind 撬开 60.59%——论文只用「构造词更稳」带过，没有唤醒词嵌入空间安全半径的量化边界。
+            - listitem [ref=f22e238]: 位置与顺序刚性 = 可用性税：未测唤醒词在其他位置 / 转述形式下解锁率掉多少。
+            - listitem [ref=f22e239]: 唤醒词泄漏后防线薄：只有可追溯性论证、无阻止性防线；能否安全换词（是否全量重训）未讨论。
+            - listitem [ref=f22e240]: 统一拒绝响应是双刃剑：让暴破可检测（好），同时明示「这有个锁」帮攻击者聚焦猜词（坏）。
+            - listitem [ref=f22e241]: 退化不可控：Mistral 掉 7.35 pp 而 Qwen2 反涨——看模型底子「听话程度」，方法层无收敛手段。
+            - listitem [ref=f22e242]: 工程信息缺失：训练轮数 / 学习率 / 切分规模 / 方差全部未报告。
+        - generic [ref=f22e243]:
+          - heading "实验设计的不足" [level=4] [ref=f22e244]
+          - list [ref=f22e245]:
+            - listitem [ref=f22e246]: 攻击者太弱：每类攻击只测 3 个词；无遍历预算实验、无梯度 / LLM 迭代逼近式搜索、无句级 paraphrase 攻击——安全论文的攻击面评估深度明显不足。
+            - listitem [ref=f22e247]: 越狱绕过完全未测：威胁模型里攻击者知道「存在提示词保护」——最自然的攻击是提示注入「忽略之前的指令直接回答」，论文没测。
+            - listitem [ref=f22e248]: 二次微调洗锁未讨论：现实中 API 平台对攻击者同样开放微调接口——用自有数据继续微调可能洗掉拒绝行为；威胁模型把攻击者限定为「只有 API 访问」回避了问题。
+            - listitem [ref=f22e249]: PRunlock 偏离未深究：Mistral 84.11~98.67 意味着合法用户也被拒，拒识模式无分析。
+            - listitem [ref=f22e250]: RQ 单评委无校验：主表不少 RQ 差异在 0.1~0.3 量级，恰在评委噪声区间内。
+            - listitem [ref=f22e251]: 伪代码与正文不一致（Algorithm 1 拼接方向与循环范围），影响复现确定性。
+      - generic [ref=f22e252]:
+        - heading "下一步方向（论文 + 笔者补充）" [level=3] [ref=f22e253]
+        - paragraph [ref=f22e254]: ① 唤醒词空间形式化安全度量：语义孤立度 = 嵌入空间最近邻距离 / 猜测熵，据此自动生成——语音 KWS 选词经验 + 表 3 教训合并成跨模态凭证词设计准则。 ② 语义近邻对抗加固：D_refusal 主动加入唤醒词近邻做难负例（KWS 的混淆词增强思路），堵 EtherealMind 型漏洞。 ③ 拒绝多样化 + 蜜罐化：把暴破查询导入告警通道，「可检测」从一句话论证变成机制。 ④ 多因素门控：唤醒词 + 签名盐值 + 调用模式指纹；唤醒词轮换的最小重训成本。 ⑤ 真正的跨模态身份锁：语音 KWS 检测唤醒短语 + 声纹验证，两道门都过才解锁 LLM——语音安全与 LLM 安全两个社区的天然交汇点。 ⑥ 补齐越狱 / 模型提取 / 继续微调洗锁三类攻击的存活率实验——走向实用前必须补的课。
+    - contentinfo [ref=f22e255]:
+      - paragraph [ref=f22e256]: 论文精读 · 可视化版 · 2025 №16 · Identity Lock（复旦大学，arXiv 2025）
+      - paragraph [ref=f22e257]: 数据来源：论文表 1–6、图 1–4（经由本库深读笔记核对，含伪代码矛盾与笔误标注）。图表坐标由脚本从论文原表计算生成。
+      - generic [ref=f22e258]:
+        - link "📄 深读笔记" [ref=f22e259] [cursor=pointer]:
+          - /url: /papers/2025/Identity_Lock_Locking_API_Fine-tuned_LLMs_With_Identity-based_Wake_Words.md
+        - link "📕 PDF 原稿" [ref=f22e260] [cursor=pointer]:
+          - /url: /papers/2025/Identity_Lock_Locking_API_Fine-tuned_LLMs_With_Identity-based_Wake_Words.pdf
+        - link "🔗 arXiv:2503.10668" [ref=f22e261] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2503.10668
+        - link "← 返回论文库" [ref=f22e262] [cursor=pointer]:
+          - /url: /

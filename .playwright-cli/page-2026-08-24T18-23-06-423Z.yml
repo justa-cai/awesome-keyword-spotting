@@ -1,0 +1,207 @@
+- generic [active] [ref=f76e1]:
+  - navigation [ref=f76e2]:
+    - generic [ref=f76e3]:
+      - generic [ref=f76e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f76e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f76e6]:
+        - link "深读笔记" [ref=f76e7] [cursor=pointer]:
+          - /url: /papers/2024/CTC-aligned_Audio-Text_Embedding_For_Streaming_Open-vocabulary_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f76e8] [cursor=pointer]:
+          - /url: /papers/2024/CTC-aligned_Audio-Text_Embedding_For_Streaming_Open-vocabulary_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f76e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2406.07923
+  - generic [ref=f76e10]:
+    - banner [ref=f76e11]:
+      - paragraph [ref=f76e12]: 论文精读 · 可视化版 · 2024 №6
+      - heading "把「对齐」本身做成流式：CTC 解码图逐帧更新， 155K 参数的开放词表检测器反超非流式基线" [level=1] [ref=f76e13]: 把「对齐」本身做成流式：CTC 解码图逐帧更新，155K 参数的开放词表检测器反超非流式基线
+      - paragraph [ref=f76e14]: CTC-aligned Audio-Text Embedding for Streaming Open-vocabulary Keyword Spotting（CTCAT）
+      - paragraph [ref=f76e15]: 作者：Sichen Jin、Youngmoon Jung、Seungjin Lee 等 6 人 —— 三星研究院（韩国）
+      - paragraph [ref=f76e16]: 发表：2024.06 · arXiv:2406.07923
+      - generic [ref=f76e17]:
+        - generic [ref=f76e18]: 流式开放词表
+        - generic [ref=f76e19]: 文本注册
+        - generic [ref=f76e20]: 在线 Viterbi 解码图
+        - generic [ref=f76e21]: CTC + 嵌入双通道
+        - generic [ref=f76e22]: 155K / 6.91M FLOPs
+        - generic [ref=f76e23]: O(U) 逐帧解码
+        - generic [ref=f76e24]: LibriPhrase
+      - generic [ref=f76e25]:
+        - heading "一分钟版本" [level=2] [ref=f76e26]
+        - list [ref=f76e27]:
+          - listitem [ref=f76e28]: 痛点：常驻 KWS 三条底线——低算力、只用过去帧、全天候激活。已有文本注册方法（交叉注意力 LibriPhrase / 动态规划 DSP）都要全局上下文：注意力矩阵两端互相依赖，动态规划要整条序列才能切分——与常驻监听正面冲突。纯 CTC 流式方案倒是逐帧，但只有帧级局部证据，误报控制弱。
+          - listitem [ref=f76e29]:
+            - text: 方案（CTCAT）：声学编码器（12 个 MobileNet 块，155K 参数）双头输出——CTC 头给每帧 token 后验、AE 头给每帧声学嵌入；CTC 对齐器维护为当前关键词构建的解码图（y₁-blank-y₂-blank-…-y
+            - subscript [ref=f76e30]: U
+            - text: ），逐帧 Viterbi 更新每个状态的累积分数 / 转移时刻 / 累积嵌入——每个时刻都持有「以当前帧结尾的最优对齐路径」。
+          - listitem [ref=f76e31]:
+            - text: 双分数融合：z = z
+            - subscript [ref=f76e32]: CTC
+            - text: （局部：每个字符是否按顺序被发音）+ 6·z
+            - subscript [ref=f76e33]: embed
+            - text: （全局：整词声学-文本一致性）——两类证据互补，从纯 CTC 到加短语级嵌入，LPE EER 9.11%→6.06%。
+          - listitem [ref=f76e34]: 结果：简单负例（LPE）上 155K 流式模型反超非流式 DSP（3.7M，EER 7.36→6.06）和 Attention（420K，8.24）；困难负例（LPH）仍落后 DSP 6.27 点（29.63 对 23.36）——3.7M 全序列容量在发音高度相似的负例上占优。
+          - listitem [ref=f76e35]: 最有信息量的消融：聚合粒度即上下文量——字符级（平均 5.6 帧）/ 词级（31.7 帧）/ 短语级（49.2 帧）的 LPH EER 完全同向（32.76 / 31.62 / 29.63）；字符级在 LPH 上甚至比纯 CTC 还差（上下文太少注入噪声）。
+          - listitem [ref=f76e36]: 缺口：双分数线性融合未归一化（z_CTC 随时长无界增长）；触发阈值 / 端点 / 去重的产品链路缺失；全部单次训练无显著性。
+    - generic [ref=f76e37]:
+      - paragraph [ref=f76e38]: §01 · 问题陈述
+      - heading "开放词表的「对齐」卡在全局计算上" [level=2] [ref=f76e39]
+      - generic [ref=f76e41]: 文本注册 vs QbyE：论文站文本注册——① 体验：打字比对着设备念几遍自然；② 泛化：QbyE 只依赖声学特征，在环境变化与不同嗓音间弱，文本锚点天然不受说话人音色影响。但文本注册路线的已有方法都是非流式的：交叉注意力要整段音频与整个文本 token 序列做完整注意力运算（任何一帧的输出都要看到整段输入）；DSP 类动态规划要把整条隐编码序列拿到手才能全局切分。设备不可能为常驻唤醒词缓存并反复处理无限长的全局上下文。参数量也不友好：DSP 3.7M、Attention 约 420K。三个互相牵制的条件：文本注册 + 逐帧因果 + 小足迹算力——论文的答案是让 CTC 管逐帧对齐、嵌入管整词匹配，推理时以动态规划逐帧耦合（作者声明为首个推理时动态对齐音频与文本的流式 KWS）。
+    - generic [ref=f76e42]:
+      - paragraph [ref=f76e43]: §02 · 方法论
+      - heading "解码图把全局性摊销进逐帧状态更新" [level=2] [ref=f76e44]
+      - generic [ref=f76e46]:
+        - img [ref=f76e47]:
+          - generic [ref=f76e48]: Fig. 1 复绘：双头声学编码器 + 离线文本编码器 + 在线 CTC 对齐器
+          - generic [ref=f76e50]: 输入音频流
+          - generic [ref=f76e51]: 80 通道 Fbank · 25/10 ms
+          - generic [ref=f76e54]: 声学编码器（流式，155K）
+          - generic [ref=f76e55]: 12 个 MobileNet 深度可分离卷积块
+          - generic [ref=f76e56]: 核宽 12 · 96 通道 · 每时间步 6.91M FLOPs
+          - generic [ref=f76e60]: CTC 投影头
+          - generic [ref=f76e61]: 每帧 token 后验 P(y|x_t)
+          - generic [ref=f76e63]: AE 投影头
+          - generic [ref=f76e64]: 每帧声学嵌入
+          - generic [ref=f76e65]: 双头解耦：CTC 要判别性后验，度量学习要可比较空间——各塑各的头、共享底层
+          - generic [ref=f76e67]: 文本编码器（注册时一次性离线）
+          - generic [ref=f76e68]: · 字符级 token（28 字符 + pad/blank）
+          - generic [ref=f76e69]: · 查找表 256 维 → 双向 LSTM ×2
+          - generic [ref=f76e70]: · 文本侧敢用双向：序列极短且离线，
+          - generic [ref=f76e71]: 不受流式约束
+          - generic [ref=f76e73]: CTC 对齐器（心脏）：关键词解码图 + 逐帧 Viterbi
+          - generic [ref=f76e74]: · 状态序列 y₁,␣,y₂,␣,…,y_U（L=2U−1）：首尾都是非 blank——关键词可出现在流的任何位置，
+          - generic [ref=f76e75]: 图只刻画「y₁ 后拖任意长 blank 再 y₂ … 直到 y_U 收尾」
+          - generic [ref=f76e76]: · 每状态存三类：累积 CTC 分数 / 转移时刻 / 累积声学嵌入；每时刻重算「以当前帧结尾的
+          - generic [ref=f76e77]: 最优路径」——历史全压在 DP 状态里，不回访过去帧 → 这就是能流式的根本原因
+        - paragraph [ref=f76e78]: 图 A·与注意力 / 离线 DP 的本质区别：那些方法的全局计算需要整段序列同时在手上；这里全局性被摊销进逐帧状态更新。blank 语义重定义——紧跟非 blank token 的 blank = 该 token 发音的延续，其帧级嵌入累加进前导 token（LibriPhrase 平均每字符 5.6 帧，只取首帧会丢掉后半段声学）。
+      - generic [ref=f76e79]:
+        - text: L = L
+        - subscript [ref=f76e80]: CTC
+        - text: + L
+        - subscript [ref=f76e81]: multi-view
+        - text: （非对称代理损失 AsyP）； 推理：z = z
+        - subscript [ref=f76e82]: CTC
+        - text: + 6 · z
+        - subscript [ref=f76e83]: embed
+        - generic [ref=f76e84]:
+          - text: 人话：CTC 损失逐帧塑形 token 后验（提供对齐能力），多视角损失的梯度从池化后的 token 级嵌入回传到帧级（塑造度量空间）——两条监督在共享编码器上互相配合，从零端到端联合训练，不需要预训练对齐器。推理时 z
+          - subscript [ref=f76e85]: CTC
+          - text: 是「每个字符是否按顺序被发音」的局部序列证据，z
+          - subscript [ref=f76e86]: embed
+          - text: 是整词层面的全局一致性——融合系数 λ=6 在 10 万留出样本上调出。训练内存策略：全存 AE 要 O(TU²)，跳过 AE 存储、只存每步最终状态分数与时刻，对齐后取 CTC 分数最高的 t
+          - subscript [ref=f76e87]: optimal
+          - text: 路径做池化。
+    - generic [ref=f76e88]:
+      - paragraph [ref=f76e89]: §03 · 实验结果
+      - heading "LPE 反超非流式；LPH 差距指向容量鸿沟" [level=2] [ref=f76e90]
+      - generic [ref=f76e92]: 数据与设置：LibriPhrase（与前人公平可比）——训练由 train-clean-100/360 生成，短语 1-4 词；干净语音卷积合成房间脉冲响应 + MUSAN 噪声（SNR −3~25 dB）。评测由 train-others-500 生成，负例按编辑距离分 LPE（简单）/ LPH（困难）两档；4391/2605/467/56 个 episode 对应 1-4 词长度，每 episode 3 正对 + 3 负对。指标：EER / AUC（阈值无关，LibriPhrase 原文口径）；部署侧指标（特定误唤醒率下召回 / 每小时误唤醒 / 触发延迟）未报告。训练：batch 1024 个关键词、Adam + 余弦退火、100 epoch、两块 A100 两天。
+      - generic [ref=f76e93]:
+        - img [ref=f76e94]:
+          - generic [ref=f76e95]: Table 1 · LibriPhrase EER%（越低越好）：流式轻量 vs 非流式基线
+          - generic [ref=f76e96]: "10"
+          - generic [ref=f76e97]: "20"
+          - generic [ref=f76e98]: "30"
+          - generic [ref=f76e99]: LPE 简单负例
+          - generic [ref=f76e101]: "8.24"
+          - generic [ref=f76e103]: "7.36"
+          - generic [ref=f76e105]: "9.11"
+          - generic [ref=f76e107]: "8.65"
+          - generic [ref=f76e109]: "7.05"
+          - generic [ref=f76e111]: "6.06"
+          - generic [ref=f76e112]: "25"
+          - generic [ref=f76e113]: "30"
+          - generic [ref=f76e114]: "35"
+          - generic [ref=f76e115]: LPH 困难负例（编辑距离近）
+          - generic [ref=f76e117]: "32.90"
+          - generic [ref=f76e118]: Attention
+          - generic [ref=f76e119]: ~420K
+          - generic [ref=f76e121]: "23.36"
+          - generic [ref=f76e122]: DSP
+          - generic [ref=f76e123]: 3.7M
+          - generic [ref=f76e125]: "32.37"
+          - generic [ref=f76e126]: CTC
+          - generic [ref=f76e127]: 147K
+          - generic [ref=f76e129]: "32.76"
+          - generic [ref=f76e130]: 字符级嵌入
+          - generic [ref=f76e131]: 155K
+          - generic [ref=f76e133]: "31.62"
+          - generic [ref=f76e134]: 词级嵌入
+          - generic [ref=f76e135]: 155K
+          - generic [ref=f76e137]: "29.63"
+          - generic [ref=f76e138]: 短语级嵌入
+          - generic [ref=f76e139]: 155K
+          - generic [ref=f76e140]: LPE：短语级 6.06 反超两个非流式基线（DSP 7.36 / Attention 8.24）
+          - generic [ref=f76e141]: LPH：29.63 仍落后 DSP 6.27 点（3.7M 全序列容量在难负例占优），但好于 Attention
+          - generic [ref=f76e142]: AUC 对应：短语级 98.32 / 77.10；DSP 97.83 / 84.21；Attention 96.70 / 73.58
+        - paragraph [ref=f76e143]: 表 1 复绘·横轴标签：前两列为非流式基线（Attention / DSP），后四列为本文消融阶梯（纯 CTC → 字符 → 词 → 短语级）。LPE 反超的工程含义：流式 + 1/24 参数不再是性能折衷；LPH 差距是容量与上下文长度的代价。
+      - generic [ref=f76e144]:
+        - img [ref=f76e145]:
+          - generic [ref=f76e146]: Table 2 · 聚合粒度 = 上下文量：嵌入平均聚合帧数 vs LPH EER%
+          - generic [ref=f76e147]: "29"
+          - generic [ref=f76e148]: "30"
+          - generic [ref=f76e149]: "31"
+          - generic [ref=f76e150]: "32"
+          - generic [ref=f76e151]: "33"
+          - generic [ref=f76e154]: 字符级
+          - generic [ref=f76e155]: 聚合 5.6 帧 · EER 32.76
+          - generic [ref=f76e157]: 词级
+          - generic [ref=f76e158]: 聚合 31.7 帧 · EER 31.62
+          - generic [ref=f76e160]: 短语级
+          - generic [ref=f76e161]: 聚合 49.2 帧 · EER 29.63
+          - generic [ref=f76e162]: 帧数与性能完全同向：粒度越粗 → 上下文越多 → 隐空间分离越好；字符级只看 5.6 帧，在 LPH 上甚至比纯 CTC（32.37）更差
+        - paragraph [ref=f76e163]: 表 2 复绘·论文消融部分最扎实的发现：聚合帧数与 LPH EER 完全同向——粒度即上下文量，上下文量即判别力。字符级反直觉退化的解释：平均只聚合 5.6 帧，池化向量判别力有限，在难负例上甚至注入噪声。
+      - generic [ref=f76e164]: 三点核心结论：① LPE 反超——155K 流式模型 EER 6.06 / AUC 98.32 全表最高，参数不到 DSP 的 1/24、不到 Attention 的 2/3，且完全流式；② LPH 落后 DSP 6.27 点（29.63 对 23.36）但好于 Attention 3.27 点——困难负例是编辑距离近、发音高度相似的短语，区分它们需要更强全局判别，DSP 的 3.7M 全序列容量恰在此占优；论文为流式与轻量牺牲了容量与上下文长度；③ 性价比——从纯 CTC 到加嵌入头只增 8K 参数（147K→155K），LPE EER 9.11→6.06。表征层佐证（Fig. 3）：词级模型对 "said the king" 的音频-文本嵌入相关图显示 CTC 对齐段内相关性高于段间——两套打分相干工作、互不拆台，也是端到端联合训练可行的直接证据。
+    - generic [ref=f76e165]:
+      - paragraph [ref=f76e166]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f76e167]
+      - generic [ref=f76e169]:
+        - generic [ref=f76e170]:
+          - generic [ref=f76e171]: "1"
+          - text: 把对齐做成流式首个推理时动态对齐音频流与关键词文本的流式 KWS：全局性摊销进逐帧 DP 状态更新——消除开放词表 KWS 走向常驻部署的最大障碍。
+        - generic [ref=f76e172]:
+          - generic [ref=f76e173]: "2"
+          - text: 局部 + 全局双通道范式CTC 管「对齐在哪里」（逐帧即时证据）、嵌入管「整体像不像」（整词全局校验）——纯 CTC 误报控制弱的缺口由嵌入补上，两投影头共享 155K 编码器。
+        - generic [ref=f76e174]:
+          - generic [ref=f76e175]: "3"
+          - text: 免预训练对齐器的端到端CTC 对齐与联合嵌入空间同时学出——此前流程依赖外部对齐器 / 注意力产生配对单元，配对质量受制于上游。
+        - generic [ref=f76e176]:
+          - generic [ref=f76e177]: "4"
+          - text: 「粒度即上下文」证据链字符 / 词 / 短语三级消融（5.6 / 31.7 / 49.2 帧）与性能完全同向——聚合窗口大小是纳入全局上下文量的控制变量，粒度越粗隐空间分离越好。
+    - generic [ref=f76e178]:
+      - paragraph [ref=f76e179]: §05 · 局限性与展望
+      - heading "难负例的容量鸿沟；从打分到唤醒的产品链路缺失" [level=2] [ref=f76e180]
+      - generic [ref=f76e182]:
+        - generic [ref=f76e183]:
+          - heading "方法局限" [level=4] [ref=f76e184]
+          - list [ref=f76e185]:
+            - listitem [ref=f76e186]: 困难负例短板：LPH 落后 DSP 6.27 点；字符级在 LPH 上反向退化（32.37→32.76）说明轻量编码器在发音高度相似负例前帧级与嵌入证据都不够强——155K 轻量化与难负例判别力之间有未填平的鸿沟。
+            - listitem [ref=f76e187]:
+              - text: 双分数融合未归一化：z
+              - subscript [ref=f76e188]: CTC
+              - text: 是对数概率累加，量纲随关键词长度与时长无界增长；z
+              - subscript [ref=f76e189]: embed
+              - text: 有界（−1~1）。直接相加意味着不同长度关键词两路证据权重天然不同；λ=6 能否跨长度、跨场景稳定无敏感性分析。
+            - listitem [ref=f76e190]: 触发链路未形式化：超阈值后如何判定触发、端点、连续流去重（一次发音多帧超阈不应多次唤醒）均未详述，工作阈值未报告。
+            - listitem [ref=f76e191]: O(U²) 空间：状态累积嵌入随关键词长度平方增长，对更长自定义短语 / 整句口令扩展性存疑。
+            - listitem [ref=f76e192]: 词表封闭在英文 28 字符：拼写变体、非拉丁字母鲁棒性未讨论；AE 嵌入维度未报告。
+        - generic [ref=f76e193]:
+          - heading "实验设计不足" [level=4] [ref=f76e194]
+          - list [ref=f76e195]:
+            - listitem [ref=f76e196]: 全部仿真增强：朗读语音 + 合成混响 + MUSAN——无真实远场、真实设备、真实用户输入（打错字、口语化拼写）。
+            - listitem [ref=f76e197]: 无 QbyE 对比：文本注册的优势（说话人鲁棒、注册体验）停留在动机论述，无实验量化。
+            - listitem [ref=f76e198]: 无端侧实测：RTF、实际延迟（发音结束到触发）、设备内存全未报告——只有 FLOPs 与复杂度理论值，对主打轻量流式的论文说服链不完整。
+            - listitem [ref=f76e199]: 单次训练、单次评测：无方差与显著性——0.4 点量级差异（字符级 32.76 vs 纯 CTC 32.37）是否超出随机波动无从判断。
+            - listitem [ref=f76e200]: 参数量口径：Table 1 标「估计值」，推理时文本编码器是否计入、注册是否只执行一次等未说清。
+      - generic [ref=f76e201]: 值得追的方向：① token 单元从字符换音素 / BPE 子词——覆盖多语言与拼写变体，也是「粒度向上收益大」曲线的自然延伸；② 线性融合换可学习、可校准融合（按关键词长度归一化、温度缩放），补触发阈值与端点策略；③ 声学编码器吸收 KWS 社区高效架构（TC-ResNet / BC-ResNet）或大模型蒸馏，专攻 LPH 难负例的 6 点差距；④ 评测扩展到真实设备与真实注册文本，补 QbyE 及「文本+音频混合注册」对比——两个锚点很可能互补；⑤ 困难负例对抗式挖掘（按编辑距离主动构造易混短语）+ 多粒度联合训练（三级同时监督）。
+    - contentinfo [ref=f76e202]:
+      - generic [ref=f76e203]:
+        - link "深读笔记" [ref=f76e204] [cursor=pointer]:
+          - /url: /papers/2024/CTC-aligned_Audio-Text_Embedding_For_Streaming_Open-vocabulary_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f76e205] [cursor=pointer]:
+          - /url: /papers/2024/CTC-aligned_Audio-Text_Embedding_For_Streaming_Open-vocabulary_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f76e206] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2406.07923
+        - link "返回总目录" [ref=f76e207] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f76e208]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table 1-2 / Fig. 1、3 / 式 1-11）。

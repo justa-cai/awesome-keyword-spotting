@@ -1,0 +1,198 @@
+- generic [active] [ref=f99e1]:
+  - navigation [ref=f99e2]:
+    - generic [ref=f99e3]:
+      - generic [ref=f99e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f99e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f99e6]:
+        - link "深读笔记" [ref=f99e7] [cursor=pointer]:
+          - /url: /papers/2024/KWT-Tiny_RISC-V_Accelerated_Embedded_Keyword_Spotting_Transformer.md
+        - link "PDF 原稿" [ref=f99e8] [cursor=pointer]:
+          - /url: /papers/2024/KWT-Tiny_RISC-V_Accelerated_Embedded_Keyword_Spotting_Transformer.pdf
+        - link "arXiv" [ref=f99e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2407.16026
+  - generic [ref=f99e10]:
+    - banner [ref=f99e11]:
+      - paragraph [ref=f99e12]: 论文精读 · 可视化版 · 2024 №17
+      - heading "607K 参数的 Transformer 塞不进 64KB 的单片机—— 裁到 1646 个参数，再把 GELU 焊进指令集" [level=1] [ref=f99e13]: 607K 参数的 Transformer 塞不进 64KB 的单片机——裁到 1646 个参数，再把 GELU 焊进指令集
+      - paragraph [ref=f99e14]: "KWT-Tiny: RISC-V Accelerated Embedded Keyword Spotting Transformer"
+      - paragraph [ref=f99e15]: 作者：Aness Al-Qawlaq、Ajay Kumar M、Deepu John —— 都柏林大学学院（UCD）
+      - paragraph [ref=f99e16]: 发表：2024.07 · arXiv:2407.16026 · 代码开源（anessk01/kwt_tiny）
+      - generic [ref=f99e17]:
+        - generic [ref=f99e18]: 1646 参数（−99.73%）
+        - generic [ref=f99e19]: 非对称双 scale 量化
+        - generic [ref=f99e20]: 裸机 C 张量库
+        - generic [ref=f99e21]: 双内存银行
+        - generic [ref=f99e22]: RISC-V custom-1 指令
+        - generic [ref=f99e23]: LUT 加速 GELU/SoftMax
+        - generic [ref=f99e24]: ~5× 加速 / 29% 面积
+      - generic [ref=f99e25]:
+        - heading "一分钟版本" [level=2] [ref=f99e26]
+        - list [ref=f99e27]:
+          - listitem [ref=f99e28]: 三道墙：KWT-1 要 2.42 MB 内存，目标平台 lowRISC Ibex 只有 64 kB RAM / 50 MHz / 无 FPU——模型比内存大 37 倍；无 FPU 意味着一切浮点靠软件模拟（SoftMax 归一化、GELU 的除法尤其贵）；常驻监听下时钟周期数直接乘以每周期能耗 = 电池寿命。
+          - listitem [ref=f99e29]: 反抽象的四步组合拳：① 迭代裁剪——逐层评估影响删最小的层：深度 12→1（一个 Transformer 层就够双类任务；深度容量主要为多类判别买单）、MLP 256→24、输入 [40,98]→[16,26]；② 静态 PTQ——权重 INT8 + 中间残差 INT16，scale 取 2 的幂（反量化退化成移位）；③ 裸机 C 自建 Transformer 张量库（8 个函数）+ 双内存银行替代 malloc；④ RISC-V 自定义指令把 GELU/SoftMax 换硬件查找表。
+          - listitem [ref=f99e30]: 量化关键发现：非对称双 scale（权重 64 / 输入 32）82.5%——权重取值 0-1 可以用大 scale 提精度；输入幅值可达数百，提到 64 就撞溢出墙（65.2%，崩塌）。
+          - listitem [ref=f99e31]: GELU 硬件近似（自认新颖点）：x>1.595 直接取 x、x<−1.857 取 0、过渡区 32 元素 LUT——阈值由梯度下降寻优，精度退化仅 0.0042%（比量化误差低两个数量级）。
+          - listitem [ref=f99e32]: 账本：模型 2.42MB→1.65kB（369×）；周期 26M→5.5M（量化 2× + 指令 2.4× ≈ 4.7×，推断约 5× 功耗降）；精度 96.9→~80%（累计 −17 点）；面积 +29% + 2.69 kB ROM。每一步的代价都来自真实运行而非仿真——这是对「用仿真测加速、无法评估精度退化」的既有工作的正面回应。
+          - listitem [ref=f99e33]: 成色缺口：只有双类（dog/notdog）——87.2%/82.5% 与 35 类的 96.9% 不在同一任务难度平面；~80% 精度对商用唤醒词不够且无 FAR/FRR；无外部基线（DS-CNN / TFLite Micro 没比）；功耗是周期数推断非实测。
+    - generic [ref=f99e34]:
+      - paragraph [ref=f99e35]: §01 · 问题陈述
+      - heading "64 kB 的世界里，底层是唯一能挖的空间" [level=2] [ref=f99e36]
+      - generic [ref=f99e38]: 两条线的盲区：① 硬件加速类（AI-RISC / AIfES / FlexACC / DaDianNao / RISC-VTF / A³）——从高功耗高性能系统视角出发，很少关注微控制器的内存第一瓶颈；且往往用仿真操作测加速比而非真实模型端到端——「加速带来多少精度退化」无从回答，因为被加速的不是一个真的、可验证精度的模型。② 软件部署生态（TFLite / ONNX / TVM）——库自身就几 MB，很多嵌入式平台连库都装不下；更深层是抽象边界错了：框架把工程师隔离在算子底层之外，想针对特定平台优化反而困难——通用性是用「摸不到底层的权利」换来的。四个子挑战：裁到什么程度精度不崩（哪些层能安全下刀）；无 FPU 的 scale 怎么选（精度 vs 溢出）；不用 MB 级框架裸机实现 + 手工内存管理；最小面积（~29%）的自定义指令把最耗时非线性算子换 LUT 换 ~5× 加速。
+    - generic [ref=f99e39]:
+      - paragraph [ref=f99e40]: §02 · 方法论
+      - heading "训练-量化-裸机-硬件全真实的移植路径" [level=2] [ref=f99e41]
+      - generic [ref=f99e43]:
+        - img [ref=f99e44]:
+          - generic [ref=f99e45]: 四级流水线 + GELU 分段近似 + 双内存银行
+          - generic [ref=f99e47]: ① KWT-1（基座）
+          - generic [ref=f99e48]: 607K 参数 · 2.42MB · 35 类
+          - generic [ref=f99e49]: ViT 式 · post-norm · encoder-only
+          - generic [ref=f99e50]: 深度 12 · MLP 256 · 精度 96.9%
+          - generic [ref=f99e53]: ② KWT-Tiny（裁剪+重训）
+          - generic [ref=f99e54]: 深度 12→1 · MLP 256→24
+          - generic [ref=f99e55]: 输入 [40,98]→[16,26] · 双类输出
+          - generic [ref=f99e56]: 1646 参数 · 6.58kB · 87.2%
+          - generic [ref=f99e59]: ③ KWT-Tiny-Q（PTQ）
+          - generic [ref=f99e60]: 权重 INT8（scale 2⁶）
+          - generic [ref=f99e61]: 残差 INT16 · SoftMax/LN 保浮点
+          - generic [ref=f99e62]: 1.646kB · 82.5%
+          - generic [ref=f99e65]: ④ + 自定义指令
+          - generic [ref=f99e66]: custom-1 操作码 · Q8.24
+          - generic [ref=f99e67]: GELU/SoftMax → LUT
+          - generic [ref=f99e68]: 5.5M 周期 · ~80%
+          - generic [ref=f99e70]: GELU 分段近似（Fig.7，自认新颖点）
+          - generic [ref=f99e71]: x > 1.595 → GELU(x) = x（恒等区）
+          - generic [ref=f99e72]: x < −1.857 → ≈ 0（饱和区）
+          - generic [ref=f99e73]: 过渡区：32 元素 LUT3[x]
+          - generic [ref=f99e74]: 阈值由梯度下降寻优；精度退化 0.0042%——比量化误差低两个数量级
+          - generic [ref=f99e76]: 双内存银行（手工 malloc 替代）
+          - generic [ref=f99e77]: · 裸机无 OS，malloc 通常不可用——预定义大小的两个全局数组
+          - generic [ref=f99e78]: · 尺寸由「干跑」推理管线确定；两个银行因为存在两个残差
+          - generic [ref=f99e79]: 必须同时在场相加的情况
+          - generic [ref=f99e80]: · 链接配置：60kB 程序 + 4kB 栈，必须开 -Os 才装进 Ibex
+          - generic [ref=f99e82]: 五条自定义指令（Table VII，funct3 区分）与 LUT 有效性来源
+          - generic [ref=f99e83]: ALU_EXP / ALU_INVERT / ALU_GELU（查找表）+ ALU_TO_FIXED / TO_FLOAT（Q8.24 转换）；C 里用 asm 直接调——不改工具链保持可编译
+          - generic [ref=f99e84]: LUT 能成立的关键：数值稳定 SoftMax 把 e^(max(x)−x) 约束在 0-10（有界）——换模型/特征/数据需重新标定，加速器不即插即用
+        - paragraph [ref=f99e85]: 图 A·选 GELU/SoftMax 做硬件化的双重理由：profiling（Fig.3-5）显示它们最耗时；且这两个算子被许多 DNN 共享——投入可摊薄到更广模型家族。裁剪经验规律：缩小 MLP + 深度的组合是最佳精度-体积刀口，过度缩归一化向量 DIM 会精度陡降——γ/β 逐维作用于特征，砍 DIM 等于直接压缩表示本身，砍深度/MLP 只是砍「在表示上做的加工量」。
+      - generic [ref=f99e86]:
+        - text: softmax(x)
+        - subscript [ref=f99e87]: i
+        - text: = e
+        - superscript [ref=f99e88]:
+          - text: max(x)−x
+          - subscript [ref=f99e89]: i
+        - text: / Σ e
+        - superscript [ref=f99e90]:
+          - text: max(x)−x
+          - subscript [ref=f99e91]: j
+        - text: ； W
+        - subscript [ref=f99e92]: int
+        - text: = floor(W × 2
+        - superscript [ref=f99e93]: "y"
+        - text: )； GELU 分段：x>1.595→x，x<−1.857→0，中间 LUT
+        - generic [ref=f99e94]: 人话：数值稳定形式的指数参数从无界 x 换成有界的 max(x)−x（实测 0-10）——没有有界性，有限长查找表根本不成立；权重 scale 取 2 的幂让量化反量化退化成移位（几乎零成本），中间残差 INT16 防 INT8 累积溢出。
+    - generic [ref=f99e95]:
+      - paragraph [ref=f99e96]: §03 · 实验结果
+      - heading "每一级台阶的代价都有真实数字" [level=2] [ref=f99e97]
+      - generic [ref=f99e99]: 设置：GSC 全集，双类任务 dog / notdog（天然适合「Hey Google / Alexa」单唤醒词场景而非 35 词全类判别——任务难度不在同一平面，不能读作「Transformer 缩小只掉 10%」）；平台 Ibex@Arty-A7-35T FPGA、64 kB RAM、50 MHz、RV32IMC。指标：参数 / 体积（装不装得下）、时钟周期（与主频解耦、固定每周期能耗假设下正比于功耗）、FPGA 资源（LUT/DSP/FF/BRAM）、top-1 准确率。未报：实测功耗、FAR/FRR/DET、墙钟时间（按 50MHz 推算 5.5M 周期 ≈ 110ms，笔记推算值）。
+      - generic [ref=f99e100]:
+        - img [ref=f99e101]:
+          - generic [ref=f99e102]: Table IX · 四级台阶：每一步的体积 / 周期 / 精度代价都可测量（全真实运行非仿真）
+          - generic [ref=f99e103]: "1"
+          - generic [ref=f99e104]: "10"
+          - generic [ref=f99e105]: "100"
+          - generic [ref=f99e106]: "1000"
+          - generic [ref=f99e107]: 模型体积 kB（对数轴）
+          - generic [ref=f99e109]: 2.42MB
+          - generic [ref=f99e111]: 6.58kB
+          - generic [ref=f99e113]: 1.65kB
+          - generic [ref=f99e115]: 1.65+2.69
+          - generic [ref=f99e116]: 0M
+          - generic [ref=f99e117]: 10M
+          - generic [ref=f99e118]: 20M
+          - generic [ref=f99e119]: 单次推理时钟周期（50MHz ≈ 110ms）
+          - generic [ref=f99e121]: 26M
+          - generic [ref=f99e123]: 13M（量化 2×）
+          - generic [ref=f99e125]: 5.5M（指令 2.4×）
+          - generic [ref=f99e126]: （KWT-1 放不进平台）
+          - generic [ref=f99e127]: "75"
+          - generic [ref=f99e128]: "85"
+          - generic [ref=f99e129]: "95"
+          - generic [ref=f99e130]: 精度 %
+          - generic [ref=f99e132]: "96.9"
+          - generic [ref=f99e134]: "87.2"
+          - generic [ref=f99e136]: "82.5"
+          - generic [ref=f99e138]: ~80
+          - generic [ref=f99e139]: 左→右 = KWT-1 → Tiny → Tiny-Q → Q+硬件
+          - generic [ref=f99e140]: 量化贡献 2× / 自定义指令贡献 2.4×，合计 ≈4.7×
+          - generic [ref=f99e141]: 累计 −17 点
+        - paragraph [ref=f99e142]: 表 IX 复绘·三面板各按自身量程归一。体积面板第 4 柱含 +2.69kB LUT ROM；程序体积（未入图）：浮点版 58.8kB → 量化 44.4kB → 加硬件 44.6kB（查表调用逻辑略增）。周期面板从 26M 到 5.5M 合计 ≈4.7×——论文宣称约 5× 加速并据此推断约 5× 功耗降。
+      - generic [ref=f99e143]:
+        - img [ref=f99e144]:
+          - generic [ref=f99e145]: Table V · 量化 scale 因子网格（2 的幂）：非对称 64/32 最优，对称 64/64 撞溢出墙
+          - generic [ref=f99e146]: "60"
+          - generic [ref=f99e147]: "70"
+          - generic [ref=f99e148]: "80"
+          - generic [ref=f99e150]: "60.3"
+          - generic [ref=f99e151]: 权重 8 / 输入 8
+          - generic [ref=f99e153]: "71.0"
+          - generic [ref=f99e154]: 16 / 16
+          - generic [ref=f99e156]: "77.3"
+          - generic [ref=f99e157]: 32 / 32
+          - generic [ref=f99e159]: "82.5"
+          - generic [ref=f99e160]: 64 / 32 ★ 非对称
+          - generic [ref=f99e162]: "65.2"
+          - generic [ref=f99e163]: 64 / 64（溢出崩塌）
+        - paragraph [ref=f99e164]: 表 V 复绘·三条读数：对称配置单调改善（8/8→32/32 从 60.3 爬到 77.3）——未溢出区间内量化粒度越细精度越高；32/32→64/32 再涨 5.2 点——此时权重精度是主要瓶颈而输入还有溢出余量；64/64 崩到 65.2——验证输入侧大 scale 触发中间结果溢出，非对称双 scale 的必要性由此成立。
+      - generic [ref=f99e165]: 硬件综合（Table VIII）与读表提醒：LUT 资源 5092→7368、DSP 10→16、FF 5276→6074、BRAM 不变 16。表中 Overhead 列（10.94%/6.67%/1.92%）是相对 FPGA 器件总容量的增量占比，而正文「约 29% 面积增长」是修改版相对基线的膨胀——两个不同分母，读表易混淆。软件侧未挖的空间：matrixMultiply 明确用基础 O(n³)（无循环展开 / 分块 / 乘加融合）；SoftMax 与 LayerNorm 仍走浮点——软浮点库并未彻底清除。
+    - generic [ref=f99e166]:
+      - paragraph [ref=f99e167]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f99e168]
+      - generic [ref=f99e170]:
+        - generic [ref=f99e171]:
+          - generic [ref=f99e172]: "1"
+          - text: 全真实 > 仿真加速训练-量化-裸机-上板贯穿始终——每一分加速对应的精度损失都有数字（82.5→~80），回应既有工作「仿真测加速、无法评估精度退化」的缺口。
+        - generic [ref=f99e173]:
+          - generic [ref=f99e174]: "2"
+          - text: 裁剪知道哪里能下刀深度 12→1 + MLP 256→24 是安全刀口（深度容量主要为多类买单）；归一化向量 DIM 不能砍——砍它等于压缩表示本身。
+        - generic [ref=f99e175]:
+          - generic [ref=f99e176]: "3"
+          - text: 非对称双 scale 有机理支撑权重 0-1 可用大 scale（64）提精度；输入幅值数百、scale 64 触发溢出（82.5→65.2）——不是经验调参而是取值范围的必然。
+        - generic [ref=f99e177]:
+          - generic [ref=f99e178]: "4"
+          - text: 最小面积的非线性算子加速GELU 分段近似（梯度下降寻优阈值，退化 0.0042%）+ SoftMax LUT（依赖数值稳定形式的有界性）——29% 面积 + 2.69kB ROM 换 2.4× 周期。
+    - generic [ref=f99e179]:
+      - paragraph [ref=f99e180]: §05 · 局限性与展望
+      - heading "双类设定让精度数字失去可比性；「迷你 Transformer 好不好」没关上" [level=2] [ref=f99e181]
+      - generic [ref=f99e183]:
+        - generic [ref=f99e184]:
+          - heading "方法局限" [level=4] [ref=f99e185]
+          - list [ref=f99e186]:
+            - listitem [ref=f99e187]: 任务设定根本局限：双类（notdog 混 34 词为负类），87.2/82.5% 与 35 类 96.9% 不在同一难度平面；~80% 绝对精度对商用唤醒词不够，且无 FAR/FRR/DET。
+            - listitem [ref=f99e188]: LUT 依赖标定：e^(max−x) ∈ [0,10] 是该模型/特征/数据上的经验事实——换模型越界就要重标，加速器不即插即用。
+            - listitem [ref=f99e189]: 软件未优化：O(n³) 朴素矩阵乘、SoftMax/LN 仍浮点——周期数还有可观软件压缩空间。
+            - listitem [ref=f99e190]: 功耗是推断：周期数 ×固定每周期能耗的假设，无实测；FPGA 动态功耗与 ASIC 流片有差距。
+        - generic [ref=f99e191]:
+          - heading "实验设计不足" [level=4] [ref=f99e192]
+          - list [ref=f99e193]:
+            - listitem [ref=f99e194]: 覆盖窄：单数据集、单平台、单次综合，无多种子无方差。
+            - listitem [ref=f99e195]: 零外部基线：无 DS-CNN / BC-ResNet / MatchboxNet，也无 TFLite Micro 同平台实测——「1646 参数的 Transformer」在同预算下是否优于成熟 CNN 无从判断。
+            - listitem [ref=f99e196]: 训练细节缺失：epoch / 优化器 / 学习率 / 数据划分全未报——结果难精确复现。
+            - listitem [ref=f99e197]: scale 搜索粗：只 2 的幂五个组合；无 QAT 对照——PTQ 与 82.5% 之间还有多少空间未知。
+            - listitem [ref=f99e198]: 无噪声/远场测试——唤醒词真实部署环境的常态缺位。
+      - generic [ref=f99e199]: 值得追的方向：① 输出类扩展到多唤醒词 + 误唤醒 / 漏检率评估；② QAT 替代纯 PTQ + SoftMax/LN 定点化，彻底清除软浮点；③ LUT 有效域自动标定流程让加速器可移植；④ 矩阵乘换优化实现（分块 / 展开 / 乘加融合）、库扩展到卷积算子；⑤ 最有价值的补课：真实芯片或系统 FPGA 功耗实测 + 与 CNN 系小模型同 RAM 预算正面对比——回答「在微控制器上迷你 Transformer 到底是不是好选择」这个开了头没关上的问题；⑥ 线性 attention / 低秩近似等结构性降本 + VAD-KWS 级联摊薄平均功耗。
+    - contentinfo [ref=f99e200]:
+      - generic [ref=f99e201]:
+        - link "深读笔记" [ref=f99e202] [cursor=pointer]:
+          - /url: /papers/2024/KWT-Tiny_RISC-V_Accelerated_Embedded_Keyword_Spotting_Transformer.md
+        - link "PDF 原稿" [ref=f99e203] [cursor=pointer]:
+          - /url: /papers/2024/KWT-Tiny_RISC-V_Accelerated_Embedded_Keyword_Spotting_Transformer.pdf
+        - link "arXiv" [ref=f99e204] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2407.16026
+        - link "代码" [ref=f99e205] [cursor=pointer]:
+          - /url: https://github.com/anessk01/kwt_tiny
+        - link "返回总目录" [ref=f99e206] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f99e207]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table I-IX / Fig. 1-7 / 式 1-13）；「笔记推算」标注处为笔记给出的核对结论。

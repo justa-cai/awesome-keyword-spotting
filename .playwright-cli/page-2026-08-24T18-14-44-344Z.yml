@@ -1,0 +1,251 @@
+- generic [active] [ref=f73e1]:
+  - navigation [ref=f73e2]:
+    - generic [ref=f73e3]:
+      - generic [ref=f73e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f73e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f73e6]:
+        - link "深读笔记" [ref=f73e7] [cursor=pointer]:
+          - /url: /papers/2024/Contrastive_Augmentation_An_Unsupervised_Learning_Approach_For_Keyword_Spotting_In_Speech_Technology.md
+        - link "PDF 原稿" [ref=f73e8] [cursor=pointer]:
+          - /url: /papers/2024/Contrastive_Augmentation_An_Unsupervised_Learning_Approach_For_Keyword_Spotting_In_Speech_Technology.pdf
+        - link "arXiv" [ref=f73e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2409.00356
+  - generic [ref=f73e10]:
+    - banner [ref=f73e11]:
+      - paragraph [ref=f73e12]: 论文精读 · 可视化版 · 2024 №4
+      - heading "同一句话快说慢说、大声小声， 瓶颈特征应该长一个样——无监督预训练这么造" [level=1] [ref=f73e13]: 同一句话快说慢说、大声小声，瓶颈特征应该长一个样——无监督预训练这么造
+      - paragraph [ref=f73e14]: "Contrastive Augmentation: An Unsupervised Learning Approach for Keyword Spotting in Speech Technology（CAB-KWS）"
+      - paragraph [ref=f73e15]: 作者：Weinan Dai、Yifeng Jiang（共同一作）、Yuanjing Liu、Jinkun Chen、Xin Sun、Jinglei Tao —— Trine / Boston U / Georgia Tech / Dalhousie / Texas A&M
+      - paragraph [ref=f73e16]: 发表：2024.08 · arXiv:2409.00356 v1（未标注会议录用）
+      - generic [ref=f73e17]:
+        - generic [ref=f73e18]: 无监督预训练
+        - generic [ref=f73e19]: 速度/音量增强正对
+        - generic [ref=f73e20]: 瓶颈特征对齐 L_sim
+        - generic [ref=f73e21]: 双重对比损失
+        - generic [ref=f73e22]: 注意力软池化去冗余
+        - generic [ref=f73e23]: GSCv2 加噪 10dB
+      - generic [ref=f73e24]:
+        - heading "一分钟版本" [level=2] [ref=f73e25]
+        - list [ref=f73e26]:
+          - listitem [ref=f73e27]: 痛点：标注正样本稀缺（换唤醒词就要重新采集，「耗时且耗资源」）；无标签语音几乎免费。架构侧卷积滑窗一视同仁、相邻窗口高度重叠产生大量冗余表示。
+          - listitem [ref=f73e28]: 架构：压缩卷积层（帧卷积 → 注意力软池化——g 个重叠帧被学出来的 β 权重加权塌缩成 1 帧 → 残差块 GroupNorm）+ 2 层 Transformer（长时依赖）+ 末 2 帧特征选择 + 800 维瓶颈层 + 12 维投影。
+          - listitem [ref=f73e29]: 预训练：同一条无标签语音做语速缩放 A(λ·t) / 音量缩放 λ·A(t)，两路过孪生共享网络，在瓶颈层做 MSE 对齐（L_sim，权重 0.8）——语义空间里的不变性约束；「重建时间平均 Fbank」分支当防塌缩锚（0.05×2）；双重对比损失把表示与分类器列对齐（0.1）。
+          - listitem [ref=f73e30]: 结果：平均 10 dB SNR 加噪 GSCv2 12 分类，CAB 四种配置（两种预训练源 × Dev/Eval）全部第一（88.1-88.5%，超 CPC/APC/MPC 0.5-1.4 点）；域外 Librispeech-100 预训练反而更高——一次预训练可服务多次换词。
+          - listitem [ref=f73e31]: 消融：速度单项远强于音量（+1.7 Dev）——音量在 log-Fbank 上近似平凡常数偏移，速度才逼模型学时间弹性对齐；对比学习主要补 Eval（泛化而非拟合）。
+          - listitem [ref=f73e32]: 成色警告：标题写「无监督」，但双重对比损失的正样本集按真值标签构造——无标签预训练阶段 P_i 如何构造论文从未说明，逻辑缺口未填补；arXiv v1 完成度有限（失效引用、表间数值对不上）。
+    - generic [ref=f73e33]:
+      - paragraph [ref=f73e34]: §01 · 问题陈述
+      - heading "换词就要重采数据；滑窗卷积把冗余当饭吃" [level=2] [ref=f73e35]
+      - generic [ref=f73e37]: 两个痛点：① 标注结构畸形——正样本（说出目标词的音频）在日常语音里占比极低、负样本长尾无界；商用唤醒词会更换，换词即重采，「耗时且耗资源」，低资源语言 / 小众唤醒词 / 快速迭代产品线反复支付这个成本，而有标签语料的无标签版本（有声书 / 播客）几乎免费。② 架构层冗余——一条语音只有部分片段与关键词高度相关，标准卷积对所有词窗口一视同仁，相邻窗口高度重叠产生大量冗余表示；非判别信息稀释特征、浪费容量，对 KWS 这种输入高度同质（都是短词）的任务伤害更明显。
+      - generic [ref=f73e38]:
+        - img [ref=f73e39]:
+          - generic [ref=f73e40]: 四条既有路线与它们没解决的问题
+          - generic [ref=f73e41]:
+            - generic [ref=f73e43]: 数据增强系
+            - generic [ref=f73e44]: VTLP / 速度扰动 / 加噪 /
+            - generic [ref=f73e45]: SpecAugment / WavAugment
+            - generic [ref=f73e46]: ✕ 只让标注数据覆盖更广，
+            - generic [ref=f73e47]: 没有减少标签需求
+            - generic [ref=f73e48]: ✓ 分布更宽
+            - generic [ref=f73e50]: 半监督（Noisy Student）
+            - generic [ref=f73e51]: 教师-学生迭代蒸馏
+            - generic [ref=f73e52]: ✕ 仍需一批种子标注
+            - generic [ref=f73e53]: 启动迭代
+            - generic [ref=f73e54]: ✓ 无标签数据可用
+            - generic [ref=f73e56]: 无监督预训练 CPC/APC/MPC
+            - generic [ref=f73e57]: 代理任务都是「预测被隐藏或
+            - generic [ref=f73e58]: 未来的内容」（下一帧 / 自回归
+            - generic [ref=f73e59]: 重建 / 掩码预测）
+            - generic [ref=f73e60]: ✕ 没显式利用「同一句话不同
+            - generic [ref=f73e61]: 语速音量应共享表示」的先验
+            - generic [ref=f73e63]: 监督对比学习
+            - generic [ref=f73e64]: 同类正对 / 异类负对
+            - generic [ref=f73e65]: ✕ 仍要交叉熵另训
+            - generic [ref=f73e66]: 线性分类器——两阶段
+            - generic [ref=f73e67]: 割裂（naive adaptation）
+          - generic [ref=f73e69]: CAB 的切入：增强从「扩数据的手段」提升为「无监督预训练的正对生成器」；对比项从样本-样本改为样本-分类器列双向对齐
+          - generic [ref=f73e70]: 三个挑战：① 几乎不用标签学到语速/音量不变 + 内容判别的表示（换词只微调）；② 去滑窗冗余、显式帧加权的紧凑架构；③ 消除「预训练表示 + 另训分类器」的割裂
+        - paragraph [ref=f73e71]: 图 A·思想来源（论文明说）：手语发现里的噪声对比估计 + 多示例学习，以及 QbE-STD（示例查询口语词检测）——但 QbE 式检索 / enroll 流程论文一条都没实现，只停留在动机引用。
+    - generic [ref=f73e72]:
+      - paragraph [ref=f73e73]: §02 · 方法论
+      - heading "软池化去冗余 + 孪生不变性对齐 + 双重对比" [level=2] [ref=f73e74]
+      - generic [ref=f73e76]:
+        - img [ref=f73e77]:
+          - generic [ref=f73e78]: 图 1 复绘：CAB-KWS 架构（CNN 管局部 + Transformer 管长时，瓶颈层是预训练枢纽）
+          - generic [ref=f73e80]: 输入 Fbank
+          - generic [ref=f73e81]: 40 维 · 1 s 段
+          - generic [ref=f73e84]: 压缩卷积层（替代原 CNN 块）
+          - generic [ref=f73e85]: ① 帧卷积（2 层 3×3，步长 2×2，32 通道）
+          - generic [ref=f73e86]: ② 注意力软池化：β 加权塌缩 g 帧 → 1 帧
+          - generic [ref=f73e87]: ③ 残差块（BatchNorm → GroupNorm）
+          - generic [ref=f73e90]: Transformer ×2
+          - generic [ref=f73e91]: 320 维 · 4 头 · 长时依赖
+          - generic [ref=f73e94]: 特征选择层
+          - generic [ref=f73e95]: 末 2 帧拼接 640 维
+          - generic [ref=f73e97]: 瓶颈层 FC（800 维）
+          - generic [ref=f73e98]: 所有无监督损失都施加在这里
+          - generic [ref=f73e102]: 微调：投影层 FC
+          - generic [ref=f73e103]: 800 → 12 类 softmax
+          - generic [ref=f73e105]: 无监督预训练：孪生不变性对齐（图 1B）
+          - generic [ref=f73e107]: 原始 X = A(t)
+          - generic [ref=f73e108]: Fbank 特征
+          - generic [ref=f73e110]: 增强 X_aug
+          - generic [ref=f73e111]: A(λ·t) 或 λ·A(t)
+          - generic [ref=f73e114]: 共享
+          - generic [ref=f73e115]: 权重
+          - generic [ref=f73e117]: 同一 CNN-Attention
+          - generic [ref=f73e118]: 孪生网络
+          - generic [ref=f73e121]: L_sim（0.8）
+          - generic [ref=f73e122]: 瓶颈 MSE：
+          - generic [ref=f73e123]: "|E−E_aug|²"
+          - generic [ref=f73e124]: + 重建分支 L_x / L_x_aug（各 0.05）：从瓶颈重建「时间平均 Fbank」40 维 —— 防塌缩的信息锚
+        - paragraph [ref=f73e125]: 图 B·微调阶段丢掉重建分支，瓶颈层后直接接投影层，全部参数更新（实验发现优于冻结骨干）。两个细节：特征选择层输出 640 维、瓶颈层映射到 800 维——维度是扩张而非收缩，"bottleneck"更像是「重建头之前那层」的术语继承（笔记核注）；软池化窗口 g、残差块数 a 论文均未给数值。
+      - generic [ref=f73e126]:
+        - text: L
+        - subscript [ref=f73e127]: ul
+        - text: = 0.8·L
+        - subscript [ref=f73e128]: sim
+        - text: + 0.05·L
+        - subscript [ref=f73e129]: x
+        - text: + 0.05·L
+        - subscript [ref=f73e130]: x_aug
+        - text: + 0.1·L
+        - subscript [ref=f73e131]: Dual
+        - text: ； L
+        - subscript [ref=f73e132]: Dual
+        - text: = L
+        - subscript [ref=f73e133]: z
+        - text: + L
+        - subscript [ref=f73e134]: θ
+        - generic [ref=f73e135]: 人话：L_sim 把「同一句话的两种声学变体」在 800 维瓶颈处拉近——输入级的时间 / 幅度缩放经多层非线性后应在这里被吸收掉（笔记解读：在输入层对齐退化为恒等，在过浅的中间层对齐会强迫网络保留本应丢弃的声学细节）。L_z / L_θ 是 CLIP 式的双向对齐，只是把「另一塔」从另一个模态换成分类器权重矩阵——分类器每一列本身成为该类别的原型表示，表示学习与分类器学习一步完成，负样本全部来自当前 batch。权重配比的直觉（笔记解读）：不变性主角 0.8，防塌缩锚 0.1，判别几何塑形 0.1；论文无敏感性分析。
+    - generic [ref=f73e136]:
+      - paragraph [ref=f73e137]: §03 · 实验结果
+      - heading "四个配置全第一；速度增强是真正的发动机" [level=2] [ref=f73e138]
+      - generic [ref=f73e140]: 数据与口径：GSCv2 12 分类（10 目标词 + unknown + silence），声明 10 万条但 80/10/10 划分后仅约 4.6 万条（口径矛盾，笔记核注：官方训练集 85k，两个口径都对不上）。全部实验在中度加噪条件下：HuNonspeech + Aurora4 管道，100 种噪声随机混入，SNR 0-20 dB、平均 10 dB——评的是鲁棒 KWS 而非干净条件。无标签预训练语料：Librispeech-100（100 h 有声书），切成 1 s 段后用同一管道加噪（保证预训练 / 微调声学条件一致）。指标只有准确率——无 FRR/FAR、无效率数字（参数量 / FLOPs / 压缩率一概没有，对主打「压缩」的方法是硬伤）。
+      - generic [ref=f73e141]:
+        - img [ref=f73e142]:
+          - generic [ref=f73e143]: Table 3 · 与自监督基线对比（GSCv2 12 分类准确率 %，平均 10 dB SNR 加噪）
+          - generic [ref=f73e144]: "86"
+          - generic [ref=f73e145]: "87"
+          - generic [ref=f73e146]: "88"
+          - generic [ref=f73e147]: Dev（验证集准确率）
+          - generic [ref=f73e149]: "87.6"
+          - generic [ref=f73e151]: "87.8"
+          - generic [ref=f73e152]: CPC
+          - generic [ref=f73e154]: "87.2"
+          - generic [ref=f73e156]: "87.7"
+          - generic [ref=f73e157]: APC
+          - generic [ref=f73e159]: "87.0"
+          - generic [ref=f73e161]: "87.9"
+          - generic [ref=f73e162]: MPC
+          - generic [ref=f73e164]: "88.1"
+          - generic [ref=f73e166]: "88.4"
+          - generic [ref=f73e167]: CAB-KWS
+          - generic [ref=f73e168]: "86"
+          - generic [ref=f73e169]: "87"
+          - generic [ref=f73e170]: "88"
+          - generic [ref=f73e171]: Eval（测试集）
+          - generic [ref=f73e173]: "86.9"
+          - generic [ref=f73e175]: "87.4"
+          - generic [ref=f73e176]: CPC
+          - generic [ref=f73e178]: "86.5"
+          - generic [ref=f73e180]: "87.5"
+          - generic [ref=f73e181]: APC
+          - generic [ref=f73e183]: "86.7"
+          - generic [ref=f73e185]: "87.0"
+          - generic [ref=f73e186]: MPC
+          - generic [ref=f73e188]: "88.3"
+          - generic [ref=f73e190]: "88.5"
+          - generic [ref=f73e191]: CAB-KWS
+          - generic [ref=f73e193]: 预训练源 = Speech Commands（任务内）
+          - generic [ref=f73e195]: 预训练源 = Librispeech-100（100h 域外有声书）
+          - generic [ref=f73e196]: 四种配置 CAB 全部第一（+0.5~+1.4 点）；域外 Librispeech 预训练反而更高——预训练不挑数据源
+        - paragraph [ref=f73e197]: 表 3 复绘·基线为 CPC/APC/MPC 发表网络与超参的原样复现。提升 0.5~1.4 点、温和但一致——四种配置（2 预训练源 × Dev/Eval）CAB 全部第一，无子项翻车；域外 LS-100 预训练（88.4/88.5）反而高于任务内 SC（88.1/88.3）。
+      - generic [ref=f73e198]:
+        - img [ref=f73e199]:
+          - generic [ref=f73e200]: Table 2 · 消融阶梯：速度单项远强于音量，对比学习主要补 Eval
+          - generic [ref=f73e201]: "86"
+          - generic [ref=f73e202]: "87"
+          - generic [ref=f73e203]: "88"
+          - generic [ref=f73e205]: "86.1"
+          - generic [ref=f73e207]: "86.3"
+          - generic [ref=f73e208]: 仅音量预训练
+          - generic [ref=f73e209]: "Eval: 85.9 / 86.0"
+          - generic [ref=f73e211]: "87.8"
+          - generic [ref=f73e213]: "87.9"
+          - generic [ref=f73e214]: 仅速度预训练
+          - generic [ref=f73e215]: "Eval: 86.9 / 87.9"
+          - generic [ref=f73e217]: "87.9"
+          - generic [ref=f73e219]: "88.2"
+          - generic [ref=f73e220]: 音量+速度
+          - generic [ref=f73e221]: "Eval: 87.2 / 88.1"
+          - generic [ref=f73e223]: "88.1"
+          - generic [ref=f73e225]: "88.4"
+          - generic [ref=f73e226]: +对比学习 (full)
+          - generic [ref=f73e227]: "Eval: 88.3 / 88.5"
+          - generic [ref=f73e229]: 预训练源 SC（柱=Dev）
+          - generic [ref=f73e231]: 预训练源 LS-100（柱=Dev）
+        - paragraph [ref=f73e232]: 表 2 复绘·消融阶梯（柱为 Dev，柱下标注 Eval）。速度单项（+1.7 Dev）远强于音量；两种增强叠加 +0.1~0.3；加对比学习后 Eval 87.2→88.3 / 88.1→88.5——收益主要落在测试集（泛化）。
+      - generic [ref=f73e233]: 消融四发现：① 速度单项远强于音量（sp-pre 比 vo-pre：Dev +1.7 / Eval +1.0）——笔记解读：语速扰动改变时间结构与音素时长分布，逼模型学时间弹性对齐（真实说话人差异的主要来源）；音量只是全局幅度缩放，在 log-Fbank 上近似所有帧加同一常数，是容易被吸收的平凡变换。② 两种增强叠加只有 +0.1~0.3——基本正交但音量侧信息量小。③ 对比学习主要补 Eval（+1.1 / +0.4）而 Dev 侧只有 +0.2——判别几何对齐的收益更多反映在泛化而非拟合。④ 预训练步数（Fig. 2）：5k/10k/20k/30k 扫描显示 30k 步最佳且下游收敛最快——工程甜点 30k 步即可。另有横向信息：预训练源从任务内 SC 换成域外 LS-100，四种配置全部不降反微升。
+    - generic [ref=f73e234]:
+      - paragraph [ref=f73e235]: §04 · 主要贡献
+      - heading "可转述的判断" [level=2] [ref=f73e236]
+      - generic [ref=f73e238]:
+        - generic [ref=f73e239]:
+          - generic [ref=f73e240]: "1"
+          - text: 增强 = 无监督正对生成器把语速/音量扰动从「扩数据的手段」提升为预训练的监督信号来源——先验直接对准 KWS 最关心的不变性，代理任务不再依赖时序结构预测。
+        - generic [ref=f73e241]:
+          - generic [ref=f73e242]: "2"
+          - text: 分类器列进对比空间双重对比损失（CLIP 同构）消除「表示学好了再配分类器」的两阶段割裂——分类器每一列成为类别原型，mini-batch 内取负样本无需额外队列。
+        - generic [ref=f73e243]:
+          - generic [ref=f73e244]: "3"
+          - text: 域外预训练可用100 h 有声书（无标签、与任务不同域）预训练 ≥ 任务内数据预训练——一次预训练服务多次换词，这是换唤醒词场景最有价值的工程结论。
+        - generic [ref=f73e245]:
+          - generic [ref=f73e246]: "4"
+          - text: 30k 步工程甜点 + 速度>音量预训练步数-下游收敛关系给出 30k 参考值；速度扰动才是增强正对的主力，音量近乎白送——增强组合搜索时应优先扩语速族。
+    - generic [ref=f73e247]:
+      - paragraph [ref=f73e248]: §05 · 局限性与展望
+      - heading "「无监督」的成色有逻辑缺口；完成度有限的 v1 稿件" [level=2] [ref=f73e249]
+      - generic [ref=f73e251]:
+        - generic [ref=f73e252]:
+          - heading "方法局限（成色与覆盖面）" [level=4] [ref=f73e253]
+          - list [ref=f73e254]:
+            - listitem [ref=f73e255]:
+              - text: 「无监督」逻辑缺口（最核心）：L
+              - subscript [ref=f73e256]: Dual
+              - text: 的正样本集 P
+              - subscript [ref=f73e257]: i
+              - text: 按真值标签 y 构造——预训练语料本应无标签，论文从未说明该阶段 P
+              - subscript [ref=f73e258]: i
+              - text: 怎么来；要么预训练实际没用 L
+              - subscript [ref=f73e259]: Dual
+              - text: （消融增益哪来的？），要么用了某种代理标签（未报告）。
+            - listitem [ref=f73e260]: 不变性覆盖窄：正对只有语速 / 音量两种变换；说话人音色、信道、混响、加噪没进对齐目标——而评测条件恰恰是加噪管道。
+            - listitem [ref=f73e261]: 压缩无量化：g、a、M 与实际压缩率均未给数值，无参数量 / FLOPs / 延迟对比——「压缩卷积层」之名缺量化支撑。
+            - listitem [ref=f73e262]: 权重手工固定：0.8/0.05/0.05/0.1 无敏感性分析，换数据集是否适用未知。
+            - listitem [ref=f73e263]: 防塌缩锚偏弱：时间平均 Fbank 只有 40 维；Table 2 消融未覆盖 L_x / L_x_aug 单项（无去掉重建分支的负对照）。
+        - generic [ref=f73e264]:
+          - heading "实验与写作完成度" [level=4] [ref=f73e265]
+          - list [ref=f73e266]:
+            - listitem [ref=f73e267]: 单任务、闭集、整词假设：只在 GSCv2 12 分类上做，输入是切好的 1 s 整词——不涉及流式检测、开放词表；引言引 QbE-STD 做动机却零 QbE 实验。
+            - listitem [ref=f73e268]: 优势小且无统计检验：领先只有 0.5-1.4 点，无多次运行方差 / 显著性——稳健性打折。
+            - listitem [ref=f73e269]: 表间数值对不上：Table 1 速度行 87.3/85.8 与 Table 2 sp-pre 87.8/86.9 不一致，两表训练语义（有无预训练）未说明。
+            - listitem [ref=f73e270]: 数据口径矛盾：10 万条声明 vs 划分后 4.6 万条。
+            - listitem [ref=f73e271]: v1 稿件细节：结论里方法名写成 CABKS、正文「Fig ??」失效引用、表行残留「&」、重建层被写成「softmax 输出」（重建 Fbank 均值用 softmax 不合常理，疑笔误）——引用结论需谨慎。
+      - generic [ref=f73e272]:
+        - text: 值得追的方向：① 增强族扩到加噪 / 混响 / 时频遮蔽并做组合系统搜索（论文自列未来工作）；② 把 L
+        - subscript [ref=f73e273]: Dual
+        - text: 的标签关系换成增强关系（同一原始语音的变体互为正对）或聚类伪标签——补上「真无监督」闭环；③ 兑现 QbE-STD / 开放词表动机：瓶颈表示天然适合模板检索，补 few-shot enroll 的检测式评测；④ 补效率维度并与 MatchboxNet / EdgeCRNN 正面对比；⑤ 与 wav2vec 2.0 / Noisy Student 组合或对照，检验更强基线下的边际价值；⑥ 多语言 / 低资源换词场景——方法动机里最有价值的落地叙事，论文反而没验证。
+    - contentinfo [ref=f73e274]:
+      - generic [ref=f73e275]:
+        - link "深读笔记" [ref=f73e276] [cursor=pointer]:
+          - /url: /papers/2024/Contrastive_Augmentation_An_Unsupervised_Learning_Approach_For_Keyword_Spotting_In_Speech_Technology.md
+        - link "PDF 原稿" [ref=f73e277] [cursor=pointer]:
+          - /url: /papers/2024/Contrastive_Augmentation_An_Unsupervised_Learning_Approach_For_Keyword_Spotting_In_Speech_Technology.pdf
+        - link "arXiv" [ref=f73e278] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2409.00356
+        - link "返回总目录" [ref=f73e279] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f73e280]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table 1-3 / Fig. 1-2）；「笔记解读 / 核注」标注处为笔记给出的推断与核对。

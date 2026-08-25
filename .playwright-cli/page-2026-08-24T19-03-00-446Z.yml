@@ -1,0 +1,201 @@
+- generic [active] [ref=f95e1]:
+  - navigation [ref=f95e2]:
+    - generic [ref=f95e3]:
+      - generic [ref=f95e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f95e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f95e6]:
+        - link "深读笔记" [ref=f95e7] [cursor=pointer]:
+          - /url: /papers/2024/GE2E-KWS_Generalized_End-to-End_Training_And_Evaluation_For_Zero-shot_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f95e8] [cursor=pointer]:
+          - /url: /papers/2024/GE2E-KWS_Generalized_End-to-End_Training_And_Evaluation_For_Zero-shot_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f95e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2410.16647
+  - generic [ref=f95e10]:
+    - banner [ref=f95e11]:
+      - paragraph [ref=f95e12]: 论文精读 · 可视化版 · 2024 №15
+      - heading "训练时就排练「注册 + 验证」， 419KB 的端侧模型打赢 7.5GB 的 ASR 通才" [level=1] [ref=f95e13]: 训练时就排练「注册 + 验证」，419KB 的端侧模型打赢 7.5GB 的 ASR 通才
+      - paragraph [ref=f95e14]: "GE2E-KWS: Generalized End-to-End Training and Evaluation for Zero-shot Keyword Spotting"
+      - paragraph [ref=f95e15]: 作者：Pai Zhu、Jacob W. Bartel、Dhruuv Agarwal、Kurt Partridge、Hyun Jin Park、Quan Wang —— Google
+      - paragraph [ref=f95e16]: 发表：2024.10 · arXiv:2410.16647
+      - generic [ref=f95e17]:
+        - generic [ref=f95e18]: 零样本自定义 KWS
+        - generic [ref=f95e19]: GE2E 损失（说话人确认迁移）
+        - generic [ref=f95e20]: 质心 + 余弦比对
+        - generic [ref=f95e21]: 419KB 量化 Conformer
+        - generic [ref=f95e22]: AUC 0.504%
+        - generic [ref=f95e23]: MSWC 530 万语音
+      - generic [ref=f95e24]:
+        - heading "一分钟版本" [level=2] [ref=f95e25]
+        - list [ref=f95e26]:
+          - listitem [ref=f95e27]: 需求张力：用户想自己定唤醒词——开放词表、零重训。主流思路把「分类」改成「度量比较」：注册嵌入 vs 流式窗口嵌入的余弦过阈值。硬墙：嵌入质量最好的 7.5GB ASR 编码器不可能端侧常驻，而 KWS 是全时后台任务。
+          - listitem [ref=f95e28]: 三类既有方案各有死穴：ASR 编码器（7.5GB 只能留在服务器）；语音分类编码器（1.4MB 端侧友好但训练目标错位——分类损失优化词表内类间分离而非「同短语语音靠近」，实测聚合 AUC 6.44% 全场最差）；三元组损失（每 batch 只一个锚 + 一正一负——训练信号稀疏、单锚高方差、收敛不稳）。
+          - listitem [ref=f95e29]: 方案（GE2E-KWS）：把说话人确认的 GE2E 损失迁到 KWS——每个 batch 8 个短语 × 各 10 条语音（强制不同说话人/风格，防止学成音色匹配），奇数条做注册取质心、偶数条做测试，质心与全部正负测试嵌入做 log-sum-exp 余弦对比——训练时就在排练服役的「注册 + 验证」两阶段，且一个 batch 的全部对比算成一次矩阵运算。
+          - listitem [ref=f95e30]: 结果：量化后 419KB 的 Conformer 聚合 AUC 0.504%——反超 7.5GB ASR 编码器（0.66%，相对 +23.6%）、碾压同尺寸三元组（1.283%，相对 +60.7%），还少训 2 个 epoch；四个训练时未见词（no/go/on/up）表现一致——真零样本。
+          - listitem [ref=f95e31]: 尺寸菜单（Table 2）：LSTM 甜点 1.2MB（AUC 0.344，容量红利在 530 万条语音处耗尽）；同 419KB 档加噪 EER：Conformer 9.69% 对 LSTM 12.71%——卷积分量能从局部上下文检测噪声，端侧小模型选型应偏向 Conformer。
+          - listitem [ref=f95e32]: 成色缺口：注册固定 10 条（用户只肯说 1-3 遍的衰减未测）；TTS 文本注册只有声明无实验；评测是逐条比对、缺「每小时误触发」流式指标；无延迟 / 内存 / 功耗。
+    - generic [ref=f95e33]:
+      - paragraph [ref=f95e34]: §01 · 问题陈述
+      - heading "419KB 打赢 7.5GB：任务对齐换体积效率" [level=2] [ref=f95e35]
+      - generic [ref=f95e37]: 三个耦合的难题：① 训练目标与服役流程对齐——训练中就模拟「注册 + 验证」，矩阵运算保效率、多语音质心降方差；② 精度与体积的极限权衡——8 比特量化后亚 MB（419KB）、原生流式（Lingvo 自动流式转换）、零重训，且匹配精度还要反超 7.5GB；③ 可信评测基准——直接度量「注册嵌入 vs 测试语音」的匹配质量（而非分类准确率），覆盖干净 + 加噪、覆盖训练未见词。评测空白的具体例证：三元组先行工作用 1992 年的 WSJ；one-shot 工作只在 TTS 合成集 + 4 关键词小集上报单阈值指标。
+    - generic [ref=f95e38]:
+      - paragraph [ref=f95e39]: §02 · 方法论
+      - heading "每个 batch 都是一次完整的注册-检测演习" [level=2] [ref=f95e40]
+      - generic [ref=f95e42]:
+        - img [ref=f95e43]:
+          - generic [ref=f95e44]: Fig.1(a) 复绘：X=3 短语 × Y=4 语音的最小例子（实际训练 8 短语 × 10 语音）
+          - generic [ref=f95e46]: Batch：X 个短语 × Y 条语音
+          - generic [ref=f95e47]: Pr₁ e₁₁ e₁₂ e₁₃ e₁₄
+          - generic [ref=f95e48]: Pr₂ e₂₁ e₂₂ e₂₃ e₂₄
+          - generic [ref=f95e49]: Pr₃ e₃₁ e₃₂ e₃₃ e₃₄
+          - generic [ref=f95e50]: 奇数序（j mod 2 ≠ 0）→ 注册集
+          - generic [ref=f95e52]: e₁₁, e₁₃
+          - generic [ref=f95e53]: 偶数序 → 正样本集
+          - generic [ref=f95e55]: e₁₂, e₁₄
+          - generic [ref=f95e56]: 其他短语测试语音 → 负样本集
+          - generic [ref=f95e57]: （跨短语取，j 为偶数、k ≠ i）
+          - generic [ref=f95e58]: 约束：同一短语的 Y 条语音来自不同
+          - generic [ref=f95e59]: 说话人与风格——防退化为音色匹配
+          - generic [ref=f95e62]: 质心 c₁
+          - generic [ref=f95e63]: c₁ = (e₁₁+e₁₃)/2
+          - generic [ref=f95e66]: 相似度矩阵
+          - generic [ref=f95e67]: cos(c₁, e₁₂) ↑ 正
+          - generic [ref=f95e68]: cos(c₁, e₁₄) ↑ 正
+          - generic [ref=f95e69]: cos(c₁, e₂₂) ↓ 负
+          - generic [ref=f95e70]: cos(c₁, e₂₄) ↓ 负
+          - generic [ref=f95e71]: cos(c₁, e₃₂) ↓ 负 …
+          - generic [ref=f95e72]: 一次矩阵运算：X 质心 ×
+          - generic [ref=f95e73]: 全部测试嵌入 —— 对比三元组
+          - generic [ref=f95e75]: 两大优势（论文自述）
+          - generic [ref=f95e76]: · 多语音质心平均掉单锚方差
+          - generic [ref=f95e77]: → 收敛快且稳：13 ep 达到
+          - generic [ref=f95e78]: 三元组 15 ep 的大幅更好精度
+          - generic [ref=f95e79]: · 监督信号密度：每 batch 8 质心
+          - generic [ref=f95e80]: × 40 条测试嵌入 vs 三元组
+          - generic [ref=f95e81]: 的「一锚一正一负」
+          - generic [ref=f95e82]: · 服役 = 训练：注册质心 → 余弦
+          - generic [ref=f95e83]: → 阈值，与损失优化同一组对象
+          - generic [ref=f95e84]: · 部署：Lingvo 自动流式转换 +
+          - generic [ref=f95e86]: 评测协议（Fig.1b）：每短语随机 10 条注册 → 质心 → 与其余全部测试语音算余弦 → 相似度直方图（100 bin）→ DET 曲线 → 短语级 AUC/EER 跨短语平均；3 路 MTR 加噪（3-15dB）双条件
+        - paragraph [ref=f95e87]: 图 A·跨域迁移的关键保障：batch 内同短语的 Y 条语音强制来自不同说话人和说话风格——否则模型会退化为学「同一说话人」的音色一致性（那正是 GE2E 在说话人确认里的原始用途）。编码器可替换：LSTM（3 层，传统流式代表）与 Conformer（ASR SOTA，卷积 + 自注意力混合——卷积分量后来被证明是噪声下更强的关键）。
+      - generic [ref=f95e88]:
+        - text: L(c
+        - subscript [ref=f95e89]: i
+        - text: ) = log Σ
+        - subscript [ref=f95e90]:
+          - text: n∈n
+          - subscript [ref=f95e91]: i
+        - text: exp cos(c
+        - subscript [ref=f95e92]: i
+        - text: ", n) − log Σ"
+        - subscript [ref=f95e93]:
+          - text: p∈p
+          - subscript [ref=f95e94]: i
+        - text: exp cos(c
+        - subscript [ref=f95e95]: i
+        - text: ", p)"
+        - generic [ref=f95e96]: 人话：前一项是负样本相似度的 log-sum-exp（光滑最大值）——最小化它整体压低质心与每个负样本的相似度；后一项被减——推高质心与每个正样本的相似度。拉近同类、推开异类，但没有温度或可学习缩放参数（比原始说话人 GE2E 更朴素，也未与 InfoNCE / ArcFace 类损失对比）。
+    - generic [ref=f95e97]:
+      - paragraph [ref=f95e98]: §03 · 实验结果
+      - heading "受控对照干净归因；未见词验证真零样本" [level=2] [ref=f95e99]
+      - generic [ref=f95e101]: 数据：训练 MSWC（3.8 万短语 / 530 万语音 / 2.7 万说话人）40 维谱特征 25ms 帧；评测 Speech Commands 测试集（35 短语 / 1.1 万条）——训练与评测短语基本不相交（no/go/on/up 明确不在训练数据），评测本身就是零样本检验。度量三层：相似度直方图（0-1 步长 0.01 的 100 bin，正负样本归一化后看重叠区）→ DET 曲线（阈值扫描 FRR/FAR）→ 聚合 AUC/EER（短语级平均）——免阈值、直接度量「两条独立语音的匹配」，纠正以往分类准确率的错位。
+      - generic [ref=f95e102]:
+        - img [ref=f95e103]:
+          - generic [ref=f95e104]: Table 1 · 聚合 AUC%（越低越好）：419KB 的「专才」打赢 7.5GB 的「通才」
+          - generic [ref=f95e105]: "0.5"
+          - generic [ref=f95e106]: "1"
+          - generic [ref=f95e107]: "2"
+          - generic [ref=f95e108]: "4"
+          - generic [ref=f95e109]: "7"
+          - generic [ref=f95e111]: "0.660"
+          - generic [ref=f95e112]: ASR 编码器
+          - generic [ref=f95e113]: （预训练） · 7.5 GB
+          - generic [ref=f95e115]: "6.440"
+          - generic [ref=f95e116]: 语音分类编码器
+          - generic [ref=f95e117]: （预训练） · 1.4 MB
+          - generic [ref=f95e119]: "1.283"
+          - generic [ref=f95e120]: 三元组 Conformer
+          - generic [ref=f95e121]: （15 ep） · 419 KB
+          - generic [ref=f95e123]: "0.504"
+          - generic [ref=f95e124]: GE2E Conformer
+          - generic [ref=f95e125]: （13 ep）★ · 419 KB
+        - paragraph [ref=f95e126]: 表 1 复绘·对数纵轴。分类编码器的失败（6.44%，比其他模型差近一个数量级）是「用分类任务副产品嵌入做自定义 KWS」这条路线的明确反面证据；GE2E 相对三元组的 60.7% 改善来自严格受控对比（同数据同架构，仅损失函数不同）。
+      - generic [ref=f95e127]:
+        - img [ref=f95e128]:
+          - generic [ref=f95e129]: Table 2 · 尺寸扫描（量化后体积）：LSTM 干净略优 / Conformer 加噪显著更优
+          - generic [ref=f95e130]: "0.3"
+          - generic [ref=f95e131]: "0.4"
+          - generic [ref=f95e132]: "0.5"
+          - generic [ref=f95e133]: "0.6"
+          - generic [ref=f95e136]: "0.568"
+          - generic [ref=f95e137]: 250KB
+          - generic [ref=f95e139]: "0.444"
+          - generic [ref=f95e140]: 630KB
+          - generic [ref=f95e142]: "0.344"
+          - generic [ref=f95e143]: 1.2MB ★
+          - generic [ref=f95e145]: "0.381"
+          - generic [ref=f95e146]: 2.7MB
+          - generic [ref=f95e149]: "0.504"
+          - generic [ref=f95e150]: 419KB ★
+          - generic [ref=f95e152]: "0.416"
+          - generic [ref=f95e153]: 1.2MB
+          - generic [ref=f95e155]: "0.389"
+          - generic [ref=f95e156]: 1.8MB ★
+          - generic [ref=f95e158]: "0.382"
+          - generic [ref=f95e159]: 2.4MB
+          - generic [ref=f95e160]: 量化后模型体积 MB（对数轴）
+          - generic [ref=f95e161]: LSTM（3 层，原始 2.8-31MB）
+          - generic [ref=f95e162]: Conformer（5-12 块，原始 2.8-24MB）
+          - generic [ref=f95e163]: 纵轴 AUC%。LSTM 甜点 1.2MB（AUC 0.344）——530 万条训练语音的容量红利在此耗尽；Conformer 1.8MB 进平台期。★ = 各自架构代表点
+          - generic [ref=f95e164]: 同 419KB 档加噪 EER：Conformer 9.69% vs LSTM 12.71%（同为 250KB 档）——卷积分量能从局部上下文检测噪声，端侧小模型选型应偏向 Conformer
+        - paragraph [ref=f95e165]: 表 2 复绘·EER 未入图：LSTM 各档干净 3.17/2.62/2.32/2.45%、加噪 12.71/10.65/10.46/10.91%；Conformer 干净 2.94/2.75/2.5/2.51%、加噪 9.69/10.49/9.21/8.98%。尺寸拉大后格局分条件反转：干净下 LSTM 15MB（2.32%）略优于 Conformer 18MB（2.5%），但加噪下 Conformer 全面更好。
+      - generic [ref=f95e166]: 词级细节与归因边界：backward 词四模型 0.68/2.70/0.76/0.22——GE2E 优势显著；bed 词 ASR 编码器异常强（0.04）对 GE2E 0.51；未见词 up：GE2E 0.83 好于三元组 1.71 和分类编码器 8.11、略差 ASR 0.73——个别未见词上大模型的表示能力仍有边际优势（也暗示蒸馏空间）。图 5 聚合 DET：GE2E 在整个工作点区间占优而非单阈值侥幸。归因边界（诚实提醒）：三元组 vs GE2E 是严格受控（同数据同架构）；ASR / 分类编码器是各自数据上的预训练模型——跨基线数字对比要留意数据配方差异。量化影响：全部对比基于量化后模型，但量化前后单独 AUC 对比未报告。
+    - generic [ref=f95e167]:
+      - paragraph [ref=f95e168]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f95e169]
+      - generic [ref=f95e171]:
+        - generic [ref=f95e172]:
+          - generic [ref=f95e173]: "1"
+          - text: 训练即排练服役GE2E 首次进 KWS：训练循环内模拟注册 + 验证——损失优化的对象（质心、余弦、正负结构）与服役计算完全一致，纠正分类 / 三元组的目标错位。
+        - generic [ref=f95e174]:
+          - generic [ref=f95e175]: "2"
+          - text: 任务对齐换体积效率419KB 专才反超 7.5GB 通才（AUC 相对 +23.6%）——体积差四个数量级，在端侧常驻前提下不是小胜而是可行性质变。
+        - generic [ref=f95e176]:
+          - generic [ref=f95e177]: "3"
+          - text: 可复用的评测协议注册-比对直接度量（直方图/DET/AUC/EER、干净+加噪、含未见词）——论文刻意写透供社区直接复用，补上领域缺系统评测的空白。
+        - generic [ref=f95e178]:
+          - generic [ref=f95e179]: "4"
+          - text: 尺寸菜单 + 选型判断小尺寸选 Conformer（卷积分量局部噪声检测）；容量红利在 530 万语音处耗尽（LSTM 1.2MB 后回落）——产品侧按设备选型的菜单。
+    - generic [ref=f95e180]:
+      - paragraph [ref=f95e181]: §05 · 局限性与展望
+      - heading "用户只肯说 1-3 遍注册；「原生流式」缺流式误报证据" [level=2] [ref=f95e182]
+      - generic [ref=f95e184]:
+        - generic [ref=f95e185]:
+          - heading "方法局限" [level=4] [ref=f95e186]
+          - list [ref=f95e187]:
+            - listitem [ref=f95e188]: 注册依赖性未探索：协议固定 10 条注册取质心；真实用户只肯 1-3 遍——质心方差显著上升，注册条数的敏感性曲线未报告（评测走向产品前必补）。
+            - listitem [ref=f95e189]: TTS 文本注册只有声明无实验：合成-真实嵌入域间隙对匹配精度的影响未量化——恰是「打字指定唤醒词」这一最顺滑交互的可行性关键。
+            - listitem [ref=f95e190]: 词级短语假设：训练评测都是单词；多词短语、变长、短语内停顿未涉及，质心比对对时长失配的鲁棒性未知。
+            - listitem [ref=f95e191]: 损失较朴素：无温度 / 可学习缩放（原 GE2E 有）；未与 InfoNCE / prototypical / ArcFace 类对比——60.7% 是对三元组的提升，不代表度量学习上限。
+            - listitem [ref=f95e192]: 单一语言评测：MSWC 多语但评测只在英语。
+        - generic [ref=f95e193]:
+          - heading "实验设计不足" [level=4] [ref=f95e194]
+          - list [ref=f95e195]:
+            - listitem [ref=f95e196]: 缺流式误报指标：逐条比对评测，而生产 KWS 最痛的是连续数小时音频的每小时误触发——DET 的 FAR 按条计，与流式误报不同量纲；「原生流式」声明无对应实验。
+            - listitem [ref=f95e197]: 无运行时开销：只有体积；延迟 / 实时率 / 内存峰值 / 功耗全无。
+            - listitem [ref=f95e198]: 无随机性与显著性：注册集随机选 10 条但无多轮方差；24MB 与 18MB DET 纠缠——论文明确拒绝下结论谁更强（克制值得肯定），但其他相近数字对同样缺检验。
+            - listitem [ref=f95e199]: 基线数据不对等：ASR / 分类编码器各用原生数据（分类编码器 2 亿条 YouTube），只有三元组 vs GE2E 受控。
+            - listitem [ref=f95e200]: 噪声单一：只有 3-15dB 3 路 MTR，无混响 / 远场 / 多说话人重叠。
+      - generic [ref=f95e201]: 值得追的方向：① 注册效率——1/3/5/10 条注册的衰减曲线 + 少样本质心正则 / 虚拟质心扩增 + 按词阈值校准（吸收词长 / 音节结构的分数分布差异）；② TTS 文本注册纳入同一协议，量化合成-真实间隙，探索 TTS 域自适应或音频-文本联合嵌入（与双模态路线合流）；③ 更强度量损失对照（温度 InfoNCE / 角度间隔）+ 利用 MSWC 多语做跨语零样本；④ 流式评测扩展——数小时连续音频的每小时误触发与检出延迟，加混响远场；⑤ 真实端侧硬件的延迟 / 内存 / 功耗画像，把体积菜单升级为部署菜单；⑥ 大模型蒸馏——ASR 编码器在 bed/up 等词上的边际优势说明还有上限可挖，用它做教师灌进 419KB。
+    - contentinfo [ref=f95e202]:
+      - generic [ref=f95e203]:
+        - link "深读笔记" [ref=f95e204] [cursor=pointer]:
+          - /url: /papers/2024/GE2E-KWS_Generalized_End-to-End_Training_And_Evaluation_For_Zero-shot_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f95e205] [cursor=pointer]:
+          - /url: /papers/2024/GE2E-KWS_Generalized_End-to-End_Training_And_Evaluation_For_Zero-shot_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f95e206] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2410.16647
+        - link "返回总目录" [ref=f95e207] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f95e208]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（表 1-2 / 图 1-6 / 式 1-4）。

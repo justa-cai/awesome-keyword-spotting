@@ -1,0 +1,248 @@
+- generic [active] [ref=f114e1]:
+  - navigation [ref=f114e2]:
+    - generic [ref=f114e3]:
+      - generic [ref=f114e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f114e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f114e6]:
+        - link "深读笔记" [ref=f114e7] [cursor=pointer]:
+          - /url: /papers/2024/Open_Vocabulary_Keyword_Spotting_Through_Transfer_Learning_From_Speech_Synthesis.md
+        - link "PDF 原稿" [ref=f114e8] [cursor=pointer]:
+          - /url: /papers/2024/Open_Vocabulary_Keyword_Spotting_Through_Transfer_Learning_From_Speech_Synthesis.pdf
+        - link "arXiv" [ref=f114e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2404.03914
+  - generic [ref=f114e10]:
+    - banner [ref=f114e11]:
+      - paragraph [ref=f114e12]: 论文精读 · 可视化版 · 2024 №25
+      - heading "madame 和 modem 分不开，因为文本嵌入不知道怎么念—— 把 TTS 编码器「看字猜声」的本事直接搬过来" [level=1] [ref=f114e13]: madame 和 modem 分不开，因为文本嵌入不知道怎么念——把 TTS 编码器「看字猜声」的本事直接搬过来
+      - paragraph [ref=f114e14]: Open Vocabulary Keyword Spotting through Transfer Learning from Speech Synthesis
+      - paragraph [ref=f114e15]: 作者：Kesavaraj V、Anil Kumar Vuppala —— IIIT Hyderabad LTRC
+      - paragraph [ref=f114e16]: 发表：2024.04 · arXiv:2404.03914
+      - generic [ref=f114e17]:
+        - generic [ref=f114e18]: TTS 中间表示迁移
+        - generic [ref=f114e19]: Tacotron 2 七层消融
+        - generic [ref=f114e20]: E3 编码器 Bi-LSTM 最优
+        - generic [ref=f114e21]: 文本查询交叉注意力
+        - generic [ref=f114e22]: LPH EER −8.22
+        - generic [ref=f114e23]: 从不真正合成语音
+      - generic [ref=f114e24]:
+        - heading "一分钟版本" [level=2] [ref=f114e25]
+        - list [ref=f114e26]:
+          - listitem [ref=f114e27]: 模态异质性（audio-text mismatch）：文本编码器从字面字符出发，表征里没有「声音」概念；音频编码器满是音色/信道/噪声等文本侧不存在的变量。两条不平行轨道硬架桥，最直接症状在近音词判别——CMCD 在 LibriPhrase Hard 上 EER 32.9%。
+          - listitem [ref=f114e28]: 核心思想：跨任务知识套利：Tacotron 2 的编码器全部工作就是「看字猜声」——必须把「这段文本怎么发音」编码进中间表示才能预测梅尔谱。把这层表示直接搬来当 KWS 文本编码器的输入特征（不合成音频、不加新预训练目标、只换特征源），用生成任务的免费副产品填补判别任务的模态鸿沟。
+          - listitem [ref=f114e29]: 七层消融的关键结论：E3（编码器 Bi-LSTM 输出）全场最优；编码器侧（说话人无关）显著优于解码器侧（E5/E6/E7 纠缠 LJSpeech 单说话人音色——对「任意说话人音频对文本」是噪声）；E6（Postnet）甚至差过最朴素的 E1 字符嵌入。可迁移判断：迁移点应选在模态转换之前、上下文建模完成之后。
+          - listitem [ref=f114e30]: 结果：Q / LPE / LPH 三库全面第一；LPH EER 32.9→24.68（−8.22）、AUC 73.58→86.14（+12.56）——近音词上拉开约十个点是质变级收益；G 上第二（QbyE 吃训练集内高频词的「熟悉度」红利——一旦关键词陌生立刻崩到 49.13，恰是开放词表最不能接受的失败模式）。
+          - listitem [ref=f114e31]: 开放词表证据：OOV 未见词上 EER 23.48→18.14、AUC +6.36、F1 +7.25 对 CMCD——文本侧靠 TTS 的字素-音素知识照样正确编码匹配，不是拟合训练词表；词长 1→4 EER 只差约 3 点（4 词档仅 56 episode 置信度有限）；Fig.2：E3 训练损失下降快于 CMCD——跨模态对齐被 TTS 预训练部分预解。
+          - listitem [ref=f114e32]: 成色缺口：单层迁移（多层融合自留）；绑死字符级英语单说话人 Tacotron 2（拼读不规则语言未验证）；零部署指标（参数/延迟/内存）；成对二分类形态——连续音频流的滑窗检测与定位未讨论。引用警告：论文三处正文数字与表格不一致（AUC/EER 标签互换两处、OOV 改善量笔误）——引用必须回表格复核。
+    - generic [ref=f114e33]:
+      - paragraph [ref=f114e34]: §01 · 问题陈述
+      - heading "三条路线各有死穴，模态异质性是共同软肋" [level=2] [ref=f114e35]
+      - generic [ref=f114e37]: 三条路线的量化验伤（Table I）：① QbyE（音频注册）——性能严重依赖注册与测试语音的相似度：注意力 QbyE 在 G（关键词在训练集内、高频常用词）EER 14.75 全场最佳（吃「熟悉度」红利），换陌生 Qualcomm 立刻崩到 49.13 / AUC 50.13 接近随机；② ASR 文本注册——级联依赖，ASR 错 KWS 跟着错、误差沿链路放大；③ 端到端共享空间（CMCD / PhonMatchNet / MLE）——最强路线但模态异质性未解：文本表征缺声学知识，近音词对（madame/modem 字面与发音都只差一点）划不出清晰边界——LPH 32.9% 就是代价。三层问题链：怎么让文本表征自带声学知识（不靠训练时两编码器互相迁就）；搬哪一层（七种候选中间表示需系统消融）；搬来稳不稳（OOV 与词长鲁棒性——否则收益可能只是拟合训练词表）。
+    - generic [ref=f114e38]:
+      - paragraph [ref=f114e39]: §02 · 方法论
+      - heading "注册期缓存文本嵌入，TTS 前段不进关键路径" [level=2] [ref=f114e40]
+      - generic [ref=f114e42]:
+        - img [ref=f114e43]:
+          - generic [ref=f114e44]: Fig.1 复绘：四模块架构 + E1-E7 抽取位置与 Query/Key 分配
+          - generic [ref=f114e46]: 文本编码器（注册期一次算好缓存）
+          - generic [ref=f114e48]: ❄ Tacotron 2 编码器
+          - generic [ref=f114e49]: 抽 E3（Bi-LSTM 输出）
+          - generic [ref=f114e52]: Bi-GRU(64) → FC(128)
+          - generic [ref=f114e53]: TE ∈ R^(d×m)
+          - generic [ref=f114e54]: · 从不真正合成语音——只用中间表示做知识迁移
+          - generic [ref=f114e55]: · E1-E3 按字符数对齐（语言学单元层）
+          - generic [ref=f114e56]: · E4-E7 按合成帧数对齐（声学帧层）
+          - generic [ref=f114e57]: · Tacotron 2 权重推断为冻结的特征提取器用法
+          - generic [ref=f114e59]: 音频编码器（在线路径）
+          - generic [ref=f114e61]: 2×2D 卷积（32→64，首层 stride 2）
+          - generic [ref=f114e62]: 80 维梅尔滤波器组 · 25/10ms
+          - generic [ref=f114e64]: 2×Bi-GRU(64) → FC(128)
+          - generic [ref=f114e65]: AE ∈ R^(d×n)
+          - generic [ref=f114e66]: · 两侧统一 d=128：交叉注意力的 Q 与 K
+          - generic [ref=f114e67]: 同维才能内积——接口对齐的前提
+          - generic [ref=f114e69]: 模式提取器 + 判别器
+          - generic [ref=f114e71]: 交叉注意力：Q = TE，K = V = AE
+          - generic [ref=f114e72]: 文本查音频 = 每字符去整段音频「找自己的声音」
+          - generic [ref=f114e74]: Bi-GRU(128) → 取末帧 → sigmoid
+          - generic [ref=f114e75]: 「这段文本和音频是否同一关键词」
+          - generic [ref=f114e76]: · 为什么 Q=文本：音频长而变长、文本短——
+          - generic [ref=f114e77]: 输出长度跟文本侧、与音频长度解耦；
+          - generic [ref=f114e79]: 为什么 Q/KV 这样分配（对齐结构由角色隐式决定）
+          - generic [ref=f114e80]: · 文本查音频：天然形成文本→音频软对齐，回避 MLE 的「动态序列划分」与 CMCD 的显式单调匹配损失——不需要对齐约束，注意力结构内生解决
+          - generic [ref=f114e82]: 成对二分类 = 开放词表能力的结构来源
+          - generic [ref=f114e83]: 固定类别 softmax 的输出层与训练词表绑定；成对二分类把「识别」改写成「验证」——新词只要能变成文本嵌入就能匹配，词表边界从结构里消失转移到数据侧。代价：评测基于预切分 episode，连续音频流滑窗检测未讨论。
+        - paragraph [ref=f114e84]: 图 A·选 Tacotron 2 的推断理由（笔记）：NVIDIA 开源 LJSpeech 预训练完整权重 + 编码器结构字符级、层级清晰便于逐层抽取。训练：BCE 损失、Adam 1e-4、batch 128、Xavier 初始化、Leaky ReLU、每层后 0.2 dropout、4×RTX 2080Ti；轮数与时长未报。
+      - generic [ref=f114e85]:
+        - text: Attention(Q, K, V) = softmax( Q·K
+        - superscript [ref=f114e86]: T
+        - text: / √d
+        - subscript [ref=f114e87]: k
+        - text: ) · V，其中 Q = TE（文本），K = V = AE（音频）； c
+        - subscript [ref=f114e88]: i
+        - text: = Σ
+        - subscript [ref=f114e89]: j
+        - text: α
+        - subscript [ref=f114e90]: ij
+        - text: ·AE
+        - subscript [ref=f114e91]: j
+        - generic [ref=f114e92]: 人话：对文本第 i 个字符位置，注意力权重衡量它与音频第 j 帧的关联强度；上下文向量 = 「这个字符在整段音频中收集到的声学证据总和」——判别器读完整条证据序列后做同一/不同关键词的判决。
+    - generic [ref=f114e93]:
+      - paragraph [ref=f114e94]: §03 · 实验结果
+      - heading "近音词上拉开十个点；OOV 不塌方" [level=2] [ref=f114e95]
+      - generic [ref=f114e97]: 数据与口径：LibriPhrase（LibriSpeech train-clean-100/360 训练、train-others-500 评测；1-4 词短语的 episode 数 4391/2605/467/56，每 episode 3 正对 3 负对；负样本按 Levenshtein 文本距离分易/难两档）；G（Speech Commands V1）与 Q（Qualcomm，4 词 / 50 人 / 4270 句）做零微调跨库泛化。指标 EER / AUC / F1 三件套（阈值无关 + 阈值相关两端）。评测设计偏差（笔记）：用文本编辑距离近似发音距离——同音异形词字面距离不小却完全同音，LPH 的「难负样本」集合与真正近音混淆集合存在系统性错位，结论强度受此制约。
+      - generic [ref=f114e98]:
+        - img [ref=f114e99]:
+          - generic [ref=f114e100]: Table I · EER%（越低越好）：LPH 近音词上拉开 8.22 点——声学先验的质变收益
+          - generic [ref=f114e101]: "10"
+          - generic [ref=f114e102]: "20"
+          - generic [ref=f114e103]: "30"
+          - generic [ref=f114e104]: "40"
+          - generic [ref=f114e105]: G（见过词）
+          - generic [ref=f114e107]: "31.6"
+          - generic [ref=f114e109]: "14.8"
+          - generic [ref=f114e111]: "35.6"
+          - generic [ref=f114e113]: "27.2"
+          - generic [ref=f114e115]: "22.3"
+          - generic [ref=f114e116]: ← CTC · QbyE · Triplet · CMCD · 本文 →
+          - generic [ref=f114e117]: Q（Qualcomm）
+          - generic [ref=f114e119]: "18.2"
+          - generic [ref=f114e121]: "49.1"
+          - generic [ref=f114e123]: "38.7"
+          - generic [ref=f114e125]: "12.2"
+          - generic [ref=f114e127]: "10.8"
+          - generic [ref=f114e128]: ← CTC · QbyE · Triplet · CMCD · 本文 →
+          - generic [ref=f114e129]: LPE（易负例）
+          - generic [ref=f114e131]: "14.7"
+          - generic [ref=f114e133]: "28.7"
+          - generic [ref=f114e135]: "32.8"
+          - generic [ref=f114e137]: "8.4"
+          - generic [ref=f114e139]: "5.6"
+          - generic [ref=f114e140]: ← CTC · QbyE · Triplet · CMCD · 本文 →
+          - generic [ref=f114e141]: LPH（近音难负例）
+          - generic [ref=f114e143]: "35.2"
+          - generic [ref=f114e145]: "42.0"
+          - generic [ref=f114e147]: "44.4"
+          - generic [ref=f114e149]: "32.9"
+          - generic [ref=f114e151]: "24.7"
+          - generic [ref=f114e152]: ← CTC · QbyE · Triplet · CMCD · 本文 →
+          - generic [ref=f114e154]: CTC（DONUT）
+          - generic [ref=f114e156]: Attention（QbyE）
+          - generic [ref=f114e158]: Triplet
+          - generic [ref=f114e160]: CMCD（最强基线）
+          - generic [ref=f114e162]: 本文（TTS-E3）★
+          - generic [ref=f114e163]: 本文在 Q / LPE / LPH 三库全面第一；G 上第二（QbyE 吃训练集内高频词的「熟悉度」红利——一旦关键词陌生立刻崩到 49.13，恰是开放词表最不能接受的失败模式）
+        - paragraph [ref=f114e164]: 表 I 复绘·EER（越低越好）。QbyE（橙）的 G/Q 反差是最有信息量的基线现象：见过词 14.75 全场最佳、陌生词 49.13 接近随机——注册音频质量是该路线的阿喀琉斯之踵；CTC 在 G 很差 Q 尚可（路线内部方差极大）；Triplet 全面最弱（纯度量学习在细粒度近音判别上表征不足）。AUC 同序：本文 85.16/95.65/98.49/86.14。
+      - generic [ref=f114e165]:
+        - img [ref=f114e166]:
+          - generic [ref=f114e167]: Table III · Tacotron 2 七层中间表示逐层消融（EER%）：编码器侧赢、E3 最优、Postnet 最差
+          - generic [ref=f114e168]: "10"
+          - generic [ref=f114e169]: "20"
+          - generic [ref=f114e170]: "30"
+          - generic [ref=f114e173]: 编码器侧（说话人无关）
+          - generic [ref=f114e174]: 解码器侧（纠缠 LJSpeech 单说话人音色）
+          - generic [ref=f114e179]: "32.1"
+          - generic [ref=f114e180]: E1 字符嵌入
+          - generic [ref=f114e181]: （无上下文）
+          - generic [ref=f114e186]: "28.5"
+          - generic [ref=f114e187]: E2 卷积块
+          - generic [ref=f114e188]: （局部拼读）
+          - generic [ref=f114e193]: "24.7"
+          - generic [ref=f114e194]: E3 Bi-LSTM ★
+          - generic [ref=f114e195]: （全序列上下文）
+          - generic [ref=f114e200]: "31.2"
+          - generic [ref=f114e201]: E4 注意力
+          - generic [ref=f114e202]: （解码器）
+          - generic [ref=f114e207]: "34.4"
+          - generic [ref=f114e208]: E5 Prenet
+          - generic [ref=f114e209]: （解码器）
+          - generic [ref=f114e214]: "39.2"
+          - generic [ref=f114e215]: E6 Postnet ✗
+          - generic [ref=f114e216]: （全场最差）
+          - generic [ref=f114e221]: "34.7"
+          - generic [ref=f114e222]: E7 目标梅尔谱
+          - generic [ref=f114e223]: 每组四柱从左到右 = G / Q / LPE / LPH 的 EER；柱顶标 LPH 值。E1→E2→E3 递进 = 单字符 → 局部拼读上下文 → 全序列字素-音素解析完毕
+          - generic [ref=f114e224]: E6（Postnet）甚至差过最朴素的 E1——解码器深层几乎只剩说话人相关声学细节、丢掉语言学抽象；「迁移点应选在模态转换之前、上下文建模完成之后」
+        - paragraph [ref=f114e225]: 表 III 复绘·绿底为编码器侧（说话人无关）、红底为解码器侧（纠缠单说话人音色）。E1→E2→E3 的递进即声学知识含量的递进：单字符嵌入无法消歧同形字符的软硬读法（c）、卷积块带来 sh/ch 双字母组合的局部拼读、Bi-LSTM 把全序列字素-音素依赖解析完毕——「发音就绪」表示。AUC 与 F1 呈完全一致排序；E3 的 AUC/F1 与 Table I 的 Proposed 行完全相同（证实最终系统就是 E3 配置）。
+      - generic [ref=f114e226]:
+        - img [ref=f114e227]:
+          - generic [ref=f114e228]: Table IV/V · 词长鲁棒性与 OOV（未见词）：声学先验不是拟合训练词表
+          - generic [ref=f114e229]: 词长（LibriPhrase，EER%）
+          - generic [ref=f114e230]: "5"
+          - generic [ref=f114e231]: "7"
+          - generic [ref=f114e232]: "9"
+          - generic [ref=f114e234]: "5.41"
+          - generic [ref=f114e235]: 1 词
+          - generic [ref=f114e236]: 4391 ep
+          - generic [ref=f114e238]: "5.90"
+          - generic [ref=f114e239]: 2 词
+          - generic [ref=f114e240]: "2605"
+          - generic [ref=f114e242]: "7.59"
+          - generic [ref=f114e243]: 3 词
+          - generic [ref=f114e244]: "467"
+          - generic [ref=f114e246]: "8.50"
+          - generic [ref=f114e247]: 4 词
+          - generic [ref=f114e248]: 56 ⚠
+          - generic [ref=f114e249]: OOV 未见词（三指标对 CMCD）
+          - generic [ref=f114e251]: "23.48"
+          - generic [ref=f114e253]: "18.14"
+          - generic [ref=f114e254]: EER ↓
+          - generic [ref=f114e256]: "84.08"
+          - generic [ref=f114e258]: "90.44"
+          - generic [ref=f114e259]: AUC ↑
+          - generic [ref=f114e261]: "76.20"
+          - generic [ref=f114e263]: "83.45"
+          - generic [ref=f114e264]: F1 ↑
+          - generic [ref=f114e266]: CMCD
+          - generic [ref=f114e268]: 本文（TTS-E3）
+          - generic [ref=f114e269]: OOV 构造方式未报告
+        - paragraph [ref=f114e270]: 表 IV/V 复绘·左：词长 EER 平缓上升（1→4 词只差约 3 点，论文表述「各词长性能一致」）——但 4 词档仅 56 episode（⚠ 橙柱），置信度有限。右：OOV 未见词三指标全面优于 CMCD（各指标按自身量程归一）——开放词表定位最直接的证据：训练没见过的词靠 TTS 字素-音素知识照样正确编码匹配。
+      - generic [ref=f114e271]: 三处正文-表格不一致（引用必读）：① LPH 改善数字的指标归属互换——摘要与正文写「AUC 提升 8.22、EER 提升 12.56」，按 Table I 核算 8.22 是 EER 差、12.56 是 AUC 差；② G/Q 泛化段同样对调——均值 2.62 的是 AUC、约 3 的是 EER；③ OOV 的 EER 改善写 5.53 而表算 5.34。三处都不改结论方向但说明数字校对粗糙——引用时必须回表格自行复核。另：E7 标注「目标梅尔谱」但推理时梅尔谱只能来自模型预测（前一帧或最终预测谱），如何取值论文未明确——复现需自行定义。
+    - generic [ref=f114e272]:
+      - paragraph [ref=f114e273]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f114e274]
+      - generic [ref=f114e276]:
+        - generic [ref=f114e277]:
+          - generic [ref=f114e278]: "1"
+          - text: 跨任务知识套利用生成任务（TTS）的训练副产品填补判别任务（音文匹配）的模态鸿沟——范式不限于 KWS，可迁移到其他跨模态匹配场景。
+        - generic [ref=f114e279]:
+          - generic [ref=f114e280]: "2"
+          - text: 迁移点选在模态转换之前、上下文完成之后E3 最优、编码器侧全面优于解码器侧、Postnet 最差——复用任何 seq2seq 模型做特征迁移的一般性工程经验。
+        - generic [ref=f114e281]:
+          - generic [ref=f114e282]: "3"
+          - text: 近音判别是声学先验的直接受益点LPH EER −8.22 / AUC +12.56——TTS 迁来的字素-音素知识让文本嵌入在发音空间把近音词分开，判别边界随之清晰。
+        - generic [ref=f114e283]:
+          - generic [ref=f114e284]: "4"
+          - text: 声学先验注入加速收敛文本编码器从「声学感知」初始化出发，跨模态对齐被 TTS 预训练部分预解——训练早期就形成有意义的注意力模式，同目标精度训练开销更小。
+    - generic [ref=f114e285]:
+      - paragraph [ref=f114e286]: §05 · 局限性与展望
+      - heading "绑死英语字符级单说话人 TTS；从验证器到检测器还有一段路" [level=2] [ref=f114e287]
+      - generic [ref=f114e289]:
+        - generic [ref=f114e290]:
+          - heading "方法局限" [level=4] [ref=f114e291]
+          - list [ref=f114e292]:
+            - listitem [ref=f114e293]: 单层迁移：只抽 E3 一层——七层各有侧重（E2 局部拼读 / E3 全序列 / E4 对齐），只取一层必然丢信息（论文自认列为未来工作）。
+            - listitem [ref=f114e294]: 绑死特定 TTS：字符级 / 英语 / LJSpeech 单说话人自回归——拼读不规则语言（法语、印度语系）未验证；单说话人音色偏置是否会成瓶颈未讨论。
+            - listitem [ref=f114e295]: 只测自回归 TTS：FastSpeech 类非自回归、音素输入、多说话人 TTS 未横向对比——「编码器侧优」结论的架构无关性存疑。
+            - listitem [ref=f114e296]: 部署指标全空白：文本编码器背后挂着 Tacotron 2 的 512 维前段——参数/延迟/内存/实时率零数据；效率优势只能从「注册期缓存 + 推理不合成」两点架构性质推断。
+            - listitem [ref=f114e297]: 成对分类形态限制：预切分 episode 上的验证器——连续音频流的滑窗检测、关键词定位、置信度校准未讨论（走向检测器的必经之路）。
+        - generic [ref=f114e298]:
+          - heading "实验设计不足" [level=4] [ref=f114e299]
+          - list [ref=f114e300]:
+            - listitem [ref=f114e301]: 无噪声与信道实验：主张「文本注册天然免疫 QbyE 的注册失配弱点」却没有 SNR 扫描 / 加噪实验自证——说服力打折。
+            - listitem [ref=f114e302]: 无统计显著性：单次点估计无方差；4 词长仅 56 episode——长词端结论统计功效很低。
+            - listitem [ref=f114e303]: 基线数字来源未说明：自复现还是引原论文（CMCD 作者即 LibriPhrase 构造方）未报——公平性无法核对。
+            - listitem [ref=f114e304]: 三处数字不一致（见实验节）——引用必须回表格。
+            - listitem [ref=f114e305]: OOV 构造方式未报告：词表如何划分、规模多大——复现缺口。
+      - generic [ref=f114e306]: 值得追的方向：① 多层融合迁移（论文自提）——按层加权聚合 / 层级蒸馏 / 可学习层选择门控；② 换型与多语消融——音素输入 TTS、非自回归、多说话人多语言 TTS 上重复逐层消融，检验结论的架构/语言无关性并打开非英语开放词表的门；③ 流式化改造——判别器从序列级末帧改帧级单调判决 + 滑窗，补延迟与实时率；④ 端侧化评测——音频编码器与 cFSMN / DS-CNN 小骨干互换对比，检验 MCU 级预算可行性；⑤ 鲁棒性补课——SNR 扫描 / 混响 / 远场直接对照 QbyE 的注册失配弱点，把「文本注册更稳」从架构推论升级为实验结论。
+    - contentinfo [ref=f114e307]:
+      - generic [ref=f114e308]:
+        - link "深读笔记" [ref=f114e309] [cursor=pointer]:
+          - /url: /papers/2024/Open_Vocabulary_Keyword_Spotting_Through_Transfer_Learning_From_Speech_Synthesis.md
+        - link "PDF 原稿" [ref=f114e310] [cursor=pointer]:
+          - /url: /papers/2024/Open_Vocabulary_Keyword_Spotting_Through_Transfer_Learning_From_Speech_Synthesis.pdf
+        - link "arXiv" [ref=f114e311] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2404.03914
+        - link "返回总目录" [ref=f114e312] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f114e313]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table I-V / Fig. 1-2）；「笔记推断 / 核算 / 偏差」标注处为笔记给出的核对结论。

@@ -1,0 +1,286 @@
+- generic [active] [ref=f10e1]:
+  - navigation [ref=f10e2]:
+    - generic [ref=f10e3]:
+      - generic [ref=f10e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f10e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f10e6]:
+        - link "深读笔记" [ref=f10e7] [cursor=pointer]:
+          - /url: /papers/2025/Dual_Data_Scaling_For_Robust_Two-Stage_User-Defined_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f10e8] [cursor=pointer]:
+          - /url: /papers/2025/Dual_Data_Scaling_For_Robust_Two-Stage_User-Defined_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f10e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2510.10740
+  - generic [ref=f10e10]:
+    - banner [ref=f10e11]:
+      - paragraph [ref=f10e12]: 论文精读 · 可视化版 · 2025 №10
+      - heading "DS-KWS 宽进严出：CTC 流式定位 + 音素匹配验证，两条数据轴分别喂饱两级" [level=1] [ref=f10e13]: DS-KWS宽进严出：CTC 流式定位 + 音素匹配验证，两条数据轴分别喂饱两级
+      - paragraph [ref=f10e14]: Dual Data Scaling for Robust Two-Stage User-Defined Keyword Spotting
+      - paragraph [ref=f10e15]: 作者：Zhiqi Ai 等 —— 上海大学 / 西交利物浦大学；通讯 Shugong Xu、Yongjin Zhou
+      - paragraph [ref=f10e16]: 发表：2025.10 · arXiv:2510.10740
+      - generic [ref=f10e17]:
+        - generic [ref=f10e18]: 用户自定义 KWS
+        - generic [ref=f10e19]: 两阶段框架
+        - generic [ref=f10e20]: CTC 流式解码
+        - generic [ref=f10e21]: 文本注册 QbyT
+        - generic [ref=f10e22]: 数据规模扩展
+        - generic [ref=f10e23]: 易混淆词判别
+      - generic [ref=f10e24]:
+        - heading "一分钟版本" [level=2] [ref=f10e25]
+        - list [ref=f10e26]:
+          - listitem [ref=f10e27]: 需求源头：智能设备大规模铺开（论文原文点名 "XiaoZhi AI"），用户想现场注册自己的唤醒词——但模型上线时不可能预知注册什么词，只能靠 zero-shot，与预定义方案的 full-shot 训练存在系统性差距。
+          - listitem [ref=f10e28]: 架构答案「宽进严出」：第一级 CTC 流式检索——候选边界来自声学对齐而非滑窗网格，配模糊音素聚合保召回（宁可多报）；第二级 QbyT 音素匹配器在音素级 + 句子级双粒度上验证，把误报压下去。
+          - listitem [ref=f10e29]: 数据答案「双重扩展」：ASR 语料 460→1460 小时喂声学模型（LSother P-WER 18.79→11.80）；锚点词类别 12k→155k 喂匹配器（EER 13.38→10.65）——交叉消融证明两轴各自独立有效。
+          - listitem [ref=f10e30]: 注册侧激进轻量化：文本注册只用一个 nn.Embedding 查表，替代 DistilBERT / G2P embedding 等重型预编码器——唤醒词只有几个音素，不需要深层语义编码。
+          - listitem [ref=f10e31]: 结果：LibriPhrase-Hard EER 6.13%（PLCL-AT 的 1/5 参数量再降 2.34 pp）；Hey-Snips zero-shot 召回 99.13%@FAR=1，超过 full-shot 的 RIL-KWS。代价：全文无延迟/功耗数字，M2 模式 7.7M 参数的流式开销未知。
+    - generic [ref=f10e32]:
+      - paragraph [ref=f10e33]: §01 · 问题陈述
+      - heading "定位、判别、泛化三个方向不一致，单端到端模型很难同时满足" [level=2] [ref=f10e34]
+      - img [ref=f10e37]:
+        - generic [ref=f10e38]: UDKWS 的三个子问题 + 现有三条路线的短板
+        - generic [ref=f10e39]:
+          - generic [ref=f10e41]: ① 定位
+          - generic [ref=f10e42]: 唤醒词埋在连续语流里，要给出时间边界
+          - generic [ref=f10e44]: ② 判别
+          - generic [ref=f10e45]: Hi Snips vs Hey Snips 只差 AY1/EY1 一个元音
+          - generic [ref=f10e47]: ③ 泛化
+          - generic [ref=f10e48]: 对训练中从未见过的词，仅凭注册信息工作
+          - generic [ref=f10e50]: 传统 ASR 方案
+          - generic [ref=f10e51]: 解码完整词序列再匹配关键词
+          - generic [ref=f10e52]: 代价高，且用户自定义词天然 OOV
+          - generic [ref=f10e54]: 轻量音素级（TDT / MFA / U2 / CaTT）
+          - generic [ref=f10e55]: 大规模 ASR 语料训练后表现很强
+          - generic [ref=f10e56]: 但部署仍需可观微调数据——恰是稀缺品
+          - generic [ref=f10e58]: 注册查询类（QbyE / QbyT / QbyAT）
+          - generic [ref=f10e59]: 预切分词对训练 + 滑窗推理——错配
+          - generic [ref=f10e60]: 滑窗边界不准 → 更多误报；注册依赖大编码器
+        - generic [ref=f10e62]: DS-KWS 的回答：架构解耦 + 数据扩展
+        - generic [ref=f10e63]: 两阶段把「高召回流式检测」和「高精度细粒度验证」分开；再用双重数据扩展分别喂饱这两级——方法与实验组织全部围绕这条主线
+    - generic [ref=f10e64]:
+      - paragraph [ref=f10e65]: §02 · 方法论
+      - heading "第一级管召回（宽），第二级管精度（严）" [level=2] [ref=f10e66]
+      - generic [ref=f10e68]:
+        - img [ref=f10e69]:
+          - generic [ref=f10e70]: 两阶段架构（图 1/图 2）与三档部署模式
+          - generic [ref=f10e71]:
+            - generic [ref=f10e73]: 连续语流
+            - generic [ref=f10e74]: 80 通道 mel
+            - generic [ref=f10e76]: Conformer 编码器
+            - generic [ref=f10e77]: 6 层 · 144 维 · 4 头 · 3.6M
+            - generic [ref=f10e78]: CTC 损失训练
+            - generic [ref=f10e80]: 音素搜索模块
+            - generic [ref=f10e81]: 流式 CTC 解码检索
+            - generic [ref=f10e82]: 候选路径 + 时间戳
+            - generic [ref=f10e84]: S1 + 时间戳
+            - generic [ref=f10e85]: 第一级分数
+            - generic [ref=f10e87]: 音素匹配器（第二级）
+            - generic [ref=f10e88]: 2 层 Transformer + GRU
+            - generic [ref=f10e89]: 轻量注意力对齐 ≈0.5M
+            - generic [ref=f10e91]: 注册文本 → G2P → 音素索引
+            - generic [ref=f10e92]: nn.Embedding 查表（不过任何深度编码器）
+            - generic [ref=f10e94]: 三档部署模式（图 1）
+            - generic [ref=f10e95]: M0（3.6M） 纯 CTC 单级，无第二级
+            - generic [ref=f10e96]: M1（4.1M，+0.5M） 候选段直接从第一级编码器输出裁剪帧级特征 + 轻量投影——编码器可冻结，省算力且声学能力不被匹配梯度带偏
+            - generic [ref=f10e97]: M2（7.7M，+4.1M） 候选段切成原始语音用自己的可训练编码器重编码——第一级特征为音素识别优化，未必是匹配判别最优表示
+            - generic [ref=f10e98]: 表 2 裁决：同数据下 M1 EER 10.02% vs M2 6.13%——重编码换来 3.89 pp，是全文单笔最大增益
+        - paragraph [ref=f10e105]: 两级分工的设计逻辑：检测环节高召回——漏报在第二级再无纠正机会；验证环节高精度——把第一级放宽后混进来的误报压下去。滑窗类方法的病根正是缺显式定位环节；CTC 的对齐性质天然给时间戳，边界贴着声学事件。
+      - generic [ref=f10e106]:
+        - text: S
+        - subscript [ref=f10e107]: agg
+        - text: (x
+        - subscript [ref=f10e108]: t
+        - text: ) = Σ
+        - subscript [ref=f10e109]:
+          - text: f∈F(x
+          - subscript [ref=f10e110]: t
+          - text: )
+        - text: S(f) （式 4，模糊音素聚合）； L
+        - subscript [ref=f10e111]: total
+        - text: = L
+        - subscript [ref=f10e112]: CTC
+        - text: + (L
+        - subscript [ref=f10e113]: utt
+        - text: + L
+        - subscript [ref=f10e114]: phon
+        - text: ) （式 5–6）
+        - generic [ref=f10e115]:
+          - text: 式 4：目标音素 x_t 的模糊集合 F 内概率求和后再检索——"Hi" 开头的发音变体也能命中 "Hey Snips" 目标序列，第一级主动放宽的数学实现。双粒度监督：L
+          - subscript [ref=f10e116]: phon
+          - text: 在每个对齐位置给直接监督（梯度密，专治单音素差异的混淆对）；L
+          - subscript [ref=f10e117]: utt
+          - text: 与整词判决的使用方式一致，防止音素级监督优化出与整体判决脱节的表示。
+      - img [ref=f10e119]:
+        - generic [ref=f10e120]: 宽进严出的直接证据（图 3 分数分布 + 模糊聚合示意）
+        - generic [ref=f10e121]:
+          - generic [ref=f10e123]: 模糊聚合：Hi ↔ Hey
+          - generic [ref=f10e125]: HH AY1 . . .
+          - generic [ref=f10e127]: HH EY1 . . .
+          - generic [ref=f10e129]: AY1+EY1 求和
+          - generic [ref=f10e130]: → 发音变体也能命中
+          - generic [ref=f10e131]: 代价：检索端变宽、混入更多似是而非的候选——显式转嫁给第二级消化
+          - generic [ref=f10e133]: 两级分数分布（图 3）
+          - generic [ref=f10e143]: 第一级：正样本分数散布 0.04–1 宽区间（宽）
+          - generic [ref=f10e153]: 第二级：正负清晰分开（严）
+          - generic [ref=f10e154]: 最终判决质量由第二级决定——也解释 M2 的 zero-shot 泛化最强
+        - generic [ref=f10e155]: nn.Embedding 轻量注册的底气：注册文本只有几个音素的序列，匹配任务需要的是「音素与声学帧的对齐关系」，不是「词的语义表示」
+        - generic [ref=f10e156]: 把注册从「跑一遍 DistilBERT」降到「一次查表」——但具体省了多少毫秒/内存，论文未报告
+    - generic [ref=f10e157]:
+      - paragraph [ref=f10e158]: §03 · 实验结果
+      - heading "混淆子集才分高下：LPH EER 6.13%" [level=2] [ref=f10e159]
+      - generic [ref=f10e161]:
+        - heading "设置与指标" [level=3] [ref=f10e162]
+        - paragraph [ref=f10e163]: 训练语料三档：LS-100 / LS-460 / LS-GS-1460（LibriSpeech-460 + GigaSpeech Middle 1000h）。词对集按 LibriPhrase 构造（0.5–2s、锚点实例 ≥10），LP-100 约 12k 类 → LP-GP-1460 约 155k 类。评测：LibriPhrase Easy/Hard（Hard = 混淆词对子集，主战场）、Hey-Snips 测试集（2,529 正 / 20,543 负）评 zero-shot。编码器 6 层 Conformer，WeNet + CTC，音素词表 71 符号。
+        - paragraph [ref=f10e164]: 指标分三组各有用途：P-WER（声学模型中间质量）、EER/AUC（LibriPhrase 惯例）、Recall@FAR（唤醒产品有明确误报预算——EER 操作点常落在产品无法接受的误报率上，固定 FAR 比召回才有工程意义）。
+      - generic [ref=f10e165]:
+        - img [ref=f10e166]:
+          - generic [ref=f10e167]: LibriPhrase-Hard（混淆词对）EER 主对比（表 1，%）：越短越好，标注为参数量
+          - generic [ref=f10e168]: CMCD · 0.7M
+          - generic [ref=f10e170]: "32.90"
+          - generic [ref=f10e171]: EMKWS · 3.7M
+          - generic [ref=f10e173]: "23.36"
+          - generic [ref=f10e174]: CED · 3.6M
+          - generic [ref=f10e176]: "14.40"
+          - generic [ref=f10e177]: AdaKWS-S · 109M
+          - generic [ref=f10e179]: "11.48"
+          - generic [ref=f10e180]: SLiCK · 0.6M
+          - generic [ref=f10e182]: "11.10"
+          - generic [ref=f10e183]: MM-KWS-T · 3.9M
+          - generic [ref=f10e185]: "10.41"
+          - generic [ref=f10e186]: W-CTC · 3.6M
+          - generic [ref=f10e188]: "10.21"
+          - generic [ref=f10e189]: DS-KWS-M1 · 4.1M
+          - generic [ref=f10e191]: "10.02"
+          - generic [ref=f10e192]: PLCL-T · 40M
+          - generic [ref=f10e194]: "9.96"
+          - generic [ref=f10e195]: MM-KWS-AT · 3.9M
+          - generic [ref=f10e197]: "9.30"
+          - generic [ref=f10e198]: PLCL-AT · 40M
+          - generic [ref=f10e200]: "8.47"
+          - generic [ref=f10e201]: DS-KWS-M2 · 7.7M*
+          - generic [ref=f10e203]: "6.13"
+          - generic [ref=f10e204]: M2 以 PLCL-AT 约 1/5 的参数量把 EER 再降 2.34 pp；对 W-CTC（同为 ASR+CTC 路线）10.21 → 6.13 的差值即第二级验证的净贡献
+          - generic [ref=f10e205]: "* 表 1 原文标 4.1M 系笔误，按表 4 与图 1 应为 7.7M；LPE（Easy）各家已近饱和，M2 的 0.45% 为全表最优"
+        - paragraph [ref=f10e206]: LPE 上各家接近饱和（EER ~1%），真正的区分度在 LPH——这正是该基准的设计意图：Easy 谁都做得对，Hard 混淆子集才分高下。另一个值得记住的数：即使不用 GS-1000/GP-1000 扩数据，LP-460-M2 也有 7.97%——两阶段架构本身有效，数据扩展是放大器而非前提。
+      - generic [ref=f10e207]:
+        - img [ref=f10e208]:
+          - generic [ref=f10e209]: 双重数据扩展（表 2 + 表 3）：两条轴喂两级，各自独立有效（LPH EER %）
+          - generic [ref=f10e210]: "6"
+          - generic [ref=f10e211]: "9"
+          - generic [ref=f10e212]: "12"
+          - generic [ref=f10e213]: "15"
+          - generic [ref=f10e215]: "13.71"
+          - generic [ref=f10e217]: "15.34"
+          - generic [ref=f10e218]: LS-100
+          - generic [ref=f10e219]: 100h
+          - generic [ref=f10e221]: "7.97"
+          - generic [ref=f10e223]: "10.78"
+          - generic [ref=f10e224]: LS-460
+          - generic [ref=f10e225]: 460h
+          - generic [ref=f10e227]: "6.13"
+          - generic [ref=f10e229]: "10.02"
+          - generic [ref=f10e230]: LS-GS-1460
+          - generic [ref=f10e231]: 1460h
+          - generic [ref=f10e232]: 轴一：ASR 语料 → 声学模型（深 = M2，浅 = M1）
+          - generic [ref=f10e233]: 配套 P-WER：LSother 18.79 → 13.39 → 11.80（降幅集中在最难的 other 集——
+          - generic [ref=f10e234]: 扩数据补的是口音与噪声鲁棒性）
+          - generic [ref=f10e235]: "10"
+          - generic [ref=f10e236]: "12"
+          - generic [ref=f10e237]: "14"
+          - generic [ref=f10e239]: "13.38"
+          - generic [ref=f10e240]: 12k
+          - generic [ref=f10e242]: "12.50"
+          - generic [ref=f10e243]: 20k
+          - generic [ref=f10e245]: "11.62"
+          - generic [ref=f10e246]: 40k
+          - generic [ref=f10e248]: "10.78"
+          - generic [ref=f10e249]: 78k
+          - generic [ref=f10e251]: "10.65"
+          - generic [ref=f10e252]: 155k
+          - generic [ref=f10e253]: 轴二：锚点词类别数 → 匹配器（编码器固定 LS-460）
+          - generic [ref=f10e254]: 收益递减：前几档每步 -0.8~-0.9 pp，最后一步只降 0.13 pp——
+          - generic [ref=f10e255]: 锚点多样性的边际价值在衰减，接近饱和
+        - paragraph [ref=f10e256]: 交叉对比分离两轴贡献：同为 12k 锚点，LS-100 编码器 15.34% vs LS-460 编码器 13.38%（1.96 pp 来自语料）；同为 155k 锚点，LS-460 10.65% vs LS-GS-1460 10.02%（0.63 pp）——两轴各自独立贡献，「双重扩展」名副其实。单笔最大增益来自 M1→M2 模式升级（-3.89 pp），大于任何一档数据扩展——数据、架构、模式三者耦合，不是三个独立旋钮。
+      - generic [ref=f10e257]:
+        - img [ref=f10e258]:
+          - generic [ref=f10e259]: Hey-Snips zero-shot 召回（表 4，%）：完全 zero-shot 逼近 full-shot 训练模型
+          - generic [ref=f10e260]: "96"
+          - generic [ref=f10e261]: "97"
+          - generic [ref=f10e262]: "98"
+          - generic [ref=f10e263]: "99"
+          - generic [ref=f10e264]: "100"
+          - generic [ref=f10e266]: "96.47"
+          - generic [ref=f10e268]: "97.18"
+          - generic [ref=f10e269]: RIL-KWS
+          - generic [ref=f10e270]: full-shot
+          - generic [ref=f10e272]: "99.88"
+          - generic [ref=f10e274]: "99.92"
+          - generic [ref=f10e275]: MDTC
+          - generic [ref=f10e276]: full-shot
+          - generic [ref=f10e278]: "98.89"
+          - generic [ref=f10e280]: "98.97"
+          - generic [ref=f10e281]: DS-KWS M0
+          - generic [ref=f10e282]: zero-shot
+          - generic [ref=f10e284]: "98.58"
+          - generic [ref=f10e286]: "98.93"
+          - generic [ref=f10e287]: DS-KWS M1
+          - generic [ref=f10e288]: zero-shot
+          - generic [ref=f10e290]: "98.97"
+          - generic [ref=f10e292]: "99.13"
+          - generic [ref=f10e293]: DS-KWS M2
+          - generic [ref=f10e294]: zero-shot
+          - generic [ref=f10e296]: FAR=0.5
+          - generic [ref=f10e298]: FAR=1
+          - generic [ref=f10e299]: M2 zero-shot 召回超过 full-shot 的 RIL-KWS，逼近 MDTC
+          - generic [ref=f10e300]: 诚实细节：M1 在 FAR=0.5 档（98.58）反而低于纯 CTC 的 M0（98.89）——冻结编码器下 0.5M 匹配器泛化有限
+        - paragraph [ref=f10e301]: 但注意对比的锚点缺失：表 4 里两个参照都是 full-shot 模型，没有其他 zero-shot UDKWS 方法在同一测试集上的数字——"zero-shot 可比 full-shot"缺一个同类对手的锚点。
+    - generic [ref=f10e302]:
+      - paragraph [ref=f10e303]: §04 · 主要贡献
+      - heading "四条可转述的判断" [level=2] [ref=f10e304]
+      - generic [ref=f10e306]:
+        - generic [ref=f10e307]:
+          - generic [ref=f10e308]: "1"
+          - text: 两阶段 UDKWS 框架CTC 流式检索定位（边界来自声学对齐，直击滑窗错配）+ QbyT 双粒度验证（音素级句子级双监督）——宽进严出，分工显式设计进检索端与验证端。
+        - generic [ref=f10e309]:
+          - generic [ref=f10e310]: "2"
+          - text: 双重数据扩展的系统研究ASR 语料 460→1460h 服务声学模型（P-WER 18.79→11.80）、锚点类别 12k→155k 服务匹配器（EER 13.38→10.65），交叉消融证明两轴独立有效——两级瓶颈不同、数据类型不同的分工是"双重"成立的前提。
+        - generic [ref=f10e311]:
+          - generic [ref=f10e312]: "3"
+          - text: nn.Embedding 轻量注册把注册从「跑一遍 DistilBERT」降到「一次查表」，第二级轻量分支整体仅约 0.5M——注册文本只有几个音素，需要的是对齐关系不是语义表示。
+        - generic [ref=f10e313]:
+          - generic [ref=f10e314]: "4"
+          - text: 结果层面的两个锚点LPH EER 6.13%（PLCL-AT 的 1/5 参数再降 2.34 pp）；Hey-Snips zero-shot 召回 99.13%@FAR=1 可比 full-shot。对 W-CTC 的 10.21→6.13 差值可粗略看作第二级的净贡献。
+    - generic [ref=f10e315]:
+      - paragraph [ref=f10e316]: §05 · 局限性与展望
+      - heading "效率数字缺失是最大缺口" [level=2] [ref=f10e317]
+      - generic [ref=f10e319]:
+        - generic [ref=f10e320]:
+          - heading "方法的技术局限" [level=4] [ref=f10e321]
+          - list [ref=f10e322]:
+            - listitem [ref=f10e323]: 效率数字缺失：KWS 是常驻低功耗任务，但全文无推理延迟 / RTF / FLOPS / 内存；M2 参数是 M0 的两倍多且每个候选段重过编码器——候选密集时计算量会不会堆积，未报告。M1 vs M2 的取舍只能看精度看不了代价。
+            - listitem [ref=f10e324]: 两级分数联合决策未交代：S1/S2 阈值怎么定、串联过滤还是分数融合——直接影响可复现性与误报调优空间。
+            - listitem [ref=f10e325]: 模糊音素集合 F(x_t) 是黑盒：哪些音素对算模糊、手工还是数据驱动、会不会级联放大误报——第一级召回-精度交换的核心旋钮，缺了它式 4 无法独立复现。
+            - listitem [ref=f10e326]: LPH 6.13% 绝对水平仍不算低：等错误率操作点约每十六次判决错一次；剩余错误有无系统性模式（长元音/鼻音韵尾/重音），无错误分析。
+        - generic [ref=f10e327]:
+          - heading "实验设计的不足" [level=4] [ref=f10e328]
+          - list [ref=f10e329]:
+            - listitem [ref=f10e330]: 参数量标注矛盾：表 1 的 M2 标 4.1M 与表 4 的 7.7M 矛盾（笔误），横向对比应以 7.7M 为准。
+            - listitem [ref=f10e331]: 消融档位不全：语料轴缺 GS-1000 单独档（无法区分收益来自绝对量还是 GigaSpeech 域多样性）；锚点轴 155k 之外无更大档（最后一步仅 -0.13 pp 已暗示饱和）。
+            - listitem [ref=f10e332]: 训练细节未报告：优化器、学习率、轮数、词对正负采样比例——独立复现困难。
+            - listitem [ref=f10e333]: 语言与域单一：全部英文有声书域；Introduction 以 "XiaoZhi AI" 开篇却无中文/其他语言验证、无远场噪声讨论——缺口更显眼。
+            - listitem [ref=f10e334]: zero-shot 对比缺同类锚点：参照全是 full-shot 模型。
+      - generic [ref=f10e335]:
+        - heading "下一步方向（论文自列 + 笔者延伸）" [level=3] [ref=f10e336]
+        - paragraph [ref=f10e337]: 论文自列：面向更广唤醒词集合的微调策略（zero-shot 升级为少量样本自适应）；低资源平台部署验证。 笔者延伸：两级分数的联合阈值学习 / 可学习融合权重替代手工定阈；模糊音素集合从混淆统计数据驱动构造并随锚点语料自动扩展；锚点收益递减后转向困难词对主动挖掘（难负例、课程采样）；把第二级匹配器蒸馏回单级找回 M2 的延迟开销；跨语言与真实远场验证——能否走出有声书基准、落到 "XiaoZhi AI" 这类真实产品，就看这两项。
+    - contentinfo [ref=f10e338]:
+      - paragraph [ref=f10e339]: 论文精读 · 可视化版 · 2025 №10 · DS-KWS 两阶段用户自定义 KWS（上海大学 / 西交利物浦大学，arXiv 2025）
+      - paragraph [ref=f10e340]: 数据来源：论文表 1–4、图 1–3（经由本库深读笔记核对，含笔误标注）。图表坐标由脚本从论文原表计算生成。
+      - generic [ref=f10e341]:
+        - link "📄 深读笔记" [ref=f10e342] [cursor=pointer]:
+          - /url: /papers/2025/Dual_Data_Scaling_For_Robust_Two-Stage_User-Defined_Keyword_Spotting.md
+        - link "📕 PDF 原稿" [ref=f10e343] [cursor=pointer]:
+          - /url: /papers/2025/Dual_Data_Scaling_For_Robust_Two-Stage_User-Defined_Keyword_Spotting.pdf
+        - link "🔗 arXiv:2510.10740" [ref=f10e344] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2510.10740
+        - link "← 返回论文库" [ref=f10e345] [cursor=pointer]:
+          - /url: /

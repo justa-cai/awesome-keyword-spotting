@@ -1,0 +1,199 @@
+- generic [active] [ref=f110e1]:
+  - navigation [ref=f110e2]:
+    - generic [ref=f110e3]:
+      - generic [ref=f110e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f110e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f110e6]:
+        - link "深读笔记" [ref=f110e7] [cursor=pointer]:
+          - /url: /papers/2024/NTC-KWS_Noise-aware_CTC_For_Robust_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f110e8] [cursor=pointer]:
+          - /url: /papers/2024/NTC-KWS_Noise-aware_CTC_For_Robust_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f110e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2412.12614
+  - generic [ref=f110e10]:
+    - banner [ref=f110e11]:
+      - paragraph [ref=f110e12]: 论文精读 · 可视化版 · 2024 №23
+      - heading "CTC 别无选择地把噪声对齐成音素—— 给噪声一个合法去处，训练和解码各修一次图" [level=1] [ref=f110e13]: CTC 别无选择地把噪声对齐成音素——给噪声一个合法去处，训练和解码各修一次图
+      - paragraph [ref=f110e14]: "NTC-KWS: Noise-aware CTC for Robust Keyword Spotting"
+      - paragraph [ref=f110e15]: 作者：Yu Xi、Haoyu Li 等 8 人 —— 上海交大 X-LANCE × 思必驰 × NVIDIA（俞凯通讯）
+      - paragraph [ref=f110e16]: 发表：2024.12 · arXiv:2412.12614
+      - generic [ref=f110e17]:
+        - generic [ref=f110e18]: 通配符弧（自环 @ / 旁路 *）
+        - generic [ref=f110e19]: WFST 解码图扩展
+        - generic [ref=f110e20]: 指数衰减惩罚调度
+        - generic [ref=f110e21]: 免训练解码 +2.7
+        - generic [ref=f110e22]: −5dB 档 +15 点
+        - generic [ref=f110e23]: 97 小时负测试集
+      - generic [ref=f110e24]:
+        - heading "一分钟版本" [level=2] [ref=f110e25]
+        - list [ref=f110e26]:
+          - listitem [ref=f110e27]: 地基观察（预实验）：用含极低 SNR 的仿真数据训练，模型过拟合到噪声、拖累整体性能。归因到 CTC 机理：加噪后 "Hey Snips" 的 HH EY1 S N IH1 P S 变成 HH<噪声>EY1 S<噪声>N EH0 P S——噪声帧插进音素间（插入）、IH1 被扭曲成 EH0（掩盖替换）；损失函数被迫把噪声帧对齐到关键词音素 = 梯度一遍遍教模型「这段噪声就是 IH1」——不是数据量问题，是训练准则没给噪声主导的帧一个合法去处。
+          - listitem [ref=f110e28]: 方案（NTC 训练）：关键词音素序列的图上引入两类通配符弧——自环弧 @ 吸收插入噪声帧（在原音素多停任意多帧）、旁路弧 * 跳过被掩盖的音素；通配符后验 = 全部非空白音素后验的平均（噪声帧无特定音素身份的中立假设——零参数不增加输出单元）；指数衰减惩罚调度：初期重罚（−4）强制先学干净对齐、随 epoch 退火（自环 0.999 / 旁路 0.975——插入噪声远比掩盖常见，自环需更长保护期，笔记推断）。
+          - listitem [ref=f110e29]: 免训练解码（最有工程价值）：标准 CTC 解码图里没有这些弧——训练学到的能力是死资产；把通配符弧同样插进解码语法图，CTC 训练的模型不重训直接换图平均 +2.7 点（增益集中在低 SNR：−5dB +10.4）；安全阀：转移代价可调 + 纯通配符路径（不含任何关键词音素）直接丢弃——堵住纯噪声拼关键词的漏洞。
+          - listitem [ref=f110e30]: 最有信息量的消融（2×2）：只换训练不换解码不升反微降（82.9 对 83.1）——「更好的训练准则必然更好」被戳破，方法重心其实在解码侧；完整 NTC-KWS 平均 88.0（+4.9 = 解码图 2.7 + 对齐 2.2 + 训练单独 0），−5dB 档 41.6→56.6（+15.0）。
+          - listitem [ref=f110e31]: 敏感性的不对称：旁路系数远比自环危险——旁路从 2 抬到 4，−5dB 档从 56.6 崩到 40.0（直接跳音素的代价一旦过低，本可认出的音素被轻易放过）；自环从 4 降到 2/0 只缓降。
+          - listitem [ref=f110e32]: 指标设计的隐性贡献：宽松误报档（0.5/1.0 FA/h）下各家数字趋同掩盖真实差距——严格档 0.05 FA/h + 97 小时大负测试集把差距放大（CTC 系对端到端基线的绝对优势超 9 个点）。
+    - generic [ref=f110e33]:
+      - paragraph [ref=f110e34]: §01 · 问题陈述
+      - heading "噪声不是被对抗或过滤的对象，而是搜索空间的一等公民" [level=2] [ref=f110e35]
+      - generic [ref=f110e37]:
+        - img [ref=f110e38]:
+          - generic [ref=f110e39]: 图 1 机理复绘："Hey Snips" 加噪后的三类错误与两类通配符弧
+          - generic [ref=f110e41]: 干净序列
+          - generic [ref=f110e42]:
+            - generic [ref=f110e44]: HH
+            - generic [ref=f110e46]: EY1
+            - generic [ref=f110e48]: S
+            - generic [ref=f110e50]: "N"
+            - generic [ref=f110e52]: IH1
+            - generic [ref=f110e54]: P
+            - generic [ref=f110e56]: S
+          - generic [ref=f110e57]: 加噪后实际呈现
+          - generic [ref=f110e58]:
+            - generic [ref=f110e60]: HH
+            - generic [ref=f110e62]: 噪声
+            - generic [ref=f110e64]: EY1
+            - generic [ref=f110e66]: S
+            - generic [ref=f110e68]: 噪声
+            - generic [ref=f110e70]: "N"
+            - generic [ref=f110e72]: EH0
+            - generic [ref=f110e74]: P S
+          - generic [ref=f110e75]: · 蓝块 = 插入错误（噪声帧混入）→ 自环弧 @ 在原音素多停帧吸收
+          - generic [ref=f110e76]: · 红块 = 掩盖替换（IH1→EH0）→ 旁路弧 * 直接跳过被吃掉的音素
+          - generic [ref=f110e77]: · CTC 损失被迫把噪声帧对齐到转写音素——错误监督写进参数
+          - generic [ref=f110e79]: 与既有路线的差异：改图，不改任何别的
+          - generic [ref=f110e80]: · 语音增强前端：加参数、加计算、加流水线延迟——KWS 常驻每毫瓦都敏感
+          - generic [ref=f110e81]: · 通用噪声鲁棒训练（多条件增强/对抗）：让模型硬扛噪声而非给它去处
+          - generic [ref=f110e82]: · ASR 通配符前驱（W-CTC/StarTC/BTC）修文本侧标签错误——问题对偶：
+          - generic [ref=f110e83]: 本文修声学侧语音损伤（语音里混进标签没有的东西）
+          - generic [ref=f110e84]: · 本文：不动声学模型、不加前端，只改训练损失里的图 + 解码时的图
+          - generic [ref=f110e85]: ——对部署最友好的一层；WFST 组合式解码保留换词只换图的优势
+          - generic [ref=f110e86]: · 三个互相牵制的挑战：噪声显式建模；训练能力在解码兑现；
+          - generic [ref=f110e87]: 放松解码的误报风险——转移代价/衰减惩罚/纯通配符丢弃是安全阀
+        - paragraph [ref=f110e88]: 图 A·管线：40 维 log-mel（25/10ms）→ 前后 5 帧拼接 + 跳步 3 降采样 → 6 层 DFSMN（隐层 512 / 投影 320 / 上下文 [8,2]）→ 70 单音素 + 空白 → WFST 令牌传递搜索（≤20 活跃令牌）。所有对比模型同预训练检查点同 SGD——变量严格锁死在训练准则与解码图上，消融的每个数字都能干净归因。
+    - generic [ref=f110e89]:
+      - paragraph [ref=f110e90]: §02 · 方法论
+      - heading "训练和解码的一致性有了统一的数学载体：改图" [level=2] [ref=f110e91]
+      - generic [ref=f110e93]:
+        - text: 搜索空间 = CTC合并转移器 ∘ 词典转移器 ∘ 语法转移器 ∩ 声学发射图； p(@) = p(*) = (1/|V|)·Σ
+        - subscript [ref=f110e94]: i∈V
+        - text: p(token
+        - subscript [ref=f110e95]: i
+        - text: )； penalty
+        - subscript [ref=f110e96]: l
+        - text: = penalty
+        - subscript [ref=f110e97]: "0"
+        - text: · decay
+        - superscript [ref=f110e98]: l
+        - generic [ref=f110e99]: 人话：WFST 把训练（式 3 前向）和解码（式 4 Viterbi）写成同一张复合图上的操作——改训练准则和改解码策略变成同一件事。通配符后验取全部非空白音素的平均：「不确定是哪个音素、但可能是语音里某个音素」的中立假设——零参数、不改输出层、不增加训练不稳定性；代价是抹掉了「什么噪声更该走通配符」的判别信息（表三旁路系数的极端敏感性正是这个缺陷的下游症状）。
+      - generic [ref=f110e100]: 为什么必须有指数衰减调度：通配符弧从第一轮就零代价可用，模型会找到捷径——把大量难分的帧统统甩给通配符、音素判别本身学不扎实（通配符类方法的经典风险）。初期重罚（−4）强制先在干净对齐上学好音素，惩罚退火后通配符路径逐渐可用，模型逐步学会「只在噪声真正主导的段走旁路」。衰减系数不对称（自环 0.999 / 旁路 0.975 = 旁路更早放开）：插入型噪声（每句加噪都引入大段噪声帧）远比音素被掩盖常见，自环弧需要更长保护期以免被高频使用（笔记推断，论文未解释）。
+    - generic [ref=f110e101]:
+      - paragraph [ref=f110e102]: §03 · 实验结果
+      - heading "训练准则单独不可用；全部增益靠解码图兑现" [level=2] [ref=f110e103]
+      - generic [ref=f110e105]: 数据与设置：LibriSpeech（960h，预训练 + 通用语音）+ Hey Snips（正样本微调；负样本无转写不能训 CTC——全部负样本合并成 97 小时大负测试集，沿用 TDT-KWS 准备方式）+ WHAM! 噪声（训练 SNR 0-20dB 均匀；正测试在 0/5/10/15/20dB 五档 + 额外造 −5dB 代表域外极限）。训练：K2 可微 WFST + OpenFST 解码；在线语速扰动（0.9/1.0/1.1）+ SpecAugment（2 频掩码 ≤10 / 2 时掩码 ≤50）。指标：各 SNR 档、给定 FA/h 下的召回——已发表 SOTA 惯用 0.5/1.0 FA/h 但论文指出这档太宽松（各家趋同区分度小），初次对比后统一在严格得多的 0.05 FA/h 下评估。
+      - generic [ref=f110e106]:
+        - img [ref=f110e107]:
+          - generic [ref=f110e108]: Table II · 训练 × 解码 二乘二：解码图贡献 +2.7，训练解码对齐再 +2.2，训练准则单独 ≈ 0
+          - generic [ref=f110e109]: "40"
+          - generic [ref=f110e110]: "60"
+          - generic [ref=f110e111]: "80"
+          - generic [ref=f110e112]: "100"
+          - generic [ref=f110e119]: "41.6"
+          - generic [ref=f110e120]: "98.3"
+          - generic [ref=f110e127]: "41.7"
+          - generic [ref=f110e128]: "98.1"
+          - generic [ref=f110e135]: "52.0"
+          - generic [ref=f110e136]: "98.0"
+          - generic [ref=f110e143]: "56.6"
+          - generic [ref=f110e144]: "98.7"
+          - generic [ref=f110e145]: "-5dB"
+          - generic [ref=f110e146]: 0dB
+          - generic [ref=f110e147]: 5dB
+          - generic [ref=f110e148]: 10dB
+          - generic [ref=f110e149]: 15dB
+          - generic [ref=f110e150]: 20dB
+          - generic [ref=f110e151]: 总增益 +4.9 = 解码图 2.7 + 对齐 2.2 + 训练单独 0
+          - generic [ref=f110e152]: −5dB 档：41.6→56.6（+15.0）；0dB：75.1→83.4（+8.3）
+          - generic [ref=f110e154]: CTC 训练 + CTC 解码
+          - generic [ref=f110e155]: （基线，平均 83.1）
+          - generic [ref=f110e157]: NTC 训练 + CTC 解码
+          - generic [ref=f110e158]: （平均 82.9 ↓微降！）
+          - generic [ref=f110e160]: CTC 训练 + NTC 解码
+          - generic [ref=f110e161]: （免训练 ★平均 85.8）
+          - generic [ref=f110e163]: NTC 训练 + NTC 解码
+          - generic [ref=f110e164]: （完整 ★平均 88.0）
+        - paragraph [ref=f110e165]: 表 II 复绘·每 SNR 档四条窄柱从左到右为四个组合（图例序）。核心读数：D 行（NTC 训练 + CTC 解码）几乎与基线重叠甚至微降——只改训练不解码是死资产；E 行（CTC 训练 + NTC 解码）在 −5dB 档 +10.4——免训练兑现核心收益；F 行完整组合再 +2.2 为对齐收益。总增益的拆账：解码图 2.7 + 对齐 2.2 + 训练单独 0。
+      - generic [ref=f110e166]:
+        - img [ref=f110e167]:
+          - generic [ref=f110e168]: Table III · 解码期转移系数网格：旁路系数远比自环敏感（−5dB 与平均召回）
+          - generic [ref=f110e169]: "40"
+          - generic [ref=f110e170]: "60"
+          - generic [ref=f110e171]: "80"
+          - generic [ref=f110e173]: "88.0"
+          - generic [ref=f110e174]: "−5dB: 56.6"
+          - generic [ref=f110e175]: 自环 4 / 旁路 2
+          - generic [ref=f110e176]: （最优 ★）
+          - generic [ref=f110e178]: "86.0"
+          - generic [ref=f110e179]: 自环 2 / 旁路 2
+          - generic [ref=f110e181]: "85.0"
+          - generic [ref=f110e182]: 自环 0 / 旁路 2
+          - generic [ref=f110e184]: "84.5"
+          - generic [ref=f110e185]: 负惩罚 / 旁路 2
+          - generic [ref=f110e187]: "81.5"
+          - generic [ref=f110e188]: "−5dB: 40.0"
+          - generic [ref=f110e189]: 自环 4 / 旁路 4
+          - generic [ref=f110e190]: （旁路过松 → 崩）
+          - generic [ref=f110e192]: "83.1"
+          - generic [ref=f110e193]: "−5dB: 41.6"
+          - generic [ref=f110e194]: 双 −∞（= CTC）
+          - generic [ref=f110e195]: 柱 = 平均召回 %
+        - paragraph [ref=f110e196]: 表 III 复绘（部分可从笔记还原的配置）·最优组合自环 4 / 旁路 2（两个系数都取正值奖励——说明 NTC 训练没过拟合通配符捷径，推理时反而需要正向加权才能与真实音素弧竞争，旁证平均后验天然偏低与退火调度的必要性）。旁路系数 2→4 时 −5dB 从 56.6 崩到 40.0：直接跳音素的代价一旦过低，本可认出的音素被轻易放过——误报压力陡增。双 −∞ 等价于彻底关死通配符弧 = 退化为 CTC。
+      - generic [ref=f110e197]: 干净条件对照（Table I，Hey Snips 官方 + 重建设置）：官方设置下端到端最强 WaveNet 基线 0.5 FA/h 99.88、MDTC 99.88；重建设置（97h 负集）0.05/0.5/1.0 三档——WeKws-MDTC（仅正样本）89.52/98.85/99.29、CTC-KWS 98.77/99.72/99.76、NTC-KWS 98.97/99.64/99.72。最苛刻 0.05 档 CTC 系绝对优势超 9 个点——严格档位放大真实差距，宽松档的「打平」掩盖了优势；干净条件 NTC 对 CTC 仅 +0.2（干净语音没有多少噪声段可让通配符发挥——NTC 主战场在噪声）。注意：负测试集混噪方式与训练完全一致（同一噪声库采样）——域内评测，鲁棒性结论强度打折。
+    - generic [ref=f110e198]:
+      - paragraph [ref=f110e199]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f110e200]
+      - generic [ref=f110e202]:
+        - generic [ref=f110e203]:
+          - generic [ref=f110e204]: "1"
+          - text: 噪声是搜索空间的一等公民把「噪声鲁棒性」从数据/模型结构层挪到对齐结构与解码图层——噪声不再被对抗或过滤，而是被显式建模成图上合法路径。
+        - generic [ref=f110e205]:
+          - generic [ref=f110e206]: "2"
+          - text: 免训练升级路径NTC 解码套在标准 CTC 模型上不重训直接 +2.7（增益集中低 SNR）——已上线重训代价高昂系统的直接落地方径。
+        - generic [ref=f110e207]:
+          - generic [ref=f110e208]: "3"
+          - text: 更好的训练准则 ≠ 更好NTC 训练单独不换解码反而微降——训练学到的能力在解码图里没有对应路径就是死资产；训练-解码一致性是图方法的命门。
+        - generic [ref=f110e209]:
+          - generic [ref=f110e210]: "4"
+          - text: 严格误报档才见真差距宽松 FA/h 档（0.5/1.0）下各家趋同的假象被 0.05 档 + 大负测试集戳破——评测协议设计本身的隐性贡献。
+    - generic [ref=f110e211]:
+      - paragraph [ref=f110e212]: §05 · 局限性与展望
+      - heading "本质是「扩展搜索空间换召回」，声学模型本身没变更鲁棒" [level=2] [ref=f110e213]
+      - generic [ref=f110e215]:
+        - generic [ref=f110e216]:
+          - heading "方法局限" [level=4] [ref=f110e217]
+          - list [ref=f110e218]:
+            - listitem [ref=f110e219]: 通配符后验取平均抹掉判别信息：模型无法区分「可吸收的稳态噪声」与「不该走旁路的真实语音」——只能靠解码端转移代价事后把关（表三旁路系数极端敏感性正是下游症状）。
+            - listitem [ref=f110e220]: 重心严重偏向解码侧：训练准则单独不可用（F 行甚至微降）——本质是「用扩展搜索空间换召回」，极端噪声下编码器输出的音素后验质量依旧。
+            - listitem [ref=f110e221]: 五个旋钮：训练期初始惩罚 + 两个衰减系数、解码期两个转移系数——解码系数测试时调，存在向测试分布过拟合调参的风险。
+            - listitem [ref=f110e222]: 转移代价全局恒定：不随帧级 SNR / 噪声估计自适应——理想上旁路代价应在确定噪声主导时才降低。
+        - generic [ref=f110e223]:
+          - heading "实验设计不足" [level=4] [ref=f110e224]
+          - list [ref=f110e225]:
+            - listitem [ref=f110e226]: 单一英文唤醒词：Hey Snips——多关键词、中文唤醒词、自定义唤醒词未覆盖（后两者恰是 WFST-CTC 最有结构优势的应用面）。
+            - listitem [ref=f110e227]: 噪声来源单一且域内：WHAM! 同一噪声库，训练与测试负样本同分布混噪（0-20dB 均匀）——严格说域内评测；−5dB 标域外但噪声同源；无真实采集噪声 / 混响 / 多说话人。
+            - listitem [ref=f110e228]: 端侧指标全缺席：参数量 / 延迟 / 实时率 / 内存 / 扩展图的额外搜索开销均未报——而动机恰恰是低资源平台（≤20 活跃令牌暗示可控但无数字）。
+            - listitem [ref=f110e229]: 无语音增强前端对照：无法量化「改图不加前端」在这条赛道的真实位次。
+      - generic [ref=f110e230]: 值得追的方向：① 跨噪声类型 / 跨 SNR 分布系统研究两个解码系数——从网格搜索走向理论指引或自适应；② 通配符后验从简单平均升级为可学习的噪声判别函数（噪声主导概率门控）——「何时走旁路」成为模型输出而非解码端固定代价；③ 转移代价随帧级 SNR 估计动态调度；④ 噪声建模弧迁移到转录器家族（RNN-T / TDT——对齐机制不同但问题同构）；⑤ 补多唤醒词 / 多语言 / 真实远场 / 端侧开销测量；⑥ 系列合流（笔记视角）：与同团队 TDT-KWS 构成「CTC 图上做手术」的两条分支——TDT 用 token-时长建模压解码步数求快、NTC 用通配符弧扩张搜索空间求稳，图操作层面天然存在组合空间。
+    - contentinfo [ref=f110e231]:
+      - generic [ref=f110e232]:
+        - link "深读笔记" [ref=f110e233] [cursor=pointer]:
+          - /url: /papers/2024/NTC-KWS_Noise-aware_CTC_For_Robust_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f110e234] [cursor=pointer]:
+          - /url: /papers/2024/NTC-KWS_Noise-aware_CTC_For_Robust_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f110e235] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2412.12614
+        - link "返回总目录" [ref=f110e236] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f110e237]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（表 I-III / 图 1 / 公式 1-6）；「笔记推断」标注处为笔记给出的分析。

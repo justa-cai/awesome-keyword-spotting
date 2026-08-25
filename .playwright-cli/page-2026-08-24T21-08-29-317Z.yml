@@ -1,0 +1,279 @@
+- generic [active] [ref=f141e1]:
+  - navigation [ref=f141e2]:
+    - generic [ref=f141e3]:
+      - generic [ref=f141e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f141e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f141e6]:
+        - link "深读笔记" [ref=f141e7] [cursor=pointer]:
+          - /url: /papers/2024/TDT-KWS_Fast_And_Accurate_Keyword_Spotting_Using_Token-and-duration_Transducer.md
+        - link "PDF 原稿" [ref=f141e8] [cursor=pointer]:
+          - /url: /papers/2024/TDT-KWS_Fast_And_Accurate_Keyword_Spotting_Using_Token-and-duration_Transducer.pdf
+        - link "arXiv" [ref=f141e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2403.13332
+  - generic [ref=f141e10]:
+    - banner [ref=f141e11]:
+      - paragraph [ref=f141e12]: 论文精读 · 可视化版 · 2024 №38
+      - heading "多数帧与关键词无关，凭什么每帧都做决策？—— 锁死搜索空间 + 时长跳帧，准与快两端同时受益" [level=1] [ref=f141e13]: 多数帧与关键词无关，凭什么每帧都做决策？——锁死搜索空间 + 时长跳帧，准与快两端同时受益
+      - paragraph [ref=f141e14]: "TDT-KWS: Fast and Accurate Keyword Spotting Using Token-and-Duration Transducer"
+      - paragraph [ref=f141e15]: 作者：Yu Xi、Hao Li、Baochen Yang、Haoyu Li、Hainan Xu、Kai Yu（通讯）—— 上海交大 X-LANCE · 思必驰 · NVIDIA
+      - paragraph [ref=f141e16]: 发表：arXiv 2403.13332（2024-03）· ~2M 参数端侧配置，TDT 时长头仅占 0.1%
+      - generic [ref=f141e17]:
+        - generic [ref=f141e18]: KWS 专用流式解码
+        - generic [ref=f141e19]: δ(t,0)=1 任意起点
+        - generic [ref=f141e20]: 帧异步跳帧搜索
+        - generic [ref=f141e21]: test-other 召回 57.6→88.1
+        - generic [ref=f141e22]: 搜索加速 1.4–4.2×
+        - generic [ref=f141e23]: 噪声下优势拉大
+      - generic [ref=f141e24]:
+        - heading "一分钟版本" [level=2] [ref=f141e25]
+        - list [ref=f141e26]:
+          - listitem [ref=f141e27]: 痛点：常驻系统的结构性浪费。唤醒词系统是每时每刻都在耗算力的守夜人——误报、召回、计算负担三角张力尖锐。Transducer 性能好但自回归解码计算密集；更结构性的是所有已有 Transducer KWS 都「直接跑 ASR 解码再检查输出里有没有关键词」：搜索空间不加约束（概率质量与算力分配给无关 token 路径）、自回归假设递归推高解码成本、帧同步决策让静音段也逐帧付账——为一个几秒出现一次的词支付逐帧全量搜索代价。
+          - listitem [ref=f141e28]: 核心算法（对 RNN-T 与 TDT 通用）三个咬合设计：① 预测器只吃关键词 token 序列（teacher forcing 式）——每帧 DP 开销与关键词长度 U 同阶、与词表大小无关；② δ(t,0)=1——每个 t 都允许「关键词从这帧重新开始」的假设免费入场，DP 自动维护任意起点最优路径（流式唤醒最微妙的起始点问题被一行解决）；③ TDT 分支时长引导跳帧——每步 d=argmax P_D，跳过的帧不产生置信度也不触发搜索。
+          - listitem [ref=f141e29]: 收益第一来源是搜索不是模型（Table 2 硬证据）：同一 RNN-T 模型，贪心→本文算法在 test-other 上 57.6→88.1（+30.5 点）、束搜索 60.0→88.1；TDT 上 63.2→87.9。越难的集，锁死搜索空间的收益越大。
+          - listitem [ref=f141e30]: TDT 首次进 KWS：joiner 输出升级为 P(v,d|t,u)=P_T(v)·P_D(d)（条件独立，时长头仅 0.1% 参数）——一次跨多帧，模型调用次数随 Dmax 下降。召回持平或更好（Snips 98.6 vs 基线 98.1；test-other Dmax=4 的 91.9 还超基线 90.2）的前提下，搜索加速 1.4–4.2×、系统级 1.4–3.6×。
+          - listitem [ref=f141e31]: Dmax 甜点由任务难度决定（最有信息量的消融）：Snips（静音+一个短语，模式简单）对大 Dmax 不敏感；LibriKWS-20 甜点在 4–6——适度跳帧意外成为「聚焦关键帧」的正则化，跳过头则漏 token 退化；加速边际递减（静音段长度有上限，无帧可跳）。
+          - listitem [ref=f141e32]: 噪声鲁棒：WHAM! 加噪不重训——噪声越大 TDT 相对 RNN-T 优势越大，且各 SNR 下加速保持。机理（笔者推测）：帧同步在噪声下逐帧决策错误累积，TDT 时长机制在时间维聚合证据、跳过不确定帧。
+          - listitem [ref=f141e33]: 边界：条件独立假设未做对照实验；置信度未长度归一化（不同长度关键词不宜共用阈值，论文靠固定 FAR 宏平均回避）；跳帧依赖贪心历史不可回溯（大 Dmax 退化的直接体现）；TDT 侧缺束搜索对照；加速只有相对倍数（无硬件、绝对 RTF、功耗）；LibriKWS-20 是自建仿真且误报集仅 ~3 小时（FAR=0.67/h 对应 2 次误报，统计置信度有限）。
+    - generic [ref=f141e34]:
+      - paragraph [ref=f141e35]: §01 · 问题陈述
+      - heading "架构层面已有共识，问题出在解码与搜索层面" [level=2] [ref=f141e36]
+      - generic [ref=f141e38]: 三层不足拆解：① 搜索空间不加约束——ASR 解码在整个词表空间搜索完整假设，而 KWS 只关心固定关键词在与不在，把概率质量与算力分配给无关路径「既不有效也不高效」（RNN-T 贪心在 Snips 宏召回只有 79.7、束 10 也只 89.4，约束到关键词后 98.7）；② 自回归依赖推高成本——预测器被递归喂部分假设，每个假设 token 都要更新预测器状态再做 joiner 计算，解码计算量随假设长度增长；③ 帧同步决策本身是浪费——每帧都必须做一次搜索决策（步长 d≡1），哪怕纯属静音。
+      - generic [ref=f141e39]: 为什么是 TDT：Token-and-Duration Transducer（ICML 2023，同团队前作）联合预测 token 及其时长，在序列建模上同时拿到更好性能与显著加速——KWS 音频里绝大多数帧与关键词无关，恰是时长引导跳帧最能发挥的场景。但 TDT 的默认搜索同样为 ASR 设计、不考虑 KWS 特性，直接搬来照样不行——本文填补的空白：TDT 的潜力需要 KWS 专用解码算法才能释放。三个环环相扣的问题：KWS 专用流式解码（约束搜索空间 + 任意时刻起始）；时长预测换真实可测加速而非纸面理论值；加速不以鲁棒性为代价。
+    - generic [ref=f141e40]:
+      - paragraph [ref=f141e41]: §02 · 方法论
+      - heading "格点上的动态规划 + 时长跳帧" [level=2] [ref=f141e42]
+      - generic [ref=f141e44]:
+        - img [ref=f141e45]:
+          - generic [ref=f141e46]: 图 1 复绘：解码格点 (t,u) —— 三个互相咬合的设计让搜索只围着关键词转
+          - generic [ref=f141e48]: 格点图：u = 关键词 token 位置，t = 声学帧
+          - generic [ref=f141e69]: u=0（blank 起点）
+          - generic [ref=f141e70]: u=1 …
+          - generic [ref=f141e71]: u=U（收尾）
+          - generic [ref=f141e72]: t →
+          - generic [ref=f141e73]: Score[t] = δ(t,U) · φ(t,U)
+          - generic [ref=f141e74]: 水平箭头 = 发射 blank（φ），竖直 = 发射关键词 token（y）
+          - generic [ref=f141e76]: δ(t,0)=1 ★
+          - generic [ref=f141e77]: 每个 t 都允许「关键词从这帧重新开始」的假设免费入场——
+          - generic: .
+          - generic: .
+          - generic [ref=f141e78]: DP 自动维护任意起点的最优路径
+          - generic [ref=f141e80]: 三个互相咬合的设计（算法 1）
+          - generic [ref=f141e81]: ① 预测器只吃关键词 token 序列（teacher forcing）
+          - generic [ref=f141e82]: vs ASR 解码递归喂部分假设——预测器输入从「长度不确定的
+          - generic [ref=f141e83]: 假设前缀」固定为「至多 U 的关键词前缀」，(t,u) 概率可系统性
+          - generic [ref=f141e84]: 算出；每帧 DP 开销与 U 同阶、与词表大小无关（音素级 ~十几个）
+          - generic [ref=f141e85]: ② δ(t,0)=1：任意时刻开始的关键词检测
+          - generic [ref=f141e86]: 不需要显式枚举所有可能起始时刻——流式唤醒最微妙的
+          - generic [ref=f141e87]: 起始点问题被 DP 一行解决
+          - generic [ref=f141e88]: ③ TDT 分支：时长引导跳帧（帧异步搜索）
+          - generic [ref=f141e89]: RNN-T：步长 d 恒 1（帧同步，每帧都做搜索决策）
+          - generic [ref=f141e90]: TDT：每步 d = argmax P_D(d|t,G)，跳过的帧 Score 直接置零、
+          - generic [ref=f141e91]: 不触发搜索计算——静音段 / 无关帧不再逐帧付账
+          - generic [ref=f141e92]: 细节：路径分数以关键词前缀为条件，跳帧决策以贪心历史 G 为条件，两套各司其职
+          - generic [ref=f141e94]: 网络骨架（Tiny Transducer 配置 · ~2M 参数）
+          - generic [ref=f141e95]: 编码器 6 层 DFSMN（隐 512 / 投影 320 · 左右上下文 8/2）
+          - generic [ref=f141e96]: 预测器：无状态实现（上下文 2 · 嵌入 320）
+          - generic [ref=f141e97]: joiner → 256 维 → 70 单音素（cmudict）+ blank
+          - generic [ref=f141e98]: TDT 时长头：仅占总参数 0.1%，换搜索步数成倍下降
+          - generic [ref=f141e99]: RNN-T 与 TDT 网络完全一致、只差时长头——Table 3 是干净的控制变量实验
+          - generic [ref=f141e101]: Fig 2 · 跳帧行为直观证据
+          - generic [ref=f141e102]: test-clean 关键词 everything 的例句：(t,u) 格点热图上
+          - generic [ref=f141e103]: TDT 的搜索点明显更稀疏——竖直黄虚线为强制对齐词边界
+          - generic [ref=f141e104]: 帧同步 = 模型调用次数等于帧数；
+          - generic [ref=f141e105]: TDT 一次跨多帧，调用次数随 Dmax 增大而下降
+          - generic [ref=f141e106]: "训练：速度扰动 {0.9,1.0,1.1} · SpecAugment · 440 维拼接 · 3 倍子采样"
+          - generic [ref=f141e107]: 为什么比 ASR 解码更准：搜索空间被限制在关键词本身——模型不必在与任务无关的词表路径上分散概率质量（neither effective nor efficient 的反面）
+          - generic [ref=f141e108]: 为什么真实可加速：两种口径分开报告——相对搜索加速只量推理模块（跳帧作用处），相对运行加速量整个系统（特征提取与编码器开销不变，系统级略低于搜索级），如 Dmax=10 Snips：搜索 4.19× / 系统 3.58×
+          - generic [ref=f141e109]: 指标设计：召回固定在特定 FAR 下报告（Snips FAR=0.02 次/h；LibriKWS-20 宏召回 @ 平均 FAR=0.67 次/h——20 关键词等权，不被单关键词主导）
+        - paragraph [ref=f141e110]: 图 1/2 复绘：格点图上竖直箭头发射关键词 token、水平箭头发射 blank；δ(t,0)=1 让新起点假设每帧免费入场——两个设计合起来把搜索从「全词表 × 全时刻」压缩到「关键词 × DP 自动管理的起点」。
+      - generic [ref=f141e111]:
+        - text: P(v, d | t, u) = P
+        - subscript [ref=f141e112]: T
+        - text: (v | t, u) · P
+        - subscript [ref=f141e113]: D
+        - text: (d | t, u)
+        - generic [ref=f141e114]: 式 1 · TDT 的条件独立假设：token 分布与时长分布解耦、各占一个输出头。工程价值两层：时长头极小（0.1% 参数）、两头并行无串行依赖；代价是 token 身份与时长天然相关（不同音素时长分布差异大），解耦可能损失联合信息——论文未对此假设做对照实验（见 §05）。Dmax 是训练前超参，越大跳帧越激进。
+      - generic [ref=f141e115]:
+        - text: δ(t,u) = max( δ(t,u−1)·y(t,u−1), δ(t−d,u)·φ(t−d,u) )； Score[t] = δ(t,U) · φ(t,U)
+        - generic [ref=f141e116]: 式 2–4 · DP 递推与置信度：y(t,u) 是发射第 u+1 个关键词 token 的概率（竖直箭头），φ(t,u) 是发射 blank 的概率（水平箭头）；Score[t] 取「到 t 时刻恰好完整输出全部 U 个 token 的最优路径分数」再乘该格点继续发 blank 的概率——乘 blank 这一项给置信度加上「关键词在此刻收尾、而非更长词前缀」的收尾约束。注意：路径分数以关键词前缀为条件（teacher forcing），跳帧决策以贪心历史 G 为条件——两套条件各司其职。
+    - generic [ref=f141e117]:
+      - paragraph [ref=f141e118]: §03 · 实验与消融
+      - heading "固定 FAR 工作点 + 两种加速口径分开报告" [level=2] [ref=f141e119]
+      - generic [ref=f141e121]: 数据与指标：Hey Snips（正样本 5876/2504/2588 训练/开发/测试；负样本无转写不进训练，拼成 ~97 小时误报集）；LibriKWS-20（自建：从 LibriSpeech-960h 选 20 个词模拟连续语音流检测，误报集各 ~3 小时）；WHAM! 噪声。指标：固定误报率下的召回（Snips FAR=0.02 次/h；LibriKWS-20 宏召回 @ 平均 FAR=0.67 次/h——20 关键词等权宏平均，不被单关键词主导）；加速分搜索模块级与系统级两种口径（跳帧只作用于搜索端，混报会稀释真实来源——Dmax=10 Snips：搜索 4.19× / 系统 3.58×）。
+      - generic [ref=f141e122]:
+        - img [ref=f141e123]:
+          - generic [ref=f141e124]: Table 2 · 同一模型只换解码（宏召回 %）：收益的第一来源是搜索空间约束，不是换模型
+          - generic [ref=f141e125]: "60"
+          - generic [ref=f141e126]: "70"
+          - generic [ref=f141e127]: "80"
+          - generic [ref=f141e128]: "90"
+          - generic [ref=f141e129]: "100"
+          - generic [ref=f141e130]: Hey Snips
+          - generic [ref=f141e132]: "79.7"
+          - generic [ref=f141e134]: "89.4"
+          - generic [ref=f141e136]: "85.4"
+          - generic [ref=f141e138]: "98.7"
+          - generic [ref=f141e140]: "98.9"
+          - generic [ref=f141e141]: RNN-T
+          - generic [ref=f141e142]: 贪心
+          - generic [ref=f141e143]: RNN-T
+          - generic [ref=f141e144]: 束10
+          - generic [ref=f141e145]: TDT
+          - generic [ref=f141e146]: 贪心
+          - generic [ref=f141e147]: RNN-T
+          - generic [ref=f141e148]: + 本文 ★
+          - generic [ref=f141e149]: TDT
+          - generic [ref=f141e150]: + 本文 ★
+          - generic [ref=f141e151]: LibriKWS test-clean
+          - generic [ref=f141e153]: "82.5"
+          - generic [ref=f141e155]: "82.7"
+          - generic [ref=f141e157]: "84.6"
+          - generic [ref=f141e159]: "97.5"
+          - generic [ref=f141e161]: "98.3"
+          - generic [ref=f141e162]: RNN-T
+          - generic [ref=f141e163]: 贪心
+          - generic [ref=f141e164]: RNN-T
+          - generic [ref=f141e165]: 束10
+          - generic [ref=f141e166]: TDT
+          - generic [ref=f141e167]: 贪心
+          - generic [ref=f141e168]: RNN-T
+          - generic [ref=f141e169]: + 本文 ★
+          - generic [ref=f141e170]: TDT
+          - generic [ref=f141e171]: + 本文 ★
+          - generic [ref=f141e172]: LibriKWS test-other
+          - generic [ref=f141e174]: "57.6"
+          - generic [ref=f141e176]: "60.0"
+          - generic [ref=f141e178]: "63.2"
+          - generic [ref=f141e180]: "88.1"
+          - generic [ref=f141e182]: "87.9"
+          - generic [ref=f141e183]: RNN-T
+          - generic [ref=f141e184]: 贪心
+          - generic [ref=f141e185]: RNN-T
+          - generic [ref=f141e186]: 束10
+          - generic [ref=f141e187]: TDT
+          - generic [ref=f141e188]: 贪心
+          - generic [ref=f141e189]: RNN-T
+          - generic [ref=f141e190]: + 本文 ★
+          - generic [ref=f141e191]: TDT
+          - generic [ref=f141e192]: + 本文 ★
+          - generic [ref=f141e193]: test-other 上本文算法比贪心高 30.5 点、比束搜索高 28.1 点（57.6/60.0 → 88.1）——越难的集，锁死搜索空间的收益越大；TDT 束搜索实现写作时不可用（原表注）
+        - paragraph [ref=f141e194]: Table 2（宏召回，各系统误报水平相近）：同一模型只换解码的受控对比——提升全部来自搜索空间约束；后续实验统一只用 KWS 专用解码。
+      - generic [ref=f141e195]:
+        - img [ref=f141e196]:
+          - generic [ref=f141e197]: Table 3 · Dmax 扫描：召回持平或更好 + 搜索加速 1.4–4.2×（RNN-T 与 TDT 网络只差时长头）
+          - generic [ref=f141e198]: 宏召回%（基线 RNN-T 为虚线）
+          - generic [ref=f141e199]: "88"
+          - generic [ref=f141e200]: "91"
+          - generic [ref=f141e201]: "94"
+          - generic [ref=f141e202]: "97"
+          - generic [ref=f141e203]: "100"
+          - generic [ref=f141e204]: RNN-T
+          - generic [ref=f141e205]: "2"
+          - generic [ref=f141e206]: "4"
+          - generic [ref=f141e207]: "6"
+          - generic [ref=f141e208]: "8"
+          - generic [ref=f141e209]: "10"
+          - generic [ref=f141e210]: Dmax（RNN-T 基线 = 帧同步 d≡1）
+          - generic [ref=f141e218]: Snips
+          - generic [ref=f141e226]: test-clean
+          - generic [ref=f141e234]: test-other
+          - generic [ref=f141e235]: clean 甜点 Dmax=6（99.1）· other 甜点 Dmax=4（91.9）
+          - generic [ref=f141e236]: 相对搜索加速（×，相对 RNN-T）
+          - generic [ref=f141e237]: 1×
+          - generic [ref=f141e238]: 2×
+          - generic [ref=f141e239]: 3×
+          - generic [ref=f141e240]: 4×
+          - generic [ref=f141e241]: "2"
+          - generic [ref=f141e242]: "4"
+          - generic [ref=f141e243]: "6"
+          - generic [ref=f141e244]: "8"
+          - generic [ref=f141e245]: "10"
+          - generic [ref=f141e246]: Dmax
+          - generic [ref=f141e253]: Snips
+          - generic [ref=f141e260]: test-clean
+          - generic [ref=f141e267]: test-other
+          - generic [ref=f141e268]: 系统级加速略低：Dmax=10 时 Snips 搜索 4.19× / 系统 3.58×
+          - generic [ref=f141e269]: 甜点分化：Snips 模式简单（静音+一个短语）对大 Dmax 不敏感；LibriKWS 甜点在 4–6——适度跳帧意外成为「聚焦关键帧」的正则化，跳过头则漏 token 退化
+          - generic [ref=f141e270]: 加速边际递减：静音段长度有上限，Dmax 再大也无帧可跳（clean/other 自 Dmax=4 起平台化在 ~2×）
+        - paragraph [ref=f141e271]: Table 3（FAR=0.02 次/h 与 0.67 次/h 工作点）：左看召回（甜点 4–6、Snips 不敏感）、右看加速（边际递减、clean/other 平台化 ~2×）。
+      - generic [ref=f141e272]:
+        - img [ref=f141e273]:
+          - generic [ref=f141e274]: Fig 3 · 噪声鲁棒性（结构示意：WHAM! 加噪、不重训、逐点数值原文以曲线图呈现未列表）
+          - generic [ref=f141e275]: "60"
+          - generic [ref=f141e276]: "70"
+          - generic [ref=f141e277]: "80"
+          - generic [ref=f141e278]: "90"
+          - generic [ref=f141e279]: "100"
+          - generic [ref=f141e280]: 0 dB
+          - generic [ref=f141e281]: 5 dB
+          - generic [ref=f141e282]: 10 dB
+          - generic [ref=f141e283]: 15 dB
+          - generic [ref=f141e284]: 20 dB
+          - generic [ref=f141e285]: +inf
+          - generic [ref=f141e300]: 噪声越大差距越大 ↓
+          - generic [ref=f141e302]: RNN-T KWS
+          - generic [ref=f141e304]: TDT-KWS（Dmax=10）
+          - generic [ref=f141e305]: 各 SNR 下加速保持
+          - generic [ref=f141e306]: 0 dB
+          - generic [ref=f141e308]: ≈ 恒定
+          - generic [ref=f141e309]: 5 dB
+          - generic [ref=f141e311]: ≈ 恒定
+          - generic [ref=f141e312]: 10 dB
+          - generic [ref=f141e314]: ≈ 恒定
+          - generic [ref=f141e315]: 15 dB
+          - generic [ref=f141e317]: ≈ 恒定
+          - generic [ref=f141e318]: 20 dB
+          - generic [ref=f141e320]: ≈ 恒定
+          - generic [ref=f141e321]: +inf
+          - generic [ref=f141e323]: ≈ 恒定
+          - generic [ref=f141e324]: 曲线形态为示意（原文 Fig 3 只有曲线无表）；笔者推测的机理：帧同步每帧决策在噪声下错误逐帧累积，TDT 时长机制在时间维聚合声学证据、跳过不确定帧，减少错误传播
+        - paragraph [ref=f141e325]: Fig 3 结构示意：原文只给曲线无逐点数值表——左panel曲线形态与「噪声越大差距越大」的结论有据，具体纵轴读数为示意。
+      - generic [ref=f141e326]: 为什么换关键词不痛：建模单元是 70 个 cmudict 单音素 + blank——任意关键词都能由同一套小词表组合出来（LibriKWS-20 的 20 个词全部覆盖），输出层轻，换关键词不必换输出单元，只需换解码模板的 token 序列。网络骨架沿用 Tiny Transducer（ICASSP 2021）被后续多工作反复确认的低风险配置：DFSMN 编码器（前馈记忆块、参数效率高）+ 无状态预测器 + 线性 joiner，~2M 参数；RNN-T 与 TDT 版本网络完全一致只差时长头——Table 3 因此是干净的控制变量实验。
+    - generic [ref=f141e327]:
+      - paragraph [ref=f141e328]: §04 · 主要贡献
+      - heading "三条贡献 + 一条可迁移判断" [level=2] [ref=f141e329]
+      - generic [ref=f141e331]:
+        - generic [ref=f141e332]:
+          - generic [ref=f141e333]: "1"
+          - text: 面向 Transducer 的 KWS 专用流式解码算法：δ(t,0)=1 任意起点 + 预测器只喂关键词序列 + DP 显式路径置信度；对常规 Transducer 与 TDT 通用，三个测试集大幅超越 ASR 解码（test-other 57.6→88.1）。
+        - generic [ref=f141e334]:
+          - generic [ref=f141e335]: "2"
+          - text: 首次把 TDT 引入 KWS：持平或更好的召回 + 推理加速 2–4×，时长头参数代价仅 0.1%——极小代价博取大收益的典型。
+        - generic [ref=f141e336]:
+          - generic [ref=f141e337]: "3"
+          - text: 低信噪比鲁棒性验证：WHAM! 加噪下噪声越大优势越大、加速各 SNR 保持——对极端环境压误报守唤醒有实际意义。
+        - generic [ref=f141e338]:
+          - generic [ref=f141e339]: ★
+          - text: 可迁移判断：当任务只关心固定小词表在与不在时，把「约束」写进搜索结构（预测器输入固定、搜索空间锁定、置信度按关键词路径定义）比换更强的模型收益更大、代价更小；而「跳过与任务无关的帧」不仅是省算力——适度跳帧还能当正则化用（聚焦关键帧），甜点位置由任务难度决定。
+    - generic [ref=f141e340]:
+      - paragraph [ref=f141e341]: §05 · 局限与边界
+      - heading "贪心历史不可回溯，加速只有相对倍数" [level=2] [ref=f141e342]
+      - generic [ref=f141e344]:
+        - generic [ref=f141e345]:
+          - heading "技术局限" [level=4] [ref=f141e346]
+          - list [ref=f141e347]:
+            - listitem [ref=f141e348]: 条件独立假设的建模损失：token 与时长解耦换来 0.1% 开销与实现简单，但不同音素时长分布差异大——联合信息损失几何未知，论文未做对照实验。
+            - listitem [ref=f141e349]: 置信度未归一化：Score[t] 是路径概率连乘，数值随关键词 token 数 U 增大单调变小——不同长度关键词不宜共用阈值；论文靠固定 FAR 宏平均回避显式阈值标定，多关键词部署时长度偏置可能显现。
+            - listitem [ref=f141e350]: 跳帧依赖贪心历史且不可回溯：时长预测以贪心解码历史 G 为条件，贪心错误传导进跳帧决策、被跳的帧无法追回——大 Dmax 下「跳过本该预测的 token」正是无纠错能力的直接体现。
+            - listitem [ref=f141e351]: TDT 侧缺束搜索对照（写作时实现不可用）+ 多关键词搜索成本未量化：20 个词靠逐词宏平均；关键词数量增长时每个词各自维护 DP 的代价扩展未报告。
+        - generic [ref=f141e352]:
+          - heading "实验设计不足" [level=4] [ref=f141e353]
+          - list [ref=f141e354]:
+            - listitem [ref=f141e355]: LibriKWS-20 是自建仿真：朗读语料选词模拟，与真实唤醒词的口语化发音、远场混响、信道差异有距离；误报集 ~3 小时，FAR=0.67/h 只对应 2 次误报——统计置信度有限。
+            - listitem [ref=f141e356]: Hey Snips 负样本未参与训练：97 小时负样本因无转写只用于评测——负例监督缺失可能影响易混淆词抑制，未尝试无监督利用。
+            - listitem [ref=f141e357]: 缺非 Transducer 路线对比：不与 cFSMN / DS-CNN / MatchboxNet 等经典小脚印架构比，也不与同为 Transducer 系的 CaTT-KWS 正面对垒——版图位置无法定位。
+            - listitem [ref=f141e358]: 单一工作点 + 相对加速：无完整 ROC/DET 曲线，不同误报预算下优劣不可见；无测试硬件、绝对实时率、内存、功耗——端侧真实收益无法直接换算；噪声仅 WHAM! 加性且不重训，未覆盖混响 / 多说话人 / 音乐。
+      - generic [ref=f141e359]: 值得补的方向：时长头做 token 条件化或联合建模，放宽条件独立假设换精度上限；置信度长度归一化或多关键词统一阈值标定；与量化、剪枝叠加验证复合加速；真实远场多条件训练复验噪声结论；利用无转写负样本做误报抑制训练（对比学习 / 负例微调）压 FAR；解码算法推广到自定义唤醒词与多关键词共享搜索结构，降低关键词数增长的搜索开销。
+    - contentinfo [ref=f141e360]:
+      - generic [ref=f141e361]:
+        - link "📖 深读笔记" [ref=f141e362] [cursor=pointer]:
+          - /url: /papers/2024/TDT-KWS_Fast_And_Accurate_Keyword_Spotting_Using_Token-and-duration_Transducer.md
+        - link "📄 PDF 原稿" [ref=f141e363] [cursor=pointer]:
+          - /url: /papers/2024/TDT-KWS_Fast_And_Accurate_Keyword_Spotting_Using_Token-and-duration_Transducer.pdf
+        - link "arXiv · 2403.13332" [ref=f141e364] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2403.13332
+        - link "← 返回总目录" [ref=f141e365] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f141e366]: 可视化精读页 · 数据与结论均出自论文与深读笔记（Table 1–3、Fig 1–3、算法 1、式 1–4）；Fig 3 复绘为结构示意。错误请以 PDF 原稿为准。

@@ -1,0 +1,274 @@
+- generic [active] [ref=f134e1]:
+  - navigation [ref=f134e2]:
+    - generic [ref=f134e3]:
+      - generic [ref=f134e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f134e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f134e6]:
+        - link "深读笔记" [ref=f134e7] [cursor=pointer]:
+          - /url: /papers/2024/SLiCK_Exploiting_Subsequences_For_Length-Constrained_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f134e8] [cursor=pointer]:
+          - /url: /papers/2024/SLiCK_Exploiting_Subsequences_For_Length-Constrained_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f134e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2409.09067
+  - generic [ref=f134e10]:
+    - banner [ref=f134e11]:
+      - paragraph [ref=f134e12]: 论文精读 · 可视化版 · 2024 №34
+      - heading "变长关键词不用聚合——先把所有词填到 25 个音素， 让交叉注意力的输出恒为 T×D" [level=1] [ref=f134e13]: 变长关键词不用聚合——先把所有词填到 25 个音素，让交叉注意力的输出恒为 T×D
+      - paragraph [ref=f134e14]: "SLiCK: Exploiting Subsequences for Length-Constrained Keyword Spotting"
+      - paragraph [ref=f134e15]: 作者：Kumari Nishu、Minsik Cho、Devang Naik —— Apple
+      - paragraph [ref=f134e16]: 发表：arXiv 2409.09067（2024-09）· 面向端侧 596K 参数预算
+      - generic [ref=f134e17]:
+        - generic [ref=f134e18]: 文本注册 · 零样本
+        - generic [ref=f134e19]: 长度约束 T=25
+        - generic [ref=f134e20]: 子序列前缀匹配
+        - generic [ref=f134e21]: 三任务：句子级 + 子序列 + CTC
+        - generic [ref=f134e22]: LH AUC 88.52→94.9
+        - generic [ref=f134e23]: 训练重推理轻
+      - generic [ref=f134e24]:
+        - heading "一分钟版本" [level=2] [ref=f134e25]
+        - list [ref=f134e26]:
+          - listitem [ref=f134e27]: 本质痛点：用户自定义 KWS 的关键词长度可变——「Hey Siri」几个音素，「called the philosophic standard」25 个音素。音频侧帧级编码天然吃变长；文本侧必须变长→定长，而现有手段全都付出代价：RNN 取末帧（长路径梯度衰减、开头信息稀释）、平均池化（时序结构压成一个点）、动态划分（对齐错误沿路径传播）、CMCD 固定单调对齐（service vs surface 对齐稍偏判别信息就被抹掉）。
+          - listitem [ref=f134e28]: 问题重构（全文最四两拨千斤的一步）：作者统计关键词长度分布（Fig 2）——几乎所有关键词 <25 个音素，该规律在 Libriphrase / Speech Commands / QbE 数据上均成立 → 全部填充到 T=25，「变长问题」变「长度约束问题」。交叉注意力输出形状由 Q 的行数决定、恒为 T×D → 句子级匹配直接展平接分类头，完全绕开有损聚合——用一条统计事实换掉了整个聚合算法设计空间。
+          - listitem [ref=f134e29]: 子序列级匹配（标题核心词）：训练时拿锚点文本的每一个前缀与 spoken text 逐音素比对构造标签。教科书例子：锚点 service 配 spoken surface——[S]、[S,ER1] 两前缀 match，第三个前缀起全部 mismatch。教会模型「带上下文看音素」（补 PhoneMatchNet 缺上下文的短板）+「从哪里开始不像」（区分相似词最有效的证据形态）。
+          - listitem [ref=f134e30]: 多任务 + 训练推理解耦：L = 2·L_utt + 1·L_ss + 5·L_CTC——音素识别权重最大（小模型里表征没有音素语义打底，文本查询就是在无结构声学特征里瞎摸）；推理时 CTC 头和全部 FC_t 子序列头丢弃，只留交叉注意力 + 句子级分类通路，596K 参数。
+          - listitem [ref=f134e31]: 结果：同部署量级下 LH（困难负样本）AUC 88.52→94.9、EER 18.82→11.1，模型还小 9%；LE 99.29→99.82（天花板效应下仍全面占优）；对 CMCD 碾压（LH 差 >21 点）——固定单调对齐的短板是结构性的。
+          - listitem [ref=f134e32]: 消融最有信息量：裸骨架（仅句子级）LH 88.8 ≈ PhoneMatchNet 完整模型 88.52——SLiCK 的全部增益来自两个辅助监督，价值在训练策略不在结构；CTC 贡献最大一块（+4.1），子序列增量集中在最难的 LH（+2.0）。
+          - listitem [ref=f134e33]: 边界：T=25 是硬上限（超长关键词无法注册，短词按满长度白算）；子序列监督依赖训练音频的准确转写；前缀结构只覆盖严格单调前缀（批评 CMCD 固定模式的同一位置，只是换了形式）；无流式推理讨论、无端侧运行时实测（效率证据只有参数量）、单数据集族。
+    - generic [ref=f134e34]:
+      - paragraph [ref=f134e35]: §01 · 问题陈述
+      - heading "文本注册时代，变长→定长的转换无可回避" [level=2] [ref=f134e36]
+      - generic [ref=f134e38]: 三个痛点层层递进：① 注册方式——QbE 音频注册体验笨重且吃「注册安静清晰 / 测试嘈杂远场」的分布漂移，文本注册（打字即可）成为主流；② 模型体积——双编码器投影对齐、多模态提示融合在服务器上表现可观，但端侧 KWS 参数预算只有几百 K，很容易超；③ 本质痛点：关键词长度可变——「Hey Siri」几个音素 vs 25 音素的长短语，音频侧可用帧级序列编码天然吃进，文本侧最终要产生固定维度表征对接分类头，变长到定长的转换无可回避。
+      - generic [ref=f134e39]: 已有方案的四处缺陷： ① 孤立音素检测缺上下文（PhoneMatchNet）：同一音素 /S/ 在 service 开头和 surface 开头声学实现受协同发音影响差别很大；判断「是否说了关键词」本质是序列级决策，单音素命中构不成充分统计量； ② 变长聚合丢信息：RNN 末帧独自背整段序列（长关键词梯度衰减、开头稀释）；平均池化把「前两个音素相同第三个不同」的序结构抹平；动态划分搜索出的对齐路径可能不是最优，错误传播到匹配决策； ③ 固定单调对齐僵化（CMCD）：单调先验合理，但硬编码成固定模式后失去灵活性——真实语音有插入、省略、变体，最受伤的恰是相似词区分（service 与 surface 差别只在第三个音素附近）； ④ 多模态体积超标：融合音素 / 语义文本 / 锚点音频的方案不适合端侧——这是 SLiCK 定位差异的直接原因。
+      - generic [ref=f134e40]: 四个互相牵制的目标：支持任意长度（有实际上限）关键词且文本侧不做破坏性聚合；几百 K 参数内完成零样本检测（无需关键词相关训练数据）；对发音相近困难负样本有强区分力（要求细粒度带上下文的音视频关系建模）；训练期辅助任务不拖累推理计算。「变长不聚合」与「端侧小模型」是核心张力。
+    - generic [ref=f134e41]:
+      - paragraph [ref=f134e42]: §02 · 方法论
+      - heading "单侧编码 + 交叉注意力，训练重推理轻" [level=2] [ref=f134e43]
+      - generic [ref=f134e45]:
+        - img [ref=f134e46]:
+          - generic [ref=f134e47]: 图 1 复绘：单侧编码 + 交叉注意力匹配；训练时三任务多管齐下、推理时只留蓝色通路（596K 参数）
+          - generic [ref=f134e49]: 音频侧（变长 n，一次性输入）
+          - generic [ref=f134e50]: tiny Conformer ×4 层（D=64 · 卷积核 7 · 4 头）
+          - generic [ref=f134e51]: 输出 n×D 嵌入 —— 帧级序列天然吃变长
+          - generic [ref=f134e52]: → 作为 Matcher 的 K、V（音频 = 记忆库）
+          - generic [ref=f134e54]: 训练期辅助：CTC 音素识别头（丢弃）
+          - generic [ref=f134e55]: 句子级转写即可训练，无需帧级边界标注
+          - generic [ref=f134e56]: L_CTC · 权重 α3 = 5（三者最大）
+          - generic [ref=f134e58]: 文本侧（注册：打字即可）
+          - generic [ref=f134e59]: 关键词文本 → 预训练 G2P → 音素序列
+          - generic [ref=f134e60]: → P2V 查表得音素嵌入 + 线性层
+          - generic [ref=f134e61]: → 填充到 T=25 → Q ∈ ℝ^25×D
+          - generic [ref=f134e62]: 音素层建模：声学比对的最小公共单位，
+          - generic [ref=f134e63]: 生僻词 / 新造词靠 G2P 推导发音
+          - generic [ref=f134e67]: 交叉注意力（式 1）★
+          - generic [ref=f134e68]: C = softmax(QK^T/√D)·V
+          - generic [ref=f134e69]: 输出形状由 Q 的行数决定
+          - generic [ref=f134e70]: C 恒为 25×D —— 与 n 无关
+          - generic [ref=f134e71]: 文本为查询、音频为记忆库的软检索：
+          - generic [ref=f134e72]: 每个音素独立、带全局上下文地
+          - generic [ref=f134e73]: 从音频里「认领」自己的声学证据
+          - generic [ref=f134e74]: 协同发音与时序信息全保留在 K、V 里
+          - generic [ref=f134e78]: 句子级匹配【部署保留】
+          - generic [ref=f134e79]: C 展平成 25·D 维 → 线性层二分类
+          - generic [ref=f134e80]: 关键词在 / 不在音频中 · L_utt · α1 = 2
+          - generic [ref=f134e81]: 固定维度 → 展平零信息损失
+          - generic [ref=f134e83]: 子序列级匹配【训练期专用，推理丢弃】
+          - generic [ref=f134e84]: 前缀 C_1:t 展平 → FC_t（每个 t 一个头）
+          - generic [ref=f134e85]: 「前 t 个音素是否出现在音频中」· L_ss · α2 = 1
+          - generic [ref=f134e86]: 嵌套结构：前缀共享 C 的前 t 行，无需重复算注意力
+          - generic [ref=f134e87]: 训练开销很小，推理零占用
+          - generic [ref=f134e89]: 总损失（式 2）：L = 2·L_utt + 1·L_ss + 5·L_CTC —— 权重排序本身就是结论
+          - generic [ref=f134e90]: 音素识别权重最大：小模型里音频表征若没有音素语义打底，交叉注意力的文本查询就是在无结构的声学特征里瞎摸；
+          - generic [ref=f134e91]: 句子级是任务本体；子序列作为细粒度增强，权重 1 即可起效。训练配置：Adam + Transformer 调度 · batch 1024 · 300 epoch。
+          - generic [ref=f134e92]: 部署模型 = 音频 Conformer + 交叉注意力 + 句子级分类头，共 596K 参数——「训练重、推理轻」的知识 / 开销解耦。
+        - paragraph [ref=f134e93]: 图 1 复绘：文本侧只有「查表 + 线性」的轻量嵌入——省掉整个文本编码器，这是参数压到 596K 的结构性原因；蓝色 = 部署保留，虚线灰 = 训练期专用推理丢弃。
+      - generic [ref=f134e94]:
+        - text: C := CrossAttention(Q, K, V) = softmax(QK
+        - superscript [ref=f134e95]: T
+        - text: / √D) · V， Q ∈ ℝ
+        - superscript [ref=f134e96]: T×D
+        - text: （文本），K, V ∈ ℝ
+        - superscript [ref=f134e97]: n×D
+        - text: （音频）
+        - generic [ref=f134e98]: 式 1 · 关键数学性质：注意力输出的维度由 Q 的行数决定，C 恒为 T×D——与锚点文本实际长度无关、与音频长度 n 无关。Q 的第 t 行（第 t 个音素）与整个音频序列做点积归一化后从 V 加权取回「音频里最像这个音素」的信息——以文本为查询、音频为记忆库的软检索，协同发音与时序信息全保留在 K、V 里，不需要任何降维聚合。「长度约束消除了对变长文本做显式聚合的需求」在数学上的落点：C 已是固定维度，展平不丢信息。
+      - generic [ref=f134e99]:
+        - text: L = 2·L
+        - subscript [ref=f134e100]: utt
+        - text: + 1·L
+        - subscript [ref=f134e101]: ss
+        - text: + 5·L
+        - subscript [ref=f134e102]: CTC
+        - generic [ref=f134e103]: 式 2 · 权重排序本身就是结论：音素识别（5）最大——把声学单元知识灌进编码器是表征质量的根基，是交叉注意力能做「文本查询音频」的前提；句子级匹配（2）是任务本体；子序列匹配（1）作为细粒度增强即可起效。选 CTC 做音素识别因为它天然处理输入输出长度不对齐，句子级转写即可训练——与大规模语音数据的可得形态吻合。
+      - generic [ref=f134e104]:
+        - text: 子序列匹配的标签构造（式外机制）：训练音频有转写（spoken text），对锚点文本每个前缀 t：锚点前 t 个音素与 spoken text 对应前缀逐音素比对，完全一致 → match，否则 mismatch；锚点短于 T 时填充位标 invalid 不参与监督。嵌套结构（C
+        - subscript [ref=f134e105]: 1:t
+        - text: 与 C
+        - subscript [ref=f134e106]: 1:t+1
+        - text: 共享前 t 行）使子序列匹配不需要重复计算注意力，只是同一 C 上接一组不同输入维度的分类头——训练开销很小、推理零占用。与 CMCD 的机制差异：不规定对齐路径，只在「前缀是否出现」层面施加软监督，注意力自己学对齐。
+      - generic [ref=f134e107]:
+        - img [ref=f134e108]:
+          - generic [ref=f134e109]: Fig 3 复绘 · 子序列匹配的「分歧定位」：锚点 = Service [S, ER1, V, AH0, S]
+          - generic [ref=f134e110]: "[S]"
+          - generic [ref=f134e111]: "[S,ER1]"
+          - generic [ref=f134e112]: "[S,ER1,V]"
+          - generic [ref=f134e113]: "[S,ER1,V,AH0]"
+          - generic [ref=f134e114]: "[S,ER1,V,AH0,S]"
+          - generic [ref=f134e115]: 正样本
+          - generic [ref=f134e116]: "spoken: service"
+          - generic [ref=f134e119]: match
+          - generic [ref=f134e120]: "0.97"
+          - generic [ref=f134e123]: match
+          - generic [ref=f134e124]: "0.96"
+          - generic [ref=f134e127]: match
+          - generic [ref=f134e128]: "0.95"
+          - generic [ref=f134e131]: match
+          - generic [ref=f134e132]: "0.95"
+          - generic [ref=f134e135]: match
+          - generic [ref=f134e136]: "0.96"
+          - generic [ref=f134e137]: 简单负样本
+          - generic [ref=f134e138]: "spoken: nervous"
+          - generic [ref=f134e141]: mismatch
+          - generic [ref=f134e142]: "0.95"
+          - generic [ref=f134e145]: mismatch
+          - generic [ref=f134e146]: "0.96"
+          - generic [ref=f134e149]: mismatch
+          - generic [ref=f134e150]: "0.97"
+          - generic [ref=f134e153]: mismatch
+          - generic [ref=f134e154]: "0.96"
+          - generic [ref=f134e157]: mismatch
+          - generic [ref=f134e158]: "0.95"
+          - generic [ref=f134e159]: 困难负样本
+          - generic [ref=f134e160]: "spoken: surface"
+          - generic [ref=f134e163]: match
+          - generic [ref=f134e164]: "0.94"
+          - generic [ref=f134e167]: match
+          - generic [ref=f134e168]: "0.92"
+          - generic [ref=f134e171]: mismatch
+          - generic [ref=f134e172]: "0.91"
+          - generic [ref=f134e175]: mismatch
+          - generic [ref=f134e176]: "0.93"
+          - generic [ref=f134e179]: mismatch
+          - generic [ref=f134e180]: "0.95"
+          - generic [ref=f134e182]: 分歧定位 ★ 从这里开始不像
+          - generic [ref=f134e183]: 困难负样本 surface：前两个前缀高 match（[S]、[S,ER1] 两词相同），第三个前缀起转高 mismatch——把「整体像不像」细化为「从哪里开始不像」
+        - paragraph [ref=f134e184]: Fig 3 复绘（分数为示意形态）：三行分别是正样本 / 简单负 / 困难负的逐前缀判决——困难负样本 surface 在第三个前缀处发生分歧，正是「从哪里开始不像」的可监督证据。
+    - generic [ref=f134e185]:
+      - paragraph [ref=f134e186]: §03 · 实验与消融
+      - heading "刻意不加数据：纯净设定下评估方法本身" [level=2] [ref=f134e187]
+      - generic [ref=f134e189]: 数据与指标：按 Matching Latent Encoding / Libriphrase 的做法构造训练 / 测试集，测试分 LibriPhrase-Hard（困难负样本对——挑发音相近关键词做负样本，正对子序列匹配的靶心）与 LibriPhrase-Easy（简单负样本对）。作者刻意不引入额外训练数据（尽管文献表明加数据通常涨点），为的是纯净评估方法贡献。指标 AUC（全阈值整体判别力，部署时按场景调阈值）+ EER（两类错误平衡点的直觉读数，验证任务传统指标）。
+      - generic [ref=f134e190]:
+        - img [ref=f134e191]:
+          - generic [ref=f134e192]: Table 2 · 同部署量级对比（AUC% 越高越好 / EER% 越低越好）：提升集中在困难负样本 LH
+          - generic [ref=f134e193]: "70"
+          - generic [ref=f134e194]: "80"
+          - generic [ref=f134e195]: "90"
+          - generic [ref=f134e196]: "100"
+          - generic [ref=f134e197]: LibriPhrase-Hard（困难负样本）
+          - generic [ref=f134e199]: "73.58"
+          - generic [ref=f134e200]: CMCD
+          - generic [ref=f134e201]: 653K
+          - generic [ref=f134e202]: EER 32.90
+          - generic [ref=f134e204]: "88.52"
+          - generic [ref=f134e205]: PhoneMatchNet
+          - generic [ref=f134e206]: 655K
+          - generic [ref=f134e207]: EER 18.82
+          - generic [ref=f134e209]: "94.90"
+          - generic [ref=f134e210]: SLiCK ★
+          - generic [ref=f134e211]: 596K
+          - generic [ref=f134e212]: EER 11.10
+          - generic [ref=f134e213]: LibriPhrase-Easy（简单负样本）
+          - generic [ref=f134e215]: "96.70"
+          - generic [ref=f134e216]: CMCD
+          - generic [ref=f134e217]: 653K
+          - generic [ref=f134e218]: EER 8.42
+          - generic [ref=f134e220]: "99.29"
+          - generic [ref=f134e221]: PhoneMatchNet
+          - generic [ref=f134e222]: 655K
+          - generic [ref=f134e223]: EER 2.80
+          - generic [ref=f134e225]: "99.82"
+          - generic [ref=f134e226]: SLiCK ★
+          - generic [ref=f134e227]: 596K
+          - generic [ref=f134e228]: EER 1.78
+          - generic [ref=f134e229]: LH：AUC +6.38、EER −7.72，模型还小 9%；LE 天花板效应但仍全面占优；对 CMCD 碾压（LH 差 >21 点）——固定单调对齐在相似词上的短板是结构性的
+        - paragraph [ref=f134e230]: Table 2：三个方法同为低资源设定（653K / 655K / 596K）。SLiCK 更小还更强，且没有为攻硬样本牺牲易样本。
+      - generic [ref=f134e231]:
+        - img [ref=f134e232]:
+          - generic [ref=f134e233]: Table 2 下半 · 消融：裸骨架不比基线强，全部增益来自两个辅助监督
+          - generic [ref=f134e234]: "85"
+          - generic [ref=f134e235]: "88"
+          - generic [ref=f134e236]: "91"
+          - generic [ref=f134e237]: "94"
+          - generic [ref=f134e239]: "88.8"
+          - generic [ref=f134e240]: 仅句子级匹配
+          - generic [ref=f134e241]: L_utt（裸骨架）
+          - generic [ref=f134e242]: LH EER 18.9
+          - generic [ref=f134e244]: "92.9"
+          - generic [ref=f134e245]: + 音素识别
+          - generic [ref=f134e246]: L_utt + L_CTC（α3=5）
+          - generic [ref=f134e247]: LH EER 14.1
+          - generic [ref=f134e248]: +4.1 最大一块
+          - generic [ref=f134e250]: "94.9"
+          - generic [ref=f134e251]: + 子序列匹配
+          - generic [ref=f134e252]: 三任务完整 ★
+          - generic [ref=f134e253]: LH EER 11.1
+          - generic [ref=f134e254]: +2.0 集中在最难区域
+          - generic [ref=f134e256]: 最有信息量的读数
+          - generic [ref=f134e257]: 裸骨架（仅 L_utt）LH AUC 88.8，
+          - generic [ref=f134e258]: 与 PhoneMatchNet 完整模型 88.52
+          - generic [ref=f134e259]: 几乎持平——SLiCK 的全部增益
+          - generic [ref=f134e260]: 归功于两个辅助监督的引入。
+          - generic [ref=f134e261]: 工程复现提示：这套方法的价值
+          - generic [ref=f134e262]: 全在训练策略，不在结构本身；
+          - generic [ref=f134e263]: 丢掉 CTC 或子序列损失，
+          - generic [ref=f134e264]: 就退化回基线水平。
+          - generic [ref=f134e265]: LE 侧：99.26 → 99.58 → 99.82
+          - generic [ref=f134e266]: （子序列增量集中在 LH）
+        - paragraph [ref=f134e267]: Table 2 下半（LH AUC）：三任务逐层叠加——CTC +4.1 是最大一块（α3=5 的依据），子序列 +2.0 集中在最难区域。
+      - generic [ref=f134e268]: 机制佐证（Fig 3）：锚点 service 的三个样本可视化——正样本各有效前缀高 match；nervous 简单负样本全 mismatch；surface 困难负样本前两个前缀高 match、其后转高 mismatch——正是设计预期的分歧定位行为。这组可视化把子序列匹配的内部机理直接摆上台面，是理解方法为什么 work 的关键证据。
+    - generic [ref=f134e269]:
+      - paragraph [ref=f134e270]: §04 · 主要贡献
+      - heading "用对问题比用猛药更值钱" [level=2] [ref=f134e271]
+      - generic [ref=f134e273]:
+        - generic [ref=f134e274]:
+          - generic [ref=f134e275]: "1"
+          - text: 子序列级匹配方案：增强细粒度音频-文本关系学习，通过带上下文的前缀组合区分发音相近关键词——LH EER 18.82→11.1。
+        - generic [ref=f134e276]:
+          - generic [ref=f134e277]: "2"
+          - text: 长度约束方法：用「关键词长度存在实际上限」的统计事实（T=25，Fig 2）保留上下文、规避变长显式聚合——注意力输出恒为 T×D，句子级匹配无信息损失。
+        - generic [ref=f134e278]:
+          - generic [ref=f134e279]: "3"
+          - text: 多粒度多任务框架：句子级 + 子序列级 + 音素识别联合训练，推理只保留句子级通路（596K）——训练期知识与推理期开销解耦。
+        - generic [ref=f134e280]:
+          - generic [ref=f134e281]: ★
+          - text: 综合评价：最大的贡献不是模块发明而是问题重构——一条统计事实消解变长聚合难题 + 前缀监督把「区分相似词」转化为可监督的分歧定位。方法简单、动机清晰、消融完整。
+    - generic [ref=f134e282]:
+      - paragraph [ref=f134e283]: §05 · 局限与边界
+      - heading "硬上限、依赖转写、只有参数量一个效率证据" [level=2] [ref=f134e284]
+      - generic [ref=f134e286]:
+        - generic [ref=f134e287]:
+          - heading "技术局限" [level=4] [ref=f134e288]
+          - list [ref=f134e289]:
+            - listitem [ref=f134e290]: T=25 是硬约束：超长关键词（长句唤醒、多词短语）无法注册；短关键词按满长度计算——单音素「i」与 25 音素长词付同样算力，对端侧是显性浪费。未报告按实际长度截断的变体。
+            - listitem [ref=f134e291]: 子序列监督依赖转写：训练期要逐前缀比对生成标签，前提是每个训练音频有准确转写——只能用有监督转写语料，无法直接吃无标注音频；转写噪声直接污染前缀标签。
+            - listitem [ref=f134e292]: 前缀只覆盖严格单调：不包含跳词、变体发音的结构差异（音素插入会使后续前缀全部失配，即使整体仍是该关键词）——它批评 CMCD 固定模式的同一位置，只是换了形式。
+            - listitem [ref=f134e293]: 无流式形态：按整段音频离线匹配描述；交叉注意力对 K、V 的依赖意味着每来新帧都要对新键值做注意力——流式化的计算摊销与精度保持未报告。语言绑定在 G2P 质量，多语言未评估。
+        - generic [ref=f134e294]:
+          - heading "实验设计不足" [level=4] [ref=f134e295]
+          - list [ref=f134e296]:
+            - listitem [ref=f134e297]: 单一数据集族：全部在 Libriphrase（LibriSpeech 合成短语对）上完成；「相似发音」的定义来自音素级规则，真实用户注册分布、真实噪声 / 远场 / 多说话人均未评估。
+            - listitem [ref=f134e298]: 缺少端侧实测：效率证据只有参数量（596K），无延迟 / 内存 / 功耗 / ARM 硬件运行时测量（训练反而在 V100 上做）——「适合边缘部署」目前只有参数规模支撑。
+            - listitem [ref=f134e299]: 基线覆盖窄：只对比两个同量级小模型；未与双编码器 / 多模态大模型做精度上限参考，也未与量化、蒸馏组合验证。
+            - listitem [ref=f134e300]: 超参敏感性未报告：α 权重无扫描曲线；T=25 之外（20 / 30）无对比，无法判断 25 是甜点还是任意选择；单次运行无多随机种子方差——LH 上 92.9 vs 94.9 的量级若遇上训练方差，稳健性存疑。
+      - generic [ref=f134e301]: 值得补的方向：长度自适应（按注册词实际长度选 FC_t——模型已天然支持，或短词提前退出注意力，直接回收填充浪费的算力）；流式化（chunk-based conformer + 增量键值缓存，用真实唤醒延迟指标重评）；对齐弹性（编辑距离阈值化的软化前缀标签，把「从哪里开始不像」升级为「差多少才算不像」，覆盖口音与变体）；大规模伪转写（ASR 自标注）放宽转写依赖 + 多语言统一音素体系；与量化蒸馏叠加验证 596K 之下还有多少压缩空间；与双编码器大模型做精度上限对照、真实设备补延迟功耗。
+    - contentinfo [ref=f134e302]:
+      - generic [ref=f134e303]:
+        - link "📖 深读笔记" [ref=f134e304] [cursor=pointer]:
+          - /url: /papers/2024/SLiCK_Exploiting_Subsequences_For_Length-Constrained_Keyword_Spotting.md
+        - link "📄 PDF 原稿" [ref=f134e305] [cursor=pointer]:
+          - /url: /papers/2024/SLiCK_Exploiting_Subsequences_For_Length-Constrained_Keyword_Spotting.pdf
+        - link "arXiv · 2409.09067" [ref=f134e306] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2409.09067
+        - link "← 返回总目录" [ref=f134e307] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f134e308]: 可视化精读页 · 数据与结论均出自论文与深读笔记（Table 1/2、Fig 1–3、式 1/2）；Fig 3 复绘的分数值为示意形态。错误请以 PDF 原稿为准。

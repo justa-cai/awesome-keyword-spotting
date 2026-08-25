@@ -1,0 +1,255 @@
+- generic [active] [ref=f84e1]:
+  - navigation [ref=f84e2]:
+    - generic [ref=f84e3]:
+      - generic [ref=f84e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f84e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f84e6]:
+        - link "深读笔记" [ref=f84e7] [cursor=pointer]:
+          - /url: /papers/2024/ED-sKWS_Early-Decision_Spiking_Neural_Networks_For_Rapidand_Energy-Efficient_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f84e8] [cursor=pointer]:
+          - /url: /papers/2024/ED-sKWS_Early-Decision_Spiking_Neural_Networks_For_Rapidand_Energy-Efficient_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f84e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2406.12726
+  - generic [ref=f84e10]:
+    - banner [ref=f84e11]:
+      - paragraph [ref=f84e12]: 论文精读 · 可视化版 · 2024 №10
+      - heading "脉冲网络明明逐帧都能出结果， 却非要听完一秒才回答——把「早决策」还给 SNN" [level=1] [ref=f84e13]: 脉冲网络明明逐帧都能出结果，却非要听完一秒才回答——把「早决策」还给 SNN
+      - paragraph [ref=f84e14]: "ED-sKWS: Early-Decision Spiking Neural Networks for Rapid and Energy-Efficient Keyword Spotting"
+      - paragraph [ref=f84e15]: 作者：Zeyang Song、Qianhui Liu（通讯）等 6 人 —— 新加坡国立大学 × 港中大（深圳）/ 深圳大数据研究院
+      - paragraph [ref=f84e16]: 发表：2024.06 · arXiv:2406.12726
+      - generic [ref=f84e17]:
+        - generic [ref=f84e18]: SNN 脉冲神经网络
+        - generic [ref=f84e19]: 帧同步前馈
+        - generic [ref=f84e20]: 累积时间 CT 损失
+        - generic [ref=f84e21]: 置信度阈值早停
+        - generic [ref=f84e22]: 61% 时间步 / 52% 能耗
+        - generic [ref=f84e23]: SC-100 时间戳数据集
+      - generic [ref=f84e24]:
+        - heading "一分钟版本" [level=2] [ref=f84e25]
+        - list [ref=f84e26]:
+          - listitem [ref=f84e27]: 痛点在范式不在算力：现有 SNN KWS 一律「晚决策」——必须收完整个 1 秒样本（大量零填充静音）才在读出层给分类。两重浪费：词尾后的几十个时间步纯静音仍维持膜电位与前向计算；响应被人为推到样本结束——SNN 逐帧可预测的实时潜力完全没兑现。
+          - listitem [ref=f84e28]: 架构前提：弃脉冲卷积（SCNN 把整张语谱图当图像、需要额外时间步编码——网络时间轴与语音时间轴解耦，天然只能晚决策），选帧同步前馈全连接 SNN：第 t 帧对应第 t 个时间步，每步都完成一次携带膜电位历史的前向、读出层每步有输出——早决策在数学上才有定义。
+          - listitem [ref=f84e29]: CT 损失：O[t] = 截至当前帧的 softmax 累积和（=全部历史证据），对 O[t] 做交叉熵并在每个时间步上取平均——把「累积历史」（TET 缺）与「逐步监督」（spike-rate/cumulative 缺）两个互斥设计合到一个目标里。
+          - listitem [ref=f84e30]: 早停准则：CS_t = max(softmax(O[t])) 超过阈值 C 立即终止并输出——跳过步的全部脉冲传播清零。结果：512 档以 52% 能耗（23.68 对 45.41µJ）保 93.04%（−0.08 点），决策步 98→60.46；128 档 2.85µJ 全场最低。
+          - listitem [ref=f84e31]: SC-100 数据集：313,951 条 / 100 命令 / 每条带起止时间戳——GSC 的零填充淹没词边界，早决策连评估地基都没有。CT 是唯一 Δt_d 为负的损失：平均在词尾前 3.85 步（≈39ms）就做出决定。
+          - listitem [ref=f84e32]: 反直觉发现：SC-100 上早决策精度（93.21）略高于晚决策（93.16）——尾部 ~35 步纯静音是膜电位的记忆负担，早停不只是省电，某些分布下还是保精度手段。缺口：阈值 C 未报告；无 ANN 早退出对照；闭集评测无误唤醒指标。
+    - generic [ref=f84e33]:
+      - paragraph [ref=f84e34]: §01 · 问题陈述
+      - heading "快速、能效、精度三角挤压；「晚决策」浪费了 SNN 的天赋" [level=2] [ref=f84e35]
+      - generic [ref=f84e37]:
+        - img [ref=f84e38]:
+          - generic [ref=f84e39]: 四个环环相扣的问题与各自的既有缺口
+          - generic [ref=f84e40]:
+            - generic [ref=f84e42]: 架构层
+            - generic [ref=f84e43]: SCNN 把语谱图当图像——
+            - generic [ref=f84e44]: 网络时间轴与语音时间轴解耦，
+            - generic [ref=f84e45]: 需额外时间步编码，只能晚决策
+            - generic [ref=f84e46]: ✓ 需要帧同步前馈形态
+            - generic [ref=f84e48]: 训练层
+            - generic [ref=f84e49]: spike-rate / cumulative 只监督
+            - generic [ref=f84e50]: 末步——中间步置信度漂移
+            - generic [ref=f84e51]: TET 逐步但孤立瞬时——不建模
+            - generic [ref=f84e52]: 历史，语音上梯度方向冲突
+            - generic [ref=f84e53]: ✓ 需要「累积 + 逐步」的交集
+            - generic [ref=f84e55]: 推理层
+            - generic [ref=f84e56]: 现有方法既无停止机制，也无
+            - generic [ref=f84e57]: 支撑中间步可靠输出的训练
+            - generic [ref=f84e58]: ✓ 需要运行时「证据够了」判据
+            - generic [ref=f84e60]: 评估层
+            - generic [ref=f84e61]: GSC 零填充到 1s——关键词
+            - generic [ref=f84e62]: 真实起止被淹没，样本边界
+            - generic [ref=f84e63]: ≠ 词边界，「快多少」不可测
+            - generic [ref=f84e64]: ✓ 需要带时间戳的评估集
+          - generic [ref=f84e66]: ED-sKWS 的答案：帧同步前馈 SNN（架构）+ CT 损失（训练）+ 置信度阈值早停（推理）+ SC-100 时间戳集（评估）
+          - generic [ref=f84e67]: SNN 的事件驱动天然省电（静默不放电），膜电位积分 / 泄漏 / 复位的内在动力学与语音时序对齐；前馈 SNN 逐时间步展开与朴素 RNN 同构——正是流式处理需要的形状
+        - paragraph [ref=f84e68]: 图 A·神经元选 adaptive LIF（adLIF）：突触电流更新引入对上一步膜电位（a 项）与上一步脉冲（b 项）的自适应——静音段抑制无谓放电、语音段维持有效积分，为「把已学特征保持到较晚时间步」提供机制基础（这个动机在 SC-100 长尾静音实验中被直接检验）。
+    - generic [ref=f84e69]:
+      - paragraph [ref=f84e70]: §02 · 方法论
+      - heading "每一步都被监督的「至今为止全部证据」" [level=2] [ref=f84e71]
+      - generic [ref=f84e73]:
+        - img [ref=f84e74]:
+          - generic [ref=f84e75]: Fig.1 复绘：帧同步链路 + 累积置信度早停；四种损失的形态矩阵
+          - generic [ref=f84e77]: fbank 逐帧
+          - generic [ref=f84e78]: 40 滤波器组 · 98 帧 = 98 时间步
+          - generic [ref=f84e81]: 前馈 SNN（adLIF，帧同步）
+          - generic [ref=f84e82]: 2 隐层（128/512 神经元）· 每步带膜电位历史前向
+          - generic [ref=f84e85]: O[t] = Σ softmax(读出电位)
+          - generic [ref=f84e86]: 截至当前帧的全部历史证据
+          - generic [ref=f84e89]: CS_t = max
+          - generic [ref=f84e90]: CS_t > C → 停
+          - generic [ref=f84e91]: 输出 argmax(O[t])
+          - generic [ref=f84e93]: 为什么用累积和、且每步都监督
+          - generic [ref=f84e94]: · 累积和（而非瞬时读出）：把历史信息显式装进监督目标
+          - generic [ref=f84e95]: · 每步求损失（而非只在末步）：中间预测的可靠性纳入优化
+          - generic [ref=f84e96]: · 梯度路径：第 i 帧读出通过所有 t≥i 的 O[t] 收到监督——早帧表征被
+          - generic [ref=f84e97]: 「为了之后每步的累积判断都正确」而塑造，时间维信用分配由此建立
+          - generic [ref=f84e99]: 四种损失形态矩阵
+          - generic [ref=f84e100]: 累积历史？ 逐步监督？
+          - generic [ref=f84e101]: spike-rate ✕ ✕
+          - generic [ref=f84e102]: TET ✕ ✓（瞬时）
+          - generic [ref=f84e103]: cumulative ✓ ✕（仅末步）
+          - generic [ref=f84e104]: CT（本文） ✓ ✓ ← 交集
+          - generic [ref=f84e106]: Fig.2 能耗机制可视化（4.5 节）：被跳过的步并非零成本
+          - generic [ref=f84e107]: · 词开始前发放率显著低（无输入不放电，事件驱动）· 词内发放率抬到 0.2
+          - generic [ref=f84e108]: ·
+        - text: 词尾后发放率不立即回落，在 ~0.175 水平再维持若干步——历史信息存在膜电位里，没有新输入也可能继续发放
+        - paragraph [ref=f84e109]: 图 B·SNN 推理能耗正比于实际突触操作数——跳过的每个时间步意味着该步全部脉冲传播被省掉；而词尾后那段膜电位记忆维持的高发放区恰恰是被跳过的部分，这就是早决策能耗收益的直接物理证据。机制与架构解耦：同一模型关掉早决策（固定跑到 98 步）就是晚决策基线——Table 1 内部自对照成立。
+      - generic [ref=f84e110]:
+        - text: L
+        - subscript [ref=f84e111]: CT
+        - text: = (1/T) Σ
+        - subscript [ref=f84e112]: t=0..T
+        - text: L
+        - subscript [ref=f84e113]: CE
+        - text: ( O[t], y )，其中 O[t] = Σ
+        - subscript [ref=f84e114]: i=0..t
+        - text: softmax( U
+        - subscript [ref=f84e115]: R
+        - text: "[i] )； 早停：CS"
+        - subscript [ref=f84e116]: t
+        - text: = max(softmax(O[t])) > C
+        - generic [ref=f84e117]: 人话：监督目标不是「这一帧的判断」也不是「只有最后一帧的判断」，而是「听到目前为止的全部证据应该指向哪个词」——证据随帧单调变多、目标逐步可满足，梯度方向在时间上大体一致。CT 损失还顺带压低脉冲发放率（结论明说），而 SNN 能耗正比突触操作数——省电两头赚。
+    - generic [ref=f84e118]:
+      - paragraph [ref=f84e119]: §03 · 实验结果
+      - heading "增益两层拆解干净；SC-100 上早决策反而更准" [level=2] [ref=f84e120]
+      - generic [ref=f84e122]: 数据与口径：GSC v2（105,829 条 / 35 词）+ 自建 SC-100（313,951 条 / 100 命令 / 每类 1,000-4,000 条 / 时长 0.4-1 s / 每条带起止时间戳；KeywordMiner 从 LibriSpeech 挖词 + 两轮清洗：剔除功能词、淘汰 <0.4s 短片段；随机零填充到 1 s——刻意制造「样本边界≠词边界」的评估难度，再用时间戳补回）。40 fbank / 98 帧。模型 128 隐（27.63K）与 512 隐（306.80K），与 adLIF 基线完全同构。指标：Acc_t（早停时刻精度——用户实际拿到的那次判断）、Acc_T（跑满 98 步精度——与传统可比）、t̄_d、Δt_d（决策相对词尾的提前量，必须时间戳才能算）、能耗（45nm、MAC 4.6pJ / 累加 0.9pJ 通行口径）。
+      - generic [ref=f84e123]:
+        - img [ref=f84e124]:
+          - generic [ref=f84e125]: Table 1 · 能耗-精度散点（45nm 估算口径，对数横轴）
+          - generic [ref=f84e126]: "90"
+          - generic [ref=f84e127]: "91"
+          - generic [ref=f84e128]: "92"
+          - generic [ref=f84e129]: "93"
+          - generic [ref=f84e130]: "3"
+          - generic [ref=f84e131]: "10"
+          - generic [ref=f84e132]: "30"
+          - generic [ref=f84e133]: "100"
+          - generic [ref=f84e134]: 估算能耗 µJ（对数轴，越左越省）
+          - generic [ref=f84e136]: sKWS 86.5K
+          - generic [ref=f84e138]: Spiking-LEAF 306.8K
+          - generic [ref=f84e140]: adLIF-512（晚决策基线）
+          - generic [ref=f84e142]: adLIF-128
+          - generic [ref=f84e144]: ED-512 早决策 ★
+          - generic [ref=f84e146]: ED-512 晚决策（CT 损失）
+          - generic [ref=f84e148]: ED-128 早决策 ★
+          - generic [ref=f84e150]: ED-128 晚决策（CT 损失）
+          - generic [ref=f84e151]: ED-512：以 52% 能耗（23.68 对 45.41µJ）保住 93.04%（−0.08 点）、决策步 98→60.46；ED-128 2.85µJ 全场最低。Yilmaz(75.20%) 与 MSAT(87.33%) 未报能耗未入图
+        - paragraph [ref=f84e152]: 表 1 复绘·橙色 = adLIF 基线，浅绿 = 换 CT 损失（仍晚决策），深绿 ★ = 再开早决策的完整 ED-sKWS。右下方向的 Pareto 前沿被 ED 占据：左上「更省更准」象限无对手。sKWS 247.52µJ 与 Spiking-LEAF 29.20µJ 的巨大差距说明 SNN 内部发放率差异对能耗的主导——统一口径对比的必要性。
+      - generic [ref=f84e153]:
+        - img [ref=f84e154]:
+          - generic [ref=f84e155]: 增益两层拆解（按 Table 1 推算）：CT 损失与早决策相互独立、收益相乘
+          - generic [ref=f84e156]: "20"
+          - generic [ref=f84e157]: "30"
+          - generic [ref=f84e158]: "40"
+          - generic [ref=f84e159]: 512 档（306.8K）能耗 µJ
+          - generic [ref=f84e161]: "45.41"
+          - generic [ref=f84e162]: adLIF 基线
+          - generic [ref=f84e163]: （cumulative+晚决策）
+          - generic [ref=f84e164]: 93.12% · 基线
+          - generic [ref=f84e166]: "34.62"
+          - generic [ref=f84e167]: 换 CT 损失
+          - generic [ref=f84e168]: （仍晚决策）
+          - generic [ref=f84e169]: 93.15% · −23.7%
+          - generic [ref=f84e171]: "23.68"
+          - generic [ref=f84e172]: 再开早决策
+          - generic [ref=f84e173]: （ED-sKWS）
+          - generic [ref=f84e174]: 93.04% · −31.6%
+          - generic [ref=f84e175]: 128 档（27.6K）能耗 µJ
+          - generic [ref=f84e176]: "2"
+          - generic [ref=f84e177]: "4"
+          - generic [ref=f84e178]: "6"
+          - generic [ref=f84e180]: "5.36"
+          - generic [ref=f84e181]: adLIF 基线
+          - generic [ref=f84e182]: 90.46% · −11.6%
+          - generic [ref=f84e184]: "4.74"
+          - generic [ref=f84e185]: 换 CT 损失
+          - generic [ref=f84e186]: 90.52% · −39.9%
+          - generic [ref=f84e188]: "2.85"
+          - generic [ref=f84e189]: 再开早决策
+          - generic [ref=f84e190]: 90.14%
+        - paragraph [ref=f84e191]: 两层增益拆解（笔记按 Table 1 推算）·第一层 CT 损失：关掉早决策也省电（512 档 −23.7%）且精度反涨——机制是 CT 压低脉冲发放率；第二层早决策：再省三成，代价精度回吐 0.11 点。两层相互独立、收益相乘——论文能量故事最扎实的地方。
+      - generic [ref=f84e192]:
+        - img [ref=f84e193]:
+          - generic [ref=f84e194]: Table 2/3 · 损失函数消融：早决策精度 Acc_t%（柱）与平均决策步 t̄_d（标签）
+          - generic [ref=f84e195]: "88"
+          - generic [ref=f84e196]: "90"
+          - generic [ref=f84e197]: "92"
+          - generic [ref=f84e198]: "94"
+          - generic [ref=f84e199]: GSC v2（512 档）
+          - generic [ref=f84e200]: SC-100（带时间戳）
+          - generic [ref=f84e202]: "88.18"
+          - generic [ref=f84e203]: Spike-rate
+          - generic [ref=f84e204]: t̄_d=65.52
+          - generic [ref=f84e206]: "90.72"
+          - generic [ref=f84e207]: "70.32"
+          - generic [ref=f84e208]: Δ+7.33
+          - generic [ref=f84e210]: "91.24"
+          - generic [ref=f84e211]: TET
+          - generic [ref=f84e212]: t̄_d=61.24
+          - generic [ref=f84e214]: "91.17"
+          - generic [ref=f84e215]: "64.21"
+          - generic [ref=f84e216]: Δ+1.22
+          - generic [ref=f84e218]: "93.02"
+          - generic [ref=f84e219]: Cumulative
+          - generic [ref=f84e220]: t̄_d=66.23
+          - generic [ref=f84e222]: "93.20"
+          - generic [ref=f84e223]: "68.28"
+          - generic [ref=f84e224]: Δ+6.32
+          - generic [ref=f84e226]: "93.04"
+          - generic [ref=f84e227]: CT（本文）
+          - generic [ref=f84e228]: t̄_d=60.46
+          - generic [ref=f84e230]: "93.21"
+          - generic [ref=f84e231]: "59.11"
+          - generic [ref=f84e232]: Δ−3.85
+          - generic [ref=f84e233]: CT 是唯一 Δt_d 为负的组：平均在关键词结束前 3.85 步（≈39 ms）就做出决定；自洽校验 59.11+3.85=62.96=SC-100 平均词尾步 ✓
+          - generic [ref=f84e234]: 反直觉现象：SC-100 上早决策精度(93.21)略高于晚决策(93.16)——尾部 ~35 步纯静音是膜电位的记忆负担，晚决策反而吃信息衰减的亏
+        - paragraph [ref=f84e235]: 表 2/3 复绘·三个发现各回溯到损失形态：CT 三指标全优（早决策 93.04 与 Cumulative 持平但快 5.77 步——每步监督让置信度更早越线）；TET 末步精度反而垫底（孤立监督瞬时输出在语音上梯度冲突，把末步表征也拖累）；spike-rate 早决策最差（中间步从未被监督，置信度校准差）。
+      - generic [ref=f84e236]: 与同组 Spiking-LEAF（ICASSP 2024）的对照：同为 306.80K 参数，精度持平（93.04 对 93.02）但决策步 60.46 对 98、能耗 23.68 对 29.20µJ——可学习前端与早决策是两条正交的改进线。注意：论文未与任何非 SNN 基线比较（Table 1 全是 SNN），93.15% 在整个 KWS 版图中的位置无法从论文内部判断。
+    - generic [ref=f84e237]:
+      - paragraph [ref=f84e238]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f84e239]
+      - generic [ref=f84e241]:
+        - generic [ref=f84e242]:
+          - generic [ref=f84e243]: "1"
+          - text: 把「早决策」还给 SNN帧同步前馈 + 置信度阈值早停：61% 时间步、52% 能耗维持可比精度——晚决策范式浪费了 SNN 逐帧可预测的天赋。
+        - generic [ref=f84e244]:
+          - generic [ref=f84e245]: "2"
+          - text: CT 损失 = 累积 × 逐步的交集「历史证据累积」与「逐步监督」此前互斥；CT 合到一个目标，兼顾中间步与末步精度，还顺带压低发放率再省电。
+        - generic [ref=f84e246]:
+          - generic [ref=f84e247]: "3"
+          - text: SC-100 填补评估地基31 万条 / 100 命令 / 带起止时间戳——「提前了多少」从印象变成可测量数字（Δt_d），标注可外供给 VAD 等任务。
+        - generic [ref=f84e248]:
+          - generic [ref=f84e249]: "4"
+          - text: 干净的方法学对照与 adLIF 同架构同参数，增益全部归因到损失与早停两点，且用「关闭早决策的变体」把两层增益分别量化——实验设计的示范。
+    - generic [ref=f84e250]:
+      - paragraph [ref=f84e251]: §05 · 局限性与展望
+      - heading "阈值是黑箱；闭集评测没有误唤醒口径" [level=2] [ref=f84e252]
+      - generic [ref=f84e254]:
+        - generic [ref=f84e255]:
+          - heading "方法局限" [level=4] [ref=f84e256]
+          - list [ref=f84e257]:
+            - listitem [ref=f84e258]: 浅层全连接的精度天花板：两个隐藏层，Table 1 内 SNN 最高 93.15%；卷积 / 残差前端能否与帧同步兼容未探讨。
+            - listitem [ref=f84e259]: 阈值 C 是黑箱：取值未报告，无「阈值-精度-能耗」三方扫描曲线——使用者无法选工作点，C 的敏感性与跨词稳定性未知。
+            - listitem [ref=f84e260]: 提前量有限且无波动信息：Δt_d = −3.85 步（≈39ms）幅度不大；无方差报告，无前缀易混淆词对（发音前段相同的词）的混淆分析——早停在保守场景的误判风险未量化。
+            - listitem [ref=f84e261]: 能耗是估算非实测：45nm 操作计数口径，未上真实神经形态硬件；fbank 特征提取能耗未计入，端侧总能耗低估程度不明。
+        - generic [ref=f84e262]:
+          - heading "实验设计不足" [level=4] [ref=f84e263]
+          - list [ref=f84e264]:
+            - listitem [ref=f84e265]: 训练细节缺失：优化器 / 学习率 / 轮数 / 批大小 / 代理梯度形式 / SC-100 划分均未报告——独立复现受限。
+            - listitem [ref=f84e266]: 部署关键指标缺席：闭集多分类，无 unknown 拒识、无每小时误触发——误唤醒是真实 KWS 产品的一票否决指标，早决策会放大「置信度过早越线」风险，这类分析尤其缺位。
+            - listitem [ref=f84e267]: 对照面窄：只与 SNN 内部方法比，未与 ANN 侧早退出 / 自适应计算深度对照；单一运行无多种子方差。
+            - listitem [ref=f84e268]: SC-100 域与构建噪声：源自朗读有声书，与近讲 / 远场命令域差异未讨论；KeywordMiner 按对齐边界切词，切点协同发音可能产生不自然词边界；六场景词表有跨组重复（set / white / second 多组出现），100 类精确构成与去重口径未完全说明。
+      - generic [ref=f84e269]: 值得追的方向：① 流式卷积 / 残差 SNN 前端与帧同步时间轴结合冲精度上限；用可学习听觉前端（Spiking-LEAF）替换固定 fbank，把前端能耗一并纳入优化；② 停止准则升级——置信度校准（温度缩放）让阈值有概率语义、按词 / 按信噪比自适应阈值、用漂移扩散模型等证据累积理论替代理发的 max softmax；③ 真实事件驱动芯片实测能耗与墙钟延迟，补特征提取开销，形成端到端能效账本；④ 与 VAD 级联——SC-100 时间戳可直接训练 SNN VAD，构建「VAD 门控 + KWS 早决策」两级常驻管线；⑤ 远场 / 加噪 / 多说话人下的早决策行为评估与开放词表迁移。
+    - contentinfo [ref=f84e270]:
+      - generic [ref=f84e271]:
+        - link "深读笔记" [ref=f84e272] [cursor=pointer]:
+          - /url: /papers/2024/ED-sKWS_Early-Decision_Spiking_Neural_Networks_For_Rapidand_Energy-Efficient_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f84e273] [cursor=pointer]:
+          - /url: /papers/2024/ED-sKWS_Early-Decision_Spiking_Neural_Networks_For_Rapidand_Energy-Efficient_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f84e274] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2406.12726
+        - link "返回总目录" [ref=f84e275] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f84e276]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table 1-3 / Fig. 1-2 / 式 1-5）；「推算 / 自洽校验」标注处为笔记给出的核对结论。

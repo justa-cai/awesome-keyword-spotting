@@ -1,0 +1,240 @@
+- generic [active] [ref=f106e1]:
+  - navigation [ref=f106e2]:
+    - generic [ref=f106e3]:
+      - generic [ref=f106e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f106e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f106e6]:
+        - link "深读笔记" [ref=f106e7] [cursor=pointer]:
+          - /url: /papers/2024/Multi-Sample_Dynamic_Time_Warping_For_Few-Shot_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f106e8] [cursor=pointer]:
+          - /url: /papers/2024/Multi-Sample_Dynamic_Time_Warping_For_Few-Shot_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f106e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2404.14903
+  - generic [ref=f106e10]:
+    - banner [ref=f106e11]:
+      - paragraph [ref=f106e12]: 论文精读 · 可视化版 · 2024 №21
+      - heading "均值抹掉变异性、逐样本烧不起 DP—— 把 min 从「得分层」挪到「代价层」，两头都要" [level=1] [ref=f106e13]: 均值抹掉变异性、逐样本烧不起 DP——把 min 从「得分层」挪到「代价层」，两头都要
+      - paragraph [ref=f106e14]: Multi-Sample Dynamic Time Warping for Few-Shot Keyword Spotting
+      - paragraph [ref=f106e15]: 作者：Kevin Wilkinghoff、Alessia Cornaggia-Urrigshardt —— Fraunhofer FKIE（德国）
+      - paragraph [ref=f106e16]: 发表：2024.04 · arXiv:2404.14903
+      - generic [ref=f106e17]:
+        - generic [ref=f106e18]: 少样本开放集 KWS
+        - generic [ref=f106e19]: 代价张量逐元素 min
+        - generic [ref=f106e20]: 下界保证不劣
+        - generic [ref=f106e21]: 改造 Fréchet 均值（交替结构）
+        - generic [ref=f106e22]: 单次 DBA 迭代对齐
+        - generic [ref=f106e23]: 并行 2.4-2.9× 提速
+      - generic [ref=f106e24]:
+        - heading "一分钟版本" [level=2] [ref=f106e25]
+        - list [ref=f106e26]:
+          - listitem [ref=f106e27]: 两难：少样本开放集 KWS 靠模板匹配（QbyE + DTW）。C 类 × 每类 K 个样本对 10 分钟长序列做子序列 DTW → O(N·M·C·K)，逐样本查询随 K 线性膨胀「可能高度不实用甚至不可行」；每类压缩成一个 Fréchet 均值 → O(N·M·C) 快但「抹平」了类内变异性（不同说话人 / 上下文 / 时长节奏）——HFCC 上均值把 F 值从 58.82 拉到 42.44、召回崩到 36.46%。
+          - listitem [ref=f106e28]: 方案（四步）：① 每类求 Fréchet 均值做参考模板（且做「改造」）；② 每个样本经单次 DBA 迭代对齐到参考模板的时间网格（保持个性但时间结构统一，为逐元素合并创造可比性）；③ K 张代价矩阵堆成张量、逐元素取 min 坍缩成一张；④ 每类只跑一次子序列 DTW。
+          - listitem [ref=f106e29]:
+            - text: 为什么 min 放代价层：任何单样本的最优路径在合并矩阵中仍可行且逐点代价不增 →
+            - generic [ref=f106e30]:
+              - text: D*
+              - subscript [ref=f106e31]: multi
+              - text: ≤ min
+              - subscript [ref=f106e32]: k
+              - text: D*
+              - subscript [ref=f106e33]: k
+            - text: （下界保证不劣于逐样本）；且路径可中途换样本 = 用 K 个真实样本隐式编码指数级伪模板（「样本 A 的开头接样本 B 的结尾」）——某些测试发音与重组模板比与任何单一真实样本都近。
+          - listitem [ref=f106e34]: "改造 Fréchet 均值：标准 DBA 后再施加一次用子序列 DTW + 非标准步集 {(1,1),(1,2),(2,1)} 的 DBA——隔帧吸收新信息，模板呈「原始条目与新条目交替」结构 = 单模板编码两个可替换模板，零运行时间增量下 HFCC +7.10 点 / 嵌入 +8.47 点。"
+          - listitem [ref=f106e35]: 结果：KWS-DailyTalk 5-shot，嵌入特征 multi-sample 并行版 F 69.43%（对逐样本 69.48% 实质持平、验证集还反超 1.89 点且精确率召回率同升）、运行 6.5s（对逐样本 18.9s 提速 2.9×、对理论最优均值 4.2s 只慢 1.5×）。
+          - listitem [ref=f106e36]: 最有迁移价值的交叉结论：均值策略的伤害与特征判别性成反比——HFCC 掉 16.38 点、嵌入只掉 10.22 点；特征越「生」（免训练手工特征）越不要用均值压缩模板。
+    - generic [ref=f106e37]:
+      - paragraph [ref=f106e38]: §01 · 问题陈述
+      - heading "变异性保留 × 计算效率的两难" [level=2] [ref=f106e39]
+      - generic [ref=f106e41]: 三条既有路线的失效机制：① DTW 加速技术（Sakoe-Chiba 带 / 剪枝 / 对角并行）——优化的都是「一次 DTW」内部的常数与并行度，完全不触及 K 因子的乘性放大；② Fréchet 均值压缩——DTW 度量下求均值是 NP 完全（只能启发式），更致命的是均值是「抹平」而关键词判别恰依赖被抹平的细节；③ 聚类多均值（每簇一个均值）——伪模板数 = 簇数、切换只能在簇均值粒度发生，仍是有损压缩。两条路线之间没有中间形态：「性能与逐样本持平、运行时间与单均值接近」这一档在本文之前是空白。三层挑战：数学上保留全部 K 个样本贡献（非有损压缩）；工程上把 K 因子从串行 DP 转移到可并行部分；配套上需要一个统一时间网格的对齐机制且本身不引入新损失。
+    - generic [ref=f106e42]:
+      - paragraph [ref=f106e43]: §02 · 方法论
+      - heading "计算负载的重新分配 + 信息保真的下包络" [level=2] [ref=f106e44]
+      - generic [ref=f106e46]:
+        - img [ref=f106e47]:
+          - generic [ref=f106e48]: Fig.1 复绘：四步流程 + 为什么串行 DP 是大头
+          - generic [ref=f106e50]: Step 1 参考模板
+          - generic [ref=f106e51]: DBA 求 Fréchet 均值
+          - generic [ref=f106e52]: （Sakoe-Chiba 半径 1）
+          - generic [ref=f106e53]: + 第二次 DBA：子序列 DTW +
+          - generic [ref=f106e54]: 非标准步集 →「改造均值」★
+          - generic [ref=f106e55]: （隔帧吸收 → 交替结构，图 2）
+          - generic [ref=f106e58]: Step 2 样本转换
+          - generic [ref=f106e59]: 每个样本对参考模板做一次
+          - generic [ref=f106e60]: DBA 迭代：匹配位置的条目
+          - generic [ref=f106e61]: 被算术平均替换
+          - generic [ref=f106e62]: → K 个样本落到同一时间网格
+          - generic [ref=f106e63]: 单次迭代不收敛：保个性不抹平
+          - generic [ref=f106e66]: Step 3 代价张量 → min
+          - generic [ref=f106e67]: K 张代价矩阵（余弦距离，可并行）
+          - generic [ref=f106e68]: 堆成三维张量 → 样本维逐元素
+          - generic [ref=f106e69]: 取最小值 → 坍缩成一张
+          - generic [ref=f106e70]: → 路径可在不同样本间切换 ★
+          - generic [ref=f106e71]: min 一步「相对昂贵但极易并行」
+          - generic [ref=f106e74]: Step 4 单次 DTW
+          - generic [ref=f106e75]: 子序列 DTW
+          - generic [ref=f106e76]: "步集 {(1,1),(1,2),(2,1)}"
+          - generic [ref=f106e77]: 每类只跑一次 ★
+          - generic [ref=f106e78]: 得分 = 最优路径
+          - generic [ref=f106e79]: 累积代价
+          - generic [ref=f106e81]: 计算负载的重新分配
+          - generic [ref=f106e82]: DTW 运行时间 = 局部代价（逐元素、无数据依赖、天然可并行）
+          - generic [ref=f106e83]: + DP 累积扫描（每格依赖左/上邻居、严格串行、大头）
+          - generic [ref=f106e84]: K 张代价矩阵省不掉（省掉丢变异性）→ 保留但折叠成一张，
+          - generic [ref=f106e85]: 最昂贵的串行 DP 每类只跑一次：K 因子从「K 次串行 DP」
+          - generic [ref=f106e86]: 降级为「K 份可并行局部代价 + 一次可并行 min」
+          - generic [ref=f106e87]: 诚实账本：名义总复杂度仍 O(N·M·C·K)（常数大减）——
+          - generic [ref=f106e88]: Fréchet 均值的 O(N·M·C) 是理论下界，本方法只能逼近
+          - generic [ref=f106e90]: 改造均值的交替结构（Fig.2 右半）
+          - generic [ref=f106e91]: 第二次 DBA 用非标准步集——匹配可跳过隔帧条目，
+          - generic [ref=f106e92]: 更新「每隔一个条目」吸收新信息
+          - generic [ref=f106e93]: → 模板时间轴呈「原始均值条目 / 新条目」交替纹理：
+          - generic [ref=f106e94]: 偶数位 = 模板一、奇数位 = 模板二——跳帧步可选只走一套
+          - generic [ref=f106e95]: →「时间复用」把两个候选发音塞进同一模板，容量翻倍，
+          - generic [ref=f106e96]: 且跳帧选择性与下游 DTW 步集天然兼容，零解码开销
+          - generic [ref=f106e97]: 可独立使用（Table I「改造均值」行）也可做 Step 1 参考模板
+        - paragraph [ref=f106e98]: 图 A·为什么选 min 而非均值 / 最大值：DTW 找最小代价路径——min 保持解释一致性（合并矩阵仍是合法代价矩阵，DP 零修改）且保证下界性质；均值重新引入抹平，最大值变成「最差样本视角」。Step 2 单次迭代的分寸：目标是「保持个性、时间结构服从参考坐标系」，迭代到收敛会把样本拉向参考模板、重新抹平。
+      - generic [ref=f106e99]:
+        - text: c
+        - subscript [ref=f106e100]: k
+        - text: (i,j) = 1 − cos(q
+        - superscript [ref=f106e101]: (k)
+        - subscript [ref=f106e102]: i
+        - text: ", x"
+        - subscript [ref=f106e103]: j
+        - text: )； C(i,j) = min
+        - subscript [ref=f106e104]: k
+        - text: c
+        - subscript [ref=f106e105]: k
+        - text: (i,j)； D*
+        - subscript [ref=f106e106]: multi
+        - text: ≤ min
+        - subscript [ref=f106e107]: k
+        - text: D*
+        - subscript [ref=f106e108]: k
+        - generic [ref=f106e109]: 人话：在模板时间格点 × 目标时间格点的每个交叉位置，代价取 K 个样本里最便宜的那个——类内变异性不是被抹掉而是被完整包进一张「下包络」矩阵供 DP 自由取用。任何单样本的最优路径在合并矩阵里依然可行且逐点代价不增——这就是「不劣于逐样本」的数学保证。
+    - generic [ref=f106e110]:
+      - paragraph [ref=f106e111]: §03 · 实验结果
+      - heading "追平逐样本、逼近均值速度、且验证集反超" [level=2] [ref=f106e112]
+      - generic [ref=f106e114]:
+        - img [ref=f106e115]:
+          - generic [ref=f106e116]: 三种聚合的对比：min 作用的位置决定了变异性保多少、DP 跑几次
+          - generic [ref=f106e117]: 逐样本查询
+          - generic [ref=f106e119]: K 个样本
+          - generic [ref=f106e121]: 各算一张代价矩阵
+          - generic [ref=f106e123]: K 次完整 DP
+          - generic [ref=f106e125]: 得分层 min
+          - generic [ref=f106e126]: O(N·M·C·K) 串行 DP × K
+          - generic [ref=f106e127]: 精度好但不可行
+          - generic [ref=f106e128]: Fréchet 均值
+          - generic [ref=f106e130]: K 个样本
+          - generic [ref=f106e132]: 特征空间平均（有损）
+          - generic [ref=f106e134]: 1 张代价矩阵
+          - generic [ref=f106e136]: 1 次 DP
+          - generic [ref=f106e137]: O(N·M·C)
+          - generic [ref=f106e138]: 快但变异性被抹平
+          - generic [ref=f106e139]: multi-sample DTW ★
+          - generic [ref=f106e141]: K 个样本
+          - generic [ref=f106e143]: 各算一张（可并行）
+          - generic [ref=f106e145]: 代价层逐元素 min
+          - generic [ref=f106e147]: 1 次 DP
+          - generic [ref=f106e148]: 名义 O(N·M·C·K) 但串行 DP 每类只一次
+          - generic [ref=f106e149]: 两头都要
+          - generic [ref=f106e150]: 下界性质：任何单样本的最优路径在合并矩阵中仍可行且逐点代价不增 → D*multi ≤ min_k D*k —— 路径中途可换样本 = 隐式编码指数级伪模板
+        - paragraph [ref=f106e151]: 图 B·「得分层 min」被移到「代价层 min」——min 作用的位置前移了一整个 DP。这正是与逐样本查询的本质差异：逐样本要 K 次完整串行 DP 才能知道哪个样本最便宜；multi-sample 在 DP 之前就把每个格点的最便宜样本选好了，昂贵的串行部分只剩一次。
+      - generic [ref=f106e152]: 数据：KWS-DailyTalk（少样本开放集基准）——训练 15 词 × 各 5 个孤立样本（共 75 条 / 39 秒），词表为金融出行场景（含 "credit card" 双词关键词——对时间规整更高要求）；验证 / 测试各 156 / 157 句连续语音（约 10 分钟 / 集），每句含零或多个关键词、每词各出现约 12 次；训练样本取自不同对话——说话人与上下文隔离，直接测跨说话人泛化（变异性问题的根源）。指标：事件级微平均 F（须同时命中 onset/offset 与类别——帧级看不到的边界惩罚）；P/R 并列（阈值控制权衡，均值路线的召回崩塌只有 P/R 才暴露）；运行时间作为一等公民指标（特征提取外、i7-8700 实测）。后处理：重叠候选保留得分最高、删除短于模板 50% 的检测。
+      - generic [ref=f106e153]:
+        - img [ref=f106e154]:
+          - generic [ref=f106e155]: Table I · 测试 F 值 × 运行时间（KFIT-DailyTalk，5-shot，i7-8700）
+          - generic [ref=f106e156]: "40"
+          - generic [ref=f106e157]: "50"
+          - generic [ref=f106e158]: "60"
+          - generic [ref=f106e159]: "70"
+          - generic [ref=f106e161]: "58.8"
+          - generic [ref=f106e162]: 逐样本
+          - generic [ref=f106e163]: 29.5 s
+          - generic [ref=f106e165]: "42.4"
+          - generic [ref=f106e166]: 标准均值
+          - generic [ref=f106e167]: 6.2 s
+          - generic [ref=f106e169]: "49.5"
+          - generic [ref=f106e170]: 改造均值
+          - generic [ref=f106e171]: 6.2 s
+          - generic [ref=f106e173]: "58.1"
+          - generic [ref=f106e174]: multi-sample
+          - generic [ref=f106e175]: （串行）
+          - generic [ref=f106e176]: 20.9 s
+          - generic [ref=f106e178]: "58.1"
+          - generic [ref=f106e179]: multi-sample
+          - generic [ref=f106e180]: （并行）★
+          - generic [ref=f106e181]: 12.4 s
+          - generic [ref=f106e182]: HFCC（免训练）
+          - generic [ref=f106e184]: "69.5"
+          - generic [ref=f106e185]: 逐样本
+          - generic [ref=f106e186]: 18.9 s
+          - generic [ref=f106e188]: "59.3"
+          - generic [ref=f106e189]: 标准均值
+          - generic [ref=f106e190]: 4.2 s
+          - generic [ref=f106e192]: "67.7"
+          - generic [ref=f106e193]: 改造均值
+          - generic [ref=f106e194]: 4.2 s
+          - generic [ref=f106e196]: "69.4"
+          - generic [ref=f106e197]: multi-sample
+          - generic [ref=f106e198]: （串行）
+          - generic [ref=f106e199]: 10.6 s
+          - generic [ref=f106e201]: "69.4"
+          - generic [ref=f106e202]: multi-sample
+          - generic [ref=f106e203]: （并行）★
+          - generic [ref=f106e204]: 6.5 s
+          - generic [ref=f106e205]: 判别性嵌入
+          - generic [ref=f106e206]: 柱 = 测试 F 值，柱下 = DTW 运行时间。均值快但掉点惨（HFCC −16.4 点、召回崩到 36.5%）；multi-sample 并行版追平逐样本 F 值、提速 2.4-2.9×
+        - paragraph [ref=f106e207]: 表 I 复绘·两种特征（免训练 HFCC / 判别性嵌入）× 四种策略。嵌入特征下 multi-sample 验证集 F 71.07 反超逐样本 69.18，且精确率（82.48 对 80.29）与召回率（62.43 对 60.77）同时上升——不是阈值移动的假象，而是重组模板真的匹配到了逐样本匹配不到的发音（下界 + 组合增益的实证）。并行化只改张量→矩阵的实现，所有性能指标逐位相同。
+      - generic [ref=f106e208]: Fig.3 shot 数扩展 + 五组消融读数：① 逐样本运行时间随 K（2-10）线性增长——论文据此判其不可行；multi-sample 斜率小得多（最贵的 DP 每类一次）、并行版逼近均值那条几乎水平的线；② 论文点破的微妙耦合：更高的召回率意味着要考察更多 DTW 路径——运行时间与性能不是独立的；③ 聚合策略的影响远大于其他因素：HFCC 下最优最差聚合差 15.64 点、嵌入下 10.17 点；④ 特征×聚合交互（信息量最大交叉项）：均值对 HFCC 伤 −16.38 对嵌入只伤 −10.22——特征越「生」均值越危险；⑤ 并行化消融：串行 / 并行所有性能指标逐位相同（纯实现优化）——验证「min 极易并行」。缺口：性能随 shot 数的曲线未报（只消融了运行时间）；与聚类多均值的实证对垒缺席。
+    - generic [ref=f106e209]:
+      - paragraph [ref=f106e210]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f106e211]
+      - generic [ref=f106e213]:
+        - generic [ref=f106e214]:
+          - generic [ref=f106e215]: "1"
+          - text: 第三条路线「均值的有损压缩」与「逐样本的线性开销」之外：先算距离、在距离矩阵层面合并、再只做一次 DTW——min 从得分层前移了一整个 DP。
+        - generic [ref=f106e216]:
+          - generic [ref=f106e217]: "2"
+          - text: 下界保证 + 组合增益D*multi ≤ min_k D*k 保证不劣；可切换路径空间 = 用 K 个真实样本隐式编码指数级伪模板——「捕获变异性」的数学化表达。
+        - generic [ref=f106e218]:
+          - generic [ref=f106e219]: "3"
+          - text: 交替结构 = 免费容量翻倍改造 Fréchet 均值用时间复用把两个候选发音塞进同一模板——零运行时间增量买回大部分被均值抹掉的变异性，且可独立使用。
+        - generic [ref=f106e220]:
+          - generic [ref=f106e221]: "4"
+          - text: 均值伤害与特征判别性成反比手工特征（HFCC −16.4 点、召回崩）绝对不要用均值压缩；判别性嵌入的代价才勉强可接受——超出 KWS 的工程指导。
+    - generic [ref=f106e222]:
+      - paragraph [ref=f106e223]: §05 · 局限性与展望
+      - heading "名义复杂度没变；嵌合体路径的误报无理论约束" [level=2] [ref=f106e224]
+      - generic [ref=f106e226]:
+        - generic [ref=f106e227]:
+          - heading "方法局限" [level=4] [ref=f106e228]
+          - list [ref=f106e229]:
+            - listitem [ref=f106e230]: 名义复杂度没变：K 因子留在代价张量的计算与存储（内存随 K 线性涨，数字未报）；单线程低端 MCU 上串行版优势缩水（HFCC 20.9s 对 29.5s 只快 29%）。
+            - listitem [ref=f106e231]: 嵌合体误报风险无理论约束：「A 的开头拼 B 的结尾」这类真实语音不存在的模板可能造误报——实验精确率未受损但只是单一数据集经验、无对抗压力测试。
+            - listitem [ref=f106e232]: 不可微：硬 min + 精确 DP 保了精确性但进不了训练回路——特征与匹配割裂两阶段，无法端到端联合优化。
+            - listitem [ref=f106e233]: 参考模板依赖启发式：Fréchet 均值本身 NP 完全的近似；模板长度固定为「平均长度」对长度方差大的类可能次优；初始化敏感性未比较。
+            - listitem [ref=f106e234]: 阈值依赖：决策阈值在验证集逐类调优——域偏移下失配风险与所有模板匹配系统相同，重校准成本未讨论。
+        - generic [ref=f106e235]:
+          - heading "实验设计不足" [level=4] [ref=f106e236]
+          - list [ref=f106e237]:
+            - listitem [ref=f106e238]: 单一数据集单语言单域：全部结论来自 KWS-DailyTalk（英文对话 / 15 金融出行词）——作者自认在 Speech Commands 上复验是未来工作；10 分钟测试集 + 每词约 12 次出现，0.05 点级差异（69.43 对 69.48）无统计意义、无显著性检验。
+            - listitem [ref=f106e239]: 性能-shot 曲线缺失：few-shot 方法的核心卖点之一是 K=1→10 的性能爬坡——只有运行时间曲线，论证少了半边。
+            - listitem [ref=f106e240]: 聚类均值基线缺席：引言重点讨论却没实现——「聚类 + multi-sample 组合是否更强」无从判断。
+            - listitem [ref=f106e241]: 对比局限 DTW 家族：无度量学习分类器 / 原型网络等非 DTW 少样本方案——「路线内最优」≠「任务最优」。
+            - listitem [ref=f106e242]: 并行细节不透明：线程数 / 框架 / SIMD 未报——12.4s / 6.5s 可复现性打折；GPU 未测。
+      - generic [ref=f106e243]: 值得追的方向：① 跨数据集跨任务验证（Speech Commands + 生物声学 / 多基频估计——方法不依赖语音特性，任何「多模板对长序列」场景适用）；② 软最小值化：min 换带温度 soft-min（借鉴 soft-DTW）→ 张量聚合变可微算子，端到端训练「适配」聚合目标的嵌入，甚至学每样本的注意力式加权 min；③ 与正交加速叠加（带约束 / 剪枝 / GPU 对角并行——论文明说对所有方法影响相同，可叠加）；④ 超大 K 的分层结构（先聚类、簇内 multi-sample、簇间取优）缓解张量的线性内存；⑤ 嵌合体误报控制：切换罚项或限制每路径切换次数——保留重组增益同时约束非自然模板，为精确率给理论保障；⑥ 改造均值推广到「一个模板编码 N 个可替换模板」（更细步集 / 更高维结构）+ 有效容量与误报率权衡的理论分析。
+    - contentinfo [ref=f106e244]:
+      - generic [ref=f106e245]:
+        - link "深读笔记" [ref=f106e246] [cursor=pointer]:
+          - /url: /papers/2024/Multi-Sample_Dynamic_Time_Warping_For_Few-Shot_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f106e247] [cursor=pointer]:
+          - /url: /papers/2024/Multi-Sample_Dynamic_Time_Warping_For_Few-Shot_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f106e248] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2404.14903
+        - link "返回总目录" [ref=f106e249] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f106e250]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table I / Fig. 1-3）；「交叉项 / 推断」标注处为笔记给出的分析。

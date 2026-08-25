@@ -1,0 +1,249 @@
+- generic [active] [ref=f151e1]:
+  - navigation [ref=f151e2]:
+    - generic [ref=f151e3]:
+      - generic [ref=f151e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f151e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f151e6]:
+        - link "深读笔记" [ref=f151e7] [cursor=pointer]:
+          - /url: /papers/2024/Neuromorphic_Keyword_Spotting_With_Pulse_Density_Modulation_MEMS_Microphones.md
+        - link "PDF 原稿" [ref=f151e8] [cursor=pointer]:
+          - /url: /papers/2024/Neuromorphic_Keyword_Spotting_With_Pulse_Density_Modulation_MEMS_Microphones.pdf
+        - link "arXiv" [ref=f151e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2408.05156
+  - generic [ref=f151e10]:
+    - banner [ref=f151e11]:
+      - paragraph [ref=f151e12]: 论文精读 · 可视化版 · 2024 №43
+      - heading "麦克风本来就在「发脉冲」——为什么要解调成 PCM、提特征、再编码回脉冲？ 砍掉三级前端的直连捷径" [level=1] [ref=f151e13]: 麦克风本来就在「发脉冲」——为什么要解调成 PCM、提特征、再编码回脉冲？砍掉三级前端的直连捷径
+      - paragraph [ref=f151e14]: Neuromorphic Keyword Spotting with Pulse Density Modulation MEMS Microphones
+      - paragraph [ref=f151e15]: 作者：Sidi Yaya Arnaud Yarga、Sean U N Wood —— 舍布鲁克大学（加拿大 · NECOTIS 实验室）
+      - paragraph [ref=f151e16]: 发表：arXiv 2408.05156（2024-08，ICASSP 格式短文）· 代码开源 github.com/NECOTIS
+      - generic [ref=f151e17]:
+        - generic [ref=f151e18]: PDM 比特流直连 SNN
+        - generic [ref=f151e19]: 调制器 ≡ I&F 神经元
+        - generic [ref=f151e20]: 并行 PCM→PDM 转换（10 万×加速）
+        - generic [ref=f151e21]: GSC 91.54%（超 SSC SOTA 10.9 点）
+        - generic [ref=f151e22]: 激活率低至 0.04%
+        - generic [ref=f151e23]: 210K / 71K 两个工作点
+      - generic [ref=f151e24]:
+        - heading "一分钟版本" [level=2] [ref=f151e25]
+        - list [ref=f151e26]:
+          - listitem [ref=f151e27]: 结构性观察（全文的种子）：现代数字 MEMS 麦克风的主流接口就是 PDM——内部 sigma-delta 转换器在传感器侧把声压编码成高速单比特流（幅度大脉冲密、幅度小脉冲稀）。而典型神经形态 KWS 管线要走 ADC → 特征提取 → 脉冲编码 → SNN 四段——即便 SNN 省到极致，前端仍是传统 DSP 那一套，端到端功耗下限被前端锁死。PDM 的物理形态与生物神经的脉冲串本来就同构：三次格式转换里有两次是自找的。
+          - listitem [ref=f151e28]: 理论支点（不是类比是等价）：PCM→PDM 转换算法（误差累积 → 过阈发脉冲 → 减阈值）数学上就是软复位、阈值 1 的 Integrate-and-Fire 神经元——发放后减阈值而非清零、余数保留正是 LIF 软复位语义。麦克风里的 sigma-delta 环与 SNN 第一层执行同一种动力学。
+          - listitem [ref=f151e29]: 捷径式管线：PDM 比特流直连 5 层 1D 卷积 SNN（ParaLIF-D 可并行神经元），抽取 / 特征 / 编码三级整体消失。第一层 kernel=3α 随过采样比缩放（物理感受野恒定，换 α 不重设计网络）；网络自身构成解调抽取链（α=64 时 1.024MHz → L4 输出 ~400Hz，推导）——第一层卷积 = 网络自己学会「该用什么滤波器解调」，而非 DSP 工程师预先指定。
+          - listitem [ref=f151e30]: 结果：GSC 91.54±0.23%，超 SSC 赛道 SOTA（50–80.69%）约 10.9 个点，且 210K 参数比文献最小（280K）还小——「从原始比特流端到端」比「耳蜗模型半熟喂给模型」的更难设定下规模与准确率同时占优。注意对标限于神经形态赛道（GSC 上非脉冲 ANN 普遍 97%+ 的精度代价未讨论）。
+          - listitem [ref=f151e31]: 过采样比的对数规律有信号理论根源：1 比特化引入 ~90dB 量化噪声恶化，sigma-delta 的噪声整形把噪声推到高频——过采样买的是「噪声与信号在频谱上分家」的空间，网络学的滤波器在带内积分、高频段衰减。α=1 仍有 70.44%（直接吃 16kHz 一比特粗量化），α=64 达 91.54%，参数只从 185K 涨到 210K。
+          - listitem [ref=f151e32]: 最硬的能效证据（事件预算不爆炸）：512 个脉冲神经元每样本平均激活 7.67 个（16kHz，1.5%）→ 0.2 个（1.024MHz，0.04%）——输入采样率涨 64 倍，绝对脉冲率只从 122K 涨到 206K spike/s（1.7 倍）。事件驱动硬件按事件计费，这是「低能耗潜力」最硬的一条。
+          - listitem [ref=f151e33]: 反直觉权衡（表 2）：连接砍稀到 94%（210K→71K 参数）精度只掉 ~5 点到 86.42%——但脉冲率反而从 206K 升到 317K spike/s（全连接的平均化与抑制被削弱后神经元更容易单独过阈）。真实神经形态硬件必须按突触操作与胞体操作的单价折算，不能只看参数量宣布省电。
+          - listitem [ref=f151e34]: 基础设施贡献：并行 PCM→PDM 转换算法（cumsum→floor→diff 三步无依赖数组运算）把 O(s) 串行反馈环拆成一轮向量化——V100 上最长序列加速最高 10 万倍，PDM 数据集制备从训练瓶颈降为一次性预处理。
+          - listitem [ref=f151e35]: 边界：能效是推断非实测（结论章自认下一步上硬件验证）；PDM 是从 GSC PCM 仿真转换的（真实麦克风的器件噪声 / 失调 / 噪声整形谱域差距未处理）；消融在 α=10 做而最佳配置是 64；无同一 PDM 输入下的 ANN / 量化网络对照（范式级问题未回答）；GSC 孤立词分类 ≠ 产品级流式检测——漏检 / 误触发权衡未报告。
+    - generic [ref=f151e36]:
+      - paragraph [ref=f151e37]: §01 · 问题陈述
+      - heading "KWS 的成本模型是「连续跑一个月耗多少电」" [level=2] [ref=f151e38]
+      - generic [ref=f151e40]: 为什么神经形态契合 KWS 的负载画像：事件驱动 =「没有脉冲就没有计算」，静音时段功耗趋近零——与 KWS「绝大部分时间在听噪声、极小部分时间在算语音」天然契合。但典型管线的四段加工（ADC / 特征 / 编码 / SNN）里前三段是传统 DSP：抽取滤波器要在 DSP 常驻（2.1 节）、STFT/MFCC 是乘加阵列、脉冲编码器再做一次格式翻译——付费买的只是几十年积累的频谱特征工程惯性。
+      - generic [ref=f151e41]: 已有方案在加级而非减级：NAS（PDM→PFM 神经形态听觉传感器）与 SCTN（脉冲连续时间神经元预处理）解决的是接口兼容，没质疑中间级该不该存在；耳蜗模型路线（水动力基底膜 + 毛细胞 + 灌木细胞）生物仿真级联参数多、计算重、特征级固定无法对分类损失端到端优化；SSC 赛道 SOTA 网络 280K–10M 参数、准确率只有 50–80.69%——SSC 编码阶段自带时频分解、模型任务更轻，仍没突破 81%。
+      - generic [ref=f151e42]: 三个挑战：采样率的量级问题——PDM 过采样比 64 时达 1.024MHz（实验）/ 3MHz（48kHz 目标），百万时间步的序列式 BPTT 完全不可行；从近乎全噪声的单比特流学特征——16bit→1bit 约 90dB 量化噪声恶化，砍掉特征提取后网络要同时完成「解调、去噪、特征提取、分类」四件事；数据集格式障碍——105,829 条 GSC 语料全部转 PDM，串行递推转换可能卡死训练迭代。
+    - generic [ref=f151e43]:
+      - paragraph [ref=f151e44]: §02 · 方法论
+      - heading "直连捷径 + 同构等价 + 并行转换" [level=2] [ref=f151e45]
+      - generic [ref=f151e47]:
+        - img [ref=f151e48]:
+          - generic [ref=f151e49]: 图 1 复绘：传统管线四次范式转换 vs 本文捷径——麦克风已经在「发脉冲」，中间两次转换是自找的
+          - generic [ref=f151e51]: 传统神经形态 KWS 管线（每一段都是真金白银的电路与功耗）
+          - generic [ref=f151e52]:
+            - generic [ref=f151e54]: PDM 比特流
+            - generic [ref=f151e55]: 3 MHz @OSR64
+            - generic [ref=f151e57]: DSP 抽取滤波
+            - generic [ref=f151e58]: 常驻无法停机
+            - generic [ref=f151e60]: PCM 16bit
+            - generic [ref=f151e61]: 48kHz 持续搬运
+            - generic [ref=f151e63]: STFT / MFCC
+            - generic [ref=f151e64]: 乘加阵列
+            - generic [ref=f151e66]: 连续特征
+            - generic [ref=f151e67]: 数值帧
+            - generic [ref=f151e69]: 脉冲编码器
+            - generic [ref=f151e70]: 再翻译回脉冲
+            - generic [ref=f151e72]: SNN 分类
+            - generic [ref=f151e73]: 35 类
+          - generic [ref=f151e74]: 把「事件流」压扁成「数值帧」再拉回「事件流」——范式切换每次都要付费，买的只是几十年频谱特征工程惯性
+          - generic [ref=f151e76]: 已有的「PDM 友好」方案仍在加级：NAS [11]（PDM→PFM 神经形态听觉传感器）· SCTN [12]（脉冲连续时间神经元预处理）——解决接口兼容，没质疑中间级该不该存在
+          - generic [ref=f151e77]: 耳蜗模型路线 [5][6]：水动力基底膜 + 毛细胞 + 灌木细胞——生物仿真级联参数多、计算重、特征级固定无法对分类损失端到端优化
+          - generic [ref=f151e79]: 本文捷径：PDM 比特流 → 1D 卷积 SNN 直连（抽取 / 特征提取 / 脉冲编码三级整体消失）★
+          - generic [ref=f151e81]: PDM 比特流
+          - generic [ref=f151e82]: 1.024 MHz（α=64）
+          - generic [ref=f151e84]: 1D 卷积 SNN（5 层 · ParaLIF-D）
+          - generic [ref=f151e85]: L1 kernel=3α（感受野恒定）· L2–4 膨胀卷积 stride3 · L5 LI 读出
+          - generic [ref=f151e87]: 35 类判决
+          - generic [ref=f151e88]: 91.54±0.23%
+          - generic [ref=f151e89]: 网络自身构成「解调抽取链」：α=64 时 L1 stride 96 → 1.024MHz 降到 ~10.7kHz，三层 stride 3 再除 27 → L4 输出 ~400Hz（推导）——替代 DSP 多级抽取滤波器
+          - generic [ref=f151e90]: 组件哲学：卷积管并行与局部频率 · L3/4 循环管长时依赖（ReLU 截断负反馈）· 随机固定延迟管脉冲同步 · 时间平移增广管时间鲁棒
+          - generic [ref=f151e92]: 理论支点：PDM 调制器 ≡ I&F 神经元（3.3 节）
+          - generic [ref=f151e93]: PCM→PDM 算法：qe += x；qe>0 发脉冲 y=1 否则 y=0；qe −= y
+          - generic [ref=f151e94]: ＝软复位、发放阈值 1 的 Integrate-and-Fire 神经元——
+          - generic [ref=f151e95]: 发放后减阈值而非清零、余数保留（LIF 软复位语义）
+          - generic [ref=f151e96]: 「传感器即脉冲编码器」不是类比，是数学等价——
+          - generic [ref=f151e97]: 麦克风里的 sigma-delta 环与 SNN 第一层执行同一种动力学
+          - generic [ref=f151e98]: 信号理论：噪声整形把量化噪声推到高频——过采样买的是「噪声与信号在频谱上分家」的空间，
+          - generic [ref=f151e100]: 算法 2 · 并行 PCM→PDM 转换（基础设施贡献）
+          - generic [ref=f151e101]: cumsum(x) → ⌊x ÷ th⌋ → diff > 0
+          - generic [ref=f151e102]: floor(cumsum/th) 累积计数已发脉冲总数，差分为正处即新脉冲
+          - generic [ref=f151e103]: 三步全是无数据依赖的数组级运算——O(s) 串行反馈环拆成
+          - generic [ref=f151e104]: 一轮向量化张量操作
+          - generic [ref=f151e105]: Tesla V100 上最长序列（α=64）加速最高 10 万倍——
+          - generic [ref=f151e106]: PDM 数据集制备从训练瓶颈降为一次性预处理
+          - generic [ref=f151e107]: 输出改 ±1 为 0/1 与 SNN 脉冲记法一致，等价关系直接可见
+        - paragraph [ref=f151e108]: 图 1 复绘：捷径的可行性根基是 PDM 固有二值性与 SNN 二值脉冲输入天然对齐；同构等价与并行转换算法是支撑这条捷径的两块理论 / 基础设施基石。
+      - generic [ref=f151e109]:
+        - text: qe ← qe + x[n]； 若 qe > 0 则 y[n]=1 否则 y[n]=0； qe ← qe − y[n]
+        - generic [ref=f151e110]: 算法 1（改造版）· PCM→PDM 串行转换：把输入累积进误差变量，误差为正就发一个脉冲并减 1——论文原话「等价于一个软复位、发放阈值为 1 的 Integrate and Fire 神经元」。软复位的关键：发放后 qe 减去阈值而非清零，余数被保留（LIF 软复位语义）。输出从 ±1 改为 0/1 与 SNN 脉冲记法一致，「转换器即 I&F 神经元」的等价关系直接可见。
+      - generic [ref=f151e111]: 组件各自解决一个问题：1D 卷积管并行与局部频率（超长时域二值信号上把训练跑起来的前提）；第 3/4 层循环管长时依赖（循环项由膜电位过 ReLU 后回馈——截断负反馈避免震荡发散，让网络自己决定「记住什么」）；隐层后随机固定延迟 [0–30] 时间步管脉冲同步（不同时刻的脉冲经不同延迟在目标神经元对齐；各层时间步物理时长不同 → 免费的跨时间尺度延迟谱，零参数零计算成本）；时间平移增广 [−0.3, 0.3]s 管时间鲁棒。训练：surrogate gradient + Adamax（lr 0.002）+ reduce-on-plateau。
+    - generic [ref=f151e112]:
+      - paragraph [ref=f151e113]: §03 · 实验与消融
+      - heading "准确率 + 脉冲率 + 参数量才是能效的完整证据链" [level=2] [ref=f151e114]
+      - generic [ref=f151e116]: 数据与指标：GSC v2（105,829 条 · 35 词 · 84,843/9,981/11,005 划分），全部按过采样比转成 PDM。三个指标的设计体现神经形态视角：事件驱动芯片的能耗近似正比于事件数而非样本数——分类准确率（效果）+ 网络脉冲率 SR（能耗代理）+ 参数量（突触存储与操作成本）合起来才是「能效潜力」的完整证据链，单独报准确率没有意义。全部实验 5 次随机初始化 × 150 epoch 报均值±标准差。
+      - generic [ref=f151e117]:
+        - img [ref=f151e118]:
+          - generic [ref=f151e119]: 表 1 · 组件增量消融（过采样比 10 · 5 次重复 · Train/Valid/Test %）
+          - generic [ref=f151e120]: "75"
+          - generic [ref=f151e121]: "80"
+          - generic [ref=f151e122]: "85"
+          - generic [ref=f151e123]: "90"
+          - generic [ref=f151e124]: "95"
+          - generic [ref=f151e126]: "87.83"
+          - generic [ref=f151e128]: "79.08"
+          - generic [ref=f151e130]: "77.35"
+          - generic [ref=f151e131]: Conv
+          - generic [ref=f151e132]: 纯卷积基线
+          - generic [ref=f151e134]: "96.06"
+          - generic [ref=f151e136]: "85.06"
+          - generic [ref=f151e138]: "84.01"
+          - generic [ref=f151e139]: Conv+Rec
+          - generic [ref=f151e140]: +循环
+          - generic [ref=f151e142]: "97.51"
+          - generic [ref=f151e144]: "87.39"
+          - generic [ref=f151e146]: "86.12"
+          - generic [ref=f151e147]: Conv+Rec+Delay
+          - generic [ref=f151e148]: +随机固定延迟
+          - generic [ref=f151e150]: "90.34"
+          - generic [ref=f151e152]: "90.07"
+          - generic [ref=f151e154]: "89.29"
+          - generic [ref=f151e155]: 全部 + 时间平移增广 ★
+          - generic [ref=f151e157]: Train
+          - generic [ref=f151e159]: Valid
+          - generic [ref=f151e161]: Test
+        - paragraph [ref=f151e162]: 表 1：四个组件逐项增量验证——纯卷积基线就有 77.35%（第一层卷积 ≈ 可学习滤波器组的直接证据），每个组件 +2~+7 点，增广用拟合换泛化。
+      - generic [ref=f151e163]:
+        - img [ref=f151e164]:
+          - generic [ref=f151e165]: 图 2-A · 准确率随过采样比对数增长（信号理论：噪声整形买回 90dB 恶化）
+          - generic [ref=f151e166]: "70"
+          - generic [ref=f151e167]: "75"
+          - generic [ref=f151e168]: "80"
+          - generic [ref=f151e169]: "85"
+          - generic [ref=f151e170]: "90"
+          - generic [ref=f151e171]: α=1
+          - generic [ref=f151e172]: α=2
+          - generic [ref=f151e173]: α=4
+          - generic [ref=f151e174]: α=8
+          - generic [ref=f151e175]: α=16
+          - generic [ref=f151e176]: α=32
+          - generic [ref=f151e177]: α=64
+          - generic [ref=f151e180]: "70.44"
+          - generic [ref=f151e182]: "81.55"
+          - generic [ref=f151e184]: "86.52"
+          - generic [ref=f151e186]: "88.69"
+          - generic [ref=f151e188]: "89.83"
+          - generic [ref=f151e190]: "90.65"
+          - generic [ref=f151e192]: "91.54"
+          - generic [ref=f151e194]: α=1 仍有 70.44%——直接吃 16kHz 的 1 比特粗量化信号，强调噪声鲁棒性
+          - generic [ref=f151e195]: α 2→4 收益最大（+5）后递减
+          - generic [ref=f151e196]: 参数量几乎不随 α 变（185K→210K，只改第一层 kernel/stride）；换过采样比无需重设计网络——网络学到的滤波器在信号带内积分、高频噪声段衰减
+        - paragraph [ref=f151e197]: 图 2-A：对数增长的信号理论根源——sigma-delta 噪声整形把量化噪声推到高频，过采样每翻一倍带内信噪比按固定分贝数改善，边际收益递减。
+      - generic [ref=f151e198]:
+        - img [ref=f151e199]:
+          - generic [ref=f151e200]: 图 2-B / 表 2 · 连接稀疏度：参数省 3× 换 5 点精度——但脉冲率反升（反直觉权衡）
+          - generic [ref=f151e201]: "85"
+          - generic [ref=f151e202]: "87"
+          - generic [ref=f151e203]: "89"
+          - generic [ref=f151e204]: "91"
+          - generic [ref=f151e205]: 200K
+          - generic [ref=f151e206]: 250K
+          - generic [ref=f151e207]: 300K
+          - generic [ref=f151e209]: "91.54"
+          - generic [ref=f151e210]: 0%
+          - generic [ref=f151e211]: 210K 参数
+          - generic [ref=f151e213]: "90.57"
+          - generic [ref=f151e214]: 50%
+          - generic [ref=f151e215]: 128×64
+          - generic [ref=f151e217]: "87.93"
+          - generic [ref=f151e218]: 75%
+          - generic [ref=f151e219]: 128×32
+          - generic [ref=f151e220]: 未单列
+          - generic [ref=f151e221]: 88%
+          - generic [ref=f151e222]: 128×16
+          - generic [ref=f151e224]: "86.42"
+          - generic [ref=f151e225]: 94%
+          - generic [ref=f151e226]: 128×8 · 71K
+          - generic [ref=f151e227]: 准确率%（左）· 稀疏度 →
+          - generic [ref=f151e229]: 206K
+          - generic [ref=f151e231]: 229K
+          - generic [ref=f151e233]: 286K
+          - generic [ref=f151e235]: 317K
+          - generic [ref=f151e236]: 0%
+          - generic [ref=f151e237]: 50%
+          - generic [ref=f151e238]: 75%
+          - generic [ref=f151e239]: 88%
+          - generic [ref=f151e240]: 脉冲率 spike/s（右）
+          - generic [ref=f151e241]: 砍突触反而更多事件！
+          - generic [ref=f151e242]: 活动稀疏度：512 神经元中每样本平均激活 7.67 个（16kHz，1.5%）→ 0.2 个（1.024MHz，0.04%）
+        - paragraph [ref=f151e243]: 图 2-B / 表 2：稀疏度扫描的两个工作点 + 反直觉的脉冲率上升——88% 档精度未单列、94% 档无对应脉冲率，均为原文缺失。
+      - generic [ref=f151e244]: 主对比的诚实读法：91.54% 超过 SSC SOTA 上限 10.9 个点——但 SSC 与本文的任务难度不对称（SSC 编码阶段已做时频分解、模型要求更少，这个方向上对比有利于本文）；同时没有与 GSC 上非脉冲 SOTA（ANN 一档普遍 97%+）对照——91.54 对 97%+ 的差距是选择脉冲计算范式的精度代价，论文未展开讨论；反向的公平基线（同一 PDM 输入下的 ANN 或量化网络）也完全缺席。
+    - generic [ref=f151e245]:
+      - paragraph [ref=f151e246]: §04 · 主要贡献
+      - heading "五条贡献" [level=2] [ref=f151e247]
+      - generic [ref=f151e249]:
+        - generic [ref=f151e250]:
+          - generic [ref=f151e251]: "1"
+          - text: 麦克风到 SNN 的直连捷径：PDM 直接进 SNN，砍掉抽取 / 特征 / 编码三级前端；GSC 91.54±0.23%，超 SSC SOTA 且 210K 参数比文献最小还小。
+        - generic [ref=f151e252]:
+          - generic [ref=f151e253]: "2"
+          - text: PDM 调制器 ≡ I&F 神经元的数学同构：把「传感器即脉冲编码器」从直觉提升为可陈述的等价关系（软复位、阈值 1）。
+        - generic [ref=f151e254]:
+          - generic [ref=f151e255]: "3"
+          - text: 并行 PCM→PDM 转换算法：V100 上最高 10 万倍加速——PDM 数据集制备从训练瓶颈降为一次性预处理，反哺社区的 PDM 研究基础设施。
+        - generic [ref=f151e256]:
+          - generic [ref=f151e257]: "4"
+          - text: 两个可部署工作点 + 权衡现象：210K/91.54% 与 71K/86.42%；系统量化过采样比（对数增长）与连接稀疏度（参数省 3× 换 5 点 + 脉冲率反升 1.4×）的影响。
+      - generic [ref=f151e258]: 可迁移判断：当传感器已经在用事件 / 脉冲形态输出时，先检查中间的范式转换是否自找的——「发现传感器已经在发脉冲」比「为 SNN 制造脉冲」更省；砍掉固定前端后，第一层可学习卷积承担解调与分频，端到端可微换来的是滤波器组随任务优化而非工程师拍板。
+    - generic [ref=f151e259]:
+      - paragraph [ref=f151e260]: §05 · 局限与边界
+      - heading "能效是推断非实测，脉冲范式精度代价未量化" [level=2] [ref=f151e261]
+      - generic [ref=f151e263]:
+        - generic [ref=f151e264]:
+          - heading "技术局限" [level=4] [ref=f151e265]
+          - list [ref=f151e266]:
+            - listitem [ref=f151e267]: 能效是推断而非实测：三个间接证据（激活率 0.04% / 连接稀到 94% / 前端三级省略）支撑「低能耗潜力」——结论章自认下一步上硬件器件实测；稀疏连接反升脉冲率说明真实能耗取决于突触与胞体操作的单价结构，仅凭参数量外推有风险。
+            - listitem [ref=f151e268]: 比特流是仿真的：训练评估用 GSC PCM 转换的 PDM——真实 PDM MEMS 的器件自噪声、直流失调、噪声整形谱与理想转换的域差距未处理。
+            - listitem [ref=f151e269]: 首层计算量随 α 膨胀：kernel=3α 意味着 α=64 时第一层窗口 192 点、输入 1.024MHz——训练靠 V100 并行；端侧部署的事件吞吐与延迟压力、推理实时性均未讨论。
+            - listitem [ref=f151e270]: 延迟组件固定随机：可学习延迟已被 [23] 证明有效——已知的性能余量没有拿满。
+        - generic [ref=f151e271]:
+          - heading "实验设计不足" [level=4] [ref=f151e272]
+          - list [ref=f151e273]:
+            - listitem [ref=f151e274]: 消融与最佳配置脱节：消融在 α=10 做、最佳是 64——各组件在 64 下的交互效应是否迁移未知。
+            - listitem [ref=f151e275]: 跨数据集编码对比 + 缺公平基线：SSC 自带耳蜗分解（对比方向有利本文）；同一 PDM 输入下的 ANN / 量化网络对照完全缺席——「直连 SNN 是否真比强量化前端 + 小 ANN 省电」的范式级问题未回答。
+            - listitem [ref=f151e276]: 无恶劣条件与流式评估：无噪声 / 混响鲁棒性实验（增广只有时间平移）；GSC 孤立词分类 ≠ 产品级流式检测——滑窗推理、开集负样本上的误唤醒率（每小时误触发次数）、漏检 / 误触发权衡全部未做——对「常驻监听」立论场景这是比准确率更接近产品验收的缺口。
+            - listitem [ref=f151e277]: 训练侧成本未披露：V100 训练时长 / 显存 / surrogate gradient 在百万时间步上的开销——能效主张只覆盖推理侧，训练成本与部署收益的盈亏平衡点无从评估。
+      - generic [ref=f151e278]: 值得补的方向：硬件落地实测功耗（作者自列、所有能效主张的最终裁判）；可学习延迟替换随机固定 + 稀疏度可学习 / 退火；真实 PDM MEMS 前端采集弥合仿真-器件域差距；过采样对数曲线上做工程取舍（α>64 边际收益已小，端侧更可能取 16–32 的「够用」档再叠加稀疏）；与量化 ANN / 二值网络在同一 PDM 输入上严格对照——回答范式级问题。
+    - contentinfo [ref=f151e279]:
+      - generic [ref=f151e280]:
+        - link "📖 深读笔记" [ref=f151e281] [cursor=pointer]:
+          - /url: /papers/2024/Neuromorphic_Keyword_Spotting_With_Pulse_Density_Modulation_MEMS_Microphones.md
+        - link "📄 PDF 原稿" [ref=f151e282] [cursor=pointer]:
+          - /url: /papers/2024/Neuromorphic_Keyword_Spotting_With_Pulse_Density_Modulation_MEMS_Microphones.pdf
+        - link "arXiv · 2408.05156" [ref=f151e283] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2408.05156
+        - link "🔧 代码 NECOTIS" [ref=f151e284] [cursor=pointer]:
+          - /url: https://github.com/NECOTIS/Keyword-Spotting-with-PDM
+        - link "← 返回总目录" [ref=f151e285] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f151e286]: 可视化精读页 · 数据与结论均出自论文与深读笔记（图 1–2、表 1–2、算法 1–2）；stride 推导为笔记自行计算。错误请以 PDF 原稿为准。

@@ -1,0 +1,227 @@
+- generic [active] [ref=f166e1]:
+  - navigation [ref=f166e2]:
+    - generic [ref=f166e3]:
+      - generic [ref=f166e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f166e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f166e6]:
+        - link "深读笔记" [ref=f166e7] [cursor=pointer]:
+          - /url: /papers/2023/DCCRN-KWS_An_Audio_Bias_Based_Model_For_Noise_Robust_Small-footprint_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f166e8] [cursor=pointer]:
+          - /url: /papers/2023/DCCRN-KWS_An_Audio_Bias_Based_Model_For_Noise_Robust_Small-footprint_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f166e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2305.12331
+  - generic [ref=f166e10]:
+    - banner [ref=f166e11]:
+      - paragraph [ref=f166e12]: 论文精读 · 可视化版 · 2023 №6
+      - heading "增强解码器只在训练时存在，推理时整体丢弃—— 增强监督的收益白拿，增强计算的开销不付" [level=1] [ref=f166e13]: 增强解码器只在训练时存在，推理时整体丢弃——增强监督的收益白拿，增强计算的开销不付
+      - paragraph [ref=f166e14]: "DCCRN-KWS: An Audio Bias Based Model for Noise-Robust Small-Footprint Keyword Spotting"
+      - paragraph [ref=f166e15]: 作者：Shubo Lv*、Xiong Wang*（共同一作）、Sining Sun、Long Ma、Lei Xie（通讯）—— 西北工业大学 ASLP · 腾讯
+      - paragraph [ref=f166e16]: 发表：arXiv 2305.12331（2023-05）· 内部「叮当叮当」158h + HIMIA「你好蜜呀」· RK3326 实测
+      - generic [ref=f166e17]:
+        - generic [ref=f166e18]: MTL：增强 + KWS 共享编码器
+        - generic [ref=f166e19]: 音频上下文偏置（非文本）
+        - generic [ref=f166e20]: 推理时嵌入为常量
+        - generic [ref=f166e21]: RTF 0.72 @ Cortex-A35
+        - generic [ref=f166e22]: 级联方案的 1/4 开销
+        - generic [ref=f166e23]: −6dB 远场仍获益
+      - generic [ref=f166e24]:
+        - heading "一分钟版本" [level=2] [ref=f166e25]
+        - list [ref=f166e26]:
+          - listitem [ref=f166e27]: 物理场景的严酷程度：用户与设备有交互距离，语音衰减 + 环境噪声 + 混响——内部测试集是远场实录，正负样本 SNR 低至 −6 ~ −2 dB；HIMIA 加噪测试也压到 −5/0/5dB。不是「实验室加点粉红噪声」级考察，是真实客厅、真实距离、真实底噪下的生存问题。端侧约束同样硬：RK3326 Cortex-A35 @1.5GHz 实测（不是 GPU 上刷 FLOPs）。
+          - listitem [ref=f166e28]: 级联方案被实测否决：完整 DCCRN + KWS 前后串联（joint-train）在 RK3326 上 CPU 94%、RTF 2.85——连实时都做不到。这一组数字直接否决了「增强网络完整跑一遍再提特征再进 KWS」的直观方案。
+          - listitem [ref=f166e29]: 核心架构（三个决策）：① 共享编码器而非级联——只有 KWS 损失时编码器没有「语音内容必须保留」的约束（可能学捷径特征），SI-SNR 增强损失强迫编码器保留语音本质结构，为噪声下判别提供稳定锚点；② 增强解码器推理时丢弃——只跑编码器 + KWS：RTF 0.67 / CPU 35%，开销不到级联的 1/4；③ KWS 后端用 DTC 块（因果膨胀深度可分卷积，逐帧推理无递归依赖）。
+          - listitem [ref=f166e30]: 标题创新：音频上下文偏置：借 ASR 的 context bias 思想但不用文本嵌入用音频嵌入——关键词音频列表 → ECAPA-TDNN 提取 192 维嵌入（联合训练）→ 求平均后与编码器输出拼接。理由：audio-audio 相似度比 audio-audio 跨模态匹配更直接；真实音频带关键词的音色、时长、共振峰细节，还能反哺增强任务。推理时列表固定 → 嵌入是常量、提取器完全不工作——RTF 增量仅 0.02（「训练时重先验、推理时零成本」的典型设计）。
+          - listitem [ref=f166e31]: 特征合并的发现依据（全文最漂亮的经验观察）：式 1 帧级能量可视化显示——关键词样本中关键词段能量显著更高、越高层越显著；非关键词样本各层分布相似。说明编码器在 MTL 下自发学会「增强关键词部分的能量」→ 既然每层都有判别信息，就不能只用最后一层 → 可学习比率加权聚合（初始化末层 1 其余 0——从收敛邻域出发）。
+          - listitem [ref=f166e32]: 复数上下文线性（CCL）：偏置融合的「上下文 vs 复杂度」两难——直接拼接无上下文；拼历史帧则复数高维逐帧堆叠复杂度爆炸。解法：实虚分路、各拼偏置、各过线性层再组合（分组卷积思想）+ 3 帧上下文——融合维度 1216×128 压到 608×64×3，复杂度近似减半。
+          - listitem [ref=f166e33]: 效率账（Table 1 全文最硬的量化证据）：完整配置 RTF 0.72 / CPU 38%，三个即插模块合计只 +0.05 RTF；相比纯 KWS 的 0.27 付 2.7 倍 RTF 买噪声可用性——典型精度-功耗权衡点。
+          - listitem [ref=f166e34]: 消融要点 + HIMIA 两个额外发现：固定列表 > 变化列表（变化嵌入 = 持续换输入分布分散优化预算）；真实音频嵌入 > 可学习嵌入（同源声学空间无需学对齐）；说话人依赖列表 > 无关列表（免费附送声纹先验——提示 KWS 偏置可与说话人验证注册合并）；HIMIA 提升幅度 < 内部集（归因：注册音频更短——偏置质量依赖注册音频充分程度，下限未量化）。
+          - listitem [ref=f166e35]: 边界：换词成本——音频偏置要求每个关键词准备真实音频列表 + 重新训练（无法像文本偏置只改词表）；只覆盖两个普通话关键词（无英文 / 多音节 / 多关键词并行）；纯因果无前瞻（天花板未量化）；核心性能数字只有曲线无表格数值；参数量与模型体积未报告（「小 footprint」定位缺存储侧证据）；MTL 损失等权相加无敏感性分析；无外部 SOTA 横向对比。
+    - generic [ref=f166e36]:
+      - paragraph [ref=f166e37]: §01 · 问题陈述
+      - heading "四条彼此牵制的要求" [level=2] [ref=f166e38]
+      - generic [ref=f166e40]: 设计空间：低至 −6dB 远场下显著降低误拒率（同误报率下）；充分利用「关键词已知」的任务先验但以音频而非文本注入（直接可比 + 辅助增强）；增强与 KWS 的计算共享到推理时不浪费一分（解码器只训练用）；RK3326 级平台 RTF < 1 且留 CPU 余量。已有方案的缺口：TDSE（文本依赖增强）与开放词表跨模态匹配走文本通道——audio-text 匹配比 audio-audio 更间接、没利用真实音频的声学细节；且都没回答「增强模块与 KWS 如何共享计算」。
+    - generic [ref=f166e41]:
+      - paragraph [ref=f166e42]: §02 · 方法论
+      - heading "MTL 骨架 + 三个即插模块" [level=2] [ref=f166e43]
+      - generic [ref=f166e45]:
+        - img [ref=f166e46]:
+          - generic [ref=f166e47]: 图 2 复绘：多任务框架——增强解码器只训练时存在，推理时整体丢弃（开销压到级联方案的 1/4 以下）
+          - generic [ref=f166e49]: 带噪远场语音
+          - generic [ref=f166e50]: 内部测试集 SNR 低至
+          - generic [ref=f166e51]: −6 ~ −2 dB
+          - generic [ref=f166e52]: 不是「加点粉红噪声」级考察
+          - generic [ref=f166e54]: DCCRN 共享编码器 ★
+          - generic [ref=f166e55]: 复数卷积 + LSTM · Unet 编解码
+          - generic [ref=f166e56]: 幅度与相位同时建模
+          - generic [ref=f166e57]: DNS Challenge 验证过的降噪骨干
+          - generic [ref=f166e59]: 增强解码器（仅训练期）
+          - generic [ref=f166e60]: SI-SNR 损失：约束编码器保留语音内容本质结构
+          - generic [ref=f166e61]: 推理时整体丢弃——不生成增强波形、不二次提特征
+          - generic [ref=f166e63]: 音频上下文偏置 ★
+          - generic [ref=f166e64]: 关键词音频列表 → ECAPA-TDNN
+          - generic [ref=f166e65]: → 192 维嵌入求平均（联合训练）
+          - generic [ref=f166e68]: 推理路径：编码器特征 → KWS 判决
+          - generic [ref=f166e70]: 特征合并 FM：各层可学习比率加权聚合（式 2）
+          - generic [ref=f166e71]: 初始化末层 1 其余 0（等价于不合并，从收敛邻域出发）· 归一化分母防量级漂移
+          - generic [ref=f166e73]: 复数上下文线性 CCL：实虚分路拼偏置 + 3 帧上下文
+          - generic [ref=f166e74]: 维度 1216×128（普通拼接）→ 608×64×3——分组卷积思想，复杂度近似减半
+          - generic [ref=f166e76]: DTC 块堆叠（膨胀深度可分 1D 卷积 + 逐点卷积 ×2）
+          - generic [ref=f166e77]: 因果卷积逐帧推理无递归依赖 → FC + softmax 帧级后验
+          - generic [ref=f166e79]: 为什么共享编码器而不是级联（决策一）
+          - generic [ref=f166e80]: 只有 KWS 损失时，编码器没有任何「语音内容必须被保留」的约束——
+          - generic [ref=f166e81]: 网络可能学出对训练集有效但对噪声变化泛化差的捷径特征；
+          - generic [ref=f166e82]: SI-SNR 显式要求解码器能从编码器输出重建干净语音——强迫编码器
+          - generic [ref=f166e83]: 保留语音内容本质结构，为噪声下判别提供稳定锚点
+          - generic [ref=f166e84]: L = L_SI-SNR + L_BCE 等权直接相加（权重敏感性未探索）
+          - generic [ref=f166e86]: 帧级标签构建
+          - generic [ref=f166e87]: 关键词音频：只取最后一帧附近最多 10 帧为正样本（标签 1）——
+          - generic [ref=f166e88]: 关键词说完的瞬间是判别黄金时刻
+          - generic [ref=f166e89]: 关键词内部中间帧 = 标签模糊，直接丢弃不参与训练
+          - generic [ref=f166e90]: 负样本语音全部帧为负（标签 0）
+          - generic [ref=f166e91]: 帧级 KWS 处理「关键词内部帧」的典型做法——强打标签会引入噪声监督
+          - generic [ref=f166e93]: 数据与协议
+          - generic [ref=f166e94]: 内部集：关键词「叮当叮当」· 正样本 158h + 负样本 139h（YouTube）；训练在线加噪 0–15dB + 镜像法混响 RT60 0.05–0.95s，174h 噪声随机叠 1–4 种；
+          - generic [ref=f166e95]: 测试远场实录：239 正 + 12,480 负，SNR −6~−2dB；说话人与噪声训练测试无重叠
+          - generic [ref=f166e96]: HIMIA 公开集：关键词「你好蜜呀」· 254 说话人 10h 训练 / 44 说话人 3,520 关键词测试；负样本 librivox 90h；测试 −5/0/5dB 三档
+          - generic [ref=f166e97]: 指标：内部集 ROC（每次误报对应的误拒率——对应「每天允许几次误唤醒」的产品语言）；HIMIA 唤醒率 @ 10 小时 ≤1 次误报（行业通行协议）
+          - generic [ref=f166e98]: 负样本（训练与测试）随机裁剪 1–3 秒——避免模型对特定时长过拟合（正样本时长就在 1–3 秒）
+        - paragraph [ref=f166e99]: 图 2 复绘：与 joint-train 级联的本质区别就在虚线框——级联推理时解码器要完整跑一遍输出增强波形再重新提特征，本文推理只走右侧路径。
+      - generic [ref=f166e100]:
+        - text: L = L
+        - subscript [ref=f166e101]: SI-SNR
+        - text: + L
+        - subscript [ref=f166e102]: BCE
+        - text: （等权相加，无加权系数）
+        - generic [ref=f166e103]: 式 3 · 多任务损失：SI-SNR 直接约束时域重建质量（尺度不变、对不同能量水平更稳定）——它的作用不是「输出增强语音」而是给共享编码器提供内容保真的梯度信号；BCE 做帧级二分类。帧级标签：关键词只取最后一帧附近 ≤10 帧为正（说完的瞬间是判别黄金时刻），关键词内部中间帧标签模糊直接丢弃，负样本全部帧为负。
+      - generic [ref=f166e104]:
+        - img [ref=f166e105]:
+          - generic [ref=f166e106]: 图 3 复绘（结构示意）· 式 1 帧级能量观察：编码器在多任务训练下自发学会「增强关键词部分的能量」
+          - generic [ref=f166e108]: 关键词样本：「… 叮 当 叮 当 …」
+          - generic [ref=f166e113]: 关键词段
+          - generic [ref=f166e115]: 低层：轻微凸起
+          - generic [ref=f166e117]: 高层：显著更高（越高层越明显）
+          - generic [ref=f166e119]: 特征合并后：显著性进一步增强
+          - generic [ref=f166e120]: 纵轴 = 式 1 帧级能量（复数特征按通道频率求二范数再帧归一化）
+          - generic [ref=f166e122]: 非关键词样本：各层能量分布模式相似（无此现象）
+          - generic [ref=f166e126]: 特征合并是定向放大判别信息，而非无差别放大能量
+          - generic [ref=f166e127]: ——这是 FeatureMerge 模块设计的直接经验依据
+          - generic [ref=f166e129]: 观察 → 设计的完整链条
+          - generic [ref=f166e130]: 式 1 能量可视化（关键词 vs 非关键词，各层）→ 发现编码器每层都带判别信息且高层更显著 → 不能只用最后一层（信息浪费）
+          - generic [ref=f166e131]: → FeatureMerge：各层下采样后可学习比率加权（初始化等价于只用末层，训练从收敛邻域出发）→ 合并后关键词显著性定向增强
+          - generic [ref=f166e133]: 复数上下文线性 CCL 的两难与解法：直接拼偏置无上下文；拼历史帧则复数高维逐帧堆叠 → 复杂度爆炸。
+          - generic [ref=f166e134]: 解法：实虚分路、各拼偏置、各过线性层再组合（分组卷积思想）+ 3 帧上下文 → 融合维度 1216×128 压到 608×64×3，复杂度近似减半
+        - paragraph [ref=f166e135]: 图 3 复绘（结构示意）+ 式 2：观察 → 设计的完整链条——能量可视化发现每层都有判别信息且高层更显著，FeatureMerge 据此做可学习比率聚合；合并是定向放大判别信息而非无差别放大能量。
+    - generic [ref=f166e136]:
+      - paragraph [ref=f166e137]: §03 · 实验与消融
+      - heading "目标硬件实测闭环" [level=2] [ref=f166e138]
+      - generic [ref=f166e140]: 协议细节：内部集 ROC（每次误报对应的误拒率——直接对应「每天允许几次误唤醒」的产品语言）；HIMIA 唤醒率 @ 10 小时 ≤1 次误报（行业通行协议——误报约束固化为评测条件）；RK3326 float32 + ONNX runtime 实测 RTF 与 CPU。训练在线加噪 0–15dB（低于训练分布的 −6~−2dB 上仍显著获益）；混响镜像法仿真 RT60 0.05–0.95s；说话人与噪声训练测试无重叠。
+      - generic [ref=f166e141]:
+        - img [ref=f166e142]:
+          - generic [ref=f166e143]: Table 1 · RK3326 Cortex-A35 @1.5GHz 实测（float32 · ONNX runtime）：全文最硬的量化证据
+          - generic [ref=f166e144]: 0%
+          - generic [ref=f166e145]: 25%
+          - generic [ref=f166e146]: 50%
+          - generic [ref=f166e147]: 75%
+          - generic [ref=f166e148]: 100%
+          - generic [ref=f166e149]: CPU 100% = 无法实时
+          - generic [ref=f166e151]: 16%
+          - generic [ref=f166e152]: RTF 0.27
+          - generic [ref=f166e153]: 纯 KWS（无 DCCRN）
+          - generic [ref=f166e155]: 35%
+          - generic [ref=f166e156]: RTF 0.67
+          - generic [ref=f166e157]: DCCRN-KWS（MTL）
+          - generic [ref=f166e158]: 编码器+KWS，解码器丢弃
+          - generic [ref=f166e160]: 36%
+          - generic [ref=f166e161]: RTF 0.69
+          - generic [ref=f166e162]: + AudioBias
+          - generic [ref=f166e163]: 嵌入为常量，提取器不工作
+          - generic [ref=f166e165]: 36%
+          - generic [ref=f166e166]: RTF 0.70
+          - generic [ref=f166e167]: + FeatureMerge
+          - generic [ref=f166e169]: 38%
+          - generic [ref=f166e170]: RTF 0.72
+          - generic [ref=f166e171]: + CCL（完整配置 ★）
+          - generic [ref=f166e172]: 三模块合计只 +0.05 RTF
+          - generic [ref=f166e174]: 94%
+          - generic [ref=f166e175]: RTF 2.85
+          - generic [ref=f166e176]: joint-train 级联
+          - generic [ref=f166e177]: 增强波形要重新提特征——连实时都做不到
+          - generic [ref=f166e178]: 三点结论：完整配置 RTF 0.72 实时可行；级联方案被彻底否决（1/4 以下开销）；相比纯 KWS 的 0.27 付 2.7 倍 RTF 买噪声可用性——典型精度-功耗权衡点
+        - paragraph [ref=f166e179]: Table 1：RK3326 实测——joint-train 的 94% CPU / RTF 2.85 是架构路线的否决性证据；三个即插模块合计只 +0.05 RTF（AudioBias 的 0.02 尤其体现「推理时常量」设计的价值）。
+      - generic [ref=f166e180]:
+        - img [ref=f166e181]:
+          - generic [ref=f166e182]: 图 5/6 消融发现（原文以曲线呈现、无数值表）+ HIMIA 上的两个额外发现
+          - generic [ref=f166e184]: 内部集（图 5，ROC 消融）四组件逐项有效
+          - generic [ref=f166e185]: ① DCCRN 模块：MTL 下显式增强监督对 KWS 有实质帮助
+          - generic [ref=f166e186]: ② AudioBias：误报率持平前提下误拒率更低——固定列表 > 变化列表
+          - generic [ref=f166e187]: （变化嵌入 = 给网络持续换输入分布，分散优化预算）
+          - generic [ref=f166e188]: ③ 真实音频嵌入 > 可学习嵌入（sanity check）——同源声学空间无需学对齐，
+          - generic [ref=f166e189]: 且真实样本带关键词结构信息
+          - generic [ref=f166e190]: ④ FeatureMerge：性能进一步提升（与图 3 可视化一致）
+          - generic [ref=f166e191]: ⑤ +CCL 达最佳：上下文与偏置结合更好判别关键词
+          - generic [ref=f166e192]: 注意：消融按模块逐个叠加，未做反向拆解或模块间交互分析（如 AudioBias 与 FM 收益是否重叠）
+          - generic [ref=f166e194]: HIMIA 上的两个额外发现（图 6）
+          - generic [ref=f166e195]: ① 说话人依赖列表 > 说话人无关列表
+          - generic [ref=f166e196]: 说话人依赖嵌入同时含关键词信息 + 说话人信息 = 免费附送声纹先验
+          - generic [ref=f166e197]: （提示：KWS 偏置可与说话人验证注册流程合并——一次注册服务两个任务）
+          - generic [ref=f166e198]: ② HIMIA 提升幅度 < 内部集
+          - generic [ref=f166e199]: 归因：HIMIA 注册音频更短——经验上更长的偏置关键词音频导出更鲁棒嵌入
+          - generic [ref=f166e200]: → 敏感因子：偏置质量依赖注册音频充分程度（下限 / 推荐值未量化）
+          - generic [ref=f166e201]: 全部实验只覆盖两个普通话关键词（叮当叮当 / 你好蜜呀）；无英文、无多音节变化、无多关键词并行偏置
+          - generic [ref=f166e203]: 换词成本的诚实读法
+          - generic [ref=f166e204]: 音频偏置要求为每个关键词准备真实音频列表，换唤醒词 = 重新采集挑选音频 + 重新训练（嵌入提取器联合训练）——
+          - generic [ref=f166e205]: 无法像文本偏置那样只改词表不改模型；论文自认「文本在自定义关键词上更灵活，但那不是本文的目的」
+        - paragraph [ref=f166e206]: 图 5/6 消融发现：原文以曲线呈现无数值表——本图汇总定性结论与两个 HIMIA 额外发现（声纹免费先验 + 注册音频充分度敏感因子）。
+      - generic [ref=f166e207]: 结果概览（图形式呈现）：内部集（图 5d）：纯 KWS 最差 → MTL 明显变好 → 逐模块递进；HIMIA（图 6）：低 / 高信噪比与干净场景各模块均有效。具体误拒率与唤醒率数值论文未在文字中报告——与其他论文表格数字直接对比的成本高（见 §05）。
+    - generic [ref=f166e208]:
+      - paragraph [ref=f166e209]: §04 · 主要贡献
+      - heading "五条贡献" [level=2] [ref=f166e210]
+      - generic [ref=f166e212]:
+        - generic [ref=f166e213]:
+          - generic [ref=f166e214]: "1"
+          - text: 前后端整合框架：MTL 整合增强前端与 KWS 后端，编码器输出直接耦合给 KWS、解码器仅训练用——增强监督收益白拿、增强计算开销不付（RTF 0.67 对级联 2.85）。
+        - generic [ref=f166e215]:
+          - generic [ref=f166e216]: "2"
+          - text: 首次把 context bias 以音频形式引入 KWS：ECAPA-TDNN 提取关键词音频嵌入，推理时为固定常量、提取器不工作（RTF 增量 0.02）。
+        - generic [ref=f166e217]:
+          - generic [ref=f166e218]: "3"
+          - text: 基于层间能量观察的 FeatureMerge：式 1 可视化发现编码器自发聚焦关键词能量 → 可学习比率层级加权聚合。
+        - generic [ref=f166e219]:
+          - generic [ref=f166e220]: "4"
+          - text: 复数上下文线性：实虚分路 + 3 帧上下文，融合维度 1216×128 → 608×64×3——分组卷积式代价获得上下文建模。
+        - generic [ref=f166e221]:
+          - generic [ref=f166e222]: "5"
+          - text: 低资源平台实测闭环：RK3326 的 RTF/CPU 系统级实测证明端侧可部署性，而非 GPU 上的理论复杂度。
+      - generic [ref=f166e223]: 可迁移判断：「训练时重先验、推理时零成本」是一个可复用的模块设计模式——把先验信息（关键词音频、领域知识）烧进固定常量或可丢弃的分支，联合训练让它参与塑形共享表示，部署时只留常量；配套判断：辅助任务的真正价值常常不在它的输出，而在它给共享表示提供的约束（SI-SNR 不为输出增强语音，只为强迫编码器保留语音本质结构）。
+    - generic [ref=f166e224]:
+      - paragraph [ref=f166e225]: §05 · 局限与边界
+      - heading "换词成本与未量化的注册音频依赖" [level=2] [ref=f166e226]
+      - generic [ref=f166e228]:
+        - generic [ref=f166e229]:
+          - heading "技术局限" [level=4] [ref=f166e230]
+          - list [ref=f166e231]:
+            - listitem [ref=f166e232]: 换词成本（结构性短板）：每个关键词要真实音频列表，换唤醒词 = 重新采集挑选 + 重新训练（嵌入提取器联合训练）——无法像文本偏置只改词表；对用户自定义唤醒词的产品形态不友好（论文自认文本更灵活「但不是本文的目的」）。
+            - listitem [ref=f166e233]: 注册音频依赖未量化：HIMIA 提升小于内部集归因于注册音频更短——「更长偏置音频导出更鲁棒嵌入」只是经验；最短注册时长 / 说话人数 / 采样多样性均无数据支撑。
+            - listitem [ref=f166e234]: 说话人依赖增益的适用前提：需知道说话人标签 + 用户注册音频——多人共用设备、说话人切换场景如何维护偏置列表未讨论。
+            - listitem [ref=f166e235]: 覆盖面与天花板：只有两个普通话关键词；纯因果无未来帧（流式必要代价，但代价大小未量化——无非因果变体对比）。
+        - generic [ref=f166e236]:
+          - heading "实验设计不足" [level=4] [ref=f166e237]
+          - list [ref=f166e238]:
+            - listitem [ref=f166e239]: 核心数字只有曲线：内部集与 HIMIA 主要结果只以 ROC / 柱状图呈现，正文无具体误拒率 / 唤醒率数值——无法与其他论文表格直接对比，复现比对成本高。
+            - listitem [ref=f166e240]: 缺参数量与模型体积：对「小 footprint」定位的论文，存储侧证据缺失（RTF 只反映计算不反映存储）。
+            - listitem [ref=f166e241]: MTL 权重未探索：等权相加无敏感性分析——MTL 文献中损失配比通常显著影响共享表示走向。
+            - listitem [ref=f166e242]: 消融只逐个叠加：无反向拆解、无模块间交互分析（AudioBias 与 FM 收益是否重叠未知）；无外部 SOTA 横向对比（TDSE 类 / 数据增广类方案未进对比表）。
+      - generic [ref=f166e243]: 值得补的方向：混合偏置（文本通道给换词灵活性 + 音频通道给声学细节——开放词表跨模态匹配的文本嵌入空间可直接嫁接）；注册音频时长与偏置鲁棒性的系统研究（变成有数据的设计指南）；KWS 偏置与说话人验证注册流程合并（一次注册服务两任务）；更低信噪比训练策略（课程式加噪——模型已在低于训练分布的 SNR 上获益）；量化与更低比特部署（float32 → 量化可把 RTF 0.72 压向纯 KWS 水平）；多关键词并行偏置与列表增量机制。
+    - contentinfo [ref=f166e244]:
+      - generic [ref=f166e245]:
+        - link "📖 深读笔记" [ref=f166e246] [cursor=pointer]:
+          - /url: /papers/2023/DCCRN-KWS_An_Audio_Bias_Based_Model_For_Noise_Robust_Small-footprint_Keyword_Spotting.md
+        - link "📄 PDF 原稿" [ref=f166e247] [cursor=pointer]:
+          - /url: /papers/2023/DCCRN-KWS_An_Audio_Bias_Based_Model_For_Noise_Robust_Small-footprint_Keyword_Spotting.pdf
+        - link "arXiv · 2305.12331" [ref=f166e248] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2305.12331
+        - link "← 返回总目录" [ref=f166e249] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f166e250]: 可视化精读页 · 数据与结论均出自论文与深读笔记（Table 1、图 1–6、式 1–3）；图 3 能量曲线为结构示意（原文无数值表）。错误请以 PDF 原稿为准。

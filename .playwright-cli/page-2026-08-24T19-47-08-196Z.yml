@@ -1,0 +1,265 @@
+- generic [active] [ref=f113e1]:
+  - navigation [ref=f113e2]:
+    - generic [ref=f113e3]:
+      - generic [ref=f113e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f113e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f113e6]:
+        - link "深读笔记" [ref=f113e7] [cursor=pointer]:
+          - /url: /papers/2024/On-Device_Domain_Learning_For_Keyword_Spotting_On_Low-Power_Extreme_Edge_Embedded_Systems.md
+        - link "PDF 原稿" [ref=f113e8] [cursor=pointer]:
+          - /url: /papers/2024/On-Device_Domain_Learning_For_Keyword_Spotting_On_Low-Power_Extreme_Edge_Embedded_Systems.pdf
+        - link "arXiv" [ref=f113e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2403.10549
+  - generic [ref=f113e10]:
+    - banner [ref=f113e11]:
+      - paragraph [ref=f113e12]: 论文精读 · 可视化版 · 2024 №24
+      - heading "新会议室的噪声没法穷举增强—— 留一小块可学习的分类头，现场听 14 秒自己适应" [level=1] [ref=f113e13]: 新会议室的噪声没法穷举增强——留一小块可学习的分类头，现场听 14 秒自己适应
+      - paragraph [ref=f113e14]: On-Device Domain Learning for Keyword Spotting on Low-Power Extreme Edge Embedded Systems（ODDA / ODDL）
+      - paragraph [ref=f113e15]: 作者：Cristian Cioflan、Lukas Cavigelli、Luca Benini 等 6 人 —— ETH Zurich × 华为苏黎世 × 鲁汶大学等
+      - paragraph [ref=f113e16]: 发表：2024.03 · arXiv:2403.10549 · GAP9 多核 MCU 实测
+      - generic [ref=f113e17]:
+        - generic [ref=f113e18]: 设备端域适应（privacy-by-design）
+        - generic [ref=f113e19]: 只训最后 k 层
+        - generic [ref=f113e20]: 数据子采样 3MB 起步
+        - generic [ref=f113e21]: int8 推理 + fp32 训练
+        - generic [ref=f113e22]: 14s / 806mJ / 10kB 读写
+        - generic [ref=f113e23]: 0dB 会议噪声 +14 点
+      - generic [ref=f113e24]:
+        - heading "一分钟版本" [level=2] [ref=f113e25]
+        - list [ref=f113e26]:
+          - listitem [ref=f113e27]: 痛点的原理性：噪声种类无法穷举——离线用 17 种噪声增强，用户带进新会议室遇到的是无限空间的新样本；会议人声与唤醒词同为语音、时频高度重叠，通用增强学到的鲁棒性无法特化到具体环境（前作实测域偏移最多掉 27 点）。
+          - listitem [ref=f113e28]: 三阶段生命周期：离线 NA-KWS 训练（17 噪声 + 干净，留出 1 种目标噪声只在部署后出现——对照公平：全部增益在强基线之上度量）→ 部署（DS-CNN 切两段：int8 冻结骨干 DORY 部署 + fp32 可学习层 PULP-TrainLib）→ 现场 ODDA（录环境噪声 → 与预录制带标话语叠加构造带噪样本 → 前向反传更新可学习层）。
+          - listitem [ref=f113e29]: 关键设计：现场只录噪声不录话语——标签来自预存数据、分布差异来自现场录音，两件事解耦：用户零标注成本（「听一会儿环境」即可），同一段噪声叠不同干净话语 = 免费数据增强组合。
+          - listitem [ref=f113e30]: 结果（0dB，比前作更苛刻）：会议噪声 12 类最高 +14.3 点（M：69.96→84.23）；洗衣等平稳噪声只 +1 左右（NA-KWS 已够）——语音噪声必须适应，平稳噪声不需要；适应后的小模型（23.7kB）反超 17 倍大的未适应模型（416.7kB）8 个点。
+          - listitem [ref=f113e31]: 资源账本（自洽核验）：S + 只训 fc1 + 100 条 + 21 epoch + HPM = 10kB 读写内存 / 3MB 只读 / 14 秒 / 806mJ（2100 更新 × 6.74ms ≈ 14.2s ✓）——比前作 5.81J 降 7.2×。
+          - listitem [ref=f113e32]: 笔记深判：域适应天然小样本友好——要适应的只有噪声分布一个变量（词分布不变），约每类 10 条就够掰回分类头；与从零学新词的 few-shot 完全不同，这是 3MB 能装下的根本原因。缺口：灾难性遗忘未评估（适应后在其余 17 种源噪声上的表现未报）；触发机制缺位。
+    - generic [ref=f113e33]:
+      - paragraph [ref=f113e34]: §01 · 问题陈述
+      - heading "四重紧约束下的设备端域适应" [level=2] [ref=f113e35]
+      - generic [ref=f113e37]: 路线盘点：① 前端方法（ANC / SE）——加常驻子模型加延迟，且完全不支持部署后微调（降噪器训练时定死）；② 后端方法（离线多噪声增强 = 本文基线）——天花板是「对所有噪声平均鲁棒」而非「对这个噪声特别在行」；③ ODL 框架（TinyOL / TTE / PULP-TrainLib）——提供训练基础设施但无 KWS 现场噪声的任务与流程设计；④ 前作（同团队 AICAS 2022）——能量 5.81J 太贵且未真机演示。四个子挑战：训练内存方程（梯度下降要求正在更新层的输入/激活/梯度同时驻留——全网络适应要 2.51MB > GAP9 的 1.5MB L2）；存储方程（完整训练集 1.1GB 不现实）；延迟/能量方程（Eq.1 随数据量与 epoch 线性放大）；工程落地（此前无超低功耗多核平台真机跑通 KWS ODDA——本文自述第一篇）。
+    - generic [ref=f113e38]:
+      - paragraph [ref=f113e39]: §02 · 方法论
+      - heading "int8 推理 + fp32 训练的分界线画在冻结/可学习边界上" [level=2] [ref=f113e40]
+      - generic [ref=f113e42]:
+        - img [ref=f113e43]:
+          - generic [ref=f113e44]: Fig.1 复绘：三阶段生命周期与 GAP9 上的混合精度分工
+          - generic [ref=f113e46]: 阶段 1 · 离线（服务器）
+          - generic [ref=f113e47]: NA-KWS：干净话语 + 17/18 种 DEMAND 噪声
+          - generic [ref=f113e48]: 等概率叠加 + 干净条件；目标噪声留出
+          - generic [ref=f113e49]: → 对照公平：基线已很强（17 噪声 + 干净），
+          - generic [ref=f113e50]: ODDA 增益全部在强基线之上度量
+          - generic [ref=f113e51]: DS-CNN S/M/L（23.7/138.1/416.7 kB）
+          - generic [ref=f113e54]: 阶段 2 · 部署（GAP9 双段分工）
+          - generic [ref=f113e56]: ❄ 冻结骨干 int8
+          - generic [ref=f113e57]: DORY 部署 · 无梯度无激活存储
+          - generic [ref=f113e59]: 可学习层 fp32
+          - generic [ref=f113e60]: PULP-TrainLib · 分类头等
+          - generic [ref=f113e61]: 骨干输出反量化 → fp32 分类器（交叉熵）
+          - generic [ref=f113e62]: 要训练的网络缩小两个数量级（fc1 仅 780 参数）
+          - generic [ref=f113e65]: 阶段 3 · 现场 ODDA
+          - generic [ref=f113e66]: 录环境噪声（不录话语！）
+          - generic [ref=f113e67]: 叠预录制带标话语 → fp16 MFCC
+          - generic [ref=f113e68]: → 冻结骨干 → 反量化 → fp32 损失反传
+          - generic [ref=f113e69]: → 更新可学习层 × 多 epoch（批=2）
+          - generic [ref=f113e70]: 标签来自预存 / 差异来自现场——解耦
+          - generic [ref=f113e72]: Eq.(1) 延迟缩放律：t ∝ (t_infer + t_backprop) × (S_dataset / S_batch) × N_epochs
+          - generic [ref=f113e73]: 三条优化轴：轻量模型（压每样本延迟）· 少存数据 · 少跑轮数；与内存耦合——batch 加大先得加内存（「内存换延迟」对偶）
+          - generic [ref=f113e75]: GAP9 双模式调度 + 存储层级
+          - generic [ref=f113e76]: LPM 240MHz/650mV · 36mW 常驻推理（每 50ms 触发）｜HPM 370MHz/800mV · ≤55mW 训练突发（更快且更省）
+          - generic [ref=f113e77]: 10× RISC-V（1 fabric controller + 9 核集群，4 FPU，硬件卷积加速器 5µJ/DNN）；128kB L1 / 1.5MB L2 / L3 Flash
+        - paragraph [ref=f113e78]: 图 A·为什么分界线画在冻结/可学习边界：int8 骨干不需要存梯度和中间激活（能效吃满），fp32 分类层对训练数值精度敏感（量化梯度引入不可控噪声）——推理段保留全部署优化、训练段被缩小两个数量级，这是整套内存账与能效账成立的根基。
+      - generic [ref=f113e79]:
+        - text: L
+        - subscript [ref=f113e80]: CE
+        - text: 交叉熵 → ∂L/∂w → w ← w − η∇L； t
+        - subscript [ref=f113e81]: ODDA
+        - text: ∝ (t
+        - subscript [ref=f113e82]: infer
+        - text: + t
+        - subscript [ref=f113e83]: backprop
+        - text: ) × (S
+        - subscript [ref=f113e84]: dataset
+        - text: /S
+        - subscript [ref=f113e85]: batch
+        - text: ) × N
+        - subscript [ref=f113e86]: epochs
+        - generic [ref=f113e87]: 人话：算法本体是朴素的监督学习——数学贡献不在算法而在资源模型：把延迟/能量拆成「每样本成本 × 数据量 × 轮数」三条可优化的轴，且能耗与延迟成正比（同运行模式），Eq.(1) 同时也是能量模型。自洽核验：2100 次更新 × 6.74ms ≈ 14.2s、× 384µJ ≈ 806mJ，与正文严丝合缝——Table II 的每样本成本是含推理+反传+更新的完整管线口径。
+    - generic [ref=f113e88]:
+      - paragraph [ref=f113e89]: §03 · 实验结果
+      - heading "语音噪声必须适应；小模型加 ODDA 越级打赢大模型" [level=2] [ref=f113e90]
+      - generic [ref=f113e92]: 数据：GSC（12 类主设置 + 35 类全词表 + 自定义 6 词——刻意剔除 no/go 短且音素相近的词避免混淆主导）；DEMAND 18 种真实环境噪声留出 1 种做目标噪声（cafeteria / meeting / restaurant / washing / metro 五种评测）；全部 SNR = 0 dB（比前作更苛刻）。指标：top-1 准确率（关注精度退化的恢复量）+ 完整资源坐标系（FLOPs / 参数 / 读写内存 / FLOP-per-cycle / 每样本时间与能量 / 平均功耗）——只报精度的 ODL 论文回答不了「电池撑不撑得住」。
+      - generic [ref=f113e93]:
+        - img [ref=f113e94]:
+          - generic [ref=f113e95]: Table I · ODDA 相对 NA-KWS 基线的增益（12 类任务，0 dB SNR）：语音噪声必须适应
+          - generic [ref=f113e96]: "60"
+          - generic [ref=f113e97]: "70"
+          - generic [ref=f113e98]: "80"
+          - generic [ref=f113e99]: "90"
+          - generic [ref=f113e102]: "78.5"
+          - generic [ref=f113e103]: S
+          - generic [ref=f113e106]: "84.2"
+          - generic [ref=f113e107]: M
+          - generic [ref=f113e110]: "84.7"
+          - generic [ref=f113e111]: L
+          - generic [ref=f113e112]: 会议 meeting
+          - generic [ref=f113e113]: （非平稳人声）
+          - generic [ref=f113e114]: +12.8~14.3 点
+          - generic [ref=f113e117]: "80.6"
+          - generic [ref=f113e118]: S
+          - generic [ref=f113e121]: "84.2"
+          - generic [ref=f113e122]: M
+          - generic [ref=f113e125]: "85.5"
+          - generic [ref=f113e126]: L
+          - generic [ref=f113e127]: 自助餐厅 cafeteria
+          - generic [ref=f113e128]: +1.6~2.6 点
+          - generic [ref=f113e131]: "76.2"
+          - generic [ref=f113e132]: S
+          - generic [ref=f113e135]: "80.1"
+          - generic [ref=f113e136]: M
+          - generic [ref=f113e139]: "81.5"
+          - generic [ref=f113e140]: L
+          - generic [ref=f113e141]: 餐厅 restaurant
+          - generic [ref=f113e142]: +2.0~2.7 点
+          - generic [ref=f113e145]: "85.5"
+          - generic [ref=f113e146]: S
+          - generic [ref=f113e149]: "89.5"
+          - generic [ref=f113e150]: M
+          - generic [ref=f113e153]: "90.1"
+          - generic [ref=f113e154]: L
+          - generic [ref=f113e155]: 地铁 metro
+          - generic [ref=f113e156]: +1.7~2.4 点
+          - generic [ref=f113e159]: "90.5"
+          - generic [ref=f113e160]: S
+          - generic [ref=f113e163]: "92.9"
+          - generic [ref=f113e164]: M
+          - generic [ref=f113e167]: "93.4"
+          - generic [ref=f113e168]: L
+          - generic [ref=f113e169]: 洗衣 washing
+          - generic [ref=f113e170]: （平稳）
+          - generic [ref=f113e171]: +0.5~1.2 点
+          - generic [ref=f113e173]: NA-KWS 基线（已见过 17 种噪声）
+          - generic [ref=f113e175]: ODDA 适应后
+        - paragraph [ref=f113e176]: 表 I 复绘（12 类任务）·三档模型（S/M/L）在五种目标噪声下的 NA-KWS 基线（灰）对 ODDA 适应后（绿）。会议噪声组一枝独秀（+12.8~+14.3）而洗衣只有 +0.5~1.2——「语音噪声必须适应、平稳噪声不需要」的机理：会议人声与唤醒词共享时频结构，通用增强学不到具体房间的混响与说话人分布。6 类与 35 类趋势同（35 类增益收窄到 1~8 且绝对精度仍低——瓶颈在类间可分性不在分类头）。
+      - generic [ref=f113e177]:
+        - img [ref=f113e178]:
+          - generic [ref=f113e179]: Fig.2 复绘：适应深度的内存跨度 250:1 与数据量的存储-精度曲线
+          - generic [ref=f113e180]: "0.5"
+          - generic [ref=f113e181]: "1.0"
+          - generic [ref=f113e182]: "1.5"
+          - generic [ref=f113e183]: "2.0"
+          - generic [ref=f113e184]: "2.5"
+          - generic [ref=f113e185]: GAP9 L2 = 1.5MB
+          - generic [ref=f113e186]: 读写内存需求（批=2，逐层解冻）
+          - generic [ref=f113e188]: "0.01"
+          - generic [ref=f113e189]: fc1
+          - generic [ref=f113e191]: "0.56"
+          - generic [ref=f113e192]: conv9
+          - generic [ref=f113e194]: "0.82"
+          - generic [ref=f113e195]: conv8
+          - generic [ref=f113e197]: "1.37"
+          - generic [ref=f113e198]: conv6
+          - generic [ref=f113e200]: "1.93"
+          - generic [ref=f113e201]: conv4
+          - generic [ref=f113e203]: "2.48"
+          - generic [ref=f113e204]: conv2
+          - generic [ref=f113e206]: "2.51"
+          - generic [ref=f113e207]: conv1
+          - generic [ref=f113e208]: 只训 fc1 = 0.01MB（780 参数，塞进 128kB L1 绰绰有余）——深度撞 L2 墙（conv1 2.51MB）
+          - generic [ref=f113e209]: 250:1 内存跨度几乎全部来自「卷积层激活图大、线性层激活向量小」
+          - generic [ref=f113e210]: 数据子采样：存储-增益曲线（要点）
+          - generic [ref=f113e211]: · 0.25% = 3 MB（约 100 条，每类 10 条）
+          - generic [ref=f113e212]: → 超 NA-KWS 对应版 6 点，追平最大 NA-KWS-L
+          - generic [ref=f113e213]: · 10% = 120 MB（每类约 310 条）
+          - generic [ref=f113e214]: → 反超最大噪声鲁棒网络 10 点
+          - generic [ref=f113e215]: · 100% = 1.1 GB（37000 条）→ 最高 +14 点
+          - generic [ref=f113e216]: · 适应总计算量：
+          - generic [ref=f113e217]: S + 10% = 1.43 TFLOPs；S 全量 = 10.46 TFLOPs；
+          - generic [ref=f113e218]: L 全量 = 98.10 TFLOPs —— 边缘付得起的只有左下角
+          - generic [ref=f113e219]: · 笔记深判：域适应天然小样本友好——要适应的只有噪声分布
+          - generic [ref=f113e220]: 一个变量、词分布不变，约每类十条就够掰回分类头；
+          - generic [ref=f113e221]: 与从零学新词的 few-shot 完全不同——3MB 能装下的根源
+          - generic [ref=f113e222]: · 深度×数据交互：10% 数据时全网络只比分类头多 1.2 点，
+          - generic [ref=f113e223]: 100% 才拉开到 6 点——数据少时深度微调收益微弱
+        - paragraph [ref=f113e224]: 图 2 复绘·左：适应深度的内存需求——250:1 的跨度几乎全部来自「卷积层激活图大、线性层激活向量小」这一结构事实，这是把适应深度切成可调超参的物理依据；conv1 全网络 2.51MB 撞 GAP9 的 1.5MB L2 墙。右：数据子采样的存储-增益要点与笔记深判。
+      - generic [ref=f113e225]:
+        - img [ref=f113e226]:
+          - generic [ref=f113e227]: Table II · 三档模型 × 双模式：HPM 训练更快且更省（µJ/样本）
+          - generic [ref=f113e228]: "500"
+          - generic [ref=f113e229]: "1500"
+          - generic [ref=f113e230]: "2400"
+          - generic [ref=f113e232]: "424"
+          - generic [ref=f113e233]: LPM
+          - generic [ref=f113e235]: "384"
+          - generic [ref=f113e236]: HPM ★
+          - generic [ref=f113e238]: "988"
+          - generic [ref=f113e239]: LPM
+          - generic [ref=f113e241]: "974"
+          - generic [ref=f113e242]: HPM
+          - generic [ref=f113e244]: "2313"
+          - generic [ref=f113e245]: LPM
+          - generic [ref=f113e247]: "2028"
+          - generic [ref=f113e248]: HPM
+          - generic [ref=f113e249]: DS-CNN S（23.7kB 参数 / 9.5kB 读写）
+          - generic [ref=f113e250]: DS-CNN M（138.1k / 25.5kB）
+          - generic [ref=f113e251]: DS-CNN L（416.7k / 40.9kB）
+          - generic [ref=f113e252]: 读表要点
+          - generic [ref=f113e253]: · HPM 370MHz/800mW 内更快且更省：S 档
+          - generic [ref=f113e254]: 384µJ 对 424µJ，提频换时间红利
+          - generic [ref=f113e255]: · 模型越大红利越薄：M 两模式几乎持平
+          - generic [ref=f113e256]: （988 对 974），L 只省 ~12%
+          - generic [ref=f113e257]: · 旗舰配置：S + 只训 fc1 + 100 条 + 21 ep
+          - generic [ref=f113e258]: + HPM = 14s / 806mJ / 10kB 读写 / 3MB 只读
+          - generic [ref=f113e259]: · 交叉核对自洽：2100 次更新 × 6.74ms ≈ 14.2s；
+          - generic [ref=f113e260]: × 384µJ ≈ 806mJ ✓（口径含推理+反传+更新）
+        - paragraph [ref=f113e261]: 表 II 复绘·每样本完整适应能量（µJ，含推理+反传+更新）。HPM 训练更快且更省——提频换时间在 S 档省 9% 能量；模型越大红利越薄（M 持平、L 只省 12%）。计算效率列 FLOP/cycle 的口径论文未报告（按时间与主频直接折算无法复现）。
+      - generic [ref=f113e262]: 五轴消融的工程判断：① 任务复杂度——12 类是增益峰值区（最高 +14 点），35 类撞可分性天花板（适应后仍只 56-72%，瓶颈在类间特征不在分类头）；② 模型容量——大模型基线更高增益更小（已能编码更丰富的类表示，域移位伤害本来就小）；代价：M 适应能耗 ≈ S 的 2.5×、L ≈ 5.3×；③ 数据量——0.25%（3MB）到 10%（120MB）是性价比区间；④ 适应深度×数据交互——10% 数据时全网络只比分类头多 1.2 点、100% 才拉开 6 点：数据少时深度微调收益微弱，「只训分类头」用不到 1% 的内存换到绝大部分收益；⑤ 运行模式——模型越大提频换时间的能量红利越薄（S 省 9%、M 持平、L 只省 12%）。部署配方：S + 只训 fc1 + 100 条 + 21 ep + HPM。注意：增益并非处处为正（地铁 6 类 M 出现 −0.15）——适应是有风险的动作，不保证单调收益。
+    - generic [ref=f113e263]:
+      - paragraph [ref=f113e264]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f113e265]
+      - generic [ref=f113e267]:
+        - generic [ref=f113e268]:
+          - generic [ref=f113e269]: "1"
+          - text: 与其堆参数，不如留可学习头现场特化适应后的 23.7kB 小模型反超 17 倍大的未适应模型 8 点——通用鲁棒的天花板是平均的，特化的天花板是具体的。
+        - generic [ref=f113e270]:
+          - generic [ref=f113e271]: "2"
+          - text: 语音噪声必须适应，平稳噪声不需要会议人声与唤醒词共享时频结构——通用增强学不到「这间会议室的具体混响与说话人分布」；洗衣 +1 点、会议 +14 点的悬殊是机理性的。
+        - generic [ref=f113e272]:
+          - generic [ref=f113e273]: "3"
+          - text: 域适应天然小样本友好要适应的只有噪声分布一个变量（词分布不变）——每类 10 条就够掰回分类头；3MB 能装下的根源，与从零学新词完全不同。
+        - generic [ref=f113e274]:
+          - generic [ref=f113e275]: "4"
+          - text: 完整的资源坐标系是 ODL 论文的标配内存 / 存储 / 延迟 / 能量四重方程 + 自洽核验的账本——只报精度的设备端学习论文回答不了电池问题。
+    - generic [ref=f113e276]:
+      - paragraph [ref=f113e277]: §05 · 局限性与展望
+      - heading "灾难性遗忘未评估；触发机制缺位" [level=2] [ref=f113e278]
+      - generic [ref=f113e280]:
+        - generic [ref=f113e281]:
+          - heading "方法局限" [level=4] [ref=f113e282]
+          - list [ref=f113e283]:
+            - listitem [ref=f113e284]: 适应的副作用未评估（灾难性遗忘）：Table I 只报目标噪声——适应后模型在其余 17 种源噪声和干净条件下的表现未报；适应本质是把分类头向目标分布拉，向旧分布回退是机制性风险。
+            - listitem [ref=f113e285]: 加性、单通道假设：DEMAND 录音加性叠加——未处理卷积混响、麦克风阵列、回声；目标词是干净录制后叠噪声，「干扰说话人说话时唤醒词同时出现」的真实混叠未建模。
+            - listitem [ref=f113e286]: 触发机制缺位：「新噪声出现」如何检测（VAD / 漂移检测 / 手动？）未报——实际系统必须补上否则适应时机无从谈起。
+            - listitem [ref=f113e287]: 平台与架构绑定：fp32 训练依赖集群 FPU 与九核并行——向无 FPU 更低端 MCU 迁移可行性未知；只验证 DS-CNN 一种架构。
+            - listitem [ref=f113e288]: 存储线性于样本数：每条 32kB、100 条 = 3MB 对部分 MCU 偏大；未探索特征级存储压缩。
+        - generic [ref=f113e289]:
+          - heading "实验设计不足" [level=4] [ref=f113e290]
+          - list [ref=f113e291]:
+            - listitem [ref=f113e292]: 无统计稳健性：单次结果无方差——洗衣 +0.47 这类量级是否显著存疑。
+            - listitem [ref=f113e293]: 正文与表格出入：「峰值 11%」「高达 15%」与 Table I 可核对值有偏差；摘要「恢复 5%」对正文「+6%」口径不一致——引用以 Table I 与第六章为准。
+            - listitem [ref=f113e294]: 与前作对比不完整：只在文字层比能量（5.81J 对 806mJ）且 SNR 设置不同——没隔离「难度提升」与「方法改进」各自贡献。
+            - listitem [ref=f113e295]: 超参与口径不透明：学习率 / 优化器 / 采样是否随机重复 / FLOP-per-cycle 折算 / 1.9 分钟设置的样本与轮数均未报。
+            - listitem [ref=f113e296]: 评测维度单一：只有 top-1——无误唤醒/漏唤醒权衡；14s 适应对 always-on 推理的打断方式未报。
+      - generic [ref=f113e297]: 值得追的方向：① 自动触发与持续适应——分布偏移检测（置信度监控 / 特征统计漂移）自动启动 ODDA，向非平稳噪声流演进在线持续适应；触发频率与电池寿命的端到端测算；② 抗遗忘的适应目标——回放（保留少量源噪声样本参与适应）或正则约束，把「特化目标」与「保持旧性能」变成多目标问题；③ 摆脱预录制与标注——伪标签 / 自监督直接利用现场无标音频 + 压缩 3MB 存储；④ 更低比特训练路径（int16/int8 梯度、稀疏低秩更新）把 10kB 再往下压、向更低端 MCU 迁移；⑤ 与前端联合——SE/ANC 消除可建模的平稳成分、ODDA 特化不可建模的语音噪声（互补组合未被探索）；⑥ 扩展到大声学事件检测等 TinyML 音频任务（TinyTrainer 项目指向）。
+    - contentinfo [ref=f113e298]:
+      - generic [ref=f113e299]:
+        - link "深读笔记" [ref=f113e300] [cursor=pointer]:
+          - /url: /papers/2024/On-Device_Domain_Learning_For_Keyword_Spotting_On_Low-Power_Extreme_Edge_Embedded_Systems.md
+        - link "PDF 原稿" [ref=f113e301] [cursor=pointer]:
+          - /url: /papers/2024/On-Device_Domain_Learning_For_Keyword_Spotting_On_Low-Power_Extreme_Edge_Embedded_Systems.pdf
+        - link "arXiv" [ref=f113e302] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2403.10549
+        - link "返回总目录" [ref=f113e303] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f113e304]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table I-II / Fig. 1-2 / Eq. 1）；「笔记核对 / 深判 / 注」标注处为笔记给出的分析与核验。

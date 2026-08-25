@@ -1,0 +1,238 @@
+- generic [active] [ref=f79e1]:
+  - navigation [ref=f79e2]:
+    - generic [ref=f79e3]:
+      - generic [ref=f79e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f79e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f79e6]:
+        - link "深读笔记" [ref=f79e7] [cursor=pointer]:
+          - /url: /papers/2024/Dark_Experience_For_Incremental_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f79e8] [cursor=pointer]:
+          - /url: /papers/2024/Dark_Experience_For_Incremental_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f79e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2409.08153
+  - generic [ref=f79e10]:
+    - banner [ref=f79e11]:
+      - paragraph [ref=f79e12]: 论文精读 · 可视化版 · 2024 №7
+      - heading "与其存一份旧模型当教师， 不如存下它当时的输出——「暗经验」治增量遗忘" [level=1] [ref=f79e13]: 与其存一份旧模型当教师，不如存下它当时的输出——「暗经验」治增量遗忘
+      - paragraph [ref=f79e14]: Dark Experience for Incremental Keyword Spotting（DE-KWS）
+      - paragraph [ref=f79e15]: 作者：Tianyi Peng、Yang Xiao —— 南洋理工大学 × Fortemedia Singapore
+      - paragraph [ref=f79e16]: 发表：2024.09 · arXiv:2409.08153 · 代码开源（NeverlandCookies/DE-KWS）
+      - generic [ref=f79e17]:
+        - generic [ref=f79e18]: 类增量 CIL
+        - generic [ref=f79e19]: 暗知识 logit
+        - generic [ref=f79e20]: 水库采样
+        - generic [ref=f79e21]: 零参数增量 64.48K
+        - generic [ref=f79e22]: TC-ResNet-8
+        - generic [ref=f79e23]: 摆脱 task-ID
+        - generic [ref=f79e24]: GSC 6/10/20 任务
+      - generic [ref=f79e25]:
+        - heading "一分钟版本" [level=2] [ref=f79e26]
+        - list [ref=f79e27]:
+          - listitem [ref=f79e28]: 痛点：端侧 KWS 常开 + 轻量 + 新关键词持续到来（自定义唤醒词 / 新语种 / 新命令词）。few-shot 微调会灾难性遗忘——Finetune 基线 26.80% 对联合训练上界 95.70%，68.9 点的落差就是「微调会遗忘」的量化证据。
+          - listitem [ref=f79e29]: 现有路线的账：自蒸馏（RK）要存模型快照——参数翻倍到 129.96K；Fisher 正则（EWC/RWalk）的重要性矩阵同样翻倍；双记忆多模态（DM3）193.44K 是基座三倍；朴素回放（NR）只存「样本+one-hot」，丢掉输出分布里的类间关系——55.30% 效率极低。
+          - listitem [ref=f79e30]:
+            - text: 方案（DE-KWS）：缓冲区存三元组（样本 + 标签 + logit）——标签回放管「记住是什么」，logit 蒸馏管「保持像什么」（暗知识 = 类间相对置信度）；水库采样全程持续入池（流长度未知也保证等概率），不依赖任务边界；总损失 L
+            - subscript [ref=f79e31]: C
+            - text: + 0.5·L
+            - subscript [ref=f79e32]: R
+            - text: + 1.0·L
+            - subscript [ref=f79e33]: D
+            - text: 。
+          - listitem [ref=f79e34]: 结果：GSC 30 词 6 任务，buffer=500 时 ACC 89.24%、BWT −0.034 全场最优，参数保持 64.48K——以 DM3 三分之一的参数反超 1.14 点；buffer=1500 达 91.17%，逼近 Joint 95.70%。中期任务是主场：T2 上 78.84% 对 RK 65.78%、T5 上 91.24% 对 RWalk 54.28%。
+          - listitem [ref=f79e35]: 消融：去蒸馏掉 4.40 点、去回放只掉 1.22 点——蒸馏贡献约是回放的 3.6 倍；最优配比「轻回放、重蒸馏」。
+          - listitem [ref=f79e36]: 成色缺口：缓冲区真实存储开销未量化（若存波形 1500 条 ≈ 48 MB，远超模型本身）；输出头按 30 类预分配——真实部署新词数未知；「全程采样 vs 任务末采样」的核心主张无消融；无独立测试集（疑似在 20% 验证集上评估）。
+    - generic [ref=f79e37]:
+      - paragraph [ref=f79e38]: §01 · 问题陈述
+      - heading "不能为了学新词，把原来识别得好好的词全忘掉" [level=2] [ref=f79e39]
+      - generic [ref=f79e41]:
+        - img [ref=f79e42]:
+          - generic [ref=f79e43]: 抗遗忘的既有路线与其在端侧 KWS 上的代价
+          - generic [ref=f79e44]:
+            - generic [ref=f79e46]: few-shot 微调
+            - generic [ref=f79e47]: ✕ 无任何抗遗忘机制，
+            - generic [ref=f79e48]: 新任务一到旧类边界被冲垮
+            - generic [ref=f79e49]: ✕ ACC 26.80%（终态）
+            - generic [ref=f79e50]: ✓ 最简单、零额外开销
+            - generic [ref=f79e52]: 渐进式 CL（task-incremental）
+            - generic [ref=f79e53]: ✕ 推理时依赖 task-ID 辅助信息
+            - generic [ref=f79e54]: ——真实部署不总可得
+            - generic [ref=f79e55]: ✕ 存储随任务数增长
+            - generic [ref=f79e56]: ✓ 最早落地此场景
+            - generic [ref=f79e58]: 自蒸馏 / Fisher 正则
+            - generic [ref=f79e59]: ✕ 自蒸馏要存旧模型完整参数
+            - generic [ref=f79e60]: （RK 129.96K = 基座×2）
+            - generic [ref=f79e61]: ✕ EWC/RWalk 的 Fisher 矩阵同量级，
+            - generic [ref=f79e62]: 等效存储翻倍
+            - generic [ref=f79e63]: ✓ 不存音频数据
+            - generic [ref=f79e65]: 朴素回放 NR
+            - generic [ref=f79e66]: ✕ 只存「样本+one-hot」——
+            - generic [ref=f79e67]: 丢掉输出分布的类间关系
+            - generic [ref=f79e68]: ✕ 新旧监督混成一个训练集，
+            - generic [ref=f79e69]: 无独立配比
+            - generic [ref=f79e70]: ✓ buffer 200 时 46.45%，仅比微调高 20 点
+          - generic [ref=f79e72]: DE-KWS 切入：暗经验回放（DER，NeurIPS 2020）在 KWS 域从未被探索——存 logit 而非模型快照，三元组共享一份存储，零参数增量
+          - generic [ref=f79e73]: 五条互相牵制的约束：不依赖 task-ID · 参数不增（64.48K）· 缓冲区有界且流长度未知 · 任务边界模糊也能工作 · 中期任务不能塌
+        - paragraph [ref=f79e74]: 图 A·DER 思想源头（Buzzega 等）：存储过去的 logit 并在整个训练轨迹上蒸馏「经验」——强而简单，但 KWS 域应用空白，这是论文的切入点。
+    - generic [ref=f79e75]:
+      - paragraph [ref=f79e76]: §02 · 方法论
+      - heading "一份缓冲区，两种记忆：标签管「是什么」，logit 管「像什么」" [level=2] [ref=f79e77]
+      - generic [ref=f79e79]:
+        - img [ref=f79e80]:
+          - generic [ref=f79e81]: Fig. 1 复绘：流式训练主线 + 水库采样缓冲区 + 双采样双损失
+          - generic [ref=f79e83]: 任务 τ_t 流式数据
+          - generic [ref=f79e84]: (x, y) ∼ D_t
+          - generic [ref=f79e87]: 骨干 TC-ResNet-8（64.48K）
+          - generic [ref=f79e88]: "3 残差块 · 通道 {16,24,32,48} · MFCC 40"
+          - generic [ref=f79e91]: L_C：当前任务交叉熵
+          - generic [ref=f79e92]: 学新任务
+          - generic [ref=f79e94]: 内存缓冲区 M（三元组）
+          - generic [ref=f79e96]: 样本 x
+          - generic [ref=f79e97]: （与回放共用一份）
+          - generic [ref=f79e99]: 标签 y
+          - generic [ref=f79e100]: 管「记住是什么」
+          - generic [ref=f79e102]: logit z ★
+          - generic [ref=f79e103]: 管「保持像什么」
+          - generic [ref=f79e104]: 水库采样入池：流长度未知也保证每个数据点等概率入池；logit 来自「正在训练中的模型」——池中混杂弱模型期与成熟期的输出
+          - generic [ref=f79e106]: (x, y, 当前 logit) 全程持续写入
+          - generic [ref=f79e112]: L_R（α=0.5）：回放 CE
+          - generic [ref=f79e113]: 独立采样批 (x′, y′)
+          - generic [ref=f79e115]: L_D（β=1.0）：logit MSE
+          - generic [ref=f79e116]: 独立采样批 (x″, z″) 对齐历史响应
+          - generic [ref=f79e118]: L_DE-KWS = L_C + 0.5·L_R + 1.0·L_D
+          - generic [ref=f79e119]: 为什么全程采样而非任务末：缓冲区 logit 来自训练轨迹不同时刻——蒸馏它们等价于约束当前模型与「历史各阶段的自己」保持响应一致，任务间过渡更平滑、不依赖任务边界；这也正是「暗经验覆盖整个训练轨迹」的实现方式
+        - paragraph [ref=f79e120]: 图 B·存 logit 的三重收益：内存远低于整套模型参数；音频样本直接复用回放已存的那份；logit 嵌着 one-hot 给不了的暗知识——「这更像 cat 而不太像 off、跟 stop 相似度中等」，这些软结构正是防止类边界漂移的锚。蒸馏用原始 logit 的 MSE（沿用 DER），无需温度超参；「教师」不是单一冻结旧模型，而是散布在训练轨迹各时刻的历史输出快照。
+    - generic [ref=f79e121]:
+      - paragraph [ref=f79e122]: §03 · 实验结果
+      - heading "零参数增量拿到第一；优势来自中期任务的全谱平衡" [level=2] [ref=f79e123]
+      - generic [ref=f79e125]: "设置：GSC v1（64,727 条 · 1 s · 30 词），80/20 训练/验证（无独立测试集，评估疑似直接在验证集上做）。默认 6 任务（首任务 15 词、其余 5 任务各 3 词），压力测试 11/21 任务（正文与图注表述不一致）。Adam lr=0.1、batch 128、50 epoch；buffer ∈ {200, 500, 1000, 1500}。指标：ACC（所有已学任务平均准确率——「学完全部后还记得多少」）、BWT（后向转移，学新伤旧的程度；Finetune −0.379 对 DE-KWS buffer=1500 的 −0.026，遗忘被压掉一个数量级）、Parameters。"
+      - generic [ref=f79e126]:
+        - img [ref=f79e127]:
+          - generic [ref=f79e128]: Table I（buffer=500 档）· GSC 30 词 6 任务类增量：平均准确率 ACC % 与参数量
+          - generic [ref=f79e129]: "20"
+          - generic [ref=f79e130]: "40"
+          - generic [ref=f79e131]: "60"
+          - generic [ref=f79e132]: "80"
+          - generic [ref=f79e133]: "100"
+          - generic [ref=f79e134]: Joint 联合训练上界 95.70（不可部署）
+          - generic [ref=f79e136]: "26.80"
+          - generic [ref=f79e137]: Finetune
+          - generic [ref=f79e138]: 64.48K
+          - generic [ref=f79e140]: "55.30"
+          - generic [ref=f79e141]: NR
+          - generic [ref=f79e142]: 64.48K
+          - generic [ref=f79e144]: "79.96"
+          - generic [ref=f79e145]: BiC
+          - generic [ref=f79e146]: —
+          - generic [ref=f79e148]: "84.72"
+          - generic [ref=f79e149]: iCaRL
+          - generic [ref=f79e150]: 75.29K
+          - generic [ref=f79e152]: "84.96"
+          - generic [ref=f79e153]: RK
+          - generic [ref=f79e154]: 129.96K
+          - generic [ref=f79e156]: "87.53"
+          - generic [ref=f79e157]: RWalk
+          - generic [ref=f79e158]: 129.96K
+          - generic [ref=f79e160]: "88.10"
+          - generic [ref=f79e161]: DM3
+          - generic [ref=f79e162]: 193.44K
+          - generic [ref=f79e164]: "89.24"
+          - generic [ref=f79e165]: DE-KWS
+          - generic [ref=f79e166]: 64.48K
+          - generic [ref=f79e167]: DE-KWS 以 64.48K（与基线完全相同）参数第一：比 DM3 高 1.14 点而参数只有 1/3，比 RWalk 高 1.71 点而参数约 1/2；BWT -0.034 亦全场最优
+          - generic [ref=f79e168]: Finetune 26.80 对 Joint 95.70 的 68.9 点落差 = 「微调会遗忘」的量化证据；参数列含各方法额外状态（教师快照 / Fisher 矩阵），推断见笔记
+        - paragraph [ref=f79e169]: 表 I 复绘·buffer=500 档（EWC 只在 buffer-free 档报告 75.23%，未入图）。参数量列的口径：包含各方法额外状态（教师快照 / Fisher 矩阵）——这是笔记推断，论文未明确说明；DE-KWS 的缓冲区存储（样本+logit）未计入任何指标，与对手的对比因口径不同不完全对等。
+      - generic [ref=f79e170]:
+        - img [ref=f79e171]:
+          - generic [ref=f79e172]: 缓冲区规模扫描：ACC 随 buffer 单调改善、边际收益递减
+          - generic [ref=f79e173]: "85"
+          - generic [ref=f79e174]: "88"
+          - generic [ref=f79e175]: "91"
+          - generic [ref=f79e176]: "94"
+          - generic [ref=f79e177]: Joint 上界 95.70
+          - generic [ref=f79e180]: "85.13"
+          - generic [ref=f79e181]: "200"
+          - generic [ref=f79e183]: "89.24"
+          - generic [ref=f79e184]: "500"
+          - generic [ref=f79e186]: "90.38"
+          - generic [ref=f79e187]: "1000"
+          - generic [ref=f79e189]: "91.17"
+          - generic [ref=f79e190]: "1500"
+          - generic [ref=f79e191]: 边际收益：200→500 +4.11 点，500→1000 +1.14，1000→1500 +0.79——约 500~1000 已捕获大部分可用旧知识；1500 处距上界仍差 4.53 点（有界记忆 vs 全数据的info差）
+        - paragraph [ref=f79e192]: 缓冲区扫描复绘·单调改善但边际递减——工程含义：约 500~1000 条已捕获大部分可用旧知识，继续加池子的性价比快速下降；与 Joint 的剩余差距本质是「只能见到有界旧样本」与「全部数据可见」的信息差。
+      - generic [ref=f79e193]:
+        - img [ref=f79e194]:
+          - generic [ref=f79e195]: Table II · 消融（buffer=500）：蒸馏是主力，回放是辅助
+          - generic [ref=f79e196]: "84"
+          - generic [ref=f79e197]: "86"
+          - generic [ref=f79e198]: "88"
+          - generic [ref=f79e199]: "90"
+          - generic [ref=f79e201]: "84.84"
+          - generic [ref=f79e202]: 去蒸馏
+          - generic [ref=f79e203]: (α=0.5, β=0)
+          - generic [ref=f79e205]: "88.02"
+          - generic [ref=f79e206]: 去回放
+          - generic [ref=f79e207]: (α=0, β=1.0)
+          - generic [ref=f79e209]: "87.95"
+          - generic [ref=f79e210]: α=1.0, β=0.5
+          - generic [ref=f79e212]: "88.38"
+          - generic [ref=f79e213]: α=0.5, β=0.5
+          - generic [ref=f79e215]: "89.24"
+          - generic [ref=f79e216]: α=0.5, β=1.0
+          - generic [ref=f79e217]: （最优）
+          - generic [ref=f79e218]: 去蒸馏掉 4.40 点、去回放只掉 1.22 点——蒸馏贡献约是回放的 3.6 倍；β 从 0.5 提到 1.0 的收益大于 α 调整：轻回放、重蒸馏
+        - paragraph [ref=f79e219]: 表 II 复绘·贡献高度不对称：蒸馏是主力、回放是辅助。笔记分析为什么去回放伤害不大——蒸馏本身已在缓冲区样本上计算，旧样本仍在参与训练，只是监督从硬标签换成历史 logit；而硬标签回放虽数值贡献小，却承担「防止陈旧 logit 误差累积」的校正角色——两者互补正是三元组设计的价值。
+      - generic [ref=f79e220]: 逐任务视角（Fig. 2，buffer=500）：DE-KWS 学完六个任务后首任务 T1 保持 80.13%（学完时 96.82%，保留率约 82.7%），远好于 EWC 的 60.53%；中期任务是主场——T2 上 78.84% 对 RK 65.78% / RWalk 66.87%，T5 上 91.24% 对 RWalk 54.28% / EWC 49.20%。两个诚实细节：① 最旧任务 T1 的保持上 RWalk（83.75%）其实略高于 DE-KWS（80.13%）——整体优势来自全谱平衡（终态六任务 80.13/78.84/82.05/75.15/91.24/95.87）而非单点极致；② 最新任务精度 95.87% 低于无正则基线（EWC 98.78% 等）——稳定性-可塑性权衡的直接体现：蒸馏约束了可塑性，学新略钝，换旧任务大幅保持，平均净收益为正。任务数压力测试（Fig. 3）：10/20 任务档所有方法都随任务数下降，DE-KWS 两组设定持续领先（NR/EWC/RK/iCaRL/BiC）。
+    - generic [ref=f79e221]:
+      - paragraph [ref=f79e222]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f79e223]
+      - generic [ref=f79e225]:
+        - generic [ref=f79e226]:
+          - generic [ref=f79e227]: "1"
+          - text: DER 首次进 KWS填补暗经验回放在 KWS 域的应用空白：不依赖 task-ID、不存模型快照的类增量框架，对准「常开 + 轻量 + 新词持续到来」三重现实。
+        - generic [ref=f79e228]:
+          - generic [ref=f79e229]: "2"
+          - text: 三元组缓冲区样本+标签+logit 共享一份存储：标签回放与 logit 蒸馏互补——标签纠正 logit 漂移、防止陈旧软标签误差累积；logit 稳住标签覆盖不到的类间几何。
+        - generic [ref=f79e230]:
+          - generic [ref=f79e231]: "3"
+          - text: 全程持续采样水库采样在整个训练轨迹（而非任务边界）填充和使用缓冲区——摆脱任务边界依赖，平滑任务过渡，尤其中期任务遗忘（T5 上 91.24 对 RWalk 54.28）。
+        - generic [ref=f79e232]:
+          - generic [ref=f79e233]: "4"
+          - text: 零参数增量的 SOTA64.48K 与基线完全相同：以 DM3 的 1/3 参数反超 1.14 点、RWalk 的 1/2 参数反超 1.71 点；消融给出「轻回放、重蒸馏」（蒸馏贡献约回放 3.6 倍）的可复用配比。
+    - generic [ref=f79e234]:
+      - paragraph [ref=f79e235]: §05 · 局限性与展望
+      - heading "缓冲区存储才是真实成本；核心主张缺消融背书" [level=2] [ref=f79e236]
+      - generic [ref=f79e238]:
+        - generic [ref=f79e239]:
+          - heading "方法局限" [level=4] [ref=f79e240]
+          - list [ref=f79e241]:
+            - listitem [ref=f79e242]: 缓冲区真实开销未量化：Parameters 只计模型参数。若存波形（1 s@16 kHz@16 bit ≈ 32 KB/条），1500 条 ≈ 48 MB，远超模型本身（≈258 KB）；存的是波形还是特征论文未说明——与 RK/DM3 的参数对比因口径不同不完全对等。
+            - listitem [ref=f79e243]: logit 陈旧性：池中不少是「弱模型时期」的输出——可能蒸馏次优软标签；无刷新 / 置信度加权机制，池内 logit 新旧构成的影响未报告。
+            - listitem [ref=f79e244]: 输出头按 30 类预分配：真实部署新词数量未知，头扩展与旧 logit 维度对齐未讨论——恰是 CIL 落地经典难点。
+            - listitem [ref=f79e245]: 有界记忆的信息差：buffer=1500 仍差 Joint 4.53 点；500→1000 只 +1.14 点，边际递减。
+            - listitem [ref=f79e246]: 隐私未触及：端侧持久保存用户语音片段是敏感数据，无脱敏 / 特征级替代方案。
+            - listitem [ref=f79e247]: 可塑性轻微牺牲：最新任务 95.87% 低于无正则基线，无随任务衰减 β 的权衡调节机制。
+        - generic [ref=f79e248]:
+          - heading "实验设计不足" [level=4] [ref=f79e249]
+          - list [ref=f79e250]:
+            - listitem [ref=f79e251]: 数据集单一且干净：仅 GSC v1（30 词 1 s 英语干净读音）；无噪声 / 远场 / 多说话人 / 多语言；每任务 3~15 个词数据充足——与「新域 few-shot 适配」动机有落差。
+            - listitem [ref=f79e252]: 端侧主张无端侧证据：无真机部署、延迟、内存、功耗、增量训练开销数字。
+            - listitem [ref=f79e253]: 评估协议混淆：80/20 二分无独立测试集，模型选择与最终评估疑似共用同一份数据，指标偏乐观风险。
+            - listitem [ref=f79e254]: ACC 口径对不上：按 Fig. 2 终态六列平均得 83.88%，与 Table I 的 89.24% 无法自洽（聚合公式未报告）。
+            - listitem [ref=f79e255]: 核心主张无消融：「全程采样 vs 任务末采样」、水库 vs 多样性采样、骨干与特征替代均无对照。
+            - listitem [ref=f79e256]: 统计与表述：无多种子方差；正文 11/21 任务与图注 10/20 不一致；lr=0.1 配 Adam 异常高且无调度说明；基线网格不完整（BiC/EWC/DE-KWS 各只覆盖部分档位）。
+      - generic [ref=f79e257]: 值得追的方向：① 补端侧闭环——真机测增量训练与推理的延迟 / 内存峰值 / 能耗，明确缓冲区存储形式，把「参数不增」升级为「系统资源不增」；② logit 生命周期管理——定期刷新、置信度加权（弱模型期降权）、滑动窗口一致性，与「保留演化轨迹」主张的兼容性值得专门研究；③ 动态输出头 + 开放词表结合（与音频-文本对比式方法如 CTCAT 类思路融合），走向真正的自定义唤醒词增量；④ few-shot 增量设定（每任务少量样本的自定义词）更贴近产品；⑤ 类平衡约束的水库变体防长尾类被稀释；⑥ 隐私友好记忆（特征 / 不可逆表示入池 + 设备本地增量）；⑦ 引入 KWS 部署级指标（误唤醒 / 漏唤醒 DET）与多种子方差报告。
+    - contentinfo [ref=f79e258]:
+      - generic [ref=f79e259]:
+        - link "深读笔记" [ref=f79e260] [cursor=pointer]:
+          - /url: /papers/2024/Dark_Experience_For_Incremental_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f79e261] [cursor=pointer]:
+          - /url: /papers/2024/Dark_Experience_For_Incremental_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f79e262] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2409.08153
+        - link "代码" [ref=f79e263] [cursor=pointer]:
+          - /url: https://github.com/NeverlandCookies/DE-KWS
+        - link "返回总目录" [ref=f79e264] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f79e265]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table I-II / Fig. 1-3 / 式 1-4）；「笔者推断 / 推算」标注处为笔记给出的推断。

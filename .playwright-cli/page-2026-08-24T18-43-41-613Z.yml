@@ -1,0 +1,217 @@
+- generic [active] [ref=f87e1]:
+  - navigation [ref=f87e2]:
+    - generic [ref=f87e3]:
+      - generic [ref=f87e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f87e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f87e6]:
+        - link "深读笔记" [ref=f87e7] [cursor=pointer]:
+          - /url: /papers/2024/Effective_Integration_Of_KAN_For_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f87e8] [cursor=pointer]:
+          - /url: /papers/2024/Effective_Integration_Of_KAN_For_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f87e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2409.08605
+  - generic [ref=f87e10]:
+    - banner [ref=f87e11]:
+      - paragraph [ref=f87e12]: 论文精读 · 可视化版 · 2024 №11
+      - heading "KAN 不是全局选择题，是局部填空题： 插对位置白赚 16%，插错位置倒贴六成" [level=1] [ref=f87e13]: KAN 不是全局选择题，是局部填空题：插对位置白赚 16%，插错位置倒贴六成
+      - paragraph [ref=f87e14]: Effective Integration of KAN for Keyword Spotting
+      - paragraph [ref=f87e15]: 作者：Anfeng Xu（USC，Meta 实习）、Biqiao Zhang 等 7 人 —— Meta AI
+      - paragraph [ref=f87e16]: 发表：2024.09 · arXiv:2409.08605（v3 更新于 2025.01）
+      - generic [ref=f87e17]:
+        - generic [ref=f87e18]: KAN 可学习激活
+        - generic [ref=f87e19]: Gram 多项式 GKAN
+        - generic [ref=f87e20]: LiCo-Net 流式骨干
+        - generic [ref=f87e21]: GKAN post 甜点
+        - generic [ref=f87e22]: 结构对齐消融
+        - generic [ref=f87e23]: 说话人独立评测
+      - generic [ref=f87e24]:
+        - heading "一分钟版本" [level=2] [ref=f87e25]
+        - list [ref=f87e26]:
+          - listitem [ref=f87e27]: 问题空间：端侧 KWS 的架构创新史是一部「单位参数表达力」压榨史——但 CNN/RNN/注意力三大家族的原子构件全是 MLP（可学习线性层 + 固定激活），十年只改「怎么连接」，从没改过「连接本身是什么」。2024 年的 KAN（权重从数字变成小曲线）恰好动了这个原子件——但「KAN or MLP」公论是参数对齐时 KAN 多数任务更差。语音没人回答过。
+          - listitem [ref=f87e28]: 朴素替换的下场：KAN 每神经元 O(d) 倍参数，同参数预算下通道宽度必崩——LiCo-Net 的 w=72 全换 KAN 后只剩 34（砍半以上）。实测：换空间卷积（低级位）全档位更差、全换更差、换逐点卷积（高级位）最多打平。替换路线整体排除。
+          - listitem [ref=f87e29]: 附加式的甜点：保留 MLP 宽度、在逐点卷积旁插一层 GKAN——GKAN post（插在逐点卷积之后）以几乎同参数（396K 对 394K）四档 FRR 全降 11-16%，加噪下 −11~−17%，200K 档仍赚 15%；GKAN mid（并联）0.1 档恶化 63%——集成方式比用不用更重要。
+          - listitem [ref=f87e30]: 归因闭合：给基线也加一层普通 Conv1D（MLP post，结构完全对齐）——加层本身自带增益，但结构对齐后 KAN 版仍再赢一截 → 增益确实来自可学习激活。这个消融设计是「加新模块该怎么验证」的方法论模板。
+          - listitem [ref=f87e31]: 失败边界：低级位置必败、并联严重翻车、100K 参数以下反噬（0.1 档 +13%）——宽度被压到 30 时表达容量损失超过曲线收益。收益区间锁定 ~200K 以上。
+          - listitem [ref=f87e32]: 成色缺口：零延迟 / FLOPs / 内存数字（KWS 每秒跑 100 帧，多项式求值 vs 一次乘法的硬件代价未答）；KAN 招牌的可解释性完全没兑现；内部数据不可复现、无外部 SOTA 横向对比、无多种子方差。
+    - generic [ref=f87e33]:
+      - paragraph [ref=f87e34]: §01 · 问题陈述
+      - heading "准快省三角下，「同样预算你多换来了什么」是必答题" [level=2] [ref=f87e35]
+      - generic [ref=f87e37]: 四个认知空白：① 通道宽度崩塌——KAN 每神经元 O(d) 倍参数，KWS 参数预算极敏感，同参数换 KAN 必须把 w 从 72 砍到 34-52，通道宽度直接决定表达容量；② 插入位置无先验——浅层做帧级局部声学（低级）、深层做子词判别（高级），KAN 的曲线拟合在两种岗位上表现可能完全不同，此前 KAN 文献（医学分割 / 时序预测）都整体替换了事、从没把「位置」当变量消融；③ 结构性混淆——加一层 KAN 同时改变深度、参数量、激活类型三件事，不结构对齐就无法归因；④ 语音空白——论文自称最早用 KAN 做语音处理的探索之一。
+    - generic [ref=f87e38]:
+      - paragraph [ref=f87e39]: §02 · 方法论
+      - heading "实验台刻意选「干净」：LiCo-Net 五块，每块三层 Conv1D" [level=2] [ref=f87e40]
+      - generic [ref=f87e42]:
+        - img [ref=f87e43]:
+          - generic [ref=f87e44]: KAN vs MLP 的原子差异 + LiCo-Block 的坐标系（空间卷积管低级、逐点卷积管高级）
+          - generic [ref=f87e46]: MLP：一条边 = 一个数 × 固定 ReLU
+          - generic [ref=f87e47]: w（标量）
+          - generic [ref=f87e49]: ReLU（固定）
+          - generic [ref=f87e50]: 十年架构创新改的都是「怎么连接」
+          - generic [ref=f87e52]: KAN（GKAN）：一条边 = 一条可学习曲线
+          - generic [ref=f87e53]: φ(x) = w_b·silu(x) + w_s·Σ c_m·B_m(x)
+          - generic [ref=f87e55]: 三阶 Gram 多项式（可学习 c_m）
+          - generic [ref=f87e56]: silu 基底保底合理形状，可学部分只拟合「残差形状」→ 收敛稳
+          - generic [ref=f87e58]: LiCo-Block ×5（Fig.3）：KAN 插入位置的坐标系
+          - generic [ref=f87e60]: 输入（w 通道）
+          - generic [ref=f87e61]: 40 维 log-mel
+          - generic [ref=f87e64]: Conv1D K=5 空间卷积
+          - generic [ref=f87e65]: 低级：帧级局部上下文 ✗KAN
+          - generic [ref=f87e68]: Conv1D K=1 逐点卷积 ×2（e=6）
+          - generic [ref=f87e69]: 高级：语义浓缩 ★GKAN post 插这后面
+          - generic [ref=f87e70]: · 管线：子词分类（11 子词 + SIL + FILLER = 13 类）→ WFST 解码累积关键词概率，逐帧因果（帧移 10ms = 每秒 100 次推理）
+          - generic [ref=f87e71]: · 三种附加位置（Fig.4）：pre（逐点前）/ post（逐点后 ★）/ mid（并联 ✗）
+          - generic [ref=f87e73]: 为什么高级位是 KAN 舒适区（笔记深挖）
+          - generic [ref=f87e74]: · 原始梅尔特征高维、平滑能量面——
+          - generic [ref=f87e75]: 线性+固定非线性已够，曲线容量浪费
+          - generic [ref=f87e76]: · 逐点卷积输出低维语义向量——类间
+          - generic [ref=f87e77]: 边界弯曲复杂，恰好是可学曲线擅长
+          - generic [ref=f87e78]: 雕刻的形状：容量花在刀刃上
+        - paragraph [ref=f87e79]: 图 A·卷积版 KAN 的直观理解很干净：卷积核里每个「权重槽位」从乘一个数变成过一条可学习曲线——感受野、滑动方式、流式因果性全部不变，这就是它能无缝嵌进 LiCo-Net 的根本原因。基函数选 Gram 多项式（离散点正交）而非原版 B 样条、阶数 3——均为经验决策，无自身消融。
+      - generic [ref=f87e80]:
+        - text: KAN(x) = (Φ
+        - subscript [ref=f87e81]: L−1
+        - text: ∘ … ∘ Φ
+        - subscript [ref=f87e82]: "0"
+        - text: )(x)，Φ 的每个元素 φ 是可学习激活：φ = w
+        - subscript [ref=f87e83]: b
+        - text: ·b(x) + w
+        - subscript [ref=f87e84]: s
+        - text: ·Σ c
+        - subscript [ref=f87e85]: m
+        - text: ·B
+        - subscript [ref=f87e86]: m
+        - text: (x)； 卷积版：y = Σ Σ φ(x)
+        - generic [ref=f87e87]: 人话：MLP 一条边只有标量权重乘上去再过固定 ReLU；KAN 一条边是整条可学习曲线——silu 基底（保底已验证形状）+ 三阶 Gram 多项式（可塑部分）+ 两个预定标量控制占比。每条曲线 O(d) 个系数 → 每神经元参数是 MLP 的 O(d) 倍——这就是通道宽度崩塌的数学根源。
+    - generic [ref=f87e88]:
+      - paragraph [ref=f87e89]: §03 · 实验结果
+      - heading "三段论消融：替换定位高级位 → 附加找到 post → 结构对齐完成归因" [level=2] [ref=f87e90]
+      - generic [ref=f87e92]: 数据与协议：四个英文关键词（take a picture / volume up / volume down / play music），众包去标识，说话人独立切分（同一人语音不跨集——否则 FRR 严重虚低，模型等于提前「背过」音色）；训练正例 15-25K 条/词、14,957 说话人，评测 4-6K 条/词、3,801 说话人，平均 2.5s；负例取 LibriSpeech 不含关键词语音（train-clean-360 + train-other-500 训练 / clean-100 + dev/test 评测）。指标：四个误报工作点 FA/h = 0.1/0.2/0.5/1.0 下的 FRR——0.1 档 = 平均十小时一次误唤醒（产品最苛刻档）；报四档而非汇总数，因为真实产品只选一个工作点部署、汇总指标会掩盖局部交叉（Table IV 的 100K 档真出现了交叉）。训练：8 卡、batch 400、Adam、10 epoch；子词标签由预训练声学模型强制对齐；类权重 SIL/FILLER/子词 = 1/2/8（子词帧少但决定漏报）。
+      - generic [ref=f87e93]:
+        - img [ref=f87e94]:
+          - generic [ref=f87e95]: Table I / II · FRR%（越低越好）随误报工作点 FA/h 变化：替换式全败，附加式 GKAN post 全胜
+          - generic [ref=f87e96]: Table I 替换式（参数对齐 394-415K）
+          - generic [ref=f87e97]: "0.8"
+          - generic [ref=f87e98]: "1.8"
+          - generic [ref=f87e99]: "2.7"
+          - generic [ref=f87e100]: "0.1"
+          - generic [ref=f87e101]: "0.2"
+          - generic [ref=f87e102]: "0.5"
+          - generic [ref=f87e103]: "1.0"
+          - generic [ref=f87e124]: LiCo-Net 基线 w=72
+          - generic [ref=f87e125]: GKAN MLP（换空间卷积）w=52
+          - generic [ref=f87e126]: MLP GKAN（换逐点卷积）w=42
+          - generic [ref=f87e127]: GKAN 全换 w=34
+          - generic [ref=f87e128]: 低级位置必败；高级位置最多打平；宽度 72→34
+          - generic [ref=f87e129]: Table II 附加式（保留 MLP 宽度）
+          - generic [ref=f87e130]: "0.8"
+          - generic [ref=f87e131]: "2.2"
+          - generic [ref=f87e132]: "3.6"
+          - generic [ref=f87e133]: "0.1"
+          - generic [ref=f87e134]: "0.2"
+          - generic [ref=f87e135]: "0.5"
+          - generic [ref=f87e136]: "1.0"
+          - generic [ref=f87e157]: LiCo-Net 基线 w=72
+          - generic [ref=f87e158]: GKAN pre w=64
+          - generic [ref=f87e159]: GKAN post ★ w=62
+          - generic [ref=f87e160]: GKAN mid w=64
+          - generic [ref=f87e161]: post 四档全优（−11~−16%）；mid 并联灾难（0.1 档 +63%）
+        - paragraph [ref=f87e162]: 表 I / II 复绘·横轴为误报工作点 FA/h（越右越宽松），纵轴 FRR（越低越好）。左：替换式——通道宽度从 72 崩到 34-52，低级位全败；右：附加式保住宽度（62-64），GKAN post 四档全优、mid 并联灾难（0.1 档 3.446 对基线 2.108）。
+      - generic [ref=f87e163]:
+        - img [ref=f87e164]:
+          - generic [ref=f87e165]: Table V / III · 归因链：加一层有增益，KAN 加层增益更大，噪声下再放大
+          - generic [ref=f87e166]: 干净条件（clean）
+          - generic [ref=f87e167]: "0.7"
+          - generic [ref=f87e168]: "1.5"
+          - generic [ref=f87e169]: "2.3"
+          - generic [ref=f87e170]: "0.1"
+          - generic [ref=f87e171]: "0.2"
+          - generic [ref=f87e172]: "0.5"
+          - generic [ref=f87e173]: "1.0"
+          - generic [ref=f87e189]: MLP 原始（394K，w=72）
+          - generic [ref=f87e190]: MLP post（加普通层，399K，w=70）
+          - generic [ref=f87e191]: GKAN post（同位置 KAN 层，396K）
+          - generic [ref=f87e192]: 结构完全对齐后 KAN 仍再赢一截 → 归因到可学习激活
+          - generic [ref=f87e193]: 加噪（SNR 中心 12.5dB，截断 [0,25]）
+          - generic [ref=f87e194]: "3.2"
+          - generic [ref=f87e195]: "6.5"
+          - generic [ref=f87e196]: "9.8"
+          - generic [ref=f87e197]: "0.1"
+          - generic [ref=f87e198]: "0.2"
+          - generic [ref=f87e199]: "0.5"
+          - generic [ref=f87e200]: "1.0"
+          - generic [ref=f87e216]: MLP 原始
+          - generic [ref=f87e217]: MLP post
+          - generic [ref=f87e218]: GKAN post ★
+          - generic [ref=f87e219]: 噪声下 GKAN post 相对原始 −11~−15%，0.1 档 −17%
+        - paragraph [ref=f87e220]: 表 V / III 复绘（归因链）·MLP post 本身就比原始基线强（加一层自带增益）——这正印证结构对齐消融的必要性；结构完全对齐后 KAN 版仍再赢一截，增益才归因到可学习激活本身。噪声下（右）MLP post 在 0.1 档甚至比原始更差（9.3 对 8.748），而 GKAN post 仍全面领先——增益在恶劣声学下放大。
+      - generic [ref=f87e221]:
+        - img [ref=f87e222]:
+          - generic [ref=f87e223]: Table IV · 规模边界：收益区间在 ~200K 参数以上，100K 档反噬（0.1 FA/h 档 FRR%）
+          - generic [ref=f87e224]: "2"
+          - generic [ref=f87e225]: "3"
+          - generic [ref=f87e226]: "4"
+          - generic [ref=f87e228]: "2.11"
+          - generic [ref=f87e229]: MLP w=72
+          - generic [ref=f87e230]: "1.77"
+          - generic [ref=f87e231]: GKAN post w=62
+          - generic [ref=f87e232]: ~400K 档 · ✓ 收益（−16%）
+          - generic [ref=f87e234]: "2.55"
+          - generic [ref=f87e235]: MLP w=50
+          - generic [ref=f87e237]: "2.16"
+          - generic [ref=f87e238]: GKAN post w=42
+          - generic [ref=f87e239]: ~200K 档（e=6） · ✓ 收益（−15%）
+          - generic [ref=f87e241]: "3.23"
+          - generic [ref=f87e242]: MLP w=36
+          - generic [ref=f87e244]: "3.64"
+          - generic [ref=f87e245]: GKAN post w=30
+          - generic [ref=f87e246]: ~100K 档（e=5） · ✗ 反噬（+13%）
+        - paragraph [ref=f87e247]: 表 IV 复绘（规模边界）·0.1 FA/h 最苛刻档：400K 与 200K 档 GKAN post 稳定赚（−16% / −15%），100K 档反噬（3.64 对 3.23，+13%）——w 从 36 压到 30 时表达容量损失超过曲线收益。100K 档其余三个工作点与加噪结果互有胜负，论文措辞 comparable。
+      - generic [ref=f87e248]: 三段论推进（好的消融设计范本）：第一步替换式实验「失败」——排除朴素替换路线、留下「高级位置」线索；第二步附加式实验找到 post 甜点、mid 灾难（MLP 与 GKAN 建模方式差异太大，并联互相干扰）；第三步结构对齐消融排除「多一层」的混淆完成归因——每一步都建立在前一步的意外结果上。规模消融（Table IV）定位「200K 以上」甜点：100K 档把 w 从 36 压到 30，表达容量损失超过曲线收益——论文自己的措辞是 comparable。未消融：基函数族（Gram vs B 样条）、多项式阶数（3 之外）、扩张比。
+    - generic [ref=f87e249]:
+      - paragraph [ref=f87e250]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f87e251]
+      - generic [ref=f87e253]:
+        - generic [ref=f87e254]:
+          - generic [ref=f87e255]: "1"
+          - text: KAN 不是全局选择题把「KAN or MLP」的公论细化成「局部填空题」：KAN 在低维空间建模高级复杂特征时最有效——插在逐点卷积之后，同样参数四档全降、噪声与小规模下成立。
+        - generic [ref=f87e256]:
+          - generic [ref=f87e257]: "2"
+          - text: 六方案 + 结构对齐的方法论模板替换式 3 种 + 附加式 3 种在同一预算、同一数据、同一配方下横比，外加 MLP post 结构对齐对照——任何「加新模块涨点」的论文都该过这一关。
+        - generic [ref=f87e258]:
+          - generic [ref=f87e259]: "3"
+          - text: 明确的失败边界低级位置必败、并联融合翻车（+63%）、100K 以下反噬——负面结果帮后来者避坑，比正结果更省别人的时间。
+        - generic [ref=f87e260]:
+          - generic [ref=f87e261]: "4"
+          - text: 语音模态的首个参照系最早用 KAN 做语音处理的探索之一——位置规律若在其他模态复现，「放在哪比用不用更重要」就是普适判断。
+    - generic [ref=f87e262]:
+      - paragraph [ref=f87e263]: §05 · 局限性与展望
+      - heading "曲线求值的硬件代价没答；可解释性这个招牌卖点没兑现" [level=2] [ref=f87e264]
+      - generic [ref=f87e266]:
+        - generic [ref=f87e267]:
+          - heading "方法局限" [level=4] [ref=f87e268]
+          - list [ref=f87e269]:
+            - listitem [ref=f87e270]: 参数密度是原罪：收益被锁死在中间带宽区间——模型太大时 MLP 自己够容量（曲线边际收益递减），太小时参数密度先杀宽度。KWS 恰好两头都常见（音箱几十 K / 手机几 M）。
+            - listitem [ref=f87e271]: 零工程数字：无推理延迟 / FLOPs / 内存——KWS 每秒 100 帧，三阶多项式求值 vs 一次乘法的硬件代价、参数密度对缓存友好度的影响可能抵消 FRR 几个点收益；LiCo-Net 被选恰因「硬件高效」，这个张力论文没正面处理。
+            - listitem [ref=f87e272]: 可解释性零兑现：没画任何学到的激活曲线——放弃了 KAN 相对 MLP 最独特的卖点。
+            - listitem [ref=f87e273]: 超参无消融：Gram 基函数、阶数 3 都靠初步实验 + 外部文献。
+        - generic [ref=f87e274]:
+          - heading "实验设计不足" [level=4] [ref=f87e275]
+          - list [ref=f87e276]:
+            - listitem [ref=f87e277]: 内部数据不可复现：四关键词众包集不公开，未在 GSC 等公开基准验证泛化。
+            - listitem [ref=f87e278]: 无统计稳健性：10 epoch、无随机种子数量与方差——clean 0.1 档 0.3 点量级差距的显著性存疑。
+            - listitem [ref=f87e279]: 基线只有 LiCo-Net 一族：无 TC-ResNet / MatchboxNet / BC-ResNet 横向对比——增益搬到更强骨干还剩多少无法回答。
+            - listitem [ref=f87e280]: 噪声单一：只有一种 SNR 分布（12.5dB 中心），无分频段 / 分噪声类型 / 远场混响；DET 曲线只展示四个关键词中的两个；FA/h>1.0 宽松档未测。
+      - generic [ref=f87e281]: 两道门槛 + 值得追的方向：硬件量化与可解释性变现，决定 KAN 在 KWS 里是「论文级 curios」还是「工程级选项」。具体：① 配方迁移到其他语音任务（ASR / 声学事件检测）与其他模态，验证位置规律普适性；② 基函数族（Gram / B 样条 / 径向基）× 阶数（2-6）系统消融，找精度-参数的最优曲线容量；③ 剪枝 / 蒸馏压 KAN 参数密度，挽救 100K 以下档位；④ DSP / Cortex-M 上实测曲线求值时延与能耗；⑤ 用可学习激活做唤醒词定制或子词级错误分析；⑥ 公开基准 + 多语言 + 远场多噪声重跑补显著性；⑦ 子词级归因（KAN 到底改善了 ture 还是 a 这类子词的判别）——既验证「高级特征建模」解释，也可能反过来指导关键词选取。
+    - contentinfo [ref=f87e282]:
+      - generic [ref=f87e283]:
+        - link "深读笔记" [ref=f87e284] [cursor=pointer]:
+          - /url: /papers/2024/Effective_Integration_Of_KAN_For_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f87e285] [cursor=pointer]:
+          - /url: /papers/2024/Effective_Integration_Of_KAN_For_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f87e286] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2409.08605
+        - link "返回总目录" [ref=f87e287] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f87e288]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table I-V / Fig. 3-6）；「笔记深挖 / 推算」标注处为笔记给出的分析与核对。

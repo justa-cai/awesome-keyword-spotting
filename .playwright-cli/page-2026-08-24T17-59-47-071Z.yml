@@ -1,0 +1,224 @@
+- generic [active] [ref=f65e1]:
+  - navigation [ref=f65e2]:
+    - generic [ref=f65e3]:
+      - generic [ref=f65e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f65e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f65e6]:
+        - link "深读笔记" [ref=f65e7] [cursor=pointer]:
+          - /url: /papers/2024/Adversarial_Training_Of_Keyword_Spotting_To_Minimize_TTS_Data_Overfitting.md
+        - link "PDF 原稿" [ref=f65e8] [cursor=pointer]:
+          - /url: /papers/2024/Adversarial_Training_Of_Keyword_Spotting_To_Minimize_TTS_Data_Overfitting.pdf
+        - link "arXiv" [ref=f65e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2408.10463
+  - generic [ref=f65e10]:
+    - banner [ref=f65e11]:
+      - paragraph [ref=f65e12]: 论文精读 · 可视化版 · 2024 №1
+      - heading "用 TTS 造数据训练唤醒词， 模型却学会了「听出合成音」——梯度反转来拆招" [level=1] [ref=f65e13]: 用 TTS 造数据训练唤醒词，模型却学会了「听出合成音」——梯度反转来拆招
+      - paragraph [ref=f65e14]: Adversarial Training of Keyword Spotting to Minimize TTS Data Overfitting
+      - paragraph [ref=f65e15]: 作者：Hyun Jin Park、Quan Wang 等 13 人 —— Google LLC（Mountain View）
+      - paragraph [ref=f65e16]: 发表：2024.08 · arXiv:2408.10463 · "Hey/OK Google" 生产管线
+      - generic [ref=f65e17]:
+        - generic [ref=f65e18]: TTS 合成数据
+        - generic [ref=f65e19]: 梯度反转 GRL
+        - generic [ref=f65e20]: 域对抗去伪影
+        - generic [ref=f65e21]: S/R 探针 98.1%
+        - generic [ref=f65e22]: FRR −12.2%
+        - generic [ref=f65e23]: 冷启动 0% 真实正样本
+      - generic [ref=f65e24]:
+        - heading "一分钟版本" [level=2] [ref=f65e25]
+        - list [ref=f65e26]:
+          - listitem [ref=f65e27]: 数据经济学：新唤醒词上线，真实正样本要真人逐条录（贵、稀缺），负样本几乎免费；TTS 便宜快速可铺量。但合成数据分布与真实有四类失配——过采样 / 欠采样 / 缺失 / 伪影，后两类直接导致过拟合。
+          - listitem [ref=f65e28]: 立论证据：生产 KWS 模型（SVDF 两阶段、约 32 万参数）隐层里，「合成 vs 真实」探针准确率高达 98.1%（全部 7 层拼接），任何单层不低于 87.1%——伪影是浅层线性可判别的信号，模型顺手就学。
+          - listitem [ref=f65e29]: 方法：训练时从全部隐层取特征，过一个「逐帧线性投影 + 时间 max-pool」的极简对抗头判真假，中间加梯度反转层——对抗头学着分真假，主干被反向梯度逼着抹掉真假信息。推理时对抗头丢弃，零额外开销。
+          - listitem [ref=f65e30]: 结果：3065 万条话语规模，全额数据配置 FRR 1.81%→1.59% @ 0.133 FA/h（相对改进 +12.2%）；完全没真实正样本（0%）时平均仍 +6.2%、最好 +8.3%——真实负样本给对抗头当了真实域锚点，冷启动照样可用。
+          - listitem [ref=f65e31]: 边界（U 型规律）：真实正样本权重 0% / 100% 两端受益，5% 档反而平均 −7.3%（最差 −15.1%）——不是免费午餐，上马前先核对自己的数据配比段位。
+    - generic [ref=f65e32]:
+      - paragraph [ref=f65e33]: §01 · 问题陈述
+      - heading "判别式训练会把 TTS 伪影当捷径特征，真实正样本反被误拒" [level=2] [ref=f65e34]
+      - generic [ref=f65e36]: 生产级 KWS 的三重约束：① 多人群、多环境、重叠噪声下保持准确；② always-on 流式 → 小 footprint；③ 需要海量数据覆盖多样发音——而关键词特定音频采集「frequently requiring human contributors to generate recordings」（论文原话）。正样本稀缺昂贵、负样本免费，这个数据经济学是全文出发点。TTS（论文用 Virtuoso + AudioLM 变体）便宜可铺量，但分布失配是结构性风险。
+      - generic [ref=f65e37]:
+        - img [ref=f65e38]:
+          - generic [ref=f65e39]: TTS 相对真实语音分布的四类偏差（借 Synt++ 分类框架）：缺失与伪影直接导致过拟合
+          - generic [ref=f65e40]: 声学特征轴 →
+          - generic [ref=f65e43]: 真实语音分布
+          - generic [ref=f65e44]: TTS 分布
+          - generic [ref=f65e45]: ① 过采样：TTS 采太多
+          - generic [ref=f65e46]: ② 欠采样
+          - generic [ref=f65e48]: ③ 缺失：真实有、TTS 覆盖不到
+          - generic [ref=f65e50]: ④ 伪影：TTS 独有特征
+          - generic [ref=f65e52]: 为什么伪影 = 捷径特征
+          - generic [ref=f65e53]: · 判别损失（CE）利用一切能降
+          - generic [ref=f65e54]: 训练损失的特征，不管因果
+          - generic [ref=f65e55]: · 伪影在 750 万条合成数据上与
+          - generic [ref=f65e56]: 标签稳定共存 → 决策边界押注其上
+          - generic [ref=f65e57]: · 推理时真实正样本不含伪影 →
+          - generic [ref=f65e58]: 被污染的边界把它判为负类
+          - generic [ref=f65e59]: → FRR（错误拒绝率）升高
+        - paragraph [ref=f65e60]: 图 A·四类失配里，「受控采样 / 分别归一化」等数据层手段只能压 ①②，对 ④ 伪影无能为力——伪影由 TTS 生成器本身决定，采样策略再聪明也采不掉；而模型利用伪影的行为发生在训练目标内部，必须进表示层去拦。
+      - heading "现有四条路线的不足" [level=3] [ref=f65e61]
+      - list [ref=f65e63]:
+        - listitem [ref=f65e64]: TTS-for-KWS 先行工作（Werchniak 2021、Lin 2020、Lee & Baek 2022 等）：只在低资源场景展示成功，默认「合成数据够好」，把失配当可容忍的背景噪声，没正面处理过拟合。
+        - listitem [ref=f65e65]: 数据层缓解（Synt++）：受控采样压覆盖偏差、分别归一化只对齐一阶统计量——对高维表示空间的结构性差异无作用，更拦不住训练目标内部的伪影利用。
+        - listitem [ref=f65e66]: 图像域 syn-to-real 教师迁移：致命前提是要一个「真实数据训练的教师」——本文场景恰是真实正样本稀缺，教师从何而来？且无语音流式模型验证。
+        - listitem [ref=f65e67]: 对抗训练 / 域适应：说话人不变训练、域对抗 ASR 都有成功案例，但「对抗训练 × TTS 数据过拟合」这两个各自成熟的组件此前从未被连接（论文自称 KWS 乃至语音处理域第一个）。
+    - generic [ref=f65e68]:
+      - paragraph [ref=f65e69]: §02 · 方法论
+      - heading "一个梯度反转层：对抗头学「分真假」，主干被逼「抹真假」" [level=2] [ref=f65e70]
+      - generic [ref=f65e72]: 搭在生产管线上，不在学术 baseline 上自说自话：Google 生产级端到端流式 KWS——40 维滤波器组能量（25 ms 窗 / 10 ms 移），相邻 3 帧堆叠按步长 2 抽取 → 每 20 ms 一个 120 维输入（给单帧注入短时上下文，让卷积在更低帧率工作）；主体为两阶段：编码器 = 7 层 SVDF 因子化卷积（时间维 × 特征维两步低秩卷积，为流式小模型设计）+ 3 个瓶颈投影层，用 ASR 对齐的音素目标监督；解码器输出 2 维关键词判别。为什么两级监督：唤醒词检测本质是音素序列匹配——音素监督把语言学先验注入低层，句级 max-pool 监督聚合判段；多任务结构还让隐层信息更丰富，为对抗头取特征提供接口。总参数约 32 万。训练全程施加房间模拟器多风格增强——先把环境鲁棒性做足，避免「房间失配」和「合成/真实失配」混成混淆变量。
+      - generic [ref=f65e73]:
+        - text: L
+        - subscript [ref=f65e74]: total
+        - text: = (1−β)·L
+        - subscript [ref=f65e75]: sup
+        - text: + β·L
+        - subscript [ref=f65e76]: adv
+        - text: ； L
+        - subscript [ref=f65e77]: adv
+        - text: = GR( L
+        - subscript [ref=f65e78]: CE
+        - text: ( Y
+        - subscript [ref=f65e79]: adv
+        - text: (H; θ
+        - subscript [ref=f65e80]: adv
+        - text: ), C
+        - subscript [ref=f65e81]: adv
+        - text: ) )； Y
+        - subscript [ref=f65e82]: adv
+        - text: = Maxpool( W
+        - subscript [ref=f65e83]: adv
+        - text: ∗ H
+        - subscript [ref=f65e84]: t
+        - text: )
+        - generic [ref=f65e85]: 人话：H 是主干全部隐层激活；对抗头 = 逐帧线性投影 + 时间 max-pool → 输出「合成/真实」二元 logit。GR 是梯度反转层——前向是恒等映射，反向把梯度取负再乘 λ：同一个 CE 损失，对对抗头参数是被最小化（学着分辨真假），对主干权重却因梯度取负变成被最大化（隐层学着让真假不可分）。单次反向传播就完成极小化极大博弈，不需要交替训练两个网络，工程上只加一层，λ 一个旋钮控制强度。
+      - generic [ref=f65e86]:
+        - img [ref=f65e87]:
+          - generic [ref=f65e88]: 图 1 机制复绘：两阶段 SVDF 主干 + 全隐层对抗头 + 梯度反转（推理期对抗头整体丢弃）
+          - generic [ref=f65e90]: 滤波器组特征
+          - generic [ref=f65e91]: 3 帧堆叠 → 120 维/20ms
+          - generic [ref=f65e94]: 编码器：7 层 SVDF + 3 瓶颈
+          - generic [ref=f65e95]: 音素级监督 Y^E（K 维）↙ ASR 对齐
+          - generic [ref=f65e98]: 解码器 → Y^D（2 维）
+          - generic [ref=f65e99]: 帧 CE + 段级 max-pool 损失
+          - generic [ref=f65e102]: L
+        - subscript [ref=f65e103]: sup
+        - text: （式 1）监督 ~32 万参数 · always-on 流式
+        - generic [ref=f65e107]:
+          - text: 取出全部隐层激活 H = [H_t]（en0…de2 拼接）
+          - generic [ref=f65e108]:
+            - text: GR 梯度反转层 前向 = 恒等；反向 = −λ × 梯度
+            - generic [ref=f65e111]:
+              - text: 对抗头：W_adv 线性 + max-pool 极简结构 → 输出合成/真实 logit
+              - generic [ref=f65e112]:
+                - text: 对主干（经梯度反转）：maximize L_adv 隐层被逼成「真假不可分」——TTS 伪影的 依赖路径被切断，但 TTS 数据量照用不误： 数据量与数据干净度被解耦
+                - generic [ref=f65e113]:
+                  - text: 对对抗头（正常梯度）：minimize L_adv 学着分辨真假——λ ∈ 0.30~0.50 训练稳定 （λ 太小抹不干净，太大主任务被带崩）。 对抗头如此弱仍达 98% → 伪影是浅层线性信号
+                  - paragraph [ref=f65e114]: 图 B·与经典 DANN 的关键差异：对抗对象不是「向无标签目标域对齐」，而是「抹除有标签脏源域（合成数据）中的伪影信息」——合成域有充足标签但带伪影，真实域正样本稀缺、负样本充足。推理期对抗头整体丢弃：附加计算只存在于训练阶段。
+      - heading "隐层选择：先探针、后动手的方法纪律" [level=3] [ref=f65e115]
+      - generic [ref=f65e116]: 对抗头吃哪些特征是自由度。论文先用 gradient stop（阻断对抗梯度回传）单独训练 S/R 分类器量化各层域信息含量（Table 2），再据此选定输入——先证明问题存在，再动手解决。结论：全部 7 层拼接最高（98.1%），且两个副产物观察——编码器层（97.8%）整体强于解码器层（92.9%），说明 TTS 伪影主要沉淀在贴近声学的低层表示，解码器做了任务抽象、丢掉部分域线索；任何单层 ≥87%，说明伪影弥散在全网——这就是为什么抹除必须在主干预权重的梯度上做，而不能只在某层加正则。
+    - generic [ref=f65e117]:
+      - paragraph [ref=f65e118]: §03 · 实验结果
+      - heading "两端受益、中间塌陷：U 型规律是全文最可转述的工程边界" [level=2] [ref=f65e119]
+      - generic [ref=f65e121]: 数据（Table 1，共 3065 万条）：真实正样本 3.8M（稀有昂贵）· 真实负样本 14.1M（便宜）· 合成正样本 7.5M · 合成负样本 5.1M（TTS 大规模铺开）。TTS 用 Virtuoso + AudioLM 变体等量采样，数百种合成音色。混淆变量控制很讲究：合成正样本的 transcript 不是凭空写的——从真实正样本的 ASR 转录采样再插入关键词，使合成/真实的文本分布一致，S/R 探针抓到的差异就集中在声学伪影层面而非语言内容层面；随机插入韵律控制符号（暂停 / 慢说）最大化合成多样性。 指标：FRR @ 0.133 FA/h（每小时误触发钉死在约两天一次的水平，再比漏检）——误触发是用户可直接感知的骚扰，必须先锁死；论文用 ROC（Fig. 3）验证了相对改进在很宽 FA/h 范围内一致，单点指标不是挑了对自家有利的点。
+      - generic [ref=f65e122]:
+        - img [ref=f65e123]:
+          - generic [ref=f65e124]: Table 2 · S/R 探针：隐层组合判别「合成 vs 真实」的准确率（%）
+          - generic [ref=f65e125]: "85"
+          - generic [ref=f65e126]: "90"
+          - generic [ref=f65e127]: "95"
+          - generic [ref=f65e128]: "100"
+          - generic [ref=f65e130]: "98.1"
+          - generic [ref=f65e131]: 全部 7 层拼接
+          - generic [ref=f65e133]: "97.8"
+          - generic [ref=f65e134]: 编码器 en0–en3
+          - generic [ref=f65e136]: "96.0"
+          - generic [ref=f65e137]: en2（单层最高）
+          - generic [ref=f65e139]: "92.9"
+          - generic [ref=f65e140]: 解码器 de0–de2
+          - generic [ref=f65e142]: "87.1"
+          - generic [ref=f65e143]: de2（单层最低）
+        - paragraph [ref=f65e144]: 表 2 复绘·这不是性能指标而是诊断指标：gradient stop 阻断对抗回传、单独训 S/R 头。「线性投影 + max-pool 这么弱的分类器就能到 98%」本身是机理证据——TTS 伪影不是需要大容量网络挖掘的深层信号，而是浅层可线性判别的信号，这解释了 KWS 模型为什么顺手就学到。S/R 探针反过来还能当 TTS 系统「伪影含量 / 可训练性」的评估工具。
+      - generic [ref=f65e145]:
+        - img [ref=f65e146]:
+          - generic [ref=f65e147]: Table 3 · 左：基线 FRR 随真实正样本权重下降；右：对抗训练改进的 U 型规律
+          - generic [ref=f65e148]: "1"
+          - generic [ref=f65e149]: "2"
+          - generic [ref=f65e150]: "5"
+          - generic [ref=f65e151]: "10"
+          - generic [ref=f65e152]: "20"
+          - generic [ref=f65e153]: 基线 FRR（%，对数轴）@ 0.133 FA/h
+          - generic [ref=f65e158]: "18.11"
+          - generic [ref=f65e159]: 0%
+          - generic [ref=f65e161]: "6.83"
+          - generic [ref=f65e162]: 1%
+          - generic [ref=f65e164]: "3.51"
+          - generic [ref=f65e165]: 5%
+          - generic [ref=f65e167]: "1.81"
+          - generic [ref=f65e168]: 100%
+          - generic [ref=f65e169]: 真实正样本采样权重 R.Pos.W.
+          - generic [ref=f65e170]: 0→1% 砍近 3 倍：极少量真实正样本价值巨大；
+          - generic [ref=f65e171]: 1→100% 还有近 4 倍空间：纯堆 TTS 替代不了真实正样本
+          - generic [ref=f65e172]: 对抗训练相对改进 R.Imp.（%，跨 λ 平均）
+          - generic [ref=f65e174]: "+6.2"
+          - generic [ref=f65e175]: 0%
+          - generic [ref=f65e177]: "+3.6"
+          - generic [ref=f65e178]: 1%
+          - generic [ref=f65e180]: "-7.3"
+          - generic [ref=f65e181]: 5%
+          - generic [ref=f65e183]: "+4.9"
+          - generic [ref=f65e184]: 20%
+          - generic [ref=f65e186]: "+10.6"
+          - generic [ref=f65e187]: 100%
+          - generic [ref=f65e188]: 5% 档塌陷：跨 λ 平均 −7.3%，最差配置 −15.1%
+          - generic [ref=f65e189]: 两端受益、中间塌陷——上马前先核对
+          - generic [ref=f65e190]: 自己处在真实正样本配比谱的哪一段
+          - generic [ref=f65e191]: 最优单点 Adv. C5（λ=0.40, 100%）：FRR 1.81→1.59，+12.2%
+        - paragraph [ref=f65e192]: 表 3 复绘·左图是「TTS 天花板」的定量呈现：真实正样本仍是 FRR 主导因素。0% 档为何有效：训练仍保留 1410 万条真实负样本——它们给对抗分类器当真实域锚点，S/R 头照样能从「真实负 vs 合成数据」对比中学到域边界——「TTS 正样本 + 海量真实负样本 + 对抗训练」是冷启动可用的组合拳。5% 档为何塌陷（论文只报现象）：笔记推断——中等正样本量下真实监督已让伪影依赖自然降低，对抗梯度近似纯噪声扰动，而 5% 档基线恰处对配比最敏感的区间，扰动被放大。λ 稳定性：100% 档四组 λ 的 FRR 为 1.61/1.65/1.59/1.62——有效区间内不病态敏感。
+      - generic [ref=f65e193]: 诚实边界：论文没有与任何外部 SOTA（Synt++ 的受控采样 + 归一化、知识蒸馏路线）同台对比，所有对比都是与自家 baseline 的自我比较——「+12.2%」不能直接回答「比现有最好的 TTS 过拟合缓解方案好多少」。评测集规模与构成未报告，全部为单次训练数字，无多种子重复与显著性检验；考虑到 5% 档不同 λ 之间结果符号会翻转（B3 −10.3% 对 D3 −2.0%），部分边际结论可能落在噪声量级内。
+    - generic [ref=f65e194]:
+      - paragraph [ref=f65e195]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f65e196]
+      - generic [ref=f65e198]:
+        - generic [ref=f65e199]:
+          - generic [ref=f65e200]: "1"
+          - text: 问题与方法的首次连接第一个把域对抗训练用于 KWS / 语音域防合成数据过拟合：从「数据层缓解失配」推进到「表示层去伪影」，不牺牲 TTS 数据使用量、推理期零开销。
+        - generic [ref=f65e201]:
+          - generic [ref=f65e202]: "2"
+          - text: 诊断性证据可复用S/R 探针（gradient stop 单训）定量证明生产 KWS 隐层普遍编码可判别真伪的特征（拼接 98.1%、单层 ≥87.1%）——探针本身可反过来当 TTS 系统「伪影含量」评估工具。
+        - generic [ref=f65e203]:
+          - generic [ref=f65e204]: "3"
+          - text: 生产级收益 + 冷启动结论3065 万条规模上 +12.2%（Adv. C5）；一条真实正样本都没有时平均仍 +6.2%——归因于真实负样本充当域锚点，对唤醒词冷启动有直接产品价值。
+        - generic [ref=f65e205]:
+          - generic [ref=f65e206]: "4"
+          - text: 工程边界图λ 有效区间（0.30-0.50）+ 真实正样本配比的 U 型规律（两端收益、5% 塌陷）——「对抗去伪影」不是普适增益，上马前先核对自己处在配比谱哪一段。
+    - generic [ref=f65e207]:
+      - paragraph [ref=f65e208]: §05 · 局限性与展望
+      - heading "弱对抗头够不着非线性伪影；塌陷区没有事前判据" [level=2] [ref=f65e209]
+      - generic [ref=f65e211]:
+        - generic [ref=f65e212]:
+          - heading "方法局限" [level=4] [ref=f65e213]
+          - list [ref=f65e214]:
+            - listitem [ref=f65e215]: 对抗头容量过弱：线性投影 + max-pool 只能抹除线性可分的域信息；若伪影还有非线性成分则够不着。论文自认，提出未来用 Conformer / LSTM 做对抗头——但内生张力：对抗头越强训练越不稳定（预实验已发现收敛依赖 λ）。
+            - listitem [ref=f65e216]: 收益非普适：5% 档跨 λ 平均 −7.3%、最差 −15.1%，且论文未给「我是否处于塌陷区」的事前判据——实践者只能自己扫配比。
+            - listitem [ref=f65e217]: 关键超参披露不全：对抗项权重 β、编码器输出维度 K、对抗训练的额外训练成本（时长 / 显存）均未报告。
+        - generic [ref=f65e218]:
+          - heading "实验设计不足" [level=4] [ref=f65e219]
+          - list [ref=f65e220]:
+            - listitem [ref=f65e221]: 泛化性单薄：单一关键词（Hey/OK Google）、单一架构（SVDF ~32 万参数）、单一管线——能否迁移到 TC-ResNet / BC-ResNet、多语言、多关键词未知。
+            - listitem [ref=f65e222]: 缺外部基线：没和 Synt++、知识蒸馏、TTS 降权等手段同台，无法回答「同样数据预算下是否最优」。
+            - listitem [ref=f65e223]: 单次训练、无显著性：5% 档不同 λ 符号翻转，边际结论可能落在噪声量级。
+            - listitem [ref=f65e224]: 伪影来源未拆分：Virtuoso 与 AudioLM 等量混用，没分析哪套贡献伪影更多——探针实验顺手就能回答却没做。
+            - listitem [ref=f65e225]: 数据私有：真实语音按 Google 隐私原则收集、不可公开，开源数据无法复现验证。
+      - generic [ref=f65e226]: 值得追的方向（论文自指 + 笔记延伸）：① 5% 塌陷区机理——真实监督与对抗梯度的方差干扰，还是 minimax 在该数据平衡点的系统性失衡？把「安全操作区」从扫描出的经验事实升级为可预测曲线；② 与数据层方法（受控采样、分别归一化、TTS curriculum）正交组合，验证表示层去伪影与数据层净化的叠加性；③ 把 S/R 探针发展成 TTS 系统采购的「可训练性」打分工具；④ 对抗头常驻推理端当 OOD 检测信号（监控输入是否疑似合成，用于攻击防御）。
+    - contentinfo [ref=f65e227]:
+      - generic [ref=f65e228]:
+        - link "深读笔记" [ref=f65e229] [cursor=pointer]:
+          - /url: /papers/2024/Adversarial_Training_Of_Keyword_Spotting_To_Minimize_TTS_Data_Overfitting.md
+        - link "PDF 原稿" [ref=f65e230] [cursor=pointer]:
+          - /url: /papers/2024/Adversarial_Training_Of_Keyword_Spotting_To_Minimize_TTS_Data_Overfitting.pdf
+        - link "arXiv" [ref=f65e231] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2408.10463
+        - link "返回总目录" [ref=f65e232] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f65e233]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table 1-3 / Fig. 1-3）；「笔记推断」标注处为笔记给出的推断内容。

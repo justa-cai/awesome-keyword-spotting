@@ -1,0 +1,232 @@
+- generic [active] [ref=f100e1]:
+  - navigation [ref=f100e2]:
+    - generic [ref=f100e3]:
+      - generic [ref=f100e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f100e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f100e6]:
+        - link "深读笔记" [ref=f100e7] [cursor=pointer]:
+          - /url: /papers/2024/Maximum-Entropy_Adversarial_Audio_Augmentation_For_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f100e8] [cursor=pointer]:
+          - /url: /papers/2024/Maximum-Entropy_Adversarial_Audio_Augmentation_For_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f100e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2401.06897
+  - generic [ref=f100e10]:
+    - banner [ref=f100e11]:
+      - paragraph [ref=f100e12]: 论文精读 · 可视化版 · 2024 №18
+      - heading "把扰动目标从「损失」换成「熵」： 不是把样本推过边界，而是推向模型最拿不准的点" [level=1] [ref=f100e13]: 把扰动目标从「损失」换成「熵」：不是把样本推过边界，而是推向模型最拿不准的点
+      - paragraph [ref=f100e14]: Maximum-Entropy Adversarial Audio Augmentation for Keyword Spotting（ATE）
+      - paragraph [ref=f100e15]: 作者：Zuzhao Ye、Gregory Ciccarelli、Brian Kulis —— Amazon × UC Riverside / Boston U
+      - paragraph [ref=f100e16]: 发表：ICASSP 2024 版式 · arXiv:2401.06897
+      - generic [ref=f100e17]:
+        - generic [ref=f100e18]: 熵的输入梯度上升
+        - generic [ref=f100e19]: clip 替代 sign
+        - generic [ref=f100e20]: ε = 数据一个标准差
+        - generic [ref=f100e21]: P_aug = 0.5 全局统一
+        - generic [ref=f100e22]: A+S 六任务全最优
+        - generic [ref=f100e23]: 10k 档最高 −47.2% FAR
+        - generic [ref=f100e24]: 开销 < SpecAugment
+      - generic [ref=f100e25]:
+        - heading "一分钟版本" [level=2] [ref=f100e26]
+        - list [ref=f100e27]:
+          - listitem [ref=f100e28]: 工业长尾痛点：Amazon 的唤醒词是「每语言 × 每设备 × 每唤醒词」各训一个模型——标注预算被切成无数小份，没人力为每个小数据集精调增强超参。SpecAugment 恰恰超参敏感：ESC-50 上把 0.566 拉低到 0.533、SCV2 掉到 0.888、Echo-100k 上 FAR 反而恶化——掩码类增强的跨数据集鲁棒性被系统性质疑。
+          - listitem [ref=f100e29]:
+            - text: 方案（ATE）：x_aug = x + clip(∇
+            - subscript [ref=f100e30]: x
+            - text: E, −ε, ε)——对 softmax 输出的熵做输入梯度上升。与 FGSM 的两处差异：目标从损失换熵（熵最大点在 p=0.5，扰动方向「朝边界」而非「越边界」，标签仍成立——这不是交叉熵）；sign 换 clip（保留梯度各维相对幅度）。
+          - listitem [ref=f100e31]: 零调参设计：ε 锚定训练数据的一个标准差（自动适配各数据集特征分布尺度，换 locale/换词不用重调）、P_aug=0.5 全实验统一——一个超参、一条默认值。
+          - listitem [ref=f100e32]: 结果：6 个 Amazon 私有任务上 A+S（先 ATE 后 SpecAugment）全部最优；10k 低资源档相对改进 22.7-47.2%（数据越少增强越值钱）；公开集 ESC-50 上 ATE 单独全场最优（0.581）、SCV2 上 A+S 追平 ME-ADA；每 epoch 21.5s 甚至略低于 SpecAugment 的 22.8s（ME-ADA 要 48.4s）。
+          - listitem [ref=f100e33]: 机理（笔记推导）：dE/dp = log((1−p)/p)——模型过度自信（p→0/1）时梯度无穷大 = 强「拉回边界」信号；p≈0.5 时梯度≈0 = 扰动自然小——增广火力自动集中在「自信但可能脆弱」的区域。
+          - listitem [ref=f100e34]: 成色缺口：交叉熵对照只有文字无数字；私有数据 + FRR 工作点隐去不可复现；单一 CNN 架构；基线超参未按数据集重调（对掩码类可能不公平）；ε / P_aug 无敏感性消融。
+    - generic [ref=f100e35]:
+      - paragraph [ref=f100e36]: §01 · 问题陈述
+      - heading "简单、鲁棒、高效——三条约束各自的对手" [level=2] [ref=f100e37]
+      - generic [ref=f100e39]: 四类现有方案：① 原始波形域手工增强（平移 / 拉伸 / 加噪 / RIR）——与模型无关的固定算子，不管模型错在哪；还需要噪声库等额外资产。② 频谱掩码（SpecAugment / SpecMix）——黄金标准但超参敏感；掩码本质是删信息，ASR 大数据上有正则化收益，小数据或非语音任务可能直接删掉判别性线索（实测三处掉点）。③ 生成式（GAN / TTS）——GAN 使用前要昂贵训练；TTS 实测需要大量额外机制且无改进。④ 已有对抗式（ME-ADA）——同为最大熵思想但「训练初期一次性预生成 + min-max 优化 + 数据集翻倍」，每 epoch 48.4s（ATE 的 2.25 倍）。另：以损失为目标的对抗训练公认换鲁棒性但常掉精度——「对抗」这个工具没错，错的是把损失当目标。四条可检验命题：实现极简（无生成器无 min-max）；计算便宜（与 SpecAugment 同量级）；跨场景鲁棒（9 个数据集不系统性掉点）；可叠加（A+S 超任何单一策略）。
+    - generic [ref=f100e40]:
+      - paragraph [ref=f100e41]: §02 · 方法论
+      - heading "两次前向两次反向，用完即弃" [level=2] [ref=f100e42]
+      - generic [ref=f100e44]:
+        - img [ref=f100e45]:
+          - generic [ref=f100e46]: Fig.2 / Algorithm 1 复绘：ATE 训练循环 + 与 FGSM 的两处分道
+          - generic [ref=f100e48]: batch (x, y)
+          - generic [ref=f100e49]: 64 维 LFBE 频谱
+          - generic [ref=f100e52]: 前向 → softmax
+          - generic [ref=f100e53]: 输出当概率分布
+          - generic [ref=f100e56]: E = −Σ p·log p
+          - generic [ref=f100e57]: （不是交叉熵！）
+          - generic [ref=f100e60]: ∇xE 反传到输入
+          - generic [ref=f100e61]: 只算输入梯度，裁掉参数路径
+          - generic [ref=f100e64]: x + clip(∇xE)
+          - generic [ref=f100e65]: → 正常损失更新
+          - generic [ref=f100e67]: 与 FGSM 的两处分道
+          - generic [ref=f100e68]: FGSM：x_adv = x + ε·sign(∇
+        - subscript [ref=f100e69]: x
+        - text: ℓ) —— 目标是损失，制造「标签与预测 不一致」的样本 → 换鲁棒性但常掉精度
+        - generic [ref=f100e70]: ATE：目标换熵（p=0.5 处最大）——「朝边界」而非「越边界」，标签大体成立；
+        - text: sign 换 clip——保留梯度各维相对幅度（64 个梅尔滤波器各有物理含义）
+        - generic [ref=f100e71]:
+          - text: 为什么火力自动按需分配（笔记推导） dE/dp = log((1−p)/p)：模型过度自信（p→0 或 1）→ 导数无穷大 → 强「拉回边界」信号；样本本来 p≈0.5 → 导数≈0 → 扰动自然小 → 增广火力集中在「自信但可能脆弱」的区域；clip 封顶防梯度爆炸
+          - generic [ref=f100e72]:
+            - text: 成本核算与叠加顺序 · 每增广 batch 两次前向 + 两次反向，但 P_aug=0.5（一半 batch 才触发）+ 增广那次反向只算到输入 梯度——实测仅 +28%（16.8→21.5s）；在线生成用完即弃，数据集规模恒定、内存足迹与无增强基本相同 · 叠加顺序 A+S > S+A（六任务全部）：熵梯度在干净频谱上算最可靠——先掩码再算梯度，方向被掩码边缘失真主导； 先 ATE 后掩码 = 先沿最不确定方向造边界样本，再叠加随机信息缺失——各在各的辖域工作
+            - paragraph [ref=f100e73]: 图 A·理论背书：最大熵原理（半监督域适应 / 细粒度分类的 minimax entropy 先例）——本文把原理从「改损失函数」搬到「改输入数据」：构造熵增大的增广点 = 沿模型当前最不确定的方向扩充训练分布。记号提醒：论文公式写 E(x, y, θ) 但熵只依赖 softmax 输出——y 不进熵计算，只在损失更新里出现（记号冗余，勿误解）。基线模型：5 层 CNN + 3 层 FC ≈ 200 万参数（非本文贡献）。
+      - generic [ref=f100e74]:
+        - text: x
+        - subscript [ref=f100e75]: aug
+        - text: = x + clip( ∇
+        - subscript [ref=f100e76]: x
+        - text: E(x, θ), −ε, ε )，ε = 训练数据的一个标准差；P
+        - subscript [ref=f100e77]: aug
+        - text: = 0.5
+        - generic [ref=f100e78]: 人话：对 softmax 输出的熵做一步输入梯度上升再截断。ε 锚定数据自身标准差——不按数据集手工调，自动适配特征分布尺度（SpecAugment 被诟病的超参敏感被正面回应）；二分类熵 E = −[p·log p + (1−p)·log(1−p)] 在 p=0.5 最大。
+    - generic [ref=f100e79]:
+      - paragraph [ref=f100e80]: §03 · 实验结果
+      - heading "数据越少增强越值钱；掩码类的掉点被系统性记录" [level=2] [ref=f100e81]
+      - generic [ref=f100e83]: 数据与协议：私有——India locale 三唤醒词（Computer / Amazon / Echo，选 India 因标注更少）× 两规模（10k / 100k）= 6 个二分类任务，客户数据去标识化，FAR@固定 FRR（工作点因数据私有隐去）；公开——ESC-50（2000 条 50 类）/ US8K（8000 条 10 类）/ SCV2（105k 条），前两者标准 5 / 10 折、SCV2 三次训练取统计（Table 2 全带 ±std——比只报单次的规范）。特征统一 64 维 LFBE。基线（SpecAug / SpecMix / ME-ADA）都按各自原论文推荐设置——未按数据集重调（对掩码类可能不公平，见局限）。
+      - generic [ref=f100e84]:
+        - img [ref=f100e85]:
+          - generic [ref=f100e86]: Table 1 · Amazon 私有集 FAR@固定FRR（越低越好）：A+S 六任务全部最优
+          - generic [ref=f100e87]: "0.02"
+          - generic [ref=f100e88]: "0.06"
+          - generic [ref=f100e89]: "0.10"
+          - generic [ref=f100e95]: "0.041"
+          - generic [ref=f100e96]: AMAZON
+          - generic [ref=f100e97]: 10k
+          - generic [ref=f100e103]: "0.033"
+          - generic [ref=f100e104]: AMAZON
+          - generic [ref=f100e105]: 100k
+          - generic [ref=f100e111]: "0.085"
+          - generic [ref=f100e112]: ECHO
+          - generic [ref=f100e113]: 10k
+          - generic [ref=f100e119]: "0.054"
+          - generic [ref=f100e120]: ECHO
+          - generic [ref=f100e121]: 100k
+          - generic [ref=f100e127]: "0.019"
+          - generic [ref=f100e128]: COMPUTER
+          - generic [ref=f100e129]: 10k
+          - generic [ref=f100e135]: "0.011"
+          - generic [ref=f100e136]: COMPUTER
+          - generic [ref=f100e137]: 100k
+          - generic [ref=f100e139]: NoAug
+          - generic [ref=f100e141]: SpecAug
+          - generic [ref=f100e143]: ATE
+          - generic [ref=f100e145]: S+A
+          - generic [ref=f100e147]: A+S ★
+          - generic [ref=f100e148]: 10k 档相对改进最大：AMAZON −30.5% / ECHO −22.7% / COMPUTER −47.2%——数据越少增强越值钱；ECHO-100k 是 SpecAugment 翻车现场（0.055→0.057）而 ATE 0.054 方向正确
+        - paragraph [ref=f100e149]: 表 1 复绘·五柱依次 NoAug / SpecAug / ATE / S+A / A+S，柱顶只标最优值（A+S）。注意 ECHO-100k 组：SpecAug 的柱比 NoAug 还高（0.057 对 0.055）——掩码增强在大规模 Echo 数据上负收益。FAR@固定 FRR 的精确工作点因数据私有被论文隐去。
+      - generic [ref=f100e150]:
+        - img [ref=f100e151]:
+          - generic [ref=f100e152]: Table 2 · 公开三集 accuracy ± std：掩码类在 ESC-50 / SCV2 系统性掉点，ATE 一致改进
+          - generic [ref=f100e153]: "0.52"
+          - generic [ref=f100e154]: "0.56"
+          - generic [ref=f100e155]: "0.60"
+          - generic [ref=f100e156]: ESC-50（环境声 50 类）
+          - generic [ref=f100e158]: "0.566"
+          - generic [ref=f100e160]: "0.533"
+          - generic [ref=f100e162]: "0.541"
+          - generic [ref=f100e164]: "0.558"
+          - generic [ref=f100e166]: "0.581"
+          - generic [ref=f100e168]: "0.535"
+          - generic [ref=f100e170]: "0.537"
+          - generic [ref=f100e171]: ← NoAug … SpecAug … SpecMix … ME-ADA … ATE … S+A … A+S →
+          - generic [ref=f100e172]: "0.73"
+          - generic [ref=f100e173]: "0.76"
+          - generic [ref=f100e174]: "0.78"
+          - generic [ref=f100e175]: US8K（城市声 10 类）
+          - generic [ref=f100e177]: "0.742"
+          - generic [ref=f100e179]: "0.763"
+          - generic [ref=f100e181]: "0.760"
+          - generic [ref=f100e183]: "0.760"
+          - generic [ref=f100e185]: "0.744"
+          - generic [ref=f100e187]: "0.766"
+          - generic [ref=f100e189]: "0.767"
+          - generic [ref=f100e190]: ← NoAug … SpecAug … SpecMix … ME-ADA … ATE … S+A … A+S →
+          - generic [ref=f100e191]: "0.88"
+          - generic [ref=f100e192]: "0.90"
+          - generic [ref=f100e193]: "0.92"
+          - generic [ref=f100e194]: SCV2（语音命令）
+          - generic [ref=f100e196]: "0.905"
+          - generic [ref=f100e198]: "0.888"
+          - generic [ref=f100e200]: "0.898"
+          - generic [ref=f100e202]: "0.912"
+          - generic [ref=f100e204]: "0.909"
+          - generic [ref=f100e206]: "0.887"
+          - generic [ref=f100e208]: "0.912"
+          - generic [ref=f100e209]: ← NoAug … SpecAug … SpecMix … ME-ADA … ATE … S+A … A+S →
+          - generic [ref=f100e211]: NoAug / SpecMix / ME-ADA / S+A
+          - generic [ref=f100e213]: SpecAug（掉点警示）
+          - generic [ref=f100e215]: ATE ★
+          - generic [ref=f100e217]: A+S
+          - generic [ref=f100e218]: ESC-50：ATE 单独全场最优（0.581，比 NoAug 还高 1.5 点）；SCV2：A+S 0.912 追平 ME-ADA；US8K：ATE 单独无效（大方差内不可分）但 A+S 0.767 最优
+          - generic [ref=f100e219]: ATE 方差普遍更小（SCV2 ±0.006 对 SpecAug ±0.019）；ATE+SpecMix 全组合不涨反跌——标签混合与熵目标语义打架
+        - paragraph [ref=f100e220]: 表 2 复绘·七柱从左到右 NoAug → A+S，各面板按自身量程归一。SCV2 上 ME-ADA 0.912±0.003 与 A+S 0.912±0.004 打平但训练时间差 1.8 倍；US8K 的 ±0.04x 方差使 ATE 单独（0.744）与 NoAug（0.742）不可分。
+      - generic [ref=f100e221]:
+        - img [ref=f100e222]:
+          - generic [ref=f100e223]: 每 epoch 训练时间（SCV2，秒）：ATE 开销甚至略低于 SpecAugment
+          - generic [ref=f100e225]: NoAug（无增强）
+          - generic [ref=f100e226]: 16.8 s
+          - generic [ref=f100e228]: ATE ★
+          - generic [ref=f100e229]: 21.5 s
+          - generic [ref=f100e231]: SpecAugment
+          - generic [ref=f100e232]: 22.8 s
+          - generic [ref=f100e234]: SpecMix
+          - generic [ref=f100e235]: 23.9 s
+          - generic [ref=f100e237]: A+S / S+A
+          - generic [ref=f100e238]: 27.5 s
+          - generic [ref=f100e240]: SM+A / A+SM
+          - generic [ref=f100e241]: 28.6 s
+          - generic [ref=f100e243]: ME-ADA
+          - generic [ref=f100e244]: 48.4 s
+          - generic [ref=f100e245]: ME-ADA 贵在 min-max 每次迭代数据集翻倍（默认两次翻两番）；ATE 在线逐 batch、用完即弃——P_aug=0.5 理论上界 1.5×，实测仅 +28%
+        - paragraph [ref=f100e246]: 训练时间复绘·ATE 21.5s 甚至略低于 SpecAugment 22.8s——「两次前向反向直觉上翻倍」被 P_aug=0.5 门控（理论上界 1.5×）+ 增广反向只算输入梯度（笔记工程解读）化解；ME-ADA 48.4s = min-max 每次迭代数据集翻倍的代价。
+      - generic [ref=f100e247]: 五组消融证据（无独立消融表，散在正文）：① 对抗目标：交叉熵目标不敌 SpecAugment（只有文字无数字——恰是最能支撑因果链的对照被省掉）；② 梯度作用位置：对更早层做对抗不敌——支撑「在输入端求梯度」；③ 顺序：A+S 全线优于 S+A；④ 数据规模：10k 档改进 22.7-47.2% >> 100k 档（AMAZON 收窄到 ~10.8%）——边际收益随数据量衰减；⑤ 伙伴方法：SpecAugment 可叠、SpecMix 不可叠（SM+A 0.884 / A+SM 0.881 低于 NoAug 0.905）——标签混合的软标签与 ATE 的「单样本单类分布」假设语义打架（笔记解读）。未做的消融：ε 敏感性、P_aug 敏感性、FRR 工作点扫描、增广顶替 vs 并存。
+    - generic [ref=f100e248]:
+      - paragraph [ref=f100e249]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f100e250]
+      - generic [ref=f100e252]:
+        - generic [ref=f100e253]:
+          - generic [ref=f100e254]: "1"
+          - text: 对抗工具没错，错在目标同一「输入梯度扰动」框架，目标从损失换熵，效果从「不如 SpecAugment」变「全面可比更稳」——熵目标制造「模型最拿不准但标签仍正确」的边界样本。
+        - generic [ref=f100e255]:
+          - generic [ref=f100e256]: "2"
+          - text: 零调参设计的工程价值ε = 数据一个标准差 + P_aug = 0.5 全局统一——碎片化场景（无数 locale×设备×词的小数据集）不需要每个精调，价值不亚于精度本身。
+        - generic [ref=f100e257]:
+          - generic [ref=f100e258]: "3"
+          - text: 掩码类增强的鲁棒性警示三处系统性掉点（ESC-50 −3.3 点 / SCV2 −1.7 点 / Echo-100k FAR 恶化）——「换场景必须重验增强」的工业提醒；ATE 方差也更小（±0.006 对 ±0.019）。
+        - generic [ref=f100e259]:
+          - generic [ref=f100e260]: "4"
+          - text: 轻量在线 > 离线重型与 ME-ADA 同精度（SCV2 0.912）但 44% 的训练时间——在线逐 batch、用完即弃、数据集规模恒定，比预生成 + min-max 路线工程友好得多。
+    - generic [ref=f100e261]:
+      - paragraph [ref=f100e262]: §05 · 局限性与展望
+      - heading "多分类下熵目标语义偏移；私有数据只有相对结论可信" [level=2] [ref=f100e263]
+      - generic [ref=f100e265]:
+        - generic [ref=f100e266]:
+          - heading "方法局限" [level=4] [ref=f100e267]
+          - list [ref=f100e268]:
+            - listitem [ref=f100e269]: 依赖 softmax 分类头 + 输入可微：回归 / 生成 / 序列解码（流式 KWS 的 CTC / 对齐端点检测）不直接适用。
+            - listitem [ref=f100e270]: 训练开销 +28% 客观存在：百万小时级训练仍是真金白银；无更激进省算力方案讨论。
+            - listitem [ref=f100e271]: 两超参无自适应无敏感性：ε / P_aug 固定值——「零调参」的稳健边界未知。
+            - listitem [ref=f100e272]: 多分类熵语义偏移（笔记推演）：N 类熵最大点是均匀分布——梯度上升可能把样本推向「哪类都不像」的特征空洞而非真类边界（可部分解释 US8K 10 类上 ATE 单独无效）。
+            - listitem [ref=f100e273]: 扰动物理形态未知：x_aug 长什么样（类浊化？类混响？）、是否物理可实现——未可视化未听测。
+            - listitem [ref=f100e274]: 增广顶替而非并存：一半训练步见不到干净数据——与「并存各更新一次」的差异未做。
+        - generic [ref=f100e275]:
+          - heading "实验设计不足" [level=4] [ref=f100e276]
+          - list [ref=f100e277]:
+            - listitem [ref=f100e278]: 私有数据不可复现：FRR 工作点隐去——只能信相对结论；补偿的公开实验只有三数据集单模型。
+            - listitem [ref=f100e279]: 单一架构：只有一个 ~2M CNN——cFSMN / DS-CNN / TC-ResNet / MatchboxNet 等主流小 footprint 架构未验证，无流式约束。
+            - listitem [ref=f100e280]: 基线超参未重调：SpecAug 按原论文推荐——部分掉点或许应归因于超参而非方法（对「换 ATE 还是加 ATE」的 advice 有影响）。
+            - listitem [ref=f100e281]: 无原始域增强对比：加噪 / RIR / 速度扰动一个没进表——「ATE 与原始域增强能否叠加」这个最实用问题无答案。
+            - listitem [ref=f100e282]: 统计功效不足：US8K ±0.04x 方差下 0.744 vs 0.742 完全在噪声内；无显著性检验；ESC-50 / US8K 是环境声，向 KWS 语音外推需谨慎。
+            - listitem [ref=f100e283]: 失败变体只有一句话：随机增强 / 交叉熵对抗 / 浅层对抗 / TTS 四类探索全无数字。
+      - generic [ref=f100e284]: 值得追的方向：① 超参自适应——ε 按样本置信度或训练进程调度（早期大扰动扩分布、晚期小扰动精修边界）、P_aug 课程化；② 组合矩阵补齐——与原始域增强（加噪 / RIR）叠加、与 FixMatch 式半监督一致性结合（熵扰动天然适合做无标签数据的一致性正则源）；③ 任务面扩展——逐帧熵 / CTC 后验熵覆盖流式 KWS 与端点检测，多标签场景找替代目标；④ 机理解释——可视化扰动形态 + 声学听测；厘清与 VAT（同样对输入一步梯度扰动但目标是平滑性）的关系——很可能同族方法不同实例；⑤ 解开 SpecMix 之谜（软标签下的熵定义、混合比例影响）——论文自留的开放问题；⑥ 公平复测：给 SpecAugment 按数据集重调超参再战一轮，分离「掩码不行」与「超参没调好」——这决定存量生产系统的 advice 是「换」还是「加」。
+    - contentinfo [ref=f100e285]:
+      - generic [ref=f100e286]:
+        - link "深读笔记" [ref=f100e287] [cursor=pointer]:
+          - /url: /papers/2024/Maximum-Entropy_Adversarial_Audio_Augmentation_For_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f100e288] [cursor=pointer]:
+          - /url: /papers/2024/Maximum-Entropy_Adversarial_Audio_Augmentation_For_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f100e289] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2401.06897
+        - link "返回总目录" [ref=f100e290] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f100e291]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table 1-2 / Fig. 1-2 / Algorithm 1）；「笔记推导 / 解读」标注处为笔记给出的分析。

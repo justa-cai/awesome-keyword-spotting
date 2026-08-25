@@ -1,0 +1,245 @@
+- generic [active] [ref=f39e1]:
+  - navigation [ref=f39e2]:
+    - generic [ref=f39e3]:
+      - generic [ref=f39e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f39e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f39e6]:
+        - link "深读笔记" [ref=f39e7] [cursor=pointer]:
+          - /url: /papers/2025/Masked_Self-distilled_Transducer-based_Keyword_Spotting_With_Semi-autoregressive_Decoding.md
+        - link "PDF 原稿" [ref=f39e8] [cursor=pointer]:
+          - /url: /papers/2025/Masked_Self-distilled_Transducer-based_Keyword_Spotting_With_Semi-autoregressive_Decoding.pdf
+        - link "arXiv" [ref=f39e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2505.24820
+  - generic [ref=f39e10]:
+    - banner [ref=f39e11]:
+      - paragraph [ref=f39e12]: 论文精读 · 可视化版 · 2025 №24
+      - heading "掩码自蒸馏 Transducer predictor 记住的正是过拟合的病灶：训练时随机废掉它，推理时干脆丢掉它" [level=1] [ref=f39e13]: 掩码自蒸馏 Transducerpredictor 记住的正是过拟合的病灶：训练时随机废掉它，推理时干脆丢掉它
+      - paragraph [ref=f39e14]: Masked Self-distilled Transducer-based Keyword Spotting with Semi-autoregressive Decoding
+      - paragraph [ref=f39e15]: 作者：Yu Xi 等 —— 上海交通大学 X-LANCE × 阿里巴巴淘天
+      - paragraph [ref=f39e16]: 发表：2025.05 · arXiv:2505.24820
+      - generic [ref=f39e17]:
+        - generic [ref=f39e18]: RNN-T Transducer
+        - generic [ref=f39e19]: 掩码自蒸馏
+        - generic [ref=f39e20]: NAR / SAR 解码
+        - generic [ref=f39e21]: 过拟合抑制
+        - generic [ref=f39e22]: 流式推理
+        - generic [ref=f39e23]: Recall@FA
+      - generic [ref=f39e24]:
+        - heading "一分钟版本" [level=2] [ref=f39e25]
+        - list [ref=f39e26]:
+          - listitem [ref=f39e27]: 结构性病灶：KWS 正样本转写只有关键词本身——predictor 面对固定 transcript 训练，过拟合到关键词文本模式；噪声下倾向「无脑输出关键词」，FA 失控。反直觉证据：流式 AR 解码在噪声集 Xiaowen 崩到 26.30，连 Greedy 的 40.28 都不如——受限搜索放大了过拟合偏置。
+          - listitem [ref=f39e28]: 训练解法 MSD：每样本双前向——无掩码输出当教师、随机置零 predictor 输出的掩码输出当学生，KL 自蒸馏对齐 + 三个 RNN-T 损失并训（λ_mask=1、λ_MSD=0.003、γ_mask=0.35）。为什么必须蒸馏：小模型直接掩码学不动（无 MSD 的 NAR test-clean 只有 84.05）。
+          - listitem [ref=f39e29]: 推理解法：MSD 解锁 NAR 解码（predictor 整体预置零，过拟合载体物理移除——Xiaowen 26.30→95.33）；SAR 半自回归（关键词 lattice 上并行跑 AR/NAR 两条递推、逐帧 α 加权融合）。
+          - listitem [ref=f39e30]: 结果：SAR 五个测试集全部最优（干净集 98.74 吃到 AR 强度、噪声集 95.68 吃到 NAR 鲁棒）；低 FA 区优势最大（FA=1 时 89.49，AR 只有 5.90）——把「阈值敏感性」一并治了。
+          - listitem [ref=f39e31]: 单模型单阶段：不加架构、不加级联，代价是每样本双前向 + 推理时双 joiner 双 lattice（开销未量化——最大缺口）。
+    - generic [ref=f39e32]:
+      - paragraph [ref=f39e33]: §01 · 问题陈述
+      - heading "由数据形态决定的病灶：predictor 的固定 transcript 记忆" [level=2] [ref=f39e34]
+      - img [ref=f39e37]:
+        - generic [ref=f39e38]: 问题的因果链与现有对策的代价
+        - generic [ref=f39e39]:
+          - generic [ref=f39e41]: 因果链：KWS 数据形态 → predictor 过拟合 → 噪声下 FA 失控
+          - generic [ref=f39e42]: 正样本转写 = 关键词本身 → 每句喂 predictor 的都是同一序列、要预测的也是同一序列——没有任何文本多样性可学
+          - generic [ref=f39e43]: 引入大规模关键词数据后（鲁棒性惯例），结构极简的 predictor 过拟合到关键词文本模式 → 复杂声学下「无脑输出关键词」→ FA 升高
+          - generic [ref=f39e45]: 对策一：多阶段 / 混合编码器
+          - generic [ref=f39e46]: multi-level detection / CaTT-KWS 级联 / U2-KWS 双分支
+          - generic [ref=f39e47]: ✕ 复杂性同时塞进训练流程和解码管线——对齐、级联阈值、
+          - generic [ref=f39e48]: 两套分支协调全是手工设计，可能停在次优点
+          - generic [ref=f39e50]: 对策二：ASR 式解码 + 关键词匹配
+          - generic [ref=f39e51]: greedy/beam search 面向整个词表空间——考虑「说了什么」
+          - generic [ref=f39e52]: 而不是「关键词在不在」，对 KWS 次优
+          - generic [ref=f39e53]: 而 KWS 专用受限解码（lattice）在噪声下反而更脆（表 3 实证）
+        - generic [ref=f39e55]: 本文立场：不改架构、不加阶段，只改造训练框架与解码算法——单模型单阶段同时拿到 AR 的精度和 NAR 的抗过拟合
+        - generic [ref=f39e56]: 产品约束注脚：KWS 验收把 FA 钉死比 recall（本文统一 FA=4）——「每天只允许误唤醒几次」的真实部署约束
+    - generic [ref=f39e57]:
+      - paragraph [ref=f39e58]: §02 · 方法论
+      - heading "MSD 训练 + SAR 双路解码" [level=2] [ref=f39e59]
+      - generic [ref=f39e61]:
+        - img [ref=f39e62]:
+          - generic [ref=f39e63]: 训练侧（图 1）：每样本双前向，自己教自己
+          - generic [ref=f39e64]:
+            - generic [ref=f39e66]: encoder
+            - generic [ref=f39e67]: 8 层 DFSMN
+            - generic [ref=f39e68]: 440/768/320 · 左右 20/8 帧
+            - generic [ref=f39e70]: predictor
+            - generic [ref=f39e71]: stateless embedding
+            - generic [ref=f39e72]: 病灶所在：固定 transcript 记忆
+            - generic [ref=f39e74]: 前向①（教师）：不掩码
+            - generic [ref=f39e75]: p_token = Joiner(h_audio, h_text)
+            - generic [ref=f39e76]: → 标准 RNN-T 损失（保 AR 能力）
+            - generic [ref=f39e78]: 前向②（学生）：γ=0.35 随机置零
+            - generic [ref=f39e79]: h_mask = RandomMask(h_text, 0.35)
+            - generic [ref=f39e80]: → 掩码 RNN-T 损失（等权 λ=1）
+            - generic [ref=f39e81]: 注意：置零的是 predictor 输出隐向量，不是输入 token
+            - generic [ref=f39e83]: KL 蒸馏对齐（λ=0.003）
+            - generic [ref=f39e84]: 「牵着掩码分支走的那根绳子」
+            - generic [ref=f39e86]: 推理侧：一套权重三种解码
+            - generic [ref=f39e87]: AR：predictor 正常 → 干净场景最强
+            - generic [ref=f39e88]: NAR：predictor 整体预置零 → 过拟合载体物理移除
+            - generic [ref=f39e89]: SAR：双 lattice 递推逐帧 α 融合（EN 0.5 / 噪声 0.3）
+          - generic [ref=f39e91]: 掩码的两个机理收益（dropout 逻辑落到文本通路）
+          - generic [ref=f39e92]: · 对 joiner：文本输入不变时 predictor 输出近乎确定——随机掩码注入变异性，把两个共适应模块解耦
+          - generic [ref=f39e93]: · 对 encoder：遮掉部分语义输入 = 逼模型把注意力放回声学变化本身（录音条件/说话人/口音天然多样），削弱对固定关键词的依赖
+          - generic [ref=f39e94]: 与 HAT（ICLR 2025）的关系：训练侧随机置零受其启发；本文的差异 = KWS 特化（固定 transcript 病灶）+ lattice 上的 SAR 流式解码 + 三套数据验证
+        - paragraph [ref=f39e95]: 为什么不能只掩码不蒸馏：端侧模型容量有限，直接剥夺部分语义信息 Transducer 难收敛——自蒸馏把「有完整 predictor 信息时应有的输出分布」作为软目标告诉掩码分支。量化证据：无 MSD 的 NAR test-clean/test-other 只有 84.05/68.97，加 MSD 到 97.31/83.13。encoder 为什么用 DFSMN：纯前馈 + 记忆块（左右上下文卷积替代 RNN 状态传递），无自注意力无递归——cFSMN 的直系后代，阿里系端侧 KWS 主力骨架；8 层堆叠感受野覆盖唤醒词时长且保持逐帧流式。
+      - generic [ref=f39e96]:
+        - text: L = L
+        - subscript [ref=f39e97]: RNN-T
+        - text: + λ
+        - subscript [ref=f39e98]: mask
+        - text: ·L
+        - superscript [ref=f39e99]: mask
+        - subscript [ref=f39e100]: RNN-T
+        - text: + λ
+        - subscript [ref=f39e101]: MSD
+        - text: ·Σ D
+        - subscript [ref=f39e102]: KL
+        - text: (p
+        - superscript [ref=f39e103]: mtoken
+        - text: ‖ p
+        - superscript [ref=f39e104]: token
+        - text: ) （λ=1, 0.003；γ=0.35）
+        - generic [ref=f39e105]: SAR 解码（式 9 + 算法 1）：在关键词 lattice 上并行跑 AR 与 NAR 两条 Viterbi 递推（「文本推进」与「blank 停留」二选一取大），帧级分数 S[t] = α·δ_AR·φ_AR + (1−α)·δ_NAR·φ_NAR，再路径长度归一 + 超时清零。所有量只依赖当前帧与上一帧、路径任意帧可新起——逐帧吐激活分数，端侧「来一帧算一帧」的形态。
+    - generic [ref=f39e106]:
+      - paragraph [ref=f39e107]: §03 · 实验结果
+      - heading "五个场景全部最优 + 低 FA 区平坦曲线" [level=2] [ref=f39e108]
+      - generic [ref=f39e110]:
+        - heading "三场景五数据集" [level=3] [ref=f39e111]
+        - paragraph [ref=f39e112]: EN Fixed：Snips「Hey Snips」+ 97 小时负样本测试集（train/dev/test 负样本合并专测 FA）。EN Arbitrary：LibriSpeech 960h 训练，LibriKWS-20 上 20 个任意关键词（almost/behind/captain…）测 macro-recall。ZH Noisy：AISHELL-2 1000h 种子 + MobvoiHotwords（Wenwen/Xiaowen）——离音箱不同距离、混音乐电视噪声、SNR 参差，最容易把端侧模型带进过拟合泥潭。建模单元 70 单音素 + blank（音素级支持任意词）。评测统一 Recall@FA=4。
+      - generic [ref=f39e113]:
+        - img [ref=f39e114]:
+          - generic [ref=f39e115]: 表 3 主对比（Recall@FA=4，%）：干净集 AR 强、噪声集 AR 崩、SAR 五场景全最优
+          - generic [ref=f39e116]: "20"
+          - generic [ref=f39e117]: "40"
+          - generic [ref=f39e118]: "60"
+          - generic [ref=f39e119]: "80"
+          - generic [ref=f39e120]: "100"
+          - generic [ref=f39e126]: "97.4"
+          - generic [ref=f39e127]: Snips
+          - generic [ref=f39e133]: "98.7"
+          - generic [ref=f39e134]: test-clean
+          - generic [ref=f39e140]: "93.0"
+          - generic [ref=f39e141]: test-other
+          - generic [ref=f39e145]: "26.3"
+          - generic [ref=f39e148]: "95.7"
+          - generic [ref=f39e149]: Xiaowen 噪声
+          - generic [ref=f39e155]: "96.8"
+          - generic [ref=f39e156]: Wenwen 噪声
+          - generic [ref=f39e158]: Greedy
+          - generic [ref=f39e160]: Beam
+          - generic [ref=f39e162]: AR（流式，表 3 中崩溃处标红）
+          - generic [ref=f39e164]: NAR
+          - generic [ref=f39e166]: SAR（本文）
+          - generic [ref=f39e167]: 反直觉现象：AR 流式解码在 Xiaowen 崩到 26.30（正文笔误 25.30，以表为准），连 Greedy 的 40.28 都不如——受限搜索 + 过拟合的叠加放大
+          - generic [ref=f39e168]: NAR 同集 95.33（+69 pp）验证「过拟合载体在 predictor、拿掉就好」；SAR 干净集也吃到 AR 强度（test-clean 98.74 > 纯 AR 98.55）
+        - paragraph [ref=f39e169]: NAR 的能力边界：EN 上「打得过 ASR 式解码、打不过 AR」（94.07 vs 98.55）——干净场景 predictor 的上下文语义仍有效；ZH 噪声上大翻身（95.33 vs 26.30）且双双超过 Beam Search。SAR 的融合没有在任何场景掉链子——「单模型同时拿到两种模式收益」的直接证据。
+      - generic [ref=f39e170]:
+        - img [ref=f39e171]:
+          - generic [ref=f39e172]: 表 4 自蒸馏开关（Recall@FA=4，%）：MSD 三条解码线平均提升 +14.5 / +18.0 / +16.6
+          - generic [ref=f39e173]: "0"
+          - generic [ref=f39e174]: "25"
+          - generic [ref=f39e175]: "50"
+          - generic [ref=f39e176]: "75"
+          - generic [ref=f39e177]: "100"
+          - generic [ref=f39e180]: "4.4"
+          - generic [ref=f39e181]: "26.3"
+          - generic [ref=f39e182]: AR
+          - generic [ref=f39e183]: Xiaowen
+          - generic [ref=f39e186]: "9.1"
+          - generic [ref=f39e187]: "60.4"
+          - generic [ref=f39e188]: AR
+          - generic [ref=f39e189]: Wenwen
+          - generic [ref=f39e192]: "84.1"
+          - generic [ref=f39e193]: "97.3"
+          - generic [ref=f39e194]: NAR
+          - generic [ref=f39e195]: test-clean
+          - generic [ref=f39e198]: "69.0"
+          - generic [ref=f39e199]: "83.1"
+          - generic [ref=f39e200]: NAR
+          - generic [ref=f39e201]: test-other
+          - generic [ref=f39e204]: "26.9"
+          - generic [ref=f39e205]: "95.7"
+          - generic [ref=f39e206]: SAR
+          - generic [ref=f39e207]: Xiaowen
+          - generic [ref=f39e210]: "85.1"
+          - generic [ref=f39e211]: "93.0"
+          - generic [ref=f39e212]: SAR
+          - generic [ref=f39e213]: test-other
+          - generic [ref=f39e215]: 无 MSD
+          - generic [ref=f39e217]: 有 MSD（掩码自蒸馏）
+          - generic [ref=f39e218]: 三个观察：MSD 连 AR 也救（Xiaowen 4.40→26.30，但仍不够——推理必须真拿掉 predictor）；无 MSD 的 NAR 学不动（84.05/68.97）；
+          - generic [ref=f39e219]: MSD 非免费午餐：本已好的地方轻微掉点（AR test-clean 98.85→98.55）——「雪中送炭」型正则，收益全部来自把崩溃场景拉回来
+        - paragraph [ref=f39e220]: 掩码率扫描（表 2，LibriKWS-20 SAR）：γ=0（标准 RNN-T）98.08/88.20 → 0.15 时 98.55/93.67 → 0.35 甜点 98.74/93.04 → 0.5 时 97.50/91.85。规律：适度掩码普遍优于不掩码，遮太多把有用语义也丢了。⚠ 0.15 在 test-other 上反而最高（93.67）却被放弃，选择准则未说明；消融只在 EN Arbitrary 一个场景做、0.35 通吃全部实验（也可读作跨场景稳健的加分项）。
+      - img [ref=f39e222]:
+        - generic [ref=f39e223]: 表 5 低 FA 剖析（Xiaowen，过拟合最严重的测试集，Recall%）：AR 阈值稍收紧就雪崩，NAR/SAR 全档平坦
+        - generic [ref=f39e224]: "0"
+        - generic [ref=f39e225]: "25"
+        - generic [ref=f39e226]: "50"
+        - generic [ref=f39e227]: "75"
+        - generic [ref=f39e228]: "100"
+        - generic [ref=f39e236]: FA=1
+        - generic [ref=f39e237]: FA=2
+        - generic [ref=f39e238]: FA=3
+        - generic [ref=f39e239]: FA=4
+        - generic [ref=f39e240]: FA=5
+        - generic [ref=f39e241]: FA=6
+        - generic [ref=f39e242]: FA=12
+        - generic [ref=f39e243]: FA=24
+        - generic [ref=f39e244]: 固定误唤醒个数（越小越严苛）
+        - generic [ref=f39e245]: AR：FA=1 时仅 5.90
+        - generic [ref=f39e246]: 放宽到 12/24 才追平——典型过拟合形态
+        - generic [ref=f39e247]: SAR FA=1 达 89.49
+        - generic [ref=f39e248]: （比 NAR 高 7.4：AR 分数在极低 FA 区仍有效）
+        - generic [ref=f39e249]: NAR/SAR 曲线平坦（82→99 vs AR 的 6→99）——掩码训练把「阈值敏感性」这个部署端最头疼的性质一并治了
+    - generic [ref=f39e250]:
+      - paragraph [ref=f39e251]: §04 · 主要贡献
+      - heading "四条可转述的判断" [level=2] [ref=f39e252]
+      - generic [ref=f39e254]:
+        - generic [ref=f39e255]:
+          - generic [ref=f39e256]: "1"
+          - text: 病灶精确定位 + 最小干预过拟合定位到 predictor 的固定 transcript 记忆；不改架构不加阶段不加外部教师，三个超参（1 / 0.003 / 0.35）在训练框架内部解决。
+        - generic [ref=f39e257]:
+          - generic [ref=f39e258]: "2"
+          - text: NAR 解码首次实用化MSD 解锁「推理时丢弃 predictor」——模型退化为无状态声学模型，过拟合载体物理移除（Xiaowen 26.30→95.33）。
+        - generic [ref=f39e259]:
+          - generic [ref=f39e260]: "3"
+          - text: SAR 单模型双模式关键词 lattice 上并行 AR/NAR 递推 + 单 α 旋钮适配场景干净度——五测试集全最优，低 FA 区优势最大。
+        - generic [ref=f39e261]:
+          - generic [ref=f39e262]: "4"
+          - text: 完整机理证据链表 2（掩码率甜点）、表 4（蒸馏开关双向效应 +14.5/+18.0/+16.6）、表 5（低 FA 剖析）——「过拟合来自哪、掩码为何有效、收益代价在哪」全部讲圆。
+    - generic [ref=f39e263]:
+      - paragraph [ref=f39e264]: §05 · 局限性与展望
+      - heading "双 joiner 双 lattice 的端侧代价未量化" [level=2] [ref=f39e265]
+      - generic [ref=f39e267]:
+        - generic [ref=f39e268]:
+          - heading "方法的技术局限" [level=4] [ref=f39e269]
+          - list [ref=f39e270]:
+            - listitem [ref=f39e271]: 推理开销未报告：SAR 同时算两套后验 + 维护双份 lattice 递推——参数量 / FLOPs / RTF / 内存 / 功耗全零数字；端侧对这些极敏感，「双倍 joiner」是否可承受需量化。
+            - listitem [ref=f39e272]: α 是手工场景旋钮：EN 0.5 / ZH 噪声 0.3——部署方需先验知道场景干净度；无 α 扫描曲线、无自适应方案。
+            - listitem [ref=f39e273]: 训练成本：每样本双前向 ≈ 两倍前向计算——训练时长对比未报。
+            - listitem [ref=f39e274]: 训练-推理掩码不一致：训练 0.35 部分置零 vs NAR 推理全置零——分布 gap 靠什么弥合（推测 KL 蒸馏的分布平滑性）无消融支撑。
+        - generic [ref=f39e275]:
+          - heading "实验设计的不足" [level=4] [ref=f39e276]
+          - list [ref=f39e277]:
+            - listitem [ref=f39e278]: 缺外部 SOTA 正面对比：被引为动机的 CaTT-KWS / U2-KWS 没进表 head-to-head——「优于多阶段」的暗示缺直接数据。
+            - listitem [ref=f39e279]: 掩码率消融只覆盖一个场景：0.15 在 test-other 更高却被放弃，准则未说明。
+            - listitem [ref=f39e280]: 中英文场景不均衡：EN 20 个任意词 vs 中文 2 个固定词——「任意关键词 + 噪声」这个 MSD 理论上最该发力的组合没测。
+            - listitem [ref=f39e281]: Xiaowen AR 崩溃归因略单一：AISHELL-2 种子偏干净朗读——可能是噪声覆盖不足与 predictor 过拟合双因素；未做「更强噪声增广能否单独救 AR」的对照。
+            - listitem [ref=f39e282]: Snips 负样本细节缺失：97h 负样本含训练集负样本且用于 FA 评测——若训练侧也用，FA 数字有乐观风险。
+      - generic [ref=f39e283]:
+        - heading "下一步方向（论文展望 + 笔者补充）" [level=3] [ref=f39e284]
+        - paragraph [ref=f39e285]: ① α 自适应化：在线 SNR 估计 / 双路分数分歧度 / 轻量门控动态加权——消除部署前的人工场景判断。 ② 量化并压缩 SAR 端侧成本：实测双 joiner + 双 lattice 延迟功耗；把 NAR 鲁棒性蒸馏回单路推理（掩码分支能力固化进 encoder）。 ③ 补齐对比与场景：与 U2-KWS / CaTT-KWS 正面对比；「任意关键词 + 远场噪声」组合验证；报参数量与 RTF。 ④ 掩码策略升级：结构化掩码（按音素段 / 按 predictor 层）或训练-推理一致的渐变课程，缩小 0.35 与全零的 gap。 ⑤ 范式外推：「目标序列高度固定 → predictor 过拟合」并非 KWS 独有——定制唤醒词、固定命令词、TTS 固定提示词有同构病灶，MSD 可直接迁移验证。
+    - contentinfo [ref=f39e286]:
+      - paragraph [ref=f39e287]: 论文精读 · 可视化版 · 2025 №24 · 掩码自蒸馏 Transducer KWS（上海交大 X-LANCE × 阿里淘天，arXiv 2025）
+      - paragraph [ref=f39e288]: 数据来源：论文表 1–5、图 1、算法 1（经由本库深读笔记核对，含正文笔误标注）。图表坐标由脚本从论文原表计算生成。
+      - generic [ref=f39e289]:
+        - link "📄 深读笔记" [ref=f39e290] [cursor=pointer]:
+          - /url: /papers/2025/Masked_Self-distilled_Transducer-based_Keyword_Spotting_With_Semi-autoregressive_Decoding.md
+        - link "📕 PDF 原稿" [ref=f39e291] [cursor=pointer]:
+          - /url: /papers/2025/Masked_Self-distilled_Transducer-based_Keyword_Spotting_With_Semi-autoregressive_Decoding.pdf
+        - link "🔗 arXiv:2505.24820" [ref=f39e292] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2505.24820
+        - link "← 返回论文库" [ref=f39e293] [cursor=pointer]:
+          - /url: /

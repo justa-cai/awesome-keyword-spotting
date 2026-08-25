@@ -1,0 +1,291 @@
+- generic [active] [ref=f67e1]:
+  - navigation [ref=f67e2]:
+    - generic [ref=f67e3]:
+      - generic [ref=f67e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f67e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f67e6]:
+        - link "深读笔记" [ref=f67e7] [cursor=pointer]:
+          - /url: /papers/2024/A_Multitask_Training_Approach_To_Enhance_Whisper_With_Open-Vocabulary_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f67e8] [cursor=pointer]:
+          - /url: /papers/2024/A_Multitask_Training_Approach_To_Enhance_Whisper_With_Open-Vocabulary_Keyword_Spotting.pdf
+        - link "DOI" [ref=f67e9] [cursor=pointer]:
+          - /url: https://doi.org/10.21437/interspeech.2024-104
+  - generic [ref=f67e10]:
+    - banner [ref=f67e11]:
+      - paragraph [ref=f67e12]: 论文精读 · 可视化版 · 2024 №2
+      - heading "先用 0.2M 的 KWS「听到」实体， 再决定往 Whisper 提示里塞什么" [level=1] [ref=f67e13]: 先用 0.2M 的 KWS「听到」实体，再决定往 Whisper 提示里塞什么
+      - paragraph [ref=f67e14]: A Multitask Training Approach to Enhance Whisper with Open-Vocabulary Keyword Spotting（KWS-Whisper）
+      - paragraph [ref=f67e15]: 作者：Yuang Li、Min Zhang 等 10 人 —— 华为翻译服务中心
+      - paragraph [ref=f67e16]: 发表：Interspeech 2024（希腊科斯岛）· 中英代码混说技术演讲场景
+      - generic [ref=f67e17]:
+        - generic [ref=f67e18]: 开放词表 OV-KWS
+        - generic [ref=f67e19]: Whisper 上下文偏置
+        - generic [ref=f67e20]: 相似度矩阵对角检测
+        - generic [ref=f67e21]: 0.2M 四层 CNN
+        - generic [ref=f67e22]: 多任务 α=3
+        - generic [ref=f67e23]: 口语化提示
+        - generic [ref=f67e24]: 冻结即插即用
+      - generic [ref=f67e25]:
+        - heading "一分钟版本" [level=2] [ref=f67e26]
+        - list [ref=f67e27]:
+          - listitem [ref=f67e28]: 痛点：E2E ASR（Whisper，68 万小时弱监督）对低频实体词（人名 / 术语 / 产品名）识别差；华为技术演讲场景实体词用户临时给定、中英混说——不可能预训进模型，也不可能每个新词重训。
+          - listitem [ref=f67e29]: 方案骨架：离线用 TTS 给每个实体「纯文本入职」（合成语音过 Whisper 编码器存特征库）；在线把输入语音的编码器多层加权特征与库中实体算余弦相似度矩阵，实体出现时矩阵浮现对角线纹理，一个 0.2M 四层 CNN 判「出现 / 未出现」→ 检出的实体喂进 Whisper 解码器提示。
+          - listitem [ref=f67e30]:
+            - text: 训练：多任务 Loss = L
+            - subscript [ref=f67e31]: ASR
+            - text: + 3·L
+            - subscript [ref=f67e32]: KWS
+            - text: ，两阶段（先冻结训 CNN+解码器 10 ep，再解冻全模型 50 ep）。解冻编码器是精度主引擎——冻结时 F1 只有 0.6 档，解冻后 0.9；混合语料（zh+en）换域外泛化。
+          - listitem [ref=f67e33]: 微调的坑（诚实暴露）：小数据微调引发灾难性遗忘——内部技术演讲集 MER 从基线 5.9 飙到 14.7（zh 微调）。
+          - listitem [ref=f67e34]: 正解是插件：冻结任意尺寸 Whisper 挂 OV-KWS，「口语化提示」（用「呃」「好，那我就继续讲」等不流利标记把实体包成完整句）全面最优——large-v2 上 MER 4.4→2.9、召回 87.3→97.7%，冻结 small 插件甚至全面反超微调版。
+    - generic [ref=f67e35]:
+      - paragraph [ref=f67e36]: §01 · 问题陈述
+      - heading "Whisper 有提示通道，但没人回答「提示里该放什么词」" [level=2] [ref=f67e37]
+      - generic [ref=f67e39]: Whisper 原生提供注入先验的通道——解码时给一段文本提示，模型据此调整输出，不必像前代方法那样外挂偏置模块。但前提问题没解决：提示里放什么？用户手输实体列表可以，全自动系统就必须先从音频里「知道」哪些实体真的出现了——这正是一个开放词表关键词检测问题。把整张实体清单一股脑塞进提示（朴素提示）在自发口语、代码混说会话里会引发幻觉；清单长而实际只出现一两个词时信噪比也很差。论文整个系统围绕「用极轻量 KWS 前端自动生成 Whisper 提示」展开。
+      - generic [ref=f67e40]:
+        - img [ref=f67e41]:
+          - generic [ref=f67e42]: 热词偏置两条经典路线的缺陷（论文引言梳理）
+          - generic [ref=f67e43]:
+            - generic [ref=f67e45]: 浅融合 shallow fusion
+            - generic [ref=f67e46]: ✕ 束搜索时给热词分数加权——融合权重是全局
+            - generic [ref=f67e47]: 标量，语种 / 语速 / 热词数一变就得重调
+            - generic [ref=f67e48]: ✕ 只在解码端加分，声学模型对稀有实体的
+            - generic [ref=f67e49]: 表征并没有变好
+            - generic [ref=f67e50]: ✓ 实现简单
+            - generic [ref=f67e52]: 深融合 / 适配器 / 指针网络
+            - generic [ref=f67e53]: ✕ 必须与 ASR 模型从头联合训练——成本高，
+            - generic [ref=f67e54]: 偏置模块与主模型深度耦合
+            - generic [ref=f67e55]: ✕ 主模型一升级偏置模块就得重训，
+            - generic [ref=f67e56]: 无法迁移到已开源的 Whisper 各尺寸
+            - generic [ref=f67e57]: ✓ 效果上限更高
+          - generic [ref=f67e59]: 本文切入点：复用 Whisper 编码器隐状态做 OV-KWS（零第二声学前端）+ 解码器提示这个原生接口吃先验
+          - generic [ref=f67e60]: 对主模型零结构手术；实体「TTS 合成 + 编码器提特征」免录音入职，实体库与模型解耦，主模型升级库直接复用
+        - paragraph [ref=f67e61]: 图 A·作者前作 CB-whisper（LREC-COLING 2024）同样用 OV-KWS 做偏置但模块更重；本文定位「更轻（0.2M）、更通用（任意尺寸冻结 Whisper 可挂）、更准」——注意该对比为论文自述，未给量化对照表。
+      - generic [ref=f67e62]: 三个层层递进的挑战：① 如何复用 Whisper 编码器隐状态做开放词表检测——决定额外开销能否压到极致（答案：0.2M 四层 CNN）；② 0.2M 容量有限，要 F1≈0.9 就必须微调编码器，而微调冲击通用识别——如何让 KWS 与 ASR 互相成全而非拆台（灾难性遗忘是论文亲口承认并实测到的失败模式）；③ 微调在真实域出错率回升时，如何退一步做成完全不动主模型的即插即用模块，兼容 small / medium / large-v2 任意冻结尺寸——决定工程落地半径。
+    - generic [ref=f67e63]:
+      - paragraph [ref=f67e64]: §02 · 方法论
+      - heading "相似度矩阵上的对角线：把「词在不在」变成图像模式识别" [level=2] [ref=f67e65]
+      - generic [ref=f67e67]:
+        - img [ref=f67e68]:
+          - generic [ref=f67e69]: Figure 1 复绘：离线建库（a）+ 在线检测喂提示（b/c）
+          - generic [ref=f67e71]: （a）离线：实体「纯文本入职」
+          - generic [ref=f67e73]: 实体文本清单
+          - generic [ref=f67e74]: 用户临时给定
+          - generic [ref=f67e77]: TTS 合成
+          - generic [ref=f67e78]: edge-tts，免真人录音
+          - generic [ref=f67e81]: Whisper 编码器
+          - generic [ref=f67e82]: 抽帧级特征 → 实体库
+          - generic [ref=f67e84]: （b）在线：检测 → 提示 → 解码
+          - generic [ref=f67e86]: 输入语音 → Whisper 编码器
+          - generic [ref=f67e87]: 多层隐状态可学习系数加权和
+          - generic [ref=f67e90]: 余弦相似度
+          - generic [ref=f67e91]: S ∈ R^(T×T')
+          - generic [ref=f67e94]: 4 层 CNN
+          - generic [ref=f67e95]: 0.2M 参数
+          - generic [ref=f67e97]: 检出实体 → 解码器提示
+          - generic [ref=f67e98]: 只放真正出现过的实体，信噪比高
+          - generic [ref=f67e101]: Whisper 解码器
+          - generic [ref=f67e102]: 束宽 5 → 正确转写
+          - generic [ref=f67e103]: · 检测挂在编码器之后：完全复用主模型前向，无第二套声学前端
+          - generic [ref=f67e104]: · 对关键词数量线性复杂度，多词 GPU 并行批处理
+          - generic [ref=f67e105]: · 困难负样本训练：随机负样本太易，学不到精细判别边界
+          - generic [ref=f67e107]: （c）相似度矩阵的对角模式
+          - generic [ref=f67e108]:
+            - generic [ref=f67e117]: 输入帧 h_i
+            - generic [ref=f67e118]: 实体帧 e_j
+            - generic [ref=f67e119]: 实体出现：
+            - generic [ref=f67e120]: 帧逐对齐 → 沿对角线
+            - generic [ref=f67e121]: 浮出高值带
+            - generic [ref=f67e122]: 变长序列匹配
+            - generic [ref=f67e123]: → 规约为图像局部
+            - generic [ref=f67e124]: 模式检测 → CNN
+        - paragraph [ref=f67e125]: 图 B·设计借鉴视觉关键词检测（Seeing wake words / 音频-文本对齐学习）：把待检实体与输入语音投影到同一特征空间，「词有没有出现」变成「矩阵上有没有对角纹理」。二分类框架（出现/未出现）而非序列定位是主动降档——对齐信息由对角模式隐式承载，CNN 卷积核天然擅长局部纹理且参数极少。
+      - heading "多任务损失与两阶段训练" [level=3] [ref=f67e126]
+      - generic [ref=f67e127]:
+        - text: Loss = L
+        - subscript [ref=f67e128]: ASR
+        - text: + α · L
+        - subscript [ref=f67e129]: KWS
+        - text: ，α = 3
+        - generic [ref=f67e130]:
+          - text: 人话：为什么必须两个损失同时在场——0.2M 的 CNN 太小，冻结的 Whisper 编码器特征不是为「帧级实体对齐」学的，检测精度上不去（冻结时 F1 仅 0.60–0.68）；必须放开编码器让它朝 KWS 适应，而一旦放开，若没有 L
+          - subscript [ref=f67e131]: ASR
+          - text: 拽着，通用识别能力就流失。α=3（KWS 权重更高）论文直接给定、无敏感性实验。两阶段：先冻结训 CNN+解码器 10 ep（可训练 153.8M），再解冻全模型 50 ep（241.9M，OV-KWS 相关参数从 0.2M 涨到 88.4M）——先让小分类器在固定特征空间收敛，避免训练初期大模型把它「带崩」。微调期间提示里放本句真实出现的词，解码器由此建立「提示词应被优先输出」的条件行为——推理时换成 OV-KWS 预测的实体才能无缝衔接。
+      - heading "冻结 Whisper 的两种消费通路：纠错 vs 提示" [level=3] [ref=f67e132]
+      - generic [ref=f67e133]:
+        - img [ref=f67e134]:
+          - generic [ref=f67e135]: Section 2.5 / Table 1 复绘：提示的「文体」本身就是分布内信号
+          - generic [ref=f67e137]: 朴素提示（书面列表）—— 文体错位
+          - generic [ref=f67e139]: 实体1, 实体2, 实体3
+          - generic [ref=f67e140]: Whisper 提示位的语义是「上一句语音的历史转写」——
+          - generic [ref=f67e141]: 整洁列表诱导省略语气词、复杂会话里引发幻觉，MER 反升
+          - generic [ref=f67e143]: 口语化提示（spoken-form）—— 形貌贴近历史转写
+          - generic [ref=f67e145]: 今天演讲的主题是这个呃，实体1、实体2、实体3。好，那我就继续讲。
+          - generic [ref=f67e146]: 用「呃」「好，那我就继续讲」等不流利标记把实体包成完整句，
+          - generic [ref=f67e147]: 分布上更接近 Whisper 训练时见过的自发口语转写
+          - generic [ref=f67e149]: 纠错通路（改文本，不动解码）
+          - generic [ref=f67e150]: · 拼音法：中文词与检出实体同音则替换——正打在「同音字
+          - generic [ref=f67e151]: 替换是中文实体错误主模式」上；英文用编辑距离
+          - generic [ref=f67e152]: · LLM 法：ChatGLM3-6B + 少样本模板改写（幻觉风险）
+          - generic [ref=f67e154]: 提示通路（让解码器继续参考声学特征联合决策）
+          - generic [ref=f67e155]: · 检出实体进提示 → Whisper 自己在解码时对齐声学，
+          - generic [ref=f67e156]: 不是在文本空间里盲改
+          - generic [ref=f67e157]: · 实验结论：提示法整体显著优于纠错法（Table 7）
+        - paragraph [ref=f67e158]: 图 C·核心洞察：提示不只携带词表信息，其形式本身也是分布内的信号——文体错位会直接推高 MER。
+    - generic [ref=f67e159]:
+      - paragraph [ref=f67e160]: §03 · 实验结果
+      - heading "域内大胜、域外遗忘；冻结插件才是域外正解" [level=2] [ref=f67e161]
+      - generic [ref=f67e163]: 数据：训练三份——Aishell-1（中文，150 h）+ LibriSpeech train-clean（英文，100 h）+ TALCS（中英混说教学场景，578 h），对比仅中文（zh）与三语料混合（zh+en）。测试四个：Aishell-dev/test 热词子集（域内热词场景）+ Internal-1/2（华为技术演讲，99 句/41 min/150 实体、112 句/47 min/346 实体，实体人工标注，中文为主夹英文）。指标：F1（OV-KWS，漏检无提示可用、误检污染提示，调和平均对两侧短板都敏感）；MER（混说改造的字符错误率：每汉字与每英文词各一个错误单位——CER 按字母切英文会放大英文权重）；实体召回（业务真正目标——整句 MER 降一点不算数，实体写对与否决定转写稿可用性）。
+      - generic [ref=f67e164]:
+        - img [ref=f67e165]:
+          - generic [ref=f67e166]: Table 7（冻结 Whisper-large-v2 + OV-KWS 插件）· 四种消费方式 × 两个内部集
+          - generic [ref=f67e167]: "3"
+          - generic [ref=f67e168]: "5"
+          - generic [ref=f67e169]: "7"
+          - generic [ref=f67e170]: MER %（越低越好）
+          - generic [ref=f67e172]: "4.4"
+          - generic [ref=f67e174]: "5.6"
+          - generic [ref=f67e175]: 无处理
+          - generic [ref=f67e177]: "4.3"
+          - generic [ref=f67e179]: "5.5"
+          - generic [ref=f67e180]: 拼音纠错
+          - generic [ref=f67e182]: "6.0"
+          - generic [ref=f67e184]: "7.7"
+          - generic [ref=f67e185]: LLM 纠错
+          - generic [ref=f67e187]: "4.7"
+          - generic [ref=f67e189]: "6.6"
+          - generic [ref=f67e190]: 朴素提示
+          - generic [ref=f67e192]: "2.9"
+          - generic [ref=f67e194]: "3.6"
+          - generic [ref=f67e195]: 口语化提示
+          - generic [ref=f67e196]: "80"
+          - generic [ref=f67e197]: "85"
+          - generic [ref=f67e198]: "90"
+          - generic [ref=f67e199]: "95"
+          - generic [ref=f67e200]: 实体召回 %（越高越好）
+          - generic [ref=f67e202]: "87.3"
+          - generic [ref=f67e204]: "79.9"
+          - generic [ref=f67e205]: 无处理
+          - generic [ref=f67e207]: "88.9"
+          - generic [ref=f67e209]: "83.9"
+          - generic [ref=f67e210]: 拼音纠错
+          - generic [ref=f67e212]: "89.9"
+          - generic [ref=f67e214]: "85.1"
+          - generic [ref=f67e215]: LLM 纠错
+          - generic [ref=f67e217]: "97.4"
+          - generic [ref=f67e219]: "95.1"
+          - generic [ref=f67e220]: 朴素提示
+          - generic [ref=f67e222]: "97.7"
+          - generic [ref=f67e224]: "96.9"
+          - generic [ref=f67e225]: 口语化提示
+          - generic [ref=f67e227]: Internal-1（99 句 / 41 min / 150 实体）
+          - generic [ref=f67e229]: Internal-2（112 句 / 47 min / 346 实体）
+          - generic [ref=f67e230]: 口语化提示全面最优：MER 4.4→2.9 / 5.6→3.6，召回 87.3→97.7 / 79.9→96.9；LLM 纠错召回↑但 MER 恶化（幻觉）
+        - paragraph [ref=f67e231]: 表 7 复绘（Whisper-large-v2）·四条规律：① 拼音纠错稳定小赢（同音替换先验）但只能修同音错；② LLM 纠错召回更高、MER 反升——改对的实体多，改错的非实体也多（幻觉）；③ 提示法整体优于纠错法——提示让模型继续参考声学特征联合决策，纠错在文本空间盲改；④ 朴素提示 MER 略升（medium Internal-2 从 6.7 恶化到 14.6，最烈），口语化提示双指标全面最优。最硬的横向证据：冻结 small + 口语化提示（4.0/95.9、6.8/91.1）全面优于微调版 KWS-Whisper-small（7.7/86.3、13.2/71.4）——不动主模型反而同时赢得 MER 与召回。
+      - generic [ref=f67e232]:
+        - img [ref=f67e233]:
+          - generic [ref=f67e234]: Table 6（Internal-1，技术演讲）· 微调的代价：域外 MER 回升、召回先崩后救
+          - generic [ref=f67e235]: "0"
+          - generic [ref=f67e236]: "5"
+          - generic [ref=f67e237]: "10"
+          - generic [ref=f67e238]: "15"
+          - generic [ref=f67e239]: MER %（越低越好）
+          - generic [ref=f67e241]: "5.9"
+          - generic [ref=f67e242]: Whisper-small
+          - generic [ref=f67e243]: 基线无提示
+          - generic [ref=f67e245]: "14.7"
+          - generic [ref=f67e246]: zh 微调
+          - generic [ref=f67e247]: 无提示
+          - generic [ref=f67e249]: "7.7"
+          - generic [ref=f67e250]: zh+en 微调
+          - generic [ref=f67e251]: +预测提示
+          - generic [ref=f67e252]: "40"
+          - generic [ref=f67e253]: "60"
+          - generic [ref=f67e254]: "80"
+          - generic [ref=f67e255]: "100"
+          - generic [ref=f67e256]: 实体召回 %（越高越好）
+          - generic [ref=f67e258]: "78.5"
+          - generic [ref=f67e260]: "49.0"
+          - generic [ref=f67e262]: "86.3"
+        - paragraph [ref=f67e263]: 表 6 复绘（Internal-1）·灾难性遗忘的完整暴露：zh 微调 MER 5.9→14.7、召回 78.5→49.0；混合数据 + 预测提示救回召回（86.3）但 MER（7.7）仍差于基线（5.9）。论文归因：微调数据规模小 + 训练域（有声书 / 教学）与测试域（技术演讲）不匹配。域内对照（Aishell）：基线无提示 16.7/6.3 → 基线真值提示 13.3/81.6 → 微调 + 预测提示 9.2/88.4——微调模型用「预测实体」反超原始模型用「人工真值实体」，说明微调让解码器真正学会消费提示；且 88.4/87.7 反超同期 SOTA 热词模型 SeACo-Paraformer（86/87）。
+      - generic [ref=f67e264]:
+        - img [ref=f67e265]:
+          - generic [ref=f67e266]: Table 4 · 解冻编码器是检测精度主引擎，混合训练换域外泛化（F1）
+          - generic [ref=f67e268]: 冻结编码器档：F1 ≈ 0.60–0.68
+          - generic [ref=f67e269]: "0.5"
+          - generic [ref=f67e270]: "0.6"
+          - generic [ref=f67e271]: "0.7"
+          - generic [ref=f67e272]: "0.8"
+          - generic [ref=f67e273]: "0.9"
+          - generic [ref=f67e274]: "1.0"
+          - generic [ref=f67e276]: "0.85"
+          - generic [ref=f67e278]: "0.83"
+          - generic [ref=f67e279]: Aishell-dev
+          - generic [ref=f67e281]: "0.89"
+          - generic [ref=f67e283]: "0.84"
+          - generic [ref=f67e284]: Aishell-test
+          - generic [ref=f67e286]: "0.75"
+          - generic [ref=f67e288]: "0.90"
+          - generic [ref=f67e289]: Internal-1
+          - generic [ref=f67e291]: "0.82"
+          - generic [ref=f67e293]: "0.88"
+          - generic [ref=f67e294]: Internal-2
+          - generic [ref=f67e296]: 解冻 · 仅中文（zh）
+          - generic [ref=f67e298]: 解冻 · 三语料混合（zh+en）
+        - paragraph [ref=f67e299]: 表 4 复绘·两条结论：① 编码器适配是精度主引擎——冻结时 F1 只有 0.60–0.68 档（黄色带），解冻后跃迁到 0.9 档（OV-KWS 相关参数 0.2M→88.4M）；② 域内 zh 略优（0.85/0.89 对 0.83/0.84），域外 zh+en 显著更优（0.90/0.88 对 0.75/0.82）——混合训练用域内微小让步换域外泛化。配套消融（Table 5）：多任务不损害 KWS（域内 0.83/0.84 对单任务 0.86/0.86，域外 0.90 反超 0.87）；Figure 2 层级权重显示第 8–12 深层对 KWS 影响更大、微调后进一步升高——编码器发生了定向适应，事后验证了「加权求和而非取最后一层」的设计。
+    - generic [ref=f67e300]:
+      - paragraph [ref=f67e301]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f67e302]
+      - generic [ref=f67e304]:
+        - generic [ref=f67e305]:
+          - generic [ref=f67e306]: "1"
+          - text: 三件套把 OV-KWS 压进 0.2MTTS 建实体库（纯文本入职）+ 多层加权特征 + 相似度矩阵对角检测，四层 CNN 0.2M 参数，对关键词数线性可扩展——「开放词表能成立」的工程前提是免录音入职。
+        - generic [ref=f67e307]:
+          - generic [ref=f67e308]: "2"
+          - text: 多任务微调让解码器学会消费提示
+          - generic [ref=f67e309]:
+            - text: L
+            - subscript [ref=f67e310]: ASR
+            - text: +3·L
+            - subscript [ref=f67e311]: KWS
+            - text: + 两阶段解冻，检测 F1 到 0.9；微调模型用「预测实体」的召回反超原始模型用「人工真值实体」——给对提示也用不满，是学出来的能力。
+        - generic [ref=f67e312]:
+          - generic [ref=f67e313]: "3"
+          - text: 插件路线 + 口语化提示任意尺寸冻结 Whisper 挂 OV-KWS 即受益（large-v2：MER 4.4→2.9、召回 87.3→97.7）；提示的形式本身是分布内信号——文体错位会推高 MER。
+        - generic [ref=f67e314]:
+          - generic [ref=f67e315]: "4"
+          - text: 诚实暴露微调边界完整呈现灾难性遗忘（Internal-1 MER 5.9→14.7）并给出工程结论：域外场景优先冻结模型 + 插件，而非微调——冻结 small 插件全面反超微调版。
+    - generic [ref=f67e316]:
+      - paragraph [ref=f67e317]: §05 · 局限性与展望
+      - heading "遗忘未根治、实体库押在 TTS 上、内部集只有一百句" [level=2] [ref=f67e318]
+      - generic [ref=f67e320]:
+        - generic [ref=f67e321]:
+          - heading "方法局限" [level=4] [ref=f67e322]
+          - list [ref=f67e323]:
+            - listitem [ref=f67e324]: 灾难性遗忘只是绕开不是解决：多任务损失缓解后 Internal-1 MER 7.7 仍差于基线 5.9，论文最终建议退回冻结 + 插件——等于承认微调路线在真实域不可用。
+            - listitem [ref=f67e325]: 实体库依赖 TTS 合成：合成语音与真实发音在韵律、信道、口音上有系统差，对角对齐质量受影响；未做合成 vs 真人注册特征的对照。
+            - listitem [ref=f67e326]: 线性复杂度撞大词表：逐词算相似度矩阵 + CNN 前向，词表上量后成瓶颈——论文把「提升 OV-KWS 效率」列为未来工作，即当前未做索引化 / 子词加速。
+            - listitem [ref=f67e327]: 纠错通路硬伤：拼音法只修同音错；LLM 法所有行的 MER 都比基线差（幻觉），且 6B 模型推理成本 / 延迟未报告。
+            - listitem [ref=f67e328]: 口语化提示是固定模板：对说话风格、语种的迁移性存疑，对提示长度 / 实体数量的敏感性未消融。
+        - generic [ref=f67e329]:
+          - heading "实验设计不足" [level=4] [ref=f67e330]
+          - list [ref=f67e331]:
+            - listitem [ref=f67e332]: 内部集极小：99 / 112 句，几个百分点的差异统计意义有限，无显著性检验或置信区间。
+            - listitem [ref=f67e333]: 微调只在 Whisper-small 上做：medium / large 只出现在插件路线——「更大模型微调能否缓解遗忘」无法回答。
+            - listitem [ref=f67e334]: 基线覆盖窄：浅融合 / 深融合 / 适配器 / 指针网络引言综述了但实验没纳入；唯一外部 SOTA 对照 SeACo-Paraformer 只比了 Aishell 召回两项，MER 维度未比。
+            - listitem [ref=f67e335]: 关键超参未消融：α=3、困难负样本构造、两阶段 epoch（10+50）、随机拼接、束宽 5。
+            - listitem [ref=f67e336]: 与前作 CB-whisper 无量化对照表：「更轻更准」只能作为作者自述看待。
+      - generic [ref=f67e337]: 论文自指的两个方向：① 提升 OV-KWS 效率支撑大规模关键词库（向量检索预筛 / 共享骨干多标签头）；② 用原始 Whisper 蒸馏大规模语音在通用域做多任务微调，从数据规模端解决域外遗忘。笔记延伸：口语化提示从固定模板升级为按目标域风格自适应生成；真人注册音频与 TTS 混合建库弥合声学差距；在 medium / large 上补齐微调实验，检验模型容量与遗忘的关系。
+    - contentinfo [ref=f67e338]:
+      - generic [ref=f67e339]:
+        - link "深读笔记" [ref=f67e340] [cursor=pointer]:
+          - /url: /papers/2024/A_Multitask_Training_Approach_To_Enhance_Whisper_With_Open-Vocabulary_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f67e341] [cursor=pointer]:
+          - /url: /papers/2024/A_Multitask_Training_Approach_To_Enhance_Whisper_With_Open-Vocabulary_Keyword_Spotting.pdf
+        - link "DOI" [ref=f67e342] [cursor=pointer]:
+          - /url: https://doi.org/10.21437/interspeech.2024-104
+        - link "返回总目录" [ref=f67e343] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f67e344]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table 1-7 / Figure 1-2 / Eq.1）；「笔记交叉比对 / 笔者」标注处为笔记给出的推断。

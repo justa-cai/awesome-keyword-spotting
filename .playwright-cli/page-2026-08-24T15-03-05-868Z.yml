@@ -1,0 +1,283 @@
+- generic [active] [ref=f5e1]:
+  - navigation [ref=f5e2]:
+    - generic [ref=f5e3]:
+      - generic [ref=f5e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f5e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f5e6]:
+        - link "深读笔记" [ref=f5e7] [cursor=pointer]:
+          - /url: /papers/2025/ASAP-FE_Energy-Efficient_Feature_Extraction_Enabling_Multi-Channel_Keyword_Spotting_On_Edge_Processors.md
+        - link "PDF 原稿" [ref=f5e8] [cursor=pointer]:
+          - /url: /papers/2025/ASAP-FE_Energy-Efficient_Feature_Extraction_Enabling_Multi-Channel_Keyword_Spotting_On_Edge_Processors.pdf
+        - link "arXiv" [ref=f5e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2506.14657
+  - generic [ref=f5e10]:
+    - banner [ref=f5e11]:
+      - paragraph [ref=f5e12]: 论文精读 · 可视化版 · 2025 №7
+      - heading "ASAP-FE 多通道 KWS 的前端答案：砍掉 62.7% 数据，再并行压进实时预算" [level=1] [ref=f5e13]: ASAP-FE多通道 KWS 的前端答案：砍掉 62.7% 数据，再并行压进实时预算
+      - paragraph [ref=f5e14]: "ASAP-FE: Energy-Efficient Feature Extraction Enabling Multi-Channel Keyword Spotting on Edge Processors"
+      - paragraph [ref=f5e15]: 作者：Jongin Choi、Jina Park（共同一作）等 —— 韩国中央大学 / ETRI / USC；通讯 Woojoo Lee
+      - paragraph [ref=f5e16]: 发表：2025.06 · arXiv:2506.14657 · ISLPED 2025（ACM/IEEE 低功耗电子与设计研讨会）
+      - generic [ref=f5e17]:
+        - generic [ref=f5e18]: 多通道 KWS
+        - generic [ref=f5e19]: IIR 滤波器组
+        - generic [ref=f5e20]: 半重叠分帧
+        - generic [ref=f5e21]: 稀疏感知数据缩减
+        - generic [ref=f5e22]: 动态并行调度
+        - generic [ref=f5e23]: RISC-V 全栈验证
+      - generic [ref=f5e24]:
+        - heading "一分钟版本" [level=2] [ref=f5e25]
+        - list [ref=f5e26]:
+          - listitem [ref=f5e27]: 痛点：多通道监控场景要 N 路音频在同一个时间窗内完成特征提取——吞吐需求 ×N，实时预算一格不让。而现有前端四条路线全部三缺一：高精度、低开销、可并行没有一条同时做到。
+          - listitem [ref=f5e28]: 方案是一条减法链：半重叠 IIR 分帧砍 24.9% 冗余滤波（保住音素转移线索）→ 跳帧砍 34.42% 噪声主导帧 → 变步长滤波再砍 24.2%（次要帧只算偶数样本），总工作量降到 37.3%；数据少了，并行所需模块数和能耗同步下降，最后用优先级调度把延迟压进 N 通道预算。
+          - listitem [ref=f5e29]: 两个必要补丁：stride-2 降采样前先低通（抗混叠）；样本数减半会让 STE 系统性偏低，用相邻 stride-1 帧导出补偿因子拉回幅度尺度。
+          - listitem [ref=f5e30]: 结果：工作量平均削减 62.73%；m=23 即可实时支撑 32 通道；能效甜点 m=15（30.4 nJ / 1.25 ms，恰好卡进 25 通道预算）；三个后端模型精度损失全部 <1%。
+          - listitem [ref=f5e31]: 诚实的坑：阈值依赖整段 max(STE)——流式场景"先有鸡还是先有蛋"；且"多通道"只是 32 路独立输入塞进同一加速器分时处理，没有真实麦克风阵列。
+    - generic [ref=f5e32]:
+      - paragraph [ref=f5e33]: §01 · 问题陈述
+      - heading "吞吐 ×N、预算不涨：前端才是多通道 KWS 的堵点" [level=2] [ref=f5e34]
+      - generic [ref=f5e36]:
+        - img [ref=f5e37]:
+          - generic [ref=f5e38]: Table I 四条前端路线横评：全部三缺一（高精度 / 低开销 / 可并行）
+          - generic [ref=f5e39]:
+            - generic [ref=f5e41]: ① 模拟特征提取（环形振荡器 / gm-C BPF）
+            - generic [ref=f5e42]: 准确率 ~90% 或更低，对噪声高度敏感 —— 复杂噪声条件下出局
+            - generic [ref=f5e44]: ② FFT + MFCC 数字方案 精度 96.1%
+            - generic [ref=f5e45]: FFT 在边缘处理器上开销高，多通道下这笔开销还要按 N 重复支付
+            - generic [ref=f5e47]: ③ 流式 IIR-FBank [18] 精度 96.49%（最高）
+            - generic [ref=f5e48]: IIR 递归本质（当前输出依赖历史输出）→ 一次只能吃一路流，帧级并行无从谈起
+            - generic [ref=f5e50]: ④ 分段式 IIR [19] 帧间不重叠，精度掉到 ~92.5%（-4 个点）
+            - generic [ref=f5e51]: 音素转移信息在帧边界丢失——区分相近关键词的判别性特征没了，且同样不可并行
+            - generic [ref=f5e53]: ASAP-FE 精度 96.48% · 唯一为并行设计（Table I 中 Parallel-Processing = Feasible）
+        - paragraph [ref=f5e54]: 关键工程判断（论文引言）：与其堆高分类器复杂度去硬扛噪声，不如在信号采集阶段（前端）就把噪声处理掉——对能耗受限的边缘设备划算得多。模型压缩路线压的是后端，本方案压的是前端，两者作用对象正交、理论上可叠加。
+      - generic [ref=f5e55]:
+        - text: y[n] = −Σ a
+        - subscript [ref=f5e56]: k
+        - text: ·y[n−k] + Σ b
+        - subscript [ref=f5e57]: k
+        - text: ·x[n−k] （式 1，IIR 带通滤波）
+        - generic [ref=f5e58]: 当前输出要用历史输出一起算——这正是 IIR 阶数低、计算省（绕开 FFT），但天然串行、难以并行的根源。ASAP-FE 要解的就是"把这个结构改造成可并行"这件事本身。
+    - generic [ref=f5e59]:
+      - paragraph [ref=f5e60]: §02 · 方法论
+      - heading "减数据 → 少模块 → 低能耗：一条因果链，不是三个并列技巧" [level=2] [ref=f5e61]
+      - generic [ref=f5e63]:
+        - img [ref=f5e64]:
+          - generic [ref=f5e65]: 总体管线（图 2）：滤波结构的同质性是并行化的结构前提
+          - generic [ref=f5e66]:
+            - generic [ref=f5e68]: 原始音频
+            - generic [ref=f5e69]: 16 kHz
+            - generic [ref=f5e71]: 预加重 / 低通
+            - generic [ref=f5e72]: LPF 供 stride-2 用
+            - generic [ref=f5e74]: 半重叠 IIR 分帧
+            - generic [ref=f5e75]: 保音素转移 · 减半重叠
+            - generic [ref=f5e77]: STE < th1 → 跳帧（丢噪声帧）
+            - generic [ref=f5e78]: th1 = 0.56·max(STE)
+            - generic [ref=f5e80]: Sframe < th2 → stride-2（降档）
+            - generic [ref=f5e81]: th2 = 0.5·max(Sframe)
+            - generic [ref=f5e83]: IIR 滤波器组
+            - generic [ref=f5e84]: m 模块并行 · 定点
+            - generic [ref=f5e86]: log₂ (LUT)
+            - generic [ref=f5e87]: 不参与并行调度
+            - generic [ref=f5e89]: 分类器
+            - generic [ref=f5e90]: TC-RN8 / DS-CNN / KWT-1
+          - generic [ref=f5e100]: 动态并行处理 DPP（贯穿始终）
+          - generic [ref=f5e101]: 稀疏感知步长计算器逐帧算出步长模式 → 滤波调度器生成任务（步长值+帧号）
+          - generic [ref=f5e102]: 塞进优先级队列 → 并行派发给 m 个空闲滤波模块（4 阶 IIR，五级流水，定点整数）
+          - generic [ref=f5e103]: 除 log₂ 外全部运算都是同一种滤波结构的重复 → 模块可复制、吞吐可抬升
+          - generic [ref=f5e104]: SPM 暂存原始/预加重波形与特征；AXI 端口做数据事务、APB 做配置控制。
+          - generic [ref=f5e105]: 预加重每帧恰好一次、LPF 只在 stride-2 前被抢先调用——这两者不需要显式优先级，调度只管两类带通滤波。
+        - paragraph [ref=f5e106]: 组合逻辑是一条减法链：半重叠砍冗余 → 稀疏感知砍无信息帧 → 数据量小了之后并行所需的模块数和能耗同步下降 → 并行把延迟压进多通道预算。论文明确：光靠 62.73% 缩减仍撑不起 3 通道以上实时，并行是必须补上的第二只轮子。
+      - heading "创新一：半重叠分帧——信息完整性与计算冗余之间的甜点" [level=3] [ref=f5e107]
+      - generic [ref=f5e108]:
+        - img [ref=f5e109]:
+          - generic [ref=f5e110]: 四种分帧方式（图 3）：分段丢信息，全重叠浪费算力，半重叠两头兼顾
+          - generic [ref=f5e111]:
+            - generic [ref=f5e112]: 分段式 [19]：帧间不重叠
+            - generic [ref=f5e118]: 边界处音素转移丢失 → -4 个点
+            - generic [ref=f5e119]: 全重叠：保信息但重复滤波
+            - generic [ref=f5e125]: 重叠区被重复滤波，白烧算力
+            - generic [ref=f5e126]: 半重叠（本文）：重叠减半
+            - generic [ref=f5e132]: 音素转移保真 + 计算减 25%
+            - generic [ref=f5e134]: 时间 → 帧长 16 ms（重叠毫秒数论文未报告，复现需反推）
+          - generic [ref=f5e135]: 证据（图 4）：滤波器组 >20 后半重叠追平甚至超过 96.1% 基线；分段稳定掉 3+ 点
+        - paragraph [ref=f5e136]: 音素转移是区分相近关键词的判别性特征——分段式在帧边界把它切断，这 4 个百分点的差距就是对这条线索的定价。半重叠把重叠量减半：信息保真的前提下总计算量比全重叠少约 25%。
+      - heading "创新二：稀疏感知数据缩减——两级粒度 + 两个必要补丁" [level=3] [ref=f5e137]
+      - generic [ref=f5e138]:
+        - text: S
+        - subscript [ref=f5e139]: frame
+        - text: = α·ZCC + β·A
+        - subscript [ref=f5e140]: diff
+        - text: （式 5，α=1、β=0.5）
+        - generic [ref=f5e141]:
+          - text: 过零计数 ZCC 是帧内高频活跃度的廉价代理（清音摩擦音 /s/ 和高频噪声的过零率显著高于浊音）；幅度差 A
+          - subscript [ref=f5e142]: diff
+          - text: = max−min 反映幅度起伏。两个指标都不需要乘除法、硬件几乎免费——这是选它们做重要性打分的现实理由。
+      - generic [ref=f5e143]:
+        - paragraph [ref=f5e144]: 补丁一 · 抗混叠：stride-2 只取偶数下标样本，等效采样率减半、奈奎斯特频率减半——直接降采样会频谱混叠，所以 stride-2 帧必须用低通滤波后的波形，stride-1 帧用常规预加重波形。两条预处理通路并存的原因就在这。
+        - paragraph [ref=f5e145]: 补丁二 · STE 幅度补偿：求和项少一半，stride-2 帧的短时能量系统性偏低——用相邻 stride-1 帧导出补偿因子拉回 stride-1 的幅度尺度（图 6 实测对齐）。特征尺度不漂移，后端看到的特征分布才不会因降档而系统性偏移。这个补偿依赖也是调度器 Priority 1 存在的原因。
+      - heading "创新三：动态并行处理——优先级为补偿依赖而设" [level=3] [ref=f5e146]
+      - generic [ref=f5e147]:
+        - img [ref=f5e148]:
+          - generic [ref=f5e149]: 滤波调度（图 8 的 12 帧例子）：STRIDES = [0,0,0,1,1,2,2,2,1,1,0,0]
+          - generic [ref=f5e150]:
+            - generic [ref=f5e152]: f0 ✕
+            - generic [ref=f5e154]: f1 ✕
+            - generic [ref=f5e156]: f2 ✕
+            - generic [ref=f5e158]: f3 · P3
+            - generic [ref=f5e160]: f4 · P1
+            - generic [ref=f5e162]: f5 · P2
+            - generic [ref=f5e164]: f6 · P2
+            - generic [ref=f5e166]: f7 · P2
+            - generic [ref=f5e168]: f8 · P1
+            - generic [ref=f5e170]: f9 · P3
+            - generic [ref=f5e172]: f10 ✕
+            - generic [ref=f5e174]: f11 ✕
+          - generic [ref=f5e175]: stride=0 的帧已被跳掉，不进队列；P1 帧被拆成 (2,[f])(1,[f]) 成组任务——同帧完成两种运算且必须先于相邻 stride-2 帧完成，否则补偿链断裂
+          - generic [ref=f5e176]:
+            - generic [ref=f5e178]: Priority 1（最高）：stride-1 且邻接 stride-2
+            - generic [ref=f5e179]: f4、f8 —— 供出 STE 补偿因子，成组派发
+            - generic [ref=f5e181]: Priority 2：stride-2 帧
+            - generic [ref=f5e182]: f5、f6、f7 —— 等补偿因子就位后处理
+            - generic [ref=f5e184]: Priority 3：孤立 stride-1
+            - generic [ref=f5e185]: f3、f9 —— 无邻居依赖，可独立处理
+          - generic [ref=f5e186]: 三个优先级栈拼成单一 Priority_Queue，SCHEDULING 循环取最高优先级任务派给空闲模块——目标是任何时刻没有模块空闲、也没有单模块成为瓶颈。
+          - generic [ref=f5e188]: Algorithm 1 两段式求解：P1 找 m_min（第一个满足 latency ≤ Taudio/N 的模块数，解可行性）
+          - generic [ref=f5e189]: P2 找 m_opt（能耗凸曲线最低点，解能效）——latency(m)/energy(m) 来自硬件实测而非解析模型
+        - paragraph [ref=f5e190]: 调度不是泛泛的负载均衡：优先级结构直接服务于特征补偿的依赖关系。能耗凸性的机理：延迟随 m 次线性下降（边际收益递减）× 功耗随活跃模块数近线性上升 = 能耗先降后升，必有最低点——这给 Algorithm 1 的局部搜索提供了理论保证。
+    - generic [ref=f5e191]:
+      - paragraph [ref=f5e192]: §03 · 实验结果
+      - heading "算法到版级功耗的完整证据链" [level=2] [ref=f5e193]
+      - generic [ref=f5e195]:
+        - heading "设置与平台" [level=3] [ref=f5e196]
+        - paragraph [ref=f5e197]: GSCD（65,000 条 1s / 16kHz，10 词 + silence + unknown 共 12 类，8:1:1 划分，噪声集增强）；帧长 16ms、40 个梅尔滤波器组；三个后端覆盖三类主流轻量架构：TC-ResNet8（时序卷积）、DS-CNN（深度可分离）、KWT-1（自注意力）。硬件：Verilog RTL 参数化滤波簇（1 ≤ m ≤ 30）集成进 50MHz RISC-V Rocket 核 + 64KB SRAM + µNoC 互连的边缘处理器；Kintex Ultrascale+ FPGA 验证功能，NCSU 45nm PDK 综合测功耗。
+        - paragraph [ref=f5e198]: 指标五件套互为硬约束：准确率（1.4% 损失及格线）、延迟（N 通道实时 = latency ≤ Taudio/N，Taudio=32ms 实测基线）、能耗（45nm 功耗仿真 + 空闲期功率门控假设）、剩余帧比例（度量缩减强度）、资源占用（LUT/FF/mW）。
+      - generic [ref=f5e199]:
+        - img [ref=f5e200]:
+          - generic [ref=f5e201]: 三层减法复利（摘要/引言/V-B 三处一致）：总工作量降到 37.3%，平均削减 62.73%
+          - generic [ref=f5e203]: 100.00%
+          - generic [ref=f5e204]: 原始工作量
+          - generic [ref=f5e206]: 75.10%
+          - generic [ref=f5e207]: 半重叠分帧后
+          - generic [ref=f5e209]: "-24.9% 冗余滤波"
+          - generic [ref=f5e211]: 49.25%
+          - generic [ref=f5e212]: 跳帧后
+          - generic [ref=f5e214]: "-34.42% 噪声主导帧"
+          - generic [ref=f5e216]: 37.30%
+          - generic [ref=f5e217]: stride-2 后
+          - generic [ref=f5e219]: "-24.2% 次要帧降档"
+          - generic [ref=f5e220]: 三层机制相互独立、连乘生效——不是单点优化；光靠 62.73% 缩减仍撑不起 3 通道以上实时，并行是第二只轮子
+        - paragraph [ref=f5e221]: 消融的一致性是亮点：跳帧阈值在三个架构不同的后端上收敛到同一最优点（th1 = 0.56·max(STE)，砍 34.42%）；变步长阈值最优 th2 = 0.5·max(Sframe)（再砍 24.2%）——阈值选择对模型鲁棒。但注意两级预算不同（0.3% vs 0.5% 精度损失），论文未解释为何分配不同额度。
+      - generic [ref=f5e222]:
+        - img [ref=f5e223]:
+          - generic [ref=f5e224]: 精度代价（表 3，GSCD 12 类 %）：三个后端全部掉分 <1%，低于 1.4% 业界及格线
+          - generic [ref=f5e225]: "94"
+          - generic [ref=f5e226]: "95"
+          - generic [ref=f5e227]: "96"
+          - generic [ref=f5e228]: "97"
+          - generic [ref=f5e229]: "98"
+          - generic [ref=f5e231]: "96.35"
+          - generic [ref=f5e233]: "95.43"
+          - generic [ref=f5e234]: "-0.92"
+          - generic [ref=f5e235]: TC-ResNet8
+          - generic [ref=f5e237]: "97.13"
+          - generic [ref=f5e239]: "96.22"
+          - generic [ref=f5e240]: "-0.91"
+          - generic [ref=f5e241]: DS-CNN
+          - generic [ref=f5e243]: "97.28"
+          - generic [ref=f5e245]: "96.48"
+          - generic [ref=f5e246]: "-0.80"
+          - generic [ref=f5e247]: KWT-1
+          - generic [ref=f5e249]: 全重叠 IIR 基线
+          - generic [ref=f5e251]: ASAP-FE
+          - generic [ref=f5e252]: 结论对模型族不敏感：时序卷积 / 深度可分离 CNN / 自注意力三条路线的掉分几乎一致（0.80~0.92）
+        - paragraph [ref=f5e253]: 横向读数：ASAP-FE 96.48% 追平流式 IIR 的 96.49%、超过 MFCC 基线 96.1%、大幅超过分段式的 92.5%——精度没有为并行付出代价。但论文只报 12 类准确率，没有误触发率/漏检率；监控场景恰恰对误报极其敏感，0.9 个百分点在误报上的放大效应未评估。
+      - generic [ref=f5e254]:
+        - img [ref=f5e255]:
+          - generic [ref=f5e256]: 延迟 vs 滤波模块数 m（图 11a，单 FE pass，ms，柱高对数刻度）：m ≥ 23 即可实时支撑 32 通道
+          - generic [ref=f5e257]: 8 通道预算 4ms
+          - generic [ref=f5e258]: 16 通道预算 2ms
+          - generic [ref=f5e259]: 32 通道预算 1ms
+          - generic [ref=f5e261]: "11.97"
+          - generic [ref=f5e262]: m=1
+          - generic [ref=f5e263]: ▸ 2 通道
+          - generic [ref=f5e265]: "6.21"
+          - generic [ref=f5e266]: m=2
+          - generic [ref=f5e267]: ▸ 4 通道
+          - generic [ref=f5e269]: "3.35"
+          - generic [ref=f5e270]: m=4
+          - generic [ref=f5e271]: ▸ 8 通道
+          - generic [ref=f5e273]: "1.92"
+          - generic [ref=f5e274]: m=8
+          - generic [ref=f5e275]: ▸ 16 通道
+          - generic [ref=f5e277]: "0.99"
+          - generic [ref=f5e278]: m=23
+          - generic [ref=f5e279]: ▸ 32 通道
+          - generic [ref=f5e281]: "0.88"
+          - generic [ref=f5e282]: m=30
+          - generic [ref=f5e283]: 基线全重叠单通道一遍要 32 ms；62.73% 数据缩减把 m=1 的延迟先打到 11.97 ms，并行再压到 1 ms 以内
+          - generic [ref=f5e284]: 延迟随 m 次线性下降（边际收益递减）——这正是能耗出现凸形最低点的机理来源
+          - generic [ref=f5e285]: 换算桥梁：N 通道实时 ⟺ latency(m) ≤ T
+        - subscript [ref=f5e286]: audio
+        - text: /N，T
+        - subscript [ref=f5e287]: audio
+        - text: = 32 ms
+        - paragraph [ref=f5e288]: 能效甜点（图 11b）：能耗随 m 先降后升，实测最低点 m=15——30.4 nJ / 1.25 ms，恰好卡进 25 通道预算（32/25 = 1.28 ms，余量仅 30µs）。需要超过 25 通道时 m_min 本身就是最优。⚠ 注意：图 11(b) 上标注的各通道能耗（13590/7570/6060/5050/4040 nJ）与正文 30.4 nJ 相差约三个数量级，论文未说明口径——读图以正文为准并保留疑问。
+      - generic [ref=f5e289]:
+        - heading "硬件代价（表 2，m=15 配置）" [level=3] [ref=f5e290]
+        - paragraph [ref=f5e291]: 整处理器 56,772 LUT / 52,212 FF / 39.5 mW。其中 ASAP-FE 本体 22,725 LUT / 16,119 FF / 10.9 mW——约占 LUT 的 40%、FF 的 30.9%、总功耗的 27.6%（其余大头：RISC-V Rocket 核 10.84 mW、系统互连 10.96 mW）。论文坦承开销不小，但 m=15 换来最多 25 通道实时能力；参数化设计允许按通道数和功耗预算自行裁剪 m。
+    - generic [ref=f5e292]:
+      - paragraph [ref=f5e293]: §04 · 主要贡献
+      - heading "五条可转述的判断" [level=2] [ref=f5e294]
+      - generic [ref=f5e296]:
+        - generic [ref=f5e297]:
+          - generic [ref=f5e298]: "1"
+          - text: 半重叠 IIR 分帧为并行重新设计 IIR 分帧：保留音素转移线索的同时比全重叠少约 25% 冗余滤波——化解"分段丢信息、全重叠浪费算力"的两难（Table I 中唯一并行可行）。
+        - generic [ref=f5e299]:
+          - generic [ref=f5e300]: "2"
+          - text: 稀疏感知数据缩减跳帧（STE 阈值）+ 变步长（ZCC/幅度差得分阈值）两级粒度裁剪，附带抗混叠低通与 STE 补偿两个必要补丁，再砍约 50%；两级最优点在三个后端模型上一致。
+        - generic [ref=f5e301]:
+          - generic [ref=f5e302]: "3"
+          - text: 动态并行处理的形式化P1（最小模块数，解可行性）+ P2（能耗最优，解能效）两段子问题 + 优先级调度（Priority 1 由 STE 补偿依赖驱动）——且用硬件实测的 latency(m)/energy(m) 取代解析模型做决策。
+        - generic [ref=f5e303]:
+          - generic [ref=f5e304]: "4"
+          - text: 全栈验证Verilog RTL 参数化滤波簇（1≤m≤30）→ RISC-V Rocket 处理器集成 → FPGA 原型 → 45nm 综合功耗——算法到版级功耗的完整证据链在 KWS 前端工作中少见。
+        - generic [ref=f5e305]:
+          - generic [ref=f5e306]: "5"
+          - text: 系统级数字平均工作量削减 62.73%（三层连乘，三处引用一致）；最多 32 通道实时（m≥23）；25 通道以内能效最优（m=15，30.4 nJ / 1.25 ms/pass）；三个后端精度损失全部 <1%，低于 1.4% 阈值。
+    - generic [ref=f5e307]:
+      - paragraph [ref=f5e308]: §05 · 局限性与展望
+      - heading "吞吐层面的多通道，不是声学层面的" [level=2] [ref=f5e309]
+      - generic [ref=f5e311]:
+        - generic [ref=f5e312]:
+          - heading "方法的技术局限" [level=4] [ref=f5e313]
+          - list [ref=f5e314]:
+            - listitem [ref=f5e315]: 阈值依赖整段最大值：th1/th2 以每条输入自身的 max(STE)/max(Sframe) 归一——算最大值要先看到整段。离线 1 秒片段没问题，流式监控里"先有鸡还是先有蛋"；论文未讨论在线估计方案。
+            - listitem [ref=f5e316]: 得分权重纯经验：α=1、β=0.5 无敏感性分析；换远场、强噪声、不同采样率的数据域后是否仍优未知。
+            - listitem [ref=f5e317]: stride-2 的高频损伤靠补偿兜底：奈奎斯特减半对 /s/、/t/ 类宽带瞬态的潜在损伤只靠 STE 补偿对冲；连续大片 stride-2 区域的边界校准质量未单独评估。
+            - listitem [ref=f5e318]: 能耗模型带假设：基于"空闲期可完全功率门控"，门控切换开销与漏电恢复成本未计入。
+            - listitem [ref=f5e319]: 只治前端：多通道下后端分类器负载同样 ×N，端到端系统延迟未报告。
+            - listitem [ref=f5e320]: 半重叠参数不透明：重叠比例/跳步毫秒数未给出，复现需反推。
+        - generic [ref=f5e321]:
+          - heading "实验设计的不足" [level=4] [ref=f5e322]
+          - list [ref=f5e323]:
+            - listitem [ref=f5e324]: 多通道是"复用"而非"真实阵列"：所有实验用 GSCD 单通道近讲数据；32 通道 = 32 路独立输入塞进同一加速器分时处理。没有真实多麦克风阵列、没有通道间相关噪声/混响/波束形成——"多通道 KWS"只在吞吐层面成立，声学层面未被检验。
+            - listitem [ref=f5e325]: 无能耗口径的正面 SOTA 对比：Table I 只比精度；与 MFCC 硬件加速器没有能耗正面对比，62.73% 也只相对 IIR 前端自身基线。
+            - listitem [ref=f5e326]: 仿真而非流片：功耗来自 45nm 综合仿真；Fig.11(b) 图上标注与正文 30.4 nJ 的量级矛盾未澄清。
+            - listitem [ref=f5e327]: 平均值掩盖最坏情况：62.73% 是平均削减；说话密集段跳帧率低、负载接近上限——最坏情况是否满足 Taudio/N 未报告，而这正是实时系统的生死线。
+            - listitem [ref=f5e328]: 只报准确率：无误触发率/漏检率，监控场景对误报极敏感。
+      - generic [ref=f5e329]:
+        - heading "下一步的五个方向（论文展望 + 笔者判断）" [level=3] [ref=f5e330]
+        - paragraph [ref=f5e331]: ① 在线自适应阈值：滑动窗口最大值或指数滑动平均替代整段 max，把稀疏感知缩减真正移植到流式管线——产品化的第一道坎。 ② 前后端联合优化：把帧级稀疏信号传给分类器做动态计算（帧丢弃感知训练、early-exit、按帧重要性分配后端算力），让 FE 的省电传导到整条链路。 ③ 真实阵列 + 通道间冗余：在真实多麦克风远场数据上重校 th1/th2 与 α/β；多通道高度相关帧可共享计算（同帧联合降档），有望在 62.73% 之上再砍一层。 ④ 更激进的数值压缩：滤波簇已是定点整数，可叠加低比特量化或近似乘法。 ⑤ 工艺与场景伸缩：先进节点流片验证 30.4 nJ 绝对水平；把 m_min/m_opt 两段式配置方法推广到会议拾音、工业声学监测等多路音频场景。
+    - contentinfo [ref=f5e332]:
+      - paragraph [ref=f5e333]: 论文精读 · 可视化版 · 2025 №7 · ASAP-FE 多通道 KWS 特征提取前端（中央大学 / ETRI / USC，ISLPED 2025）
+      - paragraph [ref=f5e334]: 数据来源：论文 Table I–III、图 2–11（经由本库深读笔记核对）。图表坐标由脚本从论文原表计算生成。
+      - generic [ref=f5e335]:
+        - link "📄 深读笔记" [ref=f5e336] [cursor=pointer]:
+          - /url: /papers/2025/ASAP-FE_Energy-Efficient_Feature_Extraction_Enabling_Multi-Channel_Keyword_Spotting_On_Edge_Processors.md
+        - link "📕 PDF 原稿" [ref=f5e337] [cursor=pointer]:
+          - /url: /papers/2025/ASAP-FE_Energy-Efficient_Feature_Extraction_Enabling_Multi-Channel_Keyword_Spotting_On_Edge_Processors.pdf
+        - link "🔗 arXiv:2506.14657" [ref=f5e338] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2506.14657
+        - link "← 返回论文库" [ref=f5e339] [cursor=pointer]:
+          - /url: /

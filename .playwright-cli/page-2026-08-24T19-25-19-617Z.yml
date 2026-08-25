@@ -1,0 +1,270 @@
+- generic [active] [ref=f104e1]:
+  - navigation [ref=f104e2]:
+    - generic [ref=f104e3]:
+      - generic [ref=f104e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f104e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f104e6]:
+        - link "深读笔记" [ref=f104e7] [cursor=pointer]:
+          - /url: /papers/2024/MM-KWS_Multi-modal_Prompts_For_Multilingual_User-defined_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f104e8] [cursor=pointer]:
+          - /url: /papers/2024/MM-KWS_Multi-modal_Prompts_For_Multilingual_User-defined_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f104e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2406.07310
+  - generic [ref=f104e10]:
+    - banner [ref=f104e11]:
+      - paragraph [ref=f104e12]: 论文精读 · 可视化版 · 2024 №20
+      - heading "文本当锚、语音当修正：双模板注册， 缺谁都能跑、有谁就更准" [level=1] [ref=f104e13]: 文本当锚、语音当修正：双模板注册，缺谁都能跑、有谁就更准
+      - paragraph [ref=f104e14]: "MM-KWS: Multi-modal Prompts for Multilingual User-defined Keyword Spotting"
+      - paragraph [ref=f104e15]: 作者：Zhiqi Ai（艾志琦）、Zhiyong Chen、Shugong Xu（徐树公）—— 上海大学
+      - paragraph [ref=f104e16]: 发表：2024.06 · arXiv:2406.07310 · 代码与数据开源
+      - generic [ref=f104e17]:
+        - generic [ref=f104e18]: 文本 + 语音双模板注册
+        - generic [ref=f104e19]: 冻结多语言预训练组
+        - generic [ref=f104e20]: QTAM / QAAM 双注意力
+        - generic [ref=f104e21]: 单元级辅助监督
+        - generic [ref=f104e22]: 四路难例挖掘 + ZS-TTS
+        - generic [ref=f104e23]: WenetPhrase 基准
+        - generic [ref=f104e24]: 在线 3.9M / 6ms
+      - generic [ref=f104e25]:
+        - heading "一分钟版本" [level=2] [ref=f104e26]
+        - list [ref=f104e27]:
+          - listitem [ref=f104e28]: 两条路线各自拿掉了对方的长处：QbyA（语音注册）信息贴近真实发音但注册贵、怕信道 / 噪声 / 说话状态变化——1 条注册时 SPC Acc 崩到 69.0%；QbyT（文本注册）便宜稳定但丢掉说话人实际发音——口音用户音素发错显著伤害性能。
+          - listitem [ref=f104e29]: 方案：注册端做成「文本 + 语音」双模板且都可缺省——查询支路 Tiny Conformer（在线）；支持支路三个冻结多语言预训练模型（DistilBERT 文本 768d + G2P 音素 64d + XLS-R 0.3B 语音 1024d → mapper 统一 128d），注册嵌入只预计算一次、推理时查表——大模型不在关键路径上，这就是「多模态 + 大模型 + 6ms 延迟」能同时成立的全部秘密。
+          - listitem [ref=f104e30]:
+            - text: 匹配：QTAM（查询+音素+文本三路拼接自注意力）与 QAAM（查询+注册语音）并行 → GRU 后验加性融合（文本为主、语音为辅）；辅助损失 L
+            - subscript [ref=f104e31]: phon
+            - text: /L
+            - subscript [ref=f104e32]: text
+            - text: 给注意力提供单元级密集监督——消融里贡献最大（去掉后 LH EER 9.30→12.95）。
+          - listitem [ref=f104e33]: 结果：英语 LH 难集 EER 9.30%（3.9M 参数登顶，反超 109M 的 AdaKWS-Small 的 11.48）；普通话 WH 上 ASR 系统 AUC 全贴随机线（56-58%）而 MM-KWS 85.84%、延迟 6ms 对 300ms；零样本 SPC：纯文本注册（94.4%）已胜 QbyA 用 5 条语音（90.5%），方差还小一个量级。
+          - listitem [ref=f104e34]: 难例挖掘四路：音素编辑距离（音近）+ 语义余弦（义近）+ 词序排列 + LLM 生成 → ZS-TTS 合成 390 万条双语负例——LH EER 12.45→9.30 的主要功臣；代价诚实：易集轻微退化（LE 0.41→0.68、WE 1.95→4.25）——决策边界推向保守侧的权衡。
+          - listitem [ref=f104e35]: 成色缺口：普通话 WH 最好 EER 仍 22.06%（声调是硬骨头）；融合是最朴素加性（无置信度门控）；口音假设无专项评测；流式 / 6ms 测量条件未报告。
+    - generic [ref=f104e36]:
+      - paragraph [ref=f104e37]: §01 · 问题陈述
+      - heading "把「关键词是什么」从模型参数搬到推理时的输入端" [level=2] [ref=f104e38]
+      - generic [ref=f104e40]: 四代方案与量化死穴：① LVCSR 词格检索——表外词性能骤降 + 端侧太重；② 热词增强 ASR——FunASR 带热词表 300ms / Whisper-Large 316ms 单次推理（对常驻监听不可接受）；③ QbyA——1 条注册语音时 SPC Acc(close) 仅 69.0%（注册信息太少性能崩塌）；④ QbyT（CMCD / EMKWS / PhonMatchNet / AdaKWS）——单文本模态固有软肋：只告诉模型「标准上该怎么发音」，不知道「这个用户实际会怎么发音」。四个挑战：双模态融合成统一注册机制（不是二选一）；同一套系统覆盖多语言（英 + 普通话，不重训）；针对性提升易混词区分（UDKWS 错误主要来源）；融合多模态 + 多个大模型的同时把在线开销压到 6ms。
+    - generic [ref=f104e41]:
+      - paragraph [ref=f104e42]: §02 · 方法论
+      - heading "离线大模型特征 + 在线小模型匹配的解耦" [level=2] [ref=f104e43]
+      - generic [ref=f104e45]:
+        - img [ref=f104e46]:
+          - generic [ref=f104e47]: Figure 1 复绘：双支路架构 + 推理经济学 + 两阶段难例增强
+          - generic [ref=f104e49]: 查询支路（在线）
+          - generic [ref=f104e51]: Tiny Conformer（6 层 / 128 维 / 4 头）
+          - generic [ref=f104e52]: 卷积分支抓辅音瞬态 · 注意力分支做全局对齐
+          - generic [ref=f104e53]: → 查询语音嵌入 E_a^q ∈ R^(T×128)
+          - generic [ref=f104e54]: 在线路径合计 3.9M 参数、延迟 6ms
+          - generic [ref=f104e56]: 支持支路（冻结，注册时预计算一次）❄
+          - generic [ref=f104e58]: 多语言 DistilBERT
+          - generic [ref=f104e59]: 文本嵌入 768 维
+          - generic [ref=f104e61]: 多语言 G2P
+          - generic [ref=f104e62]: 音素嵌入 64 维
+          - generic [ref=f104e64]: XLS-R (0.3B, 18 层)
+          - generic [ref=f104e65]: 注册语音嵌入 1024 维 → mapper 统一 128 维
+          - generic [ref=f104e67]: 模式提取器 + 判别器
+          - generic [ref=f104e68]: QTAM：查询+音素+文本 三路拼接自注意力
+          - generic [ref=f104e69]: QAAM：查询+注册语音 两路自注意力
+          - generic [ref=f104e70]: GRU → P_t / P_a → 加性融合 sigmoid
+          - generic [ref=f104e71]: （文本为主、语音为辅——最朴素融合）
+          - generic [ref=f104e72]: + 位置编码 e_pos + 模态类型编码 e_type
+          - generic [ref=f104e74]: 辅助监督：L_total = L_utt + L_phon + L_text
+          - generic [ref=f104e75]: 句子级标签下注意力内部怎么对齐是自由的、不可解释的；
+          - generic [ref=f104e76]: 单元级监督把联合嵌入的音素位 / 词位强制编码「我被匹配上没」
+          - generic [ref=f104e77]: —— 密集中间监督直接压住易混词错误（消融最大单项）
+          - generic [ref=f104e78]: 注意力可视化（Fig.2）：正例呈清晰单调对角结构（帧→单元顺序对齐），
+          - generic [ref=f104e79]: 负例单调性消失——与 DTW 殊途同归但允许软性变形，不是黑箱相似度
+          - generic [ref=f104e80]: 为什么选注意力不选 DTW/孪生：DTW 只能单调对齐；孪生压成定长向量丢帧级对应；
+          - generic [ref=f104e82]: 两阶段难例增强（MM-KWS* 的来源）
+          - generic [ref=f104e83]: 阶段一 · 四路负例生成：① 音素编辑距离（音近负例）
+          - generic [ref=f104e84]: ② DistilBERT 语义余弦（义近）③ 词序排列 ④ LLM 批量生成
+          - generic [ref=f104e85]: ——四类覆盖不同出错机理（声学混淆/语义混淆/顺序/真实分布）
+          - generic [ref=f104e86]: 阶段二 · ZS-TTS 合成：150 万英语 + 240 万普通话
+          - generic [ref=f104e87]: ——比真人录音便宜一个量级、可控制发音难度分布
+          - generic [ref=f104e88]: 代价：合成-真实域差未评估；难集收益换易集轻微退化
+        - paragraph [ref=f104e89]: 图 A·多语言策略藏在选型里：DistilBERT / G2P / XLS-R 都是多语言预训练模型，没为中文或英文分别训练任何组件——切换语言只换词表和发音词典，「多语言能力从预训练模型继承而非从 KWS 数据学」。每个输入嵌入叠加位置编码（防置换不变性把 "ni hao" 与 "hao ni" 混同）+ 模态类型编码（防注意力把音素和子词当同一种 token 混着对齐）——给每帧发「工牌 + 座位号」。
+      - generic [ref=f104e90]:
+        - text: P
+        - subscript [ref=f104e91]: utt
+        - text: = σ( W
+        - subscript [ref=f104e92]: u
+        - text: ·(P
+        - subscript [ref=f104e93]: utt
+        - superscript [ref=f104e94]: t
+        - text: + P
+        - subscript [ref=f104e95]: utt
+        - superscript [ref=f104e96]: a
+        - text: ) + b
+        - subscript [ref=f104e97]: u
+        - text: )； L
+        - subscript [ref=f104e98]: total
+        - text: = L
+        - subscript [ref=f104e99]: utt
+        - text: + L
+        - subscript [ref=f104e100]: phon
+        - text: + L
+        - subscript [ref=f104e101]: text
+        - generic [ref=f104e102]: 人话：两路后验简单相加再线性 sigmoid——没有学自适应权重（注册语音质量差时应自动降权 QAAM——可改进点），梯度自己校准两路相加后的量程。融合之简单与消融效果之稳形成有趣对照。
+    - generic [ref=f104e103]:
+      - paragraph [ref=f104e104]: §03 · 实验结果
+      - heading "难集才是前沿；识别式系统在普通话音近词上集体失效" [level=2] [ref=f104e105]
+      - generic [ref=f104e107]: 数据三司其职：LibriPhrase（英语主场）+ WenetPhrase（本文新建普通话基准：WenetSpeech 1000h 强制对齐切分，12.2 万训练类 / 5.4 万测试类 / 290 万样本，按 LibriPhrase 划 WE/WH——例：锚点「宁愿」难负例「庭院、行院、情愿」）+ SPC（零样本跨库：训练 LibriPhrase 直测 SPC，检验预训练特征是否把任务从数据分布解耦）。训练预算克制：4×4090、Adam、4 万步——算力主要花在数据合成而非模型训练。
+      - generic [ref=f104e108]:
+        - img [ref=f104e109]:
+          - generic [ref=f104e110]: Table 1 · LibriPhrase 难集 LH：EER%（越低越好），标注参数量
+          - generic [ref=f104e111]: "10"
+          - generic [ref=f104e112]: "20"
+          - generic [ref=f104e113]: "30"
+          - generic [ref=f104e114]: "40"
+          - generic [ref=f104e116]: Triplet
+          - generic [ref=f104e117]: N/A
+          - generic [ref=f104e118]: "44.36"
+          - generic [ref=f104e120]: Whisper-Tiny
+          - generic [ref=f104e121]: 39M
+          - generic [ref=f104e122]: "33.04"
+          - generic [ref=f104e124]: CMCD
+          - generic [ref=f104e125]: 0.7M
+          - generic [ref=f104e126]: "32.90"
+          - generic [ref=f104e128]: EMKWS
+          - generic [ref=f104e129]: 3.7M
+          - generic [ref=f104e130]: "23.36"
+          - generic [ref=f104e132]: Whisper-Small
+          - generic [ref=f104e133]: 224M
+          - generic [ref=f104e134]: "21.45"
+          - generic [ref=f104e136]: Whisper-Large
+          - generic [ref=f104e137]: 1550M
+          - generic [ref=f104e138]: "19.57"
+          - generic [ref=f104e140]: PhonMatchNet
+          - generic [ref=f104e141]: 0.7M
+          - generic [ref=f104e142]: "18.82"
+          - generic [ref=f104e144]: CED
+          - generic [ref=f104e145]: 3.6M
+          - generic [ref=f104e146]: "14.40"
+          - generic [ref=f104e148]: AdaKWS-Tiny
+          - generic [ref=f104e149]: 15M
+          - generic [ref=f104e150]: "13.47"
+          - generic [ref=f104e152]: MM-KWS
+          - generic [ref=f104e153]: 3.9M
+          - generic [ref=f104e154]: "12.45"
+          - generic [ref=f104e156]: AdaKWS-Small
+          - generic [ref=f104e157]: 109M
+          - generic [ref=f104e158]: "11.48"
+          - generic [ref=f104e160]: MM-KWS* ★
+          - generic [ref=f104e161]: 3.9M
+          - generic [ref=f104e162]: "9.30"
+          - generic [ref=f104e163]: MM-KWS* 以 3.9M 参数全面登顶（LH AUC 96.25）；LE 易集基本被打穿（EER 0.41%）——难集才是真正的前沿
+        - paragraph [ref=f104e164]: 表 1 复绘·按 LH EER 升序。参数量标注在名称下方：MM-KWS* 以 3.9M 登顶（96.25 AUC / 9.30 EER），反超 109M 的 AdaKWS-Small（11.48）——差距来自多模态注册与难例增强而非堆参数。Whisper-Small 参数量在本表为 224M（Table 2b 写 244M，论文内部不一致）。
+      - generic [ref=f104e165]:
+        - img [ref=f104e166]:
+          - generic [ref=f104e167]: Table 2b · WenetPhrase（普通话难集 WH）：识别式系统集体失效，检测式拉开 27 点
+          - generic [ref=f104e168]: "50"
+          - generic [ref=f104e169]: "70"
+          - generic [ref=f104e170]: "90"
+          - generic [ref=f104e171]: 随机线 50
+          - generic [ref=f104e172]: WH AUC %（越高越好）
+          - generic [ref=f104e174]: "56.5"
+          - generic [ref=f104e175]: Whisper-Tiny
+          - generic [ref=f104e176]: 延迟 102ms
+          - generic [ref=f104e178]: "57.3"
+          - generic [ref=f104e179]: Whisper-Small
+          - generic [ref=f104e180]: 延迟 183ms
+          - generic [ref=f104e182]: "56.5"
+          - generic [ref=f104e183]: Whisper-Large
+          - generic [ref=f104e184]: 延迟 316ms
+          - generic [ref=f104e186]: "58.3"
+          - generic [ref=f104e187]: FunASR
+          - generic [ref=f104e188]: 延迟 300ms
+          - generic [ref=f104e190]: "83.7"
+          - generic [ref=f104e191]: MM-KWS
+          - generic [ref=f104e192]: 延迟 6ms
+          - generic [ref=f104e194]: "85.8"
+          - generic [ref=f104e195]: MM-KWS* ★
+          - generic [ref=f104e196]: 延迟 6ms
+          - generic [ref=f104e197]: 诚实的代价
+          - generic [ref=f104e198]: · ASR 系 AUC 全贴随机线
+          - generic [ref=f104e199]: （56-58%）——普通话音近词
+          - generic [ref=f104e200]: （同声调不同字 / 近声韵）对
+          - generic [ref=f104e201]: 识别式是灾难级难题
+          - generic [ref=f104e202]: · 难例增强换难集收益、易集退化：
+          - generic [ref=f104e203]: WE EER 1.95→4.25、LE 0.41→0.68
+          - generic [ref=f104e204]: （决策边界推向保守侧）
+          - generic [ref=f104e205]: · WH 绝对值仍低：最好 EER 22.06%
+          - generic [ref=f104e206]: ——声调区分是普通话的硬骨头
+        - paragraph [ref=f104e207]: 表 2b 复绘·红色虚线为随机线（AUC 50）——四个 ASR 系统全部贴线，连带热词表的 FunASR 也只有 58.31：普通话音近词对识别式是灾难级难题。MM-KWS 在 WH 拉开 27 点以上、延迟只有对方 1/50（6ms 对 300ms）。右栏为「增强换难集收益、易集退化」的诚实账单。
+      - generic [ref=f104e208]:
+        - img [ref=f104e209]:
+          - generic [ref=f104e210]: Table 3 · 零样本 SPC（训练 LibriPhrase、测试 SPC）：纯文本注册已胜 5 条语音注册
+          - generic [ref=f104e211]: "60"
+          - generic [ref=f104e212]: "70"
+          - generic [ref=f104e213]: "80"
+          - generic [ref=f104e214]: "90"
+          - generic [ref=f104e216]: "69.0"
+          - generic [ref=f104e218]: "66.0"
+          - generic [ref=f104e219]: QbyA · 1 条语音
+          - generic [ref=f104e220]: 方差 ±1.67
+          - generic [ref=f104e222]: "90.5"
+          - generic [ref=f104e224]: "80.6"
+          - generic [ref=f104e225]: QbyA · 5 条语音
+          - generic [ref=f104e226]: 方差 ±0.53
+          - generic [ref=f104e228]: "94.4"
+          - generic [ref=f104e230]: "88.4"
+          - generic [ref=f104e231]: MM-KWS · 0 条（纯文本）★
+          - generic [ref=f104e232]: 方差 ±0.18
+          - generic [ref=f104e234]: "95.2"
+          - generic [ref=f104e236]: "90.6"
+          - generic [ref=f104e237]: MM-KWS · 1 条语音
+          - generic [ref=f104e238]: 方差 ±0.17
+          - generic [ref=f104e240]: Acc(close)
+          - generic [ref=f104e242]: Acc(open)
+        - paragraph [ref=f104e243]: 表 3 复绘·零样本 = 训练 LibriPhrase 直测 SPC。最关键的读数：MM-KWS 的「最差输入模式」（纯文本 0 条语音 94.4）胜过 QbyA 的「充分输入模式」（5 条语音 90.5），且方差 ±0.18 对 ±1.67 小一个量级——文本锚点带来的不只是均值提升还有稳定性。
+      - generic [ref=f104e244]: 消融（Table 4，LH EER：完整 9.30）：① 辅助损失贡献最大——去掉 12.95（+3.65），单元级密集监督是难例区分刚需；② 易混词生成次之——去掉 12.45（+3.15），但 LE 反而好转到 0.41——增强是难集换易集的权衡；③ 语音支路贡献最小但稳定为正——去掉 10.41（+1.11）：朗读无明显口音数据上文本通路已承担大部分判别，语音通路的边际价值要到口音场景兑现——而论文恰没做口音评测（消融结论外推的边界）。自洽性加分：「去掉易混词生成」行与 Table 1 的 MM-KWS 行完全一致。未拆：音素 vs 文本嵌入各自贡献、LLM vs 规则负例占比、非零样本的注册条数曲线。
+    - generic [ref=f104e245]:
+      - paragraph [ref=f104e246]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f104e247]
+      - generic [ref=f104e249]:
+        - generic [ref=f104e250]:
+          - generic [ref=f104e251]: "1"
+          - text: 双模板可缺省的鲁棒结构多模态不是锦上添花而是「缺谁都能跑、有谁就更准」——纯文本注册已胜单模态的充分语音输入，方差还小一个量级。
+        - generic [ref=f104e252]:
+          - generic [ref=f104e253]: "2"
+          - text: 大模型离线跑、小模型在线跑注册嵌入一次预取 + 查表复用——0.3B 编码器不在关键路径上，「多模态 + 大模型 + 6ms」同时成立的解耦模式可迁移。
+        - generic [ref=f104e254]:
+          - generic [ref=f104e255]: "3"
+          - text: 单元级辅助监督是对齐学习的刚需句子级标签下注意力对齐自由不可解释；音素 / 词级密集监督给联合嵌入装上「被匹配没」的指示——消融最大单项。
+        - generic [ref=f104e256]:
+          - generic [ref=f104e257]: "4"
+          - text: 检测式 ≠ 识别式Whisper 全系在 LH 挣扎、普通话 WH 贴随机线——「识别得好」不等于「能区分音近词」；难集才是 UDKWS 的真前沿。
+    - generic [ref=f104e258]:
+      - paragraph [ref=f104e259]: §05 · 局限性与展望
+      - heading "普通话难集 EER 仍 22%；口音假设没有直接检验" [level=2] [ref=f104e260]
+      - generic [ref=f104e262]:
+        - generic [ref=f104e263]:
+          - heading "方法局限" [level=4] [ref=f104e264]
+          - list [ref=f104e265]:
+            - listitem [ref=f104e266]: 难集绝对性能不高：WH 最好 AUC 85.84 / EER 22.06——声韵调微差、同调近音距实用差距明显。
+            - listitem [ref=f104e267]: 增强换易集退化：LE 0.41→0.68、WE 1.95→4.25——缺自适应难度 curriculum 或按例加权。
+            - listitem [ref=f104e268]: 融合过于朴素：加性融合无置信度门控——注册语音质量差时应自动降权 QAAM。
+            - listitem [ref=f104e269]: 离线依赖仍重：注册侧要跑 XLS-R + DistilBERT + G2P +（可选）ZS-TTS——注册算力门槛未量化；论文自认端侧部署是未完成事项。
+            - listitem [ref=f104e270]: 合成域差未评估：390 万负例全来自 ZS-TTS——是否学到「合成声学特征」捷径无分析。
+            - listitem [ref=f104e271]: 无流式方案：Conformer 与注意力按整句处理；6ms 测量条件（输入长度 / 硬件）未报。
+        - generic [ref=f104e272]:
+          - heading "实验设计不足" [level=4] [ref=f104e273]
+          - list [ref=f104e274]:
+            - listitem [ref=f104e275]: 口音假设未直接检验：核心动机是「语音模板修正口音」，但无带口音标注的评测集（非母语英语 / 方言普通话）——只有「加 1 条语音涨点」的间接暗示。
+            - listitem [ref=f104e276]: 消融覆盖不全：QTAM 内部三输入无两两消融；LLM vs 规则负例占比未拆。
+            - listitem [ref=f104e277]: 零样本对照单薄：只比了一个 QbyA 基线——零样本优势多少来自多模态、多少来自预训练特征本身不可分。
+            - listitem [ref=f104e278]: 超参不完整：学习率 / 批大小 / WenetPhrase 切分比例未报；Whisper-Small 参数量两表不一致（224M vs 244M）。
+            - listitem [ref=f104e279]: 延迟口径缺失：未说明注册侧还是查询侧、输入多长、什么硬件——只能相对比较。
+      - generic [ref=f104e280]: 值得追的方向：① 论文自指：统一单模型多语言框架（去拼装依赖）+ 端侧轻量化；② 加性融合升级为置信度自适应门控 + 注册语音质量估计——让语音通路权重随质量与说话人匹配度动态变化（可能有免费收益）；③ 普通话难集引入声调显式建模（声调嵌入）或对比式声调难例挖掘——WH 22.06% 说明现有音素表示对声调区分不够；④ 真实录音回灌 / 合成-真实混合训练 + 难度分级 curriculum 缓解易集退化；⑤ 口音 / 远场 / 噪声专项评测把核心卖点放到数据上验证 + 流式化查询支路（下采样 Conformer / 缓存式注意力）；⑥ LLM 角色从「批量造词」扩展到「按用户误触发日志定向造难例」——部署在环的难例闭环。
+    - contentinfo [ref=f104e281]:
+      - generic [ref=f104e282]:
+        - link "深读笔记" [ref=f104e283] [cursor=pointer]:
+          - /url: /papers/2024/MM-KWS_Multi-modal_Prompts_For_Multilingual_User-defined_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f104e284] [cursor=pointer]:
+          - /url: /papers/2024/MM-KWS_Multi-modal_Prompts_For_Multilingual_User-defined_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f104e285] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2406.07310
+        - link "返回总目录" [ref=f104e286] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f104e287]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table 1-4 / Figure 1-2 / 式 1-7）。

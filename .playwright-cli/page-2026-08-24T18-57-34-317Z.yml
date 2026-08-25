@@ -1,0 +1,200 @@
+- generic [active] [ref=f92e1]:
+  - navigation [ref=f92e2]:
+    - generic [ref=f92e3]:
+      - generic [ref=f92e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f92e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f92e6]:
+        - link "深读笔记" [ref=f92e7] [cursor=pointer]:
+          - /url: /papers/2024/Frequency_Channel_Attention_Network_For_Small_Footprint_Noisy_Spoken_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f92e8] [cursor=pointer]:
+          - /url: /papers/2024/Frequency_Channel_Attention_Network_For_Small_Footprint_Noisy_Spoken_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f92e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2407.19834
+  - generic [ref=f92e10]:
+    - banner [ref=f92e11]:
+      - paragraph [ref=f92e12]: 论文精读 · 可视化版 · 2024 №14
+      - heading "雷声在低频、DTMF 是窄带——噪声是频率选择性的， 注意力也该做到频点粒度" [level=1] [ref=f92e13]: 雷声在低频、DTMF 是窄带——噪声是频率选择性的，注意力也该做到频点粒度
+      - paragraph [ref=f92e14]: Frequency & Channel Attention Network for Small Footprint Noisy Spoken Keyword Spotting（FCA-Net）
+      - paragraph [ref=f92e15]: 作者：Yuanxi Lin、Yuriy E. Gapanyuk —— 鲍曼莫斯科国立技术大学
+      - paragraph [ref=f92e16]: 发表：APSIPA ASC 2024 · arXiv:2407.19834
+      - generic [ref=f92e17]:
+        - generic [ref=f92e18]: C2D 通道×频点注意力
+        - generic [ref=f92e19]: ConvMixer 骨干 119K
+        - generic [ref=f92e20]: +0.45% MACs
+        - generic [ref=f92e21]: 课程式多条件训练
+        - generic [ref=f92e22]: 0dB 92.65%
+        - generic [ref=f92e23]: 反超 45 倍大的 Transformer
+      - generic [ref=f92e24]:
+        - heading "一分钟版本" [level=2] [ref=f92e25]
+        - list [ref=f92e26]:
+          - listitem [ref=f92e27]: 核心张力：常驻 KWS 要小（119K 级）+ 抗噪（真实场景嘈杂）；而小网络容量小、直接学高噪声样本「学不动」。社区在「准」和「快」上卷了多年，抗噪被系统性忽略。
+          - listitem [ref=f92e28]: 被忽视的物理事实：SE/ECA 都是纯通道注意力——一个通道一个标量权重，而加性噪声在物理上是频率选择性的（雷声集中低频、DTMF 窄带、喇叭有基频簇）——粒度与噪声分布不匹配。
+          - listitem [ref=f92e29]: 方案（C2D）：特征图先沿时间维全局平均池化 → 得 C×F 通道-频率平面 → 两个 2D 卷积生成权重 → sigmoid 门控后逐元素乘回原特征（时间维广播）。「先池化后卷积」把注意力分支从三维降到二维——粒度只损失时间维（恰对噪声不敏感），频率维完整保留，开销仅 +0.45% MACs。
+          - listitem [ref=f92e30]: 位置消融的意外发现：C2D 单点插入（前/后卷积段）反而劣化（0dB 89.08/89.02 对骨干 90.62）——只有逐残差块插入（all）才有效（92.65）；SE 在所有位置都不如不加。注意力不是万能药，插错位置是毒药。
+          - listitem [ref=f92e31]: 结果：119K / 22.3M MACs，GSC V2-12 干净 98.25%（小模型最高）；0dB 92.65%（超 BC-ResNet-6 5.17 点）；噪声下反超 45 倍参数的 KWT-3 达 8.68 点——自注意力对扰动的敏感在强噪下暴露，卷积局部偏置 + 频率粒度注意力更稳。
+          - listitem [ref=f92e32]: 成色缺口：注意力静态（整句共享一组权重，非平稳噪声有天花板）；闭集分类无误触发指标；只有加性噪声无混响（「远场」声称不完整）；单次训练无方差；正文两个总结性数字（2-3%、7.4%）与 Table I 对不上。
+    - generic [ref=f92e33]:
+      - paragraph [ref=f92e34]: §01 · 问题陈述
+      - heading "「粒度-开销-位置」三重约束下的设计搜索" [level=2] [ref=f92e35]
+      - generic [ref=f92e37]: 三条线索的缺口：① 主流小脚印架构（DNN→ResNet→TC-ResNet→BC-ResNet→MatchboxNet）的优化目标几乎都是干净集准确率 + 计算效率——抗噪被系统性忽略；② 噪声混合训练 + 课程学习（逐步加噪）有改善但高噪下仍不够；③ 轻量注意力与噪声鲁棒 KWS 的结合仍是空白——直接前身 ConvMixer 的 mixer 提供全局通道交互，缺廉价的局部选择机制。笔记补充的隐含批评：SE/ECA 每通道一个标量，不管哪个频段被污染都整体下调——与噪声的频率选择性物理分布不匹配。三重约束：粒度细到「哪个通道的哪个频段可信」；开销小到不撑爆 119K 模型；插入位置与 ConvMixer 残差块兼容。
+    - generic [ref=f92e38]:
+      - paragraph [ref=f92e39]: §02 · 方法论
+      - heading "全局 mixer 管组织，局部细粒度注意力管选择" [level=2] [ref=f92e40]
+      - generic [ref=f92e42]:
+        - img [ref=f92e43]:
+          - generic [ref=f92e44]: Fig.1 复绘：ConvMixer 骨干 + C2D 机制 + 四个插入位置变体
+          - generic [ref=f92e46]: MFCC 特征
+          - generic [ref=f92e47]: 40 系数 · 1s 窗
+          - generic [ref=f92e50]: 前卷积段 ×3（核 5/7/1）
+          - generic [ref=f92e51]: pre 位置 ◆
+          - generic [ref=f92e54]: ConvMixer 块 ×4（时间核 9→15，滤波器 64→8）
+          - generic [ref=f92e55]: 每块后插 C2D ★ all 位置 · 漏斗设计
+          - generic [ref=f92e58]: 后卷积段 ×3（核 17/19/1）
+          - generic [ref=f92e59]: post 位置 ◆ → Linear+Sigmoid 12 类
+          - generic [ref=f92e61]: C2D 的三步（式 5-7）
+          - generic [ref=f92e62]: ① 时间维全局平均池化：z(c,f) = (1/T)Σ X(c,f,t)
+          - generic [ref=f92e63]: → C×F 通道-频率平面（「这句里该通道该频段的平均能量」）
+          - generic [ref=f92e64]: ② 平面过两个 2D 卷积 + BN/ReLU → sigmoid → ω（C×F）
+          - generic [ref=f92e65]: ③ X′ = ω ⊙ X，ω 沿时间维广播——整句共享一组权重
+          - generic [ref=f92e67]: 两个精妙的设计选择
+          - generic [ref=f92e68]: · 为什么只沿时间池化？SE/ECA 把整个图压成 C 维向量（频率也平均掉）；
+          - generic [ref=f92e69]: C2D 保留频率维 = 保留噪声定位能力；池化换来平移不变性
+          - generic [ref=f92e70]: · 为什么 2D 卷积生成权重？C×F 平面上相邻通道/频点强局部相关
+          - generic [ref=f92e71]: （梅尔滤波器本身重叠）——卷积参数只与核大小相关，
+          - generic [ref=f92e72]: 与 (C×F)² 的全连接完全不同量级
+          - generic [ref=f92e74]: 课程式多条件训练（沿用 Ng 等）：四阶段逐步加难
+          - generic [ref=f92e75]: · [clean] → [clean, 0] → [clean, 0, −5] → [clean, 0, −5, −10]，各条件均匀分布、clean 每阶段都保留（防遗忘干净性能——V2-12 拿 98.25% 的原因之一）
+          - generic [ref=f92e76]: · 为什么小网络需要课程：一上来 −10dB 混合训练，损失曲面被噪声扰得崎岖——小模型易收敛到「区分信噪比」而非「区分词」的捷径解；先建干净表征锚点再围绕它微调
+          - generic [ref=f92e77]: · 配套增强：±100ms 平移、时/频掩码（宽 25）、0/−5/−10dB 加噪、mixup 0.2、Adam + 阶梯衰减与余弦退火热重启并行（论文未解释如何叠加）
+        - paragraph [ref=f92e78]: 图 A·骨干的漏斗设计：浅层多通道窄感受野（64 滤波器 / 时间核 9）编码局部频谱模式，深层少通道宽上下文（8 滤波器 / 核 15）组装语义词级证据。式 4 的三路求和（x + y₁ + f₃(y₂)）是渐进式残差——任何一路学不好都不阻断梯度，对小网络尤其重要：注意力保持「增益」而非「替换」性质。消融发现 pre/post 单点插入劣化的机理（笔记推断）：纯卷积流水线上单点插入造成特征分布突发重整，破坏后续层适配；而残差节点上的注意力被结构「缓冲」。
+      - generic [ref=f92e79]:
+        - text: z(c,f) = (1/T) Σ
+        - subscript [ref=f92e80]: t
+        - text: X(c,f,t)； ω = σ(Conv2(ReLU(BN(Conv1(z)))))； X′ = ω ⊙ X（时间维广播）
+        - generic [ref=f92e81]: 人话：能表达「第 37 个通道在 500-800Hz 不可信、但在 2-4kHz 可信」——雷声污染低频段时只压低频段，不像通道标量把整个通道连没被污染的频段一起下调。开销低的关键：注意力分支先在 T 维压缩，后续卷积都在 C×F 小平面上——与主干在 C×F×T 大立方体上的卷积相比九牛一毛。
+    - generic [ref=f92e82]:
+      - paragraph [ref=f92e83]: §03 · 实验结果
+      - heading "噪声越强增益越大——机制起作用的证据" [level=2] [ref=f92e84]
+      - generic [ref=f92e86]: 数据与协议：GSC V2（105K 条 / 35 词 / 1s）12 类（10 命令词 + silence + unknown 吞 25 词）；MUSAN 噪声 930 文件 ≈ 6h（DTMF / 雷声 / 喇叭）加噪至 20 / 0 / −5 / −10 dB。九个对比模型全部用官方源码在同一环境重训。缺口：MUSAN 的 train/test 噪声文件是否不相交未报告（若重叠则噪声泛化被高估）；无误触发率 / DET / 真机延迟功耗（闭集准确率代理了开集检测）。
+      - generic [ref=f92e87]:
+        - img [ref=f92e88]:
+          - generic [ref=f92e89]: Table I · 准确率随噪声等级变化：噪声越强，小模型的频率粒度注意力越值钱
+          - generic [ref=f92e90]: "50"
+          - generic [ref=f92e91]: "60"
+          - generic [ref=f92e92]: "70"
+          - generic [ref=f92e93]: "80"
+          - generic [ref=f92e94]: "90"
+          - generic [ref=f92e95]: "100"
+          - generic [ref=f92e96]: Clean
+          - generic [ref=f92e97]: 20dB
+          - generic [ref=f92e98]: 0dB
+          - generic [ref=f92e99]: "-5dB"
+          - generic [ref=f92e100]: "-10dB"
+          - generic [ref=f92e137]: MHAtt-RNN 784K
+          - generic [ref=f92e138]: KWT-3 5,361K
+          - generic [ref=f92e139]: AST-Tiny 5,805K
+          - generic [ref=f92e140]: BC-ResNet-6 202K
+          - generic [ref=f92e141]: ConvMixer 119K
+          - generic [ref=f92e142]: FCA-Net 119K ★
+          - generic [ref=f92e143]: （同名模型在左侧曲线对应色）
+          - generic [ref=f92e144]: 三组关键读数
+          - generic [ref=f92e145]: · 小模型组内全胜：119K 干净 98.25%（V2-12）
+          - generic [ref=f92e146]: 最高；0dB 超 BC-ResNet-6 5.17 点
+          - generic [ref=f92e147]: · 交叉反超：KWT-3 参数 45 倍、干净更高，
+          - generic [ref=f92e148]: 但 0dB 落后 FCA-Net 8.68 点
+          - generic [ref=f92e149]: · MHAtt-RNN 衰减 27.85 点 vs FCA-Net 16.56
+          - generic [ref=f92e150]: —— 曲线整体被压平
+          - generic [ref=f92e151]: 开销：FCA-Net 119K 参数 / 22.3M MACs（骨干 22.2M，注意力仅 +0.45%）；KWT-3 526.3M、AST-Tiny 782.2M、ResNet-15 961.2M
+        - paragraph [ref=f92e152]: 表 I 复绘·九模型在同一数据环境用官方源码重训。未入图的三个：KWT-1（607K，介于 MHAtt 与 KWT-3 之间）、ResNet-15（238K/961.2M MACs，−10dB 66.73%）、MatchboxNet（140K，−10dB 62.35%）。V2-12 官方测试集：FCA-Net 98.25 / KWT-3 98.54 / BC-ResNet 98.20。
+      - generic [ref=f92e153]:
+        - img [ref=f92e154]:
+          - generic [ref=f92e155]: Table II · 注意力类型 × 插入位置 全交叉消融（0 dB 与 −10 dB 准确率 %）
+          - generic [ref=f92e156]: "75"
+          - generic [ref=f92e157]: "80"
+          - generic [ref=f92e158]: "85"
+          - generic [ref=f92e159]: "90"
+          - generic [ref=f92e160]: 骨干（无注意力）0dB = 90.62
+          - generic [ref=f92e162]: "89.4"
+          - generic [ref=f92e163]: ECA 77.0
+          - generic [ref=f92e165]: "89.7"
+          - generic [ref=f92e166]: SE 75.2
+          - generic [ref=f92e168]: "89.1"
+          - generic [ref=f92e169]: C2D 75.9
+          - generic [ref=f92e170]: pre（前卷积段）
+          - generic [ref=f92e172]: "90.8"
+          - generic [ref=f92e173]: ECA 78.1
+          - generic [ref=f92e175]: "89.6"
+          - generic [ref=f92e176]: SE 76.8
+          - generic [ref=f92e178]: "89.0"
+          - generic [ref=f92e179]: C2D 75.6
+          - generic [ref=f92e180]: post（后卷积段）
+          - generic [ref=f92e182]: "91.9"
+          - generic [ref=f92e183]: ECA 80.0
+          - generic [ref=f92e185]: "89.8"
+          - generic [ref=f92e186]: SE 76.4
+          - generic [ref=f92e188]: "92.7"
+          - generic [ref=f92e189]: C2D 80.4
+          - generic [ref=f92e190]: all（逐块插入）★
+          - generic [ref=f92e192]: "91.1"
+          - generic [ref=f92e193]: ECA 78.3
+          - generic [ref=f92e195]: "90.0"
+          - generic [ref=f92e196]: SE 76.8
+          - generic [ref=f92e198]: "91.2"
+          - generic [ref=f92e199]: C2D 78.4
+          - generic [ref=f92e200]: final（分类层前）
+          - generic [ref=f92e202]: ECA（免降维 1D 卷积）
+          - generic [ref=f92e204]: SE（通道标量）
+          - generic [ref=f92e206]: C2D（通道×频点）★
+          - generic [ref=f92e207]: 柱 = 0dB 准确率；柱下灰字 = −10dB。三个发现：SE 所有位置都不如不加；C2D 单点插入（pre/post）反而劣化——只有与残差块逐级耦合（all）才有效；噪声越强增益越大 = 注意力学到了频率选择性抑制
+        - paragraph [ref=f92e208]: 表 II 复绘·骨干 = 无注意力 ConvMixer（119K）。SE 在所有位置都不如不加——它的降维瓶颈（C→C/r→C 的 FC）既引入参数又把频率信息全部池化掉，等于用开销买负收益：通用涨点模块迁移到小脚印 KWS 不能照抄。ECA-final 在 20dB 轻噪下小胜 all 位置（96.09 对 95.99）——噪声环境明确时可按噪声水平选插入策略的工程旋钮。
+      - generic [ref=f92e209]: 两处正文-表格对不上（以 Table I 为准）：正文称「相对其他小模型提升约 2-3%」——干净 V2-12 实际只 +0.05 点，2-3 点差距出现在噪声档（0dB +2.03 / −10dB +2.93 对 ConvMixer）；「与内存相近模型相比最多提升 7.4%」逐格核对无法复现（最接近的 7.46 是跨信噪比比较，不合理）。错误率视角（笔记推算）：0dB 下 FCA-Net 错误率 7.35% 对 ConvMixer 9.38%（相对降 21.6%）、对 BC-ResNet-6 12.52%（相对降 41.3%）。C2D-all 相对骨干增益 Clean +0.64 / 0dB +2.03 / −10dB +2.93——噪声越强增益越大的单调趋势直接支持「注意力学到了频率选择性抑制」（若是普通特征重标定，增益应与噪声等级无关）。
+    - generic [ref=f92e210]:
+      - paragraph [ref=f92e211]: §04 · 主要贡献
+      - heading "可转述的三个判断（笔记总评：小而准的工程论文）" [level=2] [ref=f92e212]
+      - generic [ref=f92e214]:
+        - generic [ref=f92e215]:
+          - generic [ref=f92e216]: "1"
+          - text: 粒度要么不做，要做就做到频率维通道级标量注意力（SE）在 119K 小模型上所有位置都负收益；C2D 用 2D 卷积把权重做到 C×F，+0.45% MACs 换频率特异性重标定。
+        - generic [ref=f92e217]:
+          - generic [ref=f92e218]: "2"
+          - text: 注意力必须与残差结构逐级耦合插在纯卷积流水线单点会破坏特征分布适配；逐块插入获得级联噪声过滤效应——3×4 位置消融是多数注意力论文欠的那一课。
+        - generic [ref=f92e219]:
+          - generic [ref=f92e220]: "3"
+          - text: 噪声收益要按 SNR 分档报告增益随噪声增强而放大才是机制层面起作用的证据——若只是普通重标定，增益应与噪声等级无关。
+        - generic [ref=f92e221]:
+          - generic [ref=f92e222]: "4"
+          - text: 小模型反超大模型的条件119K 卷积 + 频率粒度注意力在 0dB 反超 45 倍参数的 KWT-3 达 8.68 点——自注意力对输入扰动的敏感在强噪下暴露，局部归纳偏置更稳。
+    - generic [ref=f92e223]:
+      - paragraph [ref=f92e224]: §05 · 局限性与展望
+      - heading "静态注意力对非平稳噪声有天花板；「远场」没做混响" [level=2] [ref=f92e225]
+      - generic [ref=f92e227]:
+        - generic [ref=f92e228]:
+          - heading "方法局限" [level=4] [ref=f92e229]
+          - list [ref=f92e230]:
+            - listitem [ref=f92e231]: 注意力静态：整句共享一组 C×F 权重——突发敲击、人声干扰、间歇机械噪声等非平稳噪声下有明确天花板；时间维换开销的设计只在平稳噪声下够用。
+            - listitem [ref=f92e232]: 闭集与真实部署有距离：12 类里 unknown 吞 25 词，只需区分 unknown 与 10 命令词；真实唤醒词面对任意开集音频，虚警指标全文未报。
+            - listitem [ref=f92e233]: 输出层 Linear+Sigmoid 处理 12 类单标签非常规——sigmoid 不归一化、与交叉熵的配合未讨论。
+            - listitem [ref=f92e234]: 只有加性噪声：真实远场的主导退化是卷积性混响（RIR），与加噪机理不同——零混响实验，「远场」声称支撑不完整。
+        - generic [ref=f92e235]:
+          - heading "实验设计不足" [level=4] [ref=f92e236]
+          - list [ref=f92e237]:
+            - listitem [ref=f92e238]: 单一数据集：全在 GSC V2（英语 / 1s / 35 词），无跨数据集与多语言验证。
+            - listitem [ref=f92e239]: 噪声划分未说明：MUSAN 930 文件既用于训练又（推测）用于测试加噪——若重叠，噪声泛化被高估。
+            - listitem [ref=f92e240]: 无统计显著性：单次训练无方差——0.3-0.6 点级差异（如 ECA-final 与 ECA-post 20dB 的 95.85 对 95.83）可能落在随机波动内。
+            - listitem [ref=f92e241]: 两个总结数字对不上表（2-3% / 7.4%）。
+            - listitem [ref=f92e242]: 课程学习未单独消融：其独立贡献只能回溯 Ng 等原文。
+            - listitem [ref=f92e243]: 细节缺失：C2D 卷积核大小 / 通道数、SE 降维比 r、ECA 核函数 Ψ 均未报告；22.3M MACs 停在纸面，无真机延迟 / 内存 / 功耗。
+      - generic [ref=f92e244]: 值得追的方向：① 时间维动态注意力——把全局平均池化换轻量时间建模（1D 卷积 / 分组池化），ω 变 C×F×T′ 分帧权重专攻非平稳噪声，开销可借 ECA 自适应核思想；② 混响联合仿真——MUSAN 加噪之上叠 RIR 卷积做实「远场」，课程从 SNR 单轴扩到 SNR×混响时间双轴；③ 开集评估（每小时误触发 / DET / 嵌入距离拒识）对齐产品指标；④ 量化（int8/低比特）+ 剪枝 + 流式推理的真机 always-on 验证与实测功耗；⑤ C2D 迁移到 BC-ResNet / MatchboxNet 等骨干检验「逐残差块插入细粒度注意力」是否普遍规律，扩展到麦克风阵列的通道选择；⑥ 课程学习独立消融 + 动态课程（数据参数法）与 C2D 的组合上限。
+    - contentinfo [ref=f92e245]:
+      - generic [ref=f92e246]:
+        - link "深读笔记" [ref=f92e247] [cursor=pointer]:
+          - /url: /papers/2024/Frequency_Channel_Attention_Network_For_Small_Footprint_Noisy_Spoken_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f92e248] [cursor=pointer]:
+          - /url: /papers/2024/Frequency_Channel_Attention_Network_For_Small_Footprint_Noisy_Spoken_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f92e249] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2407.19834
+        - link "返回总目录" [ref=f92e250] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f92e251]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table I-II / Fig. 1、4 / 式 1-7）；「笔记推断 / 推算」标注处为笔记给出的分析与核对。

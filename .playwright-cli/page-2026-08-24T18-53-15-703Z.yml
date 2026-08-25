@@ -1,0 +1,253 @@
+- generic [active] [ref=f91e1]:
+  - navigation [ref=f91e2]:
+    - generic [ref=f91e3]:
+      - generic [ref=f91e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f91e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f91e6]:
+        - link "深读笔记" [ref=f91e7] [cursor=pointer]:
+          - /url: /papers/2024/End-to-End_User-Defined_Keyword_Spotting_Using_Shifted_Delta_Coefficients.md
+        - link "PDF 原稿" [ref=f91e8] [cursor=pointer]:
+          - /url: /papers/2024/End-to-End_User-Defined_Keyword_Spotting_Using_Shifted_Delta_Coefficients.pdf
+        - link "arXiv" [ref=f91e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2405.14489
+  - generic [ref=f91e10]:
+    - banner [ref=f91e11]:
+      - paragraph [ref=f91e12]: 论文精读 · 可视化版 · 2024 №13
+      - heading "madame 和 modem 的静态谱几乎一样， 差在元音之间的过渡轨迹——把「动态」写进特征" [level=1] [ref=f91e13]: madame 和 modem 的静态谱几乎一样，差在元音之间的过渡轨迹——把「动态」写进特征
+      - paragraph [ref=f91e14]: End-to-End User-Defined Keyword Spotting Using Shifted Delta Coefficients
+      - paragraph [ref=f91e15]: 作者：Kesavaraj V、Anuprabha M、Anil Kumar Vuppala —— IIIT Hyderabad 语音处理实验室
+      - paragraph [ref=f91e16]: 发表：2024.05 · arXiv:2405.14489
+      - generic [ref=f91e17]:
+        - generic [ref=f91e18]: 用户自定义 UDKWS
+        - generic [ref=f91e19]: SDC 移位差分系数
+        - generic [ref=f91e20]: ~230ms 长时上下文
+        - generic [ref=f91e21]: 音频感知文本嵌入（Tacotron2）
+        - generic [ref=f91e22]: LPH EER −11.42
+        - generic [ref=f91e23]: LibriPhrase
+      - generic [ref=f91e24]:
+        - heading "一分钟版本" [level=2] [ref=f91e25]
+        - list [ref=f91e26]:
+          - listitem [ref=f91e27]: 空白点：UDKWS（开集：判断「这段音频和这段文本是不是同一个词」）的前四代方案全在演进模型结构与训练策略，特征工程被集体忽视——默认沿用 MFCC / mel 谱这类短时谱（每帧只见 25ms 局部包络），帧间动态（共振峰怎么移动、音素怎么衔接）基本丢失。而区分 "madame/modem" 这类相似发音靠的恰是音素过渡的时序动态。
+          - listitem [ref=f91e28]: 方案：把语言识别（LID）领域的经典特征 SDC 首次迁入 UDKWS——在多个延迟位置堆叠一阶差分：δc(t,i) = c(t+ip+d) − c(t+ip−d)，最优配置 40-1-3-8 把每帧感受野从 25ms 拉到约 230ms（每帧 360 维 = 40 静态 + 8×40 差分）。SDC 本质是免训练、权重固定 ±1 的多分支膨胀卷积——零可学参数扩感受野，代价是聚合方式由超参锁死。
+          - listitem [ref=f91e29]: 结果：统一框架下六特征横评 SDC 四集两指标全面第一；关键战场 LPH（相似发音难负例）EER 29.8→21.48、AUC 77.21→85.90；对最强基线 CMCD：LPE 8.42→3.84、LPH 32.9→21.48；G/Q 零微调仍稳定超 CMCD 约 2% AUC / 3% EER——一次训练、任意定制词。
+          - listitem [ref=f91e30]: 消融回答两个朴素问题：① 上下文不是越长越好——k 超过 8 后新增差分块伸进相邻无关语音（噪声不是信号）且维度膨胀；② d 越小越好——d 大 = 对谱轨迹导数做时间降采样 + 跨音素边界混合。甜点 = 精准而非冗长的上下文。
+          - listitem [ref=f91e31]: 诚实的例外：关键词在训练集内的 G 集上输给注意力 QbyE（23.54 对 14.75）——见过词 + 有模板场景是 QbyE 甜区；而 QbyE 在陌生词集 Q 上崩到 49.13，反衬文本注册路线的必要性。
+          - listitem [ref=f91e32]: 成色缺口：每帧 360 维 = mel 谱 9 倍，首层计算放大 9 倍而论文零延迟 / FLOPs / 参数报告——端侧净收益存疑；缺「短时特征 + 模型侧扩感受野」对照，归因不完全；LPH EER 21.48% 离实用（约 1/5 相似负对误接受）还有距离。
+    - generic [ref=f91e33]:
+      - paragraph [ref=f91e34]: §01 · 问题陈述
+      - heading "开集任务的判别信息藏在音素过渡里，短时谱看不见" [level=2] [ref=f91e35]
+      - generic [ref=f91e37]: 四代方案与各自的坑：① LVCSR 词格检索——什么词都能搜，但解码计算巨大，与轻量常驻前端的定位矛盾；② keyword/filler HMM——定制可行但计算需求显著、工程链路重；③ QbyE（注册音频模板）——不需要文本，但性能严重依赖注册与测试语音的相似度；更致命的是难泛化到陌生词：QbyE 在见过词的 G 集上 EER 14.75%，在陌生词的 Q 集上崩到 49.13%；④ 文本注册端到端（CMCD / PhonMatchNet / 动态序列划分等）——近年主流，但精力全在模型结构和训练策略上，特征工程这个对任何语音应用都至关重要的环节被相对忽视，没人系统回答过「长时时域信息对 UDKWS 有多重要」。三个子挑战：特征层注入长时信息；上下文取多长（消融找甜点，避免「越长越好」直觉）；统一框架公平验证（换特征不换模型，归因才干净）。
+    - generic [ref=f91e38]:
+      - paragraph [ref=f91e39]: §02 · 方法论
+      - heading "LID 领域的老配方 + 音频感知的文本嵌入" [level=2] [ref=f91e40]
+      - generic [ref=f91e42]:
+        - img [ref=f91e43]:
+          - generic [ref=f91e44]: Fig.1 复绘：四模块系统（沿用作者前作，只换前端特征）+ SDC 的时间轴机制
+          - generic [ref=f91e46]: SDC 特征 ★
+          - generic [ref=f91e47]: 40-1-3-8 · 每帧 360 维
+          - generic [ref=f91e50]: 音频编码器：2×2D 卷积（32 滤波器）
+          - generic [ref=f91e51]: → 2×Bi-GRU(64) → FC → E_a ∈ R^(m×128)
+          - generic [ref=f91e53]: 文本编码器：Tacotron 2 编码器 LSTM 中间表示（512 维）★
+          - generic [ref=f91e54]: → Bi-GRU(64) → FC → E_t ∈ R^(n×128) —— TTS 预训练自带「字符→声音」先验
+          - generic [ref=f91e57]: 模式提取器：交叉注意力
+          - generic [ref=f91e58]: Q=E_t（字符），K=V=E_a（音频帧）——每字符到音频上软对齐
+          - generic [ref=f91e61]: 模式判别器：Bi-GRU(128)
+          - generic [ref=f91e62]: 末帧 → FC + sigmoid → 二分类概率
+          - generic [ref=f91e64]: SDC 的时间轴机制（d=1, p=3, k=8）
+          - generic [ref=f91e65]:
+            - generic [ref=f91e66]: t−1
+            - generic [ref=f91e67]: t
+            - generic [ref=f91e68]: t+3
+            - generic [ref=f91e69]: t+6
+            - generic [ref=f91e70]: t+9
+            - generic [ref=f91e71]: … t+22
+          - generic [ref=f91e72]: δc(t,i)=c(t+ip+d)−c(t+ip−d)：在 t、t+3、t+6 … 共 8 个位置各做一次 ±1 帧差分
+          - generic [ref=f91e73]: · 帧索引最深触到 t+7×3+1 = t+22，最浅回到 t−1：每帧聚合约 24 帧 ≈ 230ms
+          - generic [ref=f91e74]: · 差分天然编码「谱往哪个方向、多快变化」——协同发音与音素过渡的信号
+          - generic [ref=f91e75]: · 等价于一组系数固定 ±1 的多分支一维膨胀卷积：零可学参数扩感受野，
+          - generic [ref=f91e76]: 但聚合方式由超参一次性锁死（与 FSMN 可学记忆块的对照：各有取舍）
+          - generic [ref=f91e78]: 两个正交设计的归因隔离
+          - generic [ref=f91e79]: · 音频侧：底座就是最强基线 mel 谱——SDC 的提升不能归因于换了更好底座，
+          - generic [ref=f91e80]: 增量全部来自长时差分堆叠
+          - generic [ref=f91e81]: · 文本侧：Tacotron2 中间表示是「音频感知」的——文本降难度、音频增信息，
+          - generic [ref=f91e82]: 两处改进互不干扰、可分别归因
+        - paragraph [ref=f91e83]: 图 A·模型侧沿用作者前作（只换前端特征）——所有特征对比在同一框架内，归因干净。交叉注意力方向选择有明确道理：音频序列（m 帧）远长于文本序列（n 字符），让每个字符作 query 去音频帧上软对齐 = 模型自己学「这个字符对应音频哪一段」。
+      - generic [ref=f91e84]:
+        - text: δc(t,i) = c(t+ip+d) − c(t+ip−d)，0 ≤ i ≤ k−1； SDC(t) = [δc(t,0); …; δc(t,k−1)] ⊕ 静态 mel 谱； 最优配置 40-1-3-8
+        - generic [ref=f91e85]: 人话：给每一帧配一份「未来 230ms 谱轨迹」的摘要——在 8 个等距位置（步长 p=3 帧）各做一次 ±1 帧差分，堆叠成 320 维再拼 40 维静态谱。MFCC 的 Δ 只看相邻帧，SDC 把感受野拉到数百毫秒量级——与一两个音素的过渡时长同量级。
+    - generic [ref=f91e86]:
+      - paragraph [ref=f91e87]: §03 · 实验结果
+      - heading "LPH 难负例提升最大——长时差分抓的正是相似发音的判别信息" [level=2] [ref=f91e88]
+      - generic [ref=f91e90]: 数据与协议：主战场 LibriPhrase（LibriSpeech 派生，1-4 词短语；评估集 7519 个 episode，每 episode 3 正对 + 3 负对；负对按 Levenshtein 距离分易/难两档——LPH 专收发音相似的困难负对）；泛化测试：Google Commands V1（30 词）与 Qualcomm（4 词 / 50 说话人 / 4270 条）零微调直接评。指标 EER / AUC / F1（开集任务固定工作点无意义，阈值无关的 EER/AUC 才公平）。训练：25ms 窗 / 10ms 移、BCE 损失、Adam 1e-4、batch 128、4×RTX 2080 Ti。
+      - generic [ref=f91e91]:
+        - img [ref=f91e92]:
+          - generic [ref=f91e93]: Table 1 · 六种前端特征横评（EER %，越低越好；同一模型同一训练配置）
+          - generic [ref=f91e94]: "20"
+          - generic [ref=f91e95]: "28"
+          - generic [ref=f91e96]: "35"
+          - generic [ref=f91e97]: G（Google Commands）
+          - generic [ref=f91e99]: "32.24"
+          - generic [ref=f91e101]: "30.28"
+          - generic [ref=f91e103]: "27.91"
+          - generic [ref=f91e105]: "28.43"
+          - generic [ref=f91e107]: "27.40"
+          - generic [ref=f91e109]: "23.54"
+          - generic [ref=f91e110]: "8"
+          - generic [ref=f91e111]: "13"
+          - generic [ref=f91e112]: "18"
+          - generic [ref=f91e113]: Q（Qualcomm 陌生词）
+          - generic [ref=f91e115]: "12.59"
+          - generic [ref=f91e117]: "11.80"
+          - generic [ref=f91e119]: "16.70"
+          - generic [ref=f91e121]: "15.37"
+          - generic [ref=f91e123]: "14.32"
+          - generic [ref=f91e125]: "9.61"
+          - generic [ref=f91e126]: "3"
+          - generic [ref=f91e127]: "6"
+          - generic [ref=f91e128]: "9"
+          - generic [ref=f91e129]: LPE（易负例）
+          - generic [ref=f91e131]: "7.99"
+          - generic [ref=f91e133]: "6.80"
+          - generic [ref=f91e135]: "5.89"
+          - generic [ref=f91e137]: "6.58"
+          - generic [ref=f91e139]: "6.42"
+          - generic [ref=f91e141]: "3.84"
+          - generic [ref=f91e142]: "19"
+          - generic [ref=f91e143]: "25"
+          - generic [ref=f91e144]: "31"
+          - generic [ref=f91e145]: LPH（难负例·相似发音）
+          - generic [ref=f91e147]: "29.80"
+          - generic [ref=f91e149]: "27.01"
+          - generic [ref=f91e151]: "26.45"
+          - generic [ref=f91e153]: "25.22"
+          - generic [ref=f91e155]: "25.84"
+          - generic [ref=f91e157]: "21.48"
+          - generic [ref=f91e159]: MFCC
+          - generic [ref=f91e161]: MFCC+ΔΔ
+          - generic [ref=f91e163]: Mel谱
+          - generic [ref=f91e165]: PLP
+          - generic [ref=f91e167]: RASTA-PLP
+          - generic [ref=f91e169]: SDC ★
+          - generic [ref=f91e170]: SDC 四集两指标全面第一（无例外）；LPH 提升最大：EER 29.8→21.48、AUC 77.21→85.90 —— 长时差分抓的恰是区分相似发音所需的信息
+        - paragraph [ref=f91e171]: 表 1 复绘·四个数据集各按自身量程归一。两个关键读数：① MFCC+ΔΔ 相对纯 MFCC 的一致改善本身就是「时域动态有用」的证据——SDC 把这条思路推到长时尺度、增益成倍放大；② PLP / RASTA-PLP / mel 谱互有胜负归为「有竞争力的替代」，MFCC 全场垫底。
+      - generic [ref=f91e172]:
+        - img [ref=f91e173]:
+          - generic [ref=f91e174]: Table 3 · 与 SOTA 方法对比（EER %，越低越好）：除「见过词」的 G 外全面领先
+          - generic [ref=f91e175]: "10"
+          - generic [ref=f91e176]: "24"
+          - generic [ref=f91e177]: "38"
+          - generic [ref=f91e178]: G（见过词）
+          - generic [ref=f91e180]: "31.65"
+          - generic [ref=f91e182]: "14.75"
+          - generic [ref=f91e184]: "35.60"
+          - generic [ref=f91e186]: "27.25"
+          - generic [ref=f91e188]: "23.54"
+          - generic [ref=f91e189]: "5"
+          - generic [ref=f91e190]: "28"
+          - generic [ref=f91e191]: "52"
+          - generic [ref=f91e192]: Q（陌生词）
+          - generic [ref=f91e194]: "18.23"
+          - generic [ref=f91e196]: "49.13"
+          - generic [ref=f91e198]: "38.72"
+          - generic [ref=f91e200]: "12.15"
+          - generic [ref=f91e202]: "9.61"
+          - generic [ref=f91e203]: "0"
+          - generic [ref=f91e204]: "18"
+          - generic [ref=f91e205]: "35"
+          - generic [ref=f91e206]: LPE
+          - generic [ref=f91e208]: "14.67"
+          - generic [ref=f91e210]: "28.74"
+          - generic [ref=f91e212]: "32.75"
+          - generic [ref=f91e214]: "8.42"
+          - generic [ref=f91e216]: "3.84"
+          - generic [ref=f91e217]: "18"
+          - generic [ref=f91e218]: "32"
+          - generic [ref=f91e219]: "46"
+          - generic [ref=f91e220]: LPH
+          - generic [ref=f91e222]: "35.22"
+          - generic [ref=f91e224]: "41.95"
+          - generic [ref=f91e226]: "44.36"
+          - generic [ref=f91e228]: "32.90"
+          - generic [ref=f91e230]: "21.48"
+          - generic [ref=f91e232]: CTC（DONUT）
+          - generic [ref=f91e234]: Attention（QbyE）
+          - generic [ref=f91e236]: Triplet
+          - generic [ref=f91e238]: CMCD（最强基线）
+          - generic [ref=f91e240]: 本文（SDC）★
+          - generic [ref=f91e241]: 注意力 QbyE 在 G 一枝独秀（14.75，关键词在训练集内 = 模板匹配甜区），但在 Q 崩到 49.13 —— 音频模板范式对陌生词几乎不可用；
+          - generic [ref=f91e242]: 本文相对最强基线 CMCD：LPE 8.42→3.84、LPH 32.9→21.48；G/Q 零微调仍稳定超约 2% AUC / 3% EER —— 一次训练、任意定制词
+        - paragraph [ref=f91e243]: 表 3 复绘·G/Q 零微调（模型只在 LibriPhrase 上训练）。Triplet 全场垫底；CTC（DONUT）在 LPE/LPH 上明显落后于跨模态匹配路线。本文唯一没拿第一的战场是 G——QbyE 的模板匹配甜区。
+      - generic [ref=f91e244]:
+        - img [ref=f91e245]:
+          - generic [ref=f91e246]: Table 2 · 词长分层（LibriPhrase，EER %）：SDC 各词长一致增益，但都随词长退化
+          - generic [ref=f91e247]: "5"
+          - generic [ref=f91e248]: "7"
+          - generic [ref=f91e249]: "9"
+          - generic [ref=f91e252]: "7.67"
+          - generic [ref=f91e254]: "8.55"
+          - generic [ref=f91e256]: "9.05"
+          - generic [ref=f91e258]: "9.25"
+          - generic [ref=f91e261]: "5.37"
+          - generic [ref=f91e263]: "6.35"
+          - generic [ref=f91e265]: "7.24"
+          - generic [ref=f91e267]: "8.29"
+          - generic [ref=f91e268]: 1 词
+          - generic [ref=f91e269]: 2 词
+          - generic [ref=f91e270]: 3 词
+          - generic [ref=f91e271]: 4 词
+          - generic [ref=f91e272]: Mel 谱
+          - generic [ref=f91e273]: SDC（F1 增益 +3.24/+2.33/+1.81/+2.02）
+        - paragraph [ref=f91e274]: 表 2 复绘·词越长，字符序列与音频越长、交叉注意力对齐越复杂、部分匹配混淆机会越多——错误在更长序列上累积。SDC 缓解但未消除该趋势：特征级时域增强不能替代模型级对齐能力。词长 4 档仅 56 个 episode，统计置信度有限。
+      - generic [ref=f91e275]: 消融发现（Fig. 2）：① d 从 1 增到 4 单调下降——d 大 = 差分两采样点隔得远，算出的是粗粒度趋势而非精细过渡（对谱轨迹导数做时间降采样），且大 d 易跨音素边界把不同音素的谱混进一个差分；② k 从 5 到 8 一致上升、超过 8 饱和或下降——关键词的音素过渡集中在几百毫秒内，k>8 新增差分块伸进相邻无关语音（引入噪声），且每加一个 k 多 40 维加重优化负担。结论原话：关键词的可靠识别需要精准而非冗长的上下文。未消融：p 与 N（p=3 只有结果无论证）。一个诚实观察：论文声称选 mel 谱做底座因「比所有其他短时特征都好」，但 Q 集上 MFCC+ΔΔ 的 EER/AUC 都优于 mel 谱——表述与自家数据有轻微出入。
+    - generic [ref=f91e276]:
+      - paragraph [ref=f91e277]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f91e278]
+      - generic [ref=f91e280]:
+        - generic [ref=f91e281]:
+          - generic [ref=f91e282]: "1"
+          - text: 特征级长时信息首次论证LID 领域的 SDC 迁入 UDKWS（该方向首次探索）：感受野 25ms→230ms，LPH 上 EER −8.32 / AUC +8.69——长时差分抓的恰是相似发音判别所需。
+        - generic [ref=f91e283]:
+          - generic [ref=f91e284]: "2"
+          - text: 统一框架五特征横评MFCC / +ΔΔ / mel / PLP / RASTA-PLP / SDC 同模型同配置比拼——排除模型差异干扰，给后续工作一份干净的特征选型参照。
+        - generic [ref=f91e285]:
+          - generic [ref=f91e286]: "3"
+          - text: 上下文甜点 40-1-3-8d、k 双消融证明上下文长度存在最优点——回应「长时信息不是越长越好」这个容易被直觉带偏的问题。
+        - generic [ref=f91e287]:
+          - generic [ref=f91e288]: "4"
+          - text: 零微调泛化验证LibriPhrase 上训练、G/Q 零微调仍稳定超 CMCD——一次训练、任意定制词部署，对真实产品的关键含义。
+    - generic [ref=f91e289]:
+      - paragraph [ref=f91e290]: §05 · 局限性与展望
+      - heading "9 倍特征维度换来的精度，端侧净收益没算账" [level=2] [ref=f91e291]
+      - generic [ref=f91e293]:
+        - generic [ref=f91e294]:
+          - heading "方法局限" [level=4] [ref=f91e295]
+          - list [ref=f91e296]:
+            - listitem [ref=f91e297]: 维度爆炸未评估端侧代价：每帧 360 维 = mel 谱 9 倍，首层卷积输入通道翻 9 倍——参数量 / FLOPs / 延迟 / 体积论文全未报告，而 KWS 是常驻低功耗负载，端侧净收益存疑（本文与小足迹主线间最大的未答问题）。
+            - listitem [ref=f91e298]: 固定感受野不可学习：差分权重 ±1 锁死，不同词长 / 语速的最优感受野不同，只能全局折中。
+            - listitem [ref=f91e299]: 长词退化未根治：词长 4 仍 8.29% EER，与 mel 谱同向退化——特征级补丁解决不了长序列对齐。
+            - listitem [ref=f91e300]: 见过词场景不占优：G 集 23.54 明显劣于 QbyE 的 14.75——热门固定唤醒词 + 有模板时文本注册不是最优。
+            - listitem [ref=f91e301]: 绝对性能离实用有距离：LPH EER 21.48% ≈ 五分之一相似负对被误接受。
+            - listitem [ref=f91e302]: 鲁棒性零验证：全是清晰近讲语音，噪声 / 远场 / 混响 / 口音未测。
+        - generic [ref=f91e303]:
+          - heading "实验设计不足" [level=4] [ref=f91e304]
+          - list [ref=f91e305]:
+            - listitem [ref=f91e306]: 缺「模型侧长上下文」对照：没有「短时特征 + 更深 Bi-GRU / 更大卷积核 / FSMN 记忆块」的对照组——增益到底来自信息入口还是模型拿到更多信息，归因不完全（MFCC+ΔΔ 这个部分对照支持时域假说但不彻底）。
+            - listitem [ref=f91e307]: 消融只扫 d 和 k：p、N 未扫；Fig. 2 只有曲线无数值表。
+            - listitem [ref=f91e308]: 训练细节不透明：episode 数 / 正负对总数 / 训练轮数 / Tacotron2 是否冻结均未报告。
+            - listitem [ref=f91e309]: 单一运行无显著性：无多种子与置信区间；词长 4 档仅 56 个 episode——该档结论尤其脆弱。
+            - listitem [ref=f91e310]: 基线复现口径不明：Table 3 四基线是重训还是引用原文数字未说明。
+            - listitem [ref=f91e311]: 摘要数字笔误：AUC/EER 改善量与正文互相颠倒——引用以正文表格为准。
+      - generic [ref=f91e312]: 值得追的方向：① 可学习化长时前端（笔记推演）——把固定 ±1 差分核换成可学习膨胀卷积或 FSMN 式记忆块：保留「低参数扩感受野」思想、解除手工调参束缚；② 降维——320 维堆叠差分相邻块高度相关，低秩投影 / 特征选择 / 差分域 PCA 把维度拉回 mel 谱量级，并补齐效率报告；③ 与模型级改进正交组合——SDC 前端移植到 CMCD / PhonMatchNet / CTCAT 等更强匹配结构验证叠加性；④ 加噪 / 远场 / 非英语验证（SDC 在 LID 的跨语言背景暗示多语 UDKWS 可能额外受益）；⑤ 长词专项——动态序列划分或分级匹配把长词对齐交给模型侧，与特征侧长时信息互补；⑥ 论文自指的混合特征提取（多种互补前端组合）。
+    - contentinfo [ref=f91e313]:
+      - generic [ref=f91e314]:
+        - link "深读笔记" [ref=f91e315] [cursor=pointer]:
+          - /url: /papers/2024/End-to-End_User-Defined_Keyword_Spotting_Using_Shifted_Delta_Coefficients.md
+        - link "PDF 原稿" [ref=f91e316] [cursor=pointer]:
+          - /url: /papers/2024/End-to-End_User-Defined_Keyword_Spotting_Using_Shifted_Delta_Coefficients.pdf
+        - link "arXiv" [ref=f91e317] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2405.14489
+        - link "返回总目录" [ref=f91e318] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f91e319]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table 1-3 / Fig. 1-2 / 式 1-2）；「笔记推算 / 勘误」标注处为笔记给出的核对结论。

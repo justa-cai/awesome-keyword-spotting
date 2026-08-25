@@ -1,0 +1,282 @@
+- generic [active] [ref=f2e1]:
+  - navigation [ref=f2e2]:
+    - generic [ref=f2e3]:
+      - generic [ref=f2e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f2e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f2e6]:
+        - link "深读笔记" [ref=f2e7] [cursor=pointer]:
+          - /url: /papers/2025/AnalyticKWS_Towards_Exemplar-Free_Analytic_Class_Incremental_Learning_For_Small-footprint_Keyword_Spotting.md
+        - link "PDF 原稿" [ref=f2e8] [cursor=pointer]:
+          - /url: /papers/2025/AnalyticKWS_Towards_Exemplar-Free_Analytic_Class_Incremental_Learning_For_Small-footprint_Keyword_Spotting.pdf
+        - link "arXiv" [ref=f2e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2505.11817
+  - generic [ref=f2e10]:
+    - banner [ref=f2e11]:
+      - paragraph [ref=f2e12]: 论文精读 · 可视化版 · 2025 №6
+      - heading "AnalyticKWS 不存一条旧语音，遗忘被数学消灭而不是被抑制" [level=1] [ref=f2e13]: AnalyticKWS不存一条旧语音，遗忘被数学消灭而不是被抑制
+      - paragraph [ref=f2e14]: "AnalyticKWS: Towards Exemplar-Free Analytic Class Incremental Learning for Small-footprint Keyword Spotting"
+      - paragraph [ref=f2e15]: 作者：Yang Xiao（墨尔本大学 / Fortemedia）等 —— 南洋理工、华南理工联合
+      - paragraph [ref=f2e16]: 发表：2025.05 · arXiv:2505.11817
+      - generic [ref=f2e17]:
+        - generic [ref=f2e18]: 类增量学习
+        - generic [ref=f2e19]: 无回放样本
+        - generic [ref=f2e20]: 递归最小二乘
+        - generic [ref=f2e21]: 灾难性遗忘
+        - generic [ref=f2e22]: 端侧部署
+        - generic [ref=f2e23]: TC-ResNet-8
+      - generic [ref=f2e24]:
+        - heading "一分钟版本" [level=2] [ref=f2e25]
+        - list [ref=f2e26]:
+          - listitem [ref=f2e27]: 痛点：自定义唤醒词 = 标签集合持续演化。微调必灾难性遗忘（Finetune 在 SC-100 上 51 任务只剩 3.30%）；回放式要存旧语音——踩 GDPR 红线、500 条缓冲约 8M 张量元素、且类一多就崩（iCaRL 100 类从 69.3% 崩到 23.70%）。
+          - listitem [ref=f2e28]: 方案：把分类器学习整体换成递归最小二乘（Woodbury 恒等式推导）。历史知识压成一个 d×d 的 AFAM 矩阵——128 维只有 16K 元素，是回放缓冲的 1/500，且与任务数无关。
+          - listitem [ref=f2e29]: 数学保证：任意时刻的递归解与"全部任务数据一起联合岭回归"的解严格相等——遗忘不是被软约束压制，是根本没有产生的机制（BWT 低至 −0.003）。
+          - listitem [ref=f2e30]: 结果：SC-100（100 类）51 任务 87.63%，比最强回放基线高约 11 个百分点；每 epoch 训练 5~10 秒，比 RK 快约 190 倍（零反向传播、单 epoch 闭式更新）。
+          - listitem [ref=f2e31]: 代价：CNN 在任务 0 后冻结 + 线性读出 → 距联合训练上界仍差 5~7 个百分点，后期新类自身精度偏低（图 2 热图对角线 72~75%）。
+    - generic [ref=f2e32]:
+      - paragraph [ref=f2e33]: §01 · 问题陈述
+      - heading "微调必失忆，回放有三大硬伤——两边都走不通" [level=2] [ref=f2e34]
+      - generic [ref=f2e36]:
+        - heading "灾难性遗忘有多惨（表 1，Finetune 基线）" [level=3] [ref=f2e37]
+        - paragraph [ref=f2e38]: GSC-v1 上 6 任务序列平均精度剩 26.84%、21 任务剩 9.59%，SC-100 上 51 任务跌到 3.30%——模型每学一个新词就"失忆"一次。作为参照，联合训练上界是 94.93% / 94.76% / 95.32%。少样本微调路线（Awasthi 2021、Mazumder 2021 等）的代价被这个数字暴露无遗：新梯度直接覆写旧词的判别知识。
+      - generic [ref=f2e39]:
+        - img [ref=f2e40]:
+          - generic [ref=f2e41]: 两种"记忆"的对比：存数据本身 vs 存二阶统计量（第 5.3 节）
+          - generic [ref=f2e43]: 回放式（RK / DE-KWS / iCaRL / Rwalk）
+          - generic [ref=f2e44]: …
+          - generic [ref=f2e50]: 500 条旧语音波形 ≈ 8M 张量元素
+          - generic [ref=f2e51]: RK / Rwalk 还要再存一整套旧模型权重
+          - generic [ref=f2e52]: · GDPR「删除权」红线：用户语音不能留
+          - generic [ref=f2e53]: · 缓冲固定大小 → 类多则代表样本被稀释（iCaRL 崩塌根源）
+          - generic [ref=f2e54]:
+            - generic [ref=f2e56]: 500×
+            - generic [ref=f2e57]: 压缩
+          - generic [ref=f2e59]: AnalyticKWS：只存 AFAM
+          - generic [ref=f2e61]: A = (ΣSᵀS+γI)⁻¹
+          - generic [ref=f2e62]: d×d，128 维 = 16K 元素
+          - generic [ref=f2e63]: · 不存任何旧音频 / 旧 logits / 旧权重
+          - generic [ref=f2e64]: · 历史知识 = 特征二阶统计量的压缩汇总
+          - generic [ref=f2e65]: · 内存与任务数无关：51 任务还是 16K
+          - generic [ref=f2e66]: · 隐私由构造保证，不是由承诺保证
+          - generic [ref=f2e67]: 回放法的精度是"买"来的：SC-100 上缓冲 500→1000，Rwalk 76.78→84.49、DE-KWS 54.34→63.70（表 1 对比表 6）——
+          - generic [ref=f2e68]: 而 AnalyticKWS 没有缓冲这个超参数，两个表里的数字原样复现（85.77/87.99 一字不差）。
+        - paragraph [ref=f2e69]: 回放式记"数据本身"，解析式记"数据的二阶统计量"。这个差别同时解决了隐私（不留语音）、内存（1/500）和规模扩展（内存不随类数涨）三件事——EWC 这类无回放正则法则不存数据，但仍要多轮梯度训练（GSC-v1 每 epoch 373.54s，比 Finetune 还慢），对端侧同样不友好。
+    - generic [ref=f2e70]:
+      - paragraph [ref=f2e71]: §02 · 方法论
+      - heading "三阶段：梯度预训练 → 解析重校准 → 递归增量" [level=2] [ref=f2e72]
+      - generic [ref=f2e74]:
+        - img [ref=f2e75]:
+          - generic [ref=f2e76]: 训练流程三阶段（图 1）：梯度学习只发生在任务 0，之后全部闭式
+          - generic [ref=f2e77]:
+            - generic [ref=f2e79]: (a) 任务 0 · 特征预训练
+            - generic [ref=f2e81]: 40 维 MFCC
+            - generic [ref=f2e84]: TC-ResNet-8
+            - generic [ref=f2e87]: 梯度分类器
+            - generic [ref=f2e88]: 常规 SGD 多轮训练后
+            - generic [ref=f2e89]: ❄ 冻结 CNN，永不更新
+            - generic [ref=f2e90]: 冻结的三重动机：递归成立前提（历史
+            - generic [ref=f2e91]: 特征须不变）· 增量期零反传 · 隐私
+            - generic [ref=f2e93]: (b) 特征重校准（单 epoch）
+            - generic [ref=f2e95]: CNN ❄
+            - generic [ref=f2e98]: AFE 升维
+            - generic [ref=f2e101]: 解析头
+            - generic [ref=f2e102]: 梯度分类器 替换为 解析岭回归
+            - generic [ref=f2e103]: 在任务 0 数据上闭式重训一轮
+            - generic [ref=f2e104]: 保存 AFAM = A₀ 作为递归起点
+            - generic [ref=f2e105]: 这一步是「梯度范式 → 解析范式」的
+            - generic [ref=f2e106]: 切换桥梁，不做则递归公式无起点
+            - generic [ref=f2e108]: (c) 新任务 t = 1…T · 递归适配
+            - generic [ref=f2e110]: ① 前向提特征 S′ₜ（CNN 已冻结）
+            - generic [ref=f2e112]: ② 递归更新 AFAM：Aₜ = Aₜ₋₁ − Δ
+            - generic [ref=f2e114]: ③ 递归更新权重 θ̂ₜ（式 7）
+            - generic [ref=f2e115]: 单 epoch · 零反向传播 · 循环到任务 T
+          - generic [ref=f2e118]: "骨干 TC-ResNet-8：三个残差块（1D 时序卷积 + BN + ReLU），通道 {16,24,32,48}——本身就是为算力受限设备设计的小网络。"
+          - generic [ref=f2e119]: AnalyticKWS-X 的 X = AFE 之后的特征维度（128 / 256）；输入 40 维 MFCC、帧移 160 采样点（第 4.2 节）。
+        - paragraph [ref=f2e120]: 克制的系统设计：梯度学习只在任务 0 发生一次；之后所有"学习"都集中在线性读出层的闭式更新上——恰好匹配小设备"跑不动大规模梯度更新"的算力画像。
+      - generic [ref=f2e121]:
+        - text: θ̂cls
+        - superscript [ref=f2e122]: (0)
+        - text: = (S′₀ᵀS′₀ + γI)
+        - superscript [ref=f2e123]: −1
+        - text: S′₀ᵀ y₀ （式 2–3，岭回归闭式解）
+        - generic [ref=f2e124]: 分类器是纯线性的，最小二乘解不需要迭代优化、一次矩阵求逆到位——这就是"闭式解替代反向传播"的全部底气。γ 双重作用：防过拟合 + 保证 S'S + γI 严格可逆（512 维下去掉正则只微跌 89.68→89.64，但数值稳定性不能省）。
+      - generic [ref=f2e125]:
+        - img [ref=f2e126]:
+          - generic [ref=f2e127]: 核心命题：递归解 ≡ 联合解（附录 A 用 Woodbury 恒等式证明）
+          - generic [ref=f2e129]: 理想世界：联合训练
+          - generic [ref=f2e131]: 全部数据 D₀…Dₜ 一起做岭回归
+          - generic [ref=f2e132]: → θjoint（Joint 上界 94.93/94.76/95.32%）
+          - generic [ref=f2e133]: 现实中拿不到旧数据（隐私 / 内存），
+          - generic [ref=f2e134]: 这条路在端侧增量场景不存在。
+          - generic [ref=f2e135]:
+            - generic [ref=f2e136]: =
+            - generic [ref=f2e137]: 严格相等
+            - generic [ref=f2e138]: （不是 ≈）
+          - generic [ref=f2e140]: AnalyticKWS：递归，只留三样东西
+          - generic [ref=f2e142]: 旧权重 θ̂ₜ₋₁
+          - generic [ref=f2e144]: AFAM Aₜ₋₁
+          - generic [ref=f2e146]: 当前任务 S′ₜ, yₜ
+          - generic [ref=f2e147]: θ̂ₜ = θ̂ₜ₋₁ − AₜS′ₜᵀS′ₜθ̂ₜ₋₁ + AₜS′ₜᵀyₜ（式 7）
+          - generic [ref=f2e148]: 递归最小二乘（RLS）的增益修正形式：按旧权重预测当前任务，
+          - generic [ref=f2e149]: 残差经增益矩阵 Aₜ 吸收新信息；Aₜ 由 Woodbury 递推（式 8–9）
+          - generic [ref=f2e150]: 从 Aₜ₋₁ 直接算出，无需任何旧样本。
+          - generic [ref=f2e152]: 这就是"绝对记忆"（ACIL 语）：旧类知识没有被"约等于"地保留，而是被精确保留——遗忘没有产生的机制。
+          - generic [ref=f2e153]: BWT 残余的微小负值（-0.003）不是权重漂移——权重与联合解严格一致；更可能是类别数变多后旧类推理面临更多易混淆项（笔记推断，论文未展开）。
+        - paragraph [ref=f2e154]: 为什么"递归等于联合"如此关键：回放式方法用启发式（蒸馏、正则、重采样）对抗遗忘，最好的结果是"少忘一点"；解析路线让任意时刻的解在数学上就是联合解——它把遗忘问题转化成了线性代数恒等式问题。
+      - heading "AFE：随机且固定的升维，为什么不能学" [level=3] [ref=f2e155]
+      - generic [ref=f2e156]:
+        - img [ref=f2e157]:
+          - generic [ref=f2e158]: 声学特征扩展 AFE：冻结特征 → 随机高维投影 → 线性读出
+          - generic [ref=f2e159]:
+            - generic [ref=f2e161]: CNN 特征 S₀
+            - generic [ref=f2e162]: 低维，相近音素挤在一起
+            - generic [ref=f2e164]: θ_afe 随机投影
+            - generic [ref=f2e165]: 正态初始化 · 全程固定 · 不学
+            - generic [ref=f2e167]: S′₀ 高维空间
+            - generic [ref=f2e168]: 64 / 128 / 256 / 512 维
+            - generic [ref=f2e170]: 线性解析读出
+            - generic [ref=f2e171]: 闭式解 · 可递归
+          - generic [ref=f2e175]: 为什么随机固定？
+          - generic [ref=f2e176]: 学它 = 重新引入反传；
+          - generic [ref=f2e177]: 投影随任务变 = 历史
+          - generic [ref=f2e178]: 特征变 = 递归失效
+          - generic [ref=f2e179]: 升维的收益：随机高维投影等价于给线性分类器扩容，保留语音信号里更细微的区分——消融单调 +3.11（见 §03 图）。
+          - generic [ref=f2e180]: 开销可控：升维只发生在线性层，一两次矩阵乘，远比加大 CNN 便宜。
+        - paragraph [ref=f2e181]: "\"冻结随机特征 + 闭式线性读出\"是这套方案的轻量组合拳：所有学习能力集中在一层线性读出上，其余全部固定——用结构换可递归性。"
+    - generic [ref=f2e182]:
+      - paragraph [ref=f2e183]: §03 · 实验结果
+      - heading "规模越大越占优：100 类 51 任务反超回放式 11 个百分点" [level=2] [ref=f2e184]
+      - generic [ref=f2e186]:
+        - heading "实验设置：三个规模递增的数据集 × 九种任务划分" [level=3] [ref=f2e187]
+        - paragraph [ref=f2e188]: GSC-V1（30 类 64,727 条）→ GSC-V2（35 类 105,829 条，+5 词）→ SC-100（100 类 313,951 条，LibriSpeech 经 KeywordMiner 挖词切分，带精确起止时间戳）。任务切分如 GSC-v1 的 15+(5×3) 对应 T=6、SC-100 的 50+(50×1) 对应 T=51——先用 50 词做基座，再分 50 步、每步 1 个新词地增量，专门压力测试大规模增量。16kHz、80/20 划分；基线梯度训练 50 epoch/任务，AnalyticKWS 增量适配按设计只要 1 epoch。
+        - paragraph [ref=f2e189]: 指标四件套：ACC（所有已完成任务测试集的平均精度，总纲）、BWT（反向迁移，直接量化遗忘）、TT（每 epoch 训练时间，RTX 3090 实测，端侧落地分水岭）、额外内存（量化无回放红利）。带星号基线用 500 条缓冲。
+      - generic [ref=f2e190]:
+        - img [ref=f2e191]:
+          - generic [ref=f2e192]: SC-100（100 类）主对比（表 1，ACC%，缓冲 500）：任务越多，回放式越崩，无缓冲的 AnalyticKWS 几乎不掉
+          - generic [ref=f2e193]: "50"
+          - generic [ref=f2e194]: "60"
+          - generic [ref=f2e195]: "70"
+          - generic [ref=f2e196]: "80"
+          - generic [ref=f2e197]: "90"
+          - generic [ref=f2e199]: "87.99"
+          - generic [ref=f2e201]: "85.77"
+          - generic [ref=f2e203]: "76.93"
+          - generic [ref=f2e205]: "68.72"
+          - generic [ref=f2e207]: "67.71"
+          - generic [ref=f2e208]: T=11
+          - generic [ref=f2e210]: "87.85"
+          - generic [ref=f2e212]: "85.66"
+          - generic [ref=f2e214]: "77.21"
+          - generic [ref=f2e216]: "61.62"
+          - generic [ref=f2e218]: "59.78"
+          - generic [ref=f2e219]: T=26
+          - generic [ref=f2e221]: "87.63"
+          - generic [ref=f2e223]: "85.55"
+          - generic [ref=f2e225]: "76.78"
+          - generic [ref=f2e227]: "59.54"
+          - generic [ref=f2e229]: "54.34"
+          - generic [ref=f2e230]: T=51
+          - generic [ref=f2e232]: AK-256
+          - generic [ref=f2e234]: AK-128
+          - generic [ref=f2e236]: Rwalk
+          - generic [ref=f2e238]: RK
+          - generic [ref=f2e240]: DE-KWS
+          - generic [ref=f2e241]: AK-256 三个设定总共只掉 0.36 个百分点（87.99→87.63）；BWT 低至 -0.003（51 任务）——遗忘没有来源
+          - generic [ref=f2e242]: 反例：iCaRL 从 69.3% 崩到 23.70%——固定缓冲装不下 100 类的代表样本；加大缓冲到 1000 也追不上（表 6）
+          - generic [ref=f2e243]: GSC-v2 T=21：AK-256 89.50 对 DE-KWS 82.38（+7.12）；距 Joint 上界（95.32）仍差 5~7 个百分点
+        - paragraph [ref=f2e244]: 打破惯例的结果：EFCIL（无回放类增量）此前通常打不过回放式——AnalyticKWS 在三个数据集、九种划分上全面第一，且规模越大优势越大。图 2 热图还暴露了代价的另一面：旧任务保持最好（任务 1 只从 96.24 回落到 88.17），但新任务自身对角线精度偏低（任务 5、6 仅 74.86/72.12）——冻结特征 + 线性读出对后期新类的表达能力受限。
+      - generic [ref=f2e245]:
+        - img [ref=f2e246]:
+          - generic [ref=f2e247]: AFE 随机升维消融（表 3，ACC%）：单调增益 +3.11，尚未见饱和拐点
+          - generic [ref=f2e248]: "86"
+          - generic [ref=f2e249]: "87"
+          - generic [ref=f2e250]: "88"
+          - generic [ref=f2e251]: "89"
+          - generic [ref=f2e252]: "90"
+          - generic [ref=f2e254]: "86.57"
+          - generic [ref=f2e255]: 无 AFE
+          - generic [ref=f2e257]: "87.19"
+          - generic [ref=f2e258]: 64 维
+          - generic [ref=f2e260]: "88.72"
+          - generic [ref=f2e261]: 128 维
+          - generic [ref=f2e263]: "89.23"
+          - generic [ref=f2e264]: 256 维
+          - generic [ref=f2e266]: "89.68"
+          - generic [ref=f2e267]: 512 维
+          - generic [ref=f2e269]: "89.64"
+          - generic [ref=f2e270]: 512 无正则
+          - generic [ref=f2e271]: 声学特征需要升维才能喂饱线性解析分类器——相近音素/易混词的差异在低维上线性不可分
+          - generic [ref=f2e272]: 代价：AFAM 是 d×d，内存与计算随维度平方增长（所以主表只用 128/256 档）
+        - paragraph [ref=f2e273]: 消融的留白也要看见：表 3 未标注数据集与任务划分；512 维最好却没进主表（推测是端侧内存/计算权衡，论文未说明取舍理由）；γ 的取值与敏感性未报告。
+      - generic [ref=f2e274]:
+        - img [ref=f2e275]:
+          - generic [ref=f2e276]: 每 epoch 训练时间（表 2，SC-100，RTX 3090 实测秒，对数刻度）：无反传 = 快约 190 倍
+          - generic [ref=f2e277]: RK
+          - generic [ref=f2e279]: 1771.76 s
+          - generic [ref=f2e280]: DE-KWS
+          - generic [ref=f2e282]: 576.85 s
+          - generic [ref=f2e283]: Finetune
+          - generic [ref=f2e285]: 433.29 s
+          - generic [ref=f2e286]: AK-256
+          - generic [ref=f2e288]: 10.47 s
+          - generic [ref=f2e289]: AK-128
+          - generic [ref=f2e291]: 9.31 s
+          - generic [ref=f2e292]: "10"
+          - generic [ref=f2e293]: "32"
+          - generic [ref=f2e294]: "100"
+          - generic [ref=f2e295]: "316"
+          - generic [ref=f2e296]: 1k
+          - generic [ref=f2e297]: 闭式解一次到位：每个新任务只需一个 epoch 遍历（累积两组统计量），没有梯度迭代
+        - paragraph [ref=f2e298]: "\"学一个新词只要几秒且不跑反传\"是端侧能否落地的分水岭。GSC-v1 上 AK-128（5.09s）比 Finetune（262.08s）快 51 倍、比 RK（956.55s）快 188 倍——但要诚实指出：这些数字全部来自 RTX 3090，论文没有 MCU/DSP 上的实测。"
+    - generic [ref=f2e299]:
+      - paragraph [ref=f2e300]: §04 · 主要贡献
+      - heading "四条可转述的判断" [level=2] [ref=f2e301]
+      - generic [ref=f2e303]:
+        - generic [ref=f2e304]:
+          - generic [ref=f2e305]: "1"
+          - text: 解析学习第一次进语音域以递归最小二乘（Woodbury 恒等式）替代反向传播做分类器更新，数学上保证递归解 ≡ 联合解析解（附录 A 证明）——从机制上而非启发式上消除灾难性遗忘，是 ACIL/BRMP 视觉结论在语音小模型上的有效延拓。
+        - generic [ref=f2e306]:
+          - generic [ref=f2e307]: "2"
+          - text: 真正的无回放、隐私友好不存旧音频 / logits / 权重，历史知识全部压在 d×d 的 AFAM 里（128 维 16K 元素 ≈ 500 条缓冲的 1/500）；内存占用与任务数解耦，天然适配大规模类别增量（100 类 51 任务）。
+        - generic [ref=f2e308]:
+          - generic [ref=f2e309]: "3"
+          - text: 精度反超 + 开销砍两个数量级三个数据集、九种任务划分全面第一——打破"EFCIL 打不过回放式"的惯例；同时每 epoch 5~10 秒（比 RK 快约 190 倍）、零反传、单 epoch 适配。
+        - generic [ref=f2e310]:
+          - generic [ref=f2e311]: "4"
+          - text: 组件级设计有完整证据链AFE 随机固定升维带来最多 +3.11（表 3 单调增益）；"冻结随机特征 + 闭式线性读出"是小尺寸 KWS 端侧持续学习的完整可复现方案——数据划分、任务切分、基线细节正文与附录 B/C 给全。
+    - generic [ref=f2e312]:
+      - paragraph [ref=f2e313]: §05 · 局限性与展望
+      - heading "稳定性的代价是塑性" [level=2] [ref=f2e314]
+      - generic [ref=f2e316]:
+        - generic [ref=f2e317]:
+          - heading "方法的技术局限" [level=4] [ref=f2e318]
+          - list [ref=f2e319]:
+            - listitem [ref=f2e320]: CNN 一次性冻结，塑性受限：新类判别信息只能挤进"基座表示 + 随机投影 + 线性读出"这条窄通道——图 2 热图后期任务对角线仅 74.86/72.12；距 Joint 上界 5~7 个百分点主要源于此。论文自己承认需要增强快速任务切换下的可塑性。
+            - listitem [ref=f2e321]: AFE 随机且固定：投影方向不感知任务和数据分布；512 维以上是否饱和、随机性方差多大，均未报告；d 是精度-内存-计算三角权衡，主表只用 128/256 却不给选型准则。
+            - listitem [ref=f2e322]: 分类器头随类数线性增长：100 类尚可，更大规模的开销未讨论。
+            - listitem [ref=f2e323]: 线性读出的天花板：闭式解、递归等价的漂亮性质完全建立在"分类器线性"上——任何非线性化（核化、多层读出）都会破坏现有推导，向更强读出演进的数学路径尚不清晰。
+            - listitem [ref=f2e324]: 多语言 KWS 未验证：论文明确列为未探索挑战。
+        - generic [ref=f2e325]:
+          - heading "实验设计的不足" [level=4] [ref=f2e326]
+          - list [ref=f2e327]:
+            - listitem [ref=f2e328]: 骨干与特征单一：全部实验只有 TC-ResNet-8 + 40 维 MFCC 一种组合，没验证 DS-CNN、BC-ResNet 等其他小模型或特征的敏感性。
+            - listitem [ref=f2e329]: 基座任务大小未消融：GSC 10/15 类起、SC-100 50 类起——基座规模对冻结特征质量的影响与 AFE 混在一起，无对照剥离。
+            - listitem [ref=f2e330]: "\"端侧\"主张缺端侧实测：训练时间全在 RTX 3090 上测，无 MCU/DSP 的延迟、内存峰值、能耗，也无推理侧开销报告。"
+            - listitem [ref=f2e331]: 报告不完整：无多次运行方差 / 显著性检验；γ 取值与敏感性未给；表 3 未注明设置。
+            - listitem [ref=f2e332]: 小瑕疵：第 4.1 节 T=11 的划分举例与表 5 矛盾（疑笔误）；未与少样本自定义唤醒词路线（原型网络等非 CL 方法）做定位区隔。
+      - generic [ref=f2e333]:
+        - heading "下一步的五个方向（论文展望 + 笔者判断）" [level=3] [ref=f2e334]
+        - paragraph [ref=f2e335]: ① 可塑性-稳定性再平衡：在不破坏递归等价性的前提下引入轻量特征刷新（如周期性合并多任务解析统计重校准 AFE，或块递归 Moore-Penrose 逆的分块更新），让冻结表示吸收后期任务分布。 ② 更强读出函数：核化解析学习 / 分层解析结构，保住可递归性的同时突破线性瓶颈；AFE 可研究保留时频结构的分组投影替代纯随机。 ③ 多语言与跨域增量：说话人 / 信道漂移下检验 AFAM 鲁棒性。 ④ 真端侧验证：MCU / 低功耗 DSP 上量化训练时间、内存峰值、能耗，结合量化/二值化（如 BiFSMN 类方案）落到毫瓦级设备。 ⑤ 流式早决策增量：SC-100 自带词级起止时间戳，与单 epoch 前向特性结合可做"边说边学"的在线关键词注册。
+    - contentinfo [ref=f2e336]:
+      - paragraph [ref=f2e337]: 论文精读 · 可视化版 · 2025 №6 · AnalyticKWS 解析式类增量学习（墨尔本大学 / Fortemedia / 南洋理工 / 华南理工，arXiv 2025）
+      - paragraph [ref=f2e338]: 数据来源：论文表 1–6、图 1–4（经由本库深读笔记核对）。图表坐标由脚本从论文原表计算生成。
+      - generic [ref=f2e339]:
+        - link "📄 深读笔记" [ref=f2e340] [cursor=pointer]:
+          - /url: /papers/2025/AnalyticKWS_Towards_Exemplar-Free_Analytic_Class_Incremental_Learning_For_Small-footprint_Keyword_Spotting.md
+        - link "📕 PDF 原稿" [ref=f2e341] [cursor=pointer]:
+          - /url: /papers/2025/AnalyticKWS_Towards_Exemplar-Free_Analytic_Class_Incremental_Learning_For_Small-footprint_Keyword_Spotting.pdf
+        - link "🔗 arXiv:2505.11817" [ref=f2e342] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2505.11817
+        - link "← 返回论文库" [ref=f2e343] [cursor=pointer]:
+          - /url: /

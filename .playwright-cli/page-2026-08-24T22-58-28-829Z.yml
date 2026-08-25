@@ -1,0 +1,243 @@
+- generic [active] [ref=f175e1]:
+  - navigation [ref=f175e2]:
+    - generic [ref=f175e3]:
+      - generic [ref=f175e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f175e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f175e6]:
+        - link "深读笔记" [ref=f175e7] [cursor=pointer]:
+          - /url: /papers/2023/Flexible_Keyword_Spotting_Based_On_Homogeneous_Audio-Text_Embedding.md
+        - link "PDF 原稿" [ref=f175e8] [cursor=pointer]:
+          - /url: /papers/2023/Flexible_Keyword_Spotting_Based_On_Homogeneous_Audio-Text_Embedding.pdf
+        - link "arXiv" [ref=f175e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2308.06472
+  - generic [ref=f175e10]:
+    - banner [ref=f175e11]:
+      - paragraph [ref=f175e12]: 论文精读 · 可视化版 · 2023 №11
+      - heading "投影是学出来的事后补救，残差失配无法根除—— 让文本嵌入直接从音频空间里长出来：74 个音素向量的查表" [level=1] [ref=f175e13]: 投影是学出来的事后补救，残差失配无法根除——让文本嵌入直接从音频空间里长出来：74 个音素向量的查表
+      - paragraph [ref=f175e14]: Flexible Keyword Spotting Based on Homogeneous Audio-Text Embedding（CED）
+      - paragraph [ref=f175e15]: 作者：Kumari Nishu、Minsik Cho、Paul Dixon、Devang Naik —— Apple（同团队后续做了本库 2024 №34 SLiCK）
+      - paragraph [ref=f175e16]: 发表：arXiv 2308.06472（2023-08）· Libriphrase LE/LH + SC-V1 零微调 · CED 全模型 3.8M
+      - generic [ref=f175e17]:
+        - generic [ref=f175e18]: 文本注册（打字即注册）
+        - generic [ref=f175e19]: P2V 非参数查表：零投影零新增
+        - generic [ref=f175e20]: G2P 0.83M vs DistilBERT 66M
+        - generic [ref=f175e21]: 混淆关键词自动生成
+        - generic [ref=f175e22]: LH AUC 84.21→92.7
+        - generic [ref=f175e23]: SC-V1 零微调 EER −50.6%
+      - generic [ref=f175e24]:
+        - heading "一分钟版本" [level=2] [ref=f175e25]
+        - list [ref=f175e26]:
+          - listitem [ref=f175e27]: 注册方式是设计的分水岭：语音注册（QbE）要求用户亲口朗读（嘈杂环境注册质量差）、DTW 逐窗序列对齐端侧开销大、注册音频质量封死系统上限；文本注册界面友好且与低功耗流式检测兼容（注册算一次嵌入即缓存，推理路径上逐帧计算的只有音频侧）。但文本注册的双编码器路线背着两块包袱：模态异构的嵌入失配（两个独立训练的编码器处于完全不同的空间，投影层是事后补救、残差失配无法根除）与文本编码器的体积（基线用 DistilBERT 66M——比很多端侧 KWS 整模型大一个量级）。
+          - listitem [ref=f175e28]: 核心洞察：让文本与音频天然同空间（homogeneous）。音频编码器（conformer 6 层 d=144）先用 CTC 音素预测任务训练——嵌入空间被强制按音素组织（每帧嵌入都对某个音素有预测力）；随后在 Libriphrase 上取 CER=0 的 ~50K 样本，贪心解码出帧-音素区间、区间平均得局部向量、跨样本平均得全局向量——74 个音素各一个 144 维向量 = P2V 查表（≈42KB，零可训练参数）。文本链路 = G2P（0.83M 预训练）+ 查表——文本嵌入不是被投影进音频空间的客人，而是从音频空间里长出来的原生居民。
+          - listitem [ref=f175e29]: 验证器的时序先验：音频嵌入 × 文本嵌入的余弦矩阵在正样本对上呈单调阶梯状对齐（一个音素关联连续音频帧——CTC 帧级预测的结构性质）；用 DSP 求对齐路径并 mask 掉其余部分——注入「语音按顺序说出」先验（不 mask 则音素集合相同顺序不同的变位词无法区分）；掩码矩阵聚合 → 单层 GRU → 匹配分数。
+          - listitem [ref=f175e30]: "误触发的疫苗：混淆关键词自动生成。灵活 KWS 无固定类别、用户词大量未见——模型对音素混淆（误触发主因）的免疫力无从谈起；按音素编辑距离 δ∈{1,2,3} 自动构造难负样本（替换 / 插入；新音素须与相邻三位置都不同——否则编辑无操作或被发音吞掉；δ 封顶 3——编辑越大负样本越「容易」），配合三路批构造：正样本 / 随机负 / 同一段音频配混淆文本的对比负——模型被逼着在 stop 与其音素近邻间画边界。"
+          - listitem [ref=f175e31]: 结果：LH（难负对，核心战场）AUC 84.21→92.7（相对 +10.1%）、EER 23.36→14.4（相对 −38.3%）；LE EER 相对降 76.9%；SC-V1 零微调（P2V 与编码器都没为命令词做过任何适配）AUC +15.9%、EER −50.6%——同构嵌入的音素结构有跨域稳健性；文本分支缩 ~80 倍（66M → 0.83M + 42KB），CED 全模型 3.8M。
+          - listitem [ref=f175e32]: 消融最有信息量的读数：混淆模块的收益与测试集负样本难度同源——LH（负对本就是发音相近难样本）ΔEER −4.0 收益最大，G 小幅 −0.60，LE 反而 +0.9 轻微退化（易分集已近满分，合成难负把决策边界推向保守，付出精度换鲁棒——论文未讨论此权衡）。
+          - listitem [ref=f175e33]: 冻结的代价（以冻结换稳定）：端到端阶段音频编码器永久冻结——P2V 表从该编码器空间统计而来，权重一更新整张表就过期、同构性破产；代价是音频表示无法面向验证目标做任务适配，音频侧的不足（如特定口音的音素预测偏差）原样传导进 P2V 与最终分数。
+          - listitem [ref=f175e34]: 边界：G2P 是文本链路唯一入口且推理时无纠错——异读词 / 专名 / 缩写 / 非标准拼写的发音错误直接变错误音素序列；GV 跨 5 万样本平均抹掉协同发音（OW0/OW1/OW2 重音变体类间更近）——强上下文依赖最小对只能靠验证器兜底；混淆生成只有替换 / 插入无删除、均匀采样不反映真实混淆概率、只在音素符号层扰动；数据全在 LibriSpeech 派生（无真实远场 / 噪声 / 多说话人注册）；延迟 / RTF / 内存 / 包体积全未报告（参数量是轻量化的唯一直接证据）；无统计稳健性报告。
+    - generic [ref=f175e35]:
+      - paragraph [ref=f175e36]: §01 · 问题陈述
+      - heading "三个必须同时解开的扣子" [level=2] [ref=f175e37]
+      - generic [ref=f175e39]: 设计空间：① 文本嵌入与音频嵌入天然同空间——从根上消除投影层与跨模态失配而非事后投影去补；② 文本分支极致轻量（理想零新增参数）——匹配端侧包体积与内存约束；③ 无固定类别、大量关键词未见的设定下获得音素混淆判别力把误触发压下去。三者的共同解法 = 音频同构文本编码器 + 混淆关键词生成。注意误触发问题在固定 KWS 里天然不存在——类别固定可在训练里获得类别间判别边界；灵活 KWS 模型内部没有类别，混淆免疫力无从谈起。
+    - generic [ref=f175e40]:
+      - paragraph [ref=f175e41]: §02 · 方法论
+      - heading "从音频空间里查表的文本编码器" [level=2] [ref=f175e42]
+      - generic [ref=f175e44]:
+        - img [ref=f175e45]:
+          - generic [ref=f175e46]: 图 2 复绘：文本嵌入不是被投影进音频空间的客人——它直接从音频空间里长出来（P2V 表 = 编码器自身嵌入的统计平均）
+          - generic [ref=f175e48]: 音频通路
+          - generic [ref=f175e49]: 输入：80 通道 filterbank（25ms / 10ms）
+          - generic [ref=f175e50]: conformer 编码器（6 层 · d=144 · 4 头 · 核 3）
+          - generic [ref=f175e51]: 第一步用 CTC 音素预测任务训练——强制嵌入空间按音素组织
+          - generic [ref=f175e52]: （每一帧嵌入都对某个音素有预测力——这是文本侧能查表的桥）
+          - generic [ref=f175e53]: 端到端阶段永久冻结——P2V 表从该编码器空间统计而来，
+          - generic [ref=f175e54]: 权重一更新整张表就过期、同构性破产（以冻结换稳定）
+          - generic [ref=f175e55]: 输出：音频嵌入 e = (e₁…eₙ)，eᵢ ∈ ℝ¹⁴⁴
+          - generic [ref=f175e57]: 文本通路（打字即注册）
+          - generic [ref=f175e58]: ① G2P 字素→音素（预训练，0.83M 参数）——文本进入与音频编码器
+          - generic [ref=f175e59]: 预测目标完全相同的 74 音素离散空间
+          - generic [ref=f175e60]: ② P2V 查表：74 个 144 维向量的查找表——零可训练参数 ★
+          - generic [ref=f175e61]: 构建：Libriphrase 上 CER=0 的 ~50K 样本 · 贪心解码帧区间平均得局部
+          - generic [ref=f175e62]: 向量 · 跨样本平均得全局向量（抹平协同发音 → 每音素「最一般的表示」）
+          - generic [ref=f175e63]: 规模账：74×144 = 10,656 个浮点 ≈ 42KB · 查表 O(m) · 注册算一次即缓存
+          - generic [ref=f175e64]: 对比基线 [6] 的 DistilBERT 66M——文本分支缩 ~80 倍（CED 全模型 3.8M）
+          - generic [ref=f175e66]: 验证器：时序对齐的匹配分数
+          - generic [ref=f175e67]: ① 音频嵌入 e × 文本嵌入 f → 余弦相似度矩阵——正样本对呈「单调阶梯状」对齐
+          - generic [ref=f175e68]: （一个音素关联一个或多个连续音频帧——CTC 帧级预测的结构性质）
+          - generic [ref=f175e69]: ② DSP 动态序列划分求对齐路径，只保留路径上的相似度、其余全部 mask——
+          - generic [ref=f175e70]: 注入「语音按顺序说出」先验（不 mask 则变位词无法区分）
+          - generic [ref=f175e71]: ③ 掩码矩阵 × 音频嵌入 → m×d 一致矩阵 → 单层 GRU → FF → 匹配分数（交叉熵训练验证器）
+          - generic [ref=f175e73]: 三路判别式批构造（32 关键词 × 3 mini-batch × 11 = 1056 对/批）
+          - generic [ref=f175e74]: ① 正样本：关键词的 11 条音频 × 正确文本（标签 1）
+          - generic [ref=f175e75]: ② 随机负样本：其他词的 11 条音频（标签 0）
+          - generic [ref=f175e76]: ③ 混淆负样本 ★：与正样本完全相同的 11 条音频 × 自动生成的混淆关键词文本（标签 0）——
+          - generic [ref=f175e77]: 同一段音频一边对真文本、一边对差一两个音素的假文本：模型被逼着在音素近邻间画边界
+          - generic [ref=f175e79]: P2V 质量的定性证据（图 3 t-SNE）与已有路线的差异本质
+          - generic [ref=f175e80]: 100 个随机局部向量按音素着色：高类内紧致、类间分离；OW0/OW1/OW2 重音变体相互更近但仍可分——全局平均压平部分细节但未破坏可分性
+          - generic [ref=f175e81]: "[5][6] 走「承认两个空间、事后投影对齐」——投影是学出来的事后补救，残差失配无法根除；本文走「从一开始就只有一个空间」"
+        - paragraph [ref=f175e82]: 图 2 复绘：CTC 音素预测是把文本侧拉进音频空间的桥（嵌入空间按音素组织查表才可能成立）；冻结是 P2V 持续有效的前提——同构性的全部代价压在验证器上。
+      - generic [ref=f175e83]:
+        - text: LV(p̂
+        - subscript [ref=f175e84]: ji
+        - text: ) = (1/(r−l)) Σ
+        - subscript [ref=f175e85]: k=l..r
+        - text: e
+        - subscript [ref=f175e86]: k
+        - text: （帧区间平均）→ GV(p) = 跨样本平均 → 74 个全局向量入 P2V 库
+        - generic [ref=f175e87]: 式 2 · P2V 构建的数学：只保留 CER=0 的样本——解码完全正确时帧到音素的回溯区间才真正对应正确发音的帧（有错会把错位帧平均进去污染估计）；跨 ~50K 样本平均抹平协同发音——同一音素在不同语音环境（前后音素影响）下实现差别很大，平均后得到「最一般的表示」。t-SNE 佐证：高类内紧致、类间分离；OW0/OW1/OW2 相互更近但仍可分——平均压平部分细节但未破坏可分性。
+      - generic [ref=f175e88]:
+        - img [ref=f175e89]:
+          - generic [ref=f175e90]: 图 4 复绘 · 混淆关键词自动生成（以 stop 为例）：训练流内的难负样本工厂，不需要采集真实混淆词
+          - generic [ref=f175e92]: 四步生成算法
+          - generic [ref=f175e93]: "① 选编辑距离 δ ∈ {1, 2, 3}（生成词与原词的音素编辑数）"
+          - generic [ref=f175e94]: ② 在关键词音素序列中随机选 δ 个位置
+          - generic [ref=f175e95]: ③ 每个位置随机选「替换」或「插入」变换
+          - generic [ref=f175e96]: ④ 新音素必须与 uᵢ₋₁、uᵢ、uᵢ₊₁ 三处当前音素都不同，执行变换
+          - generic [ref=f175e97]: 例：stop [S T AA P] → δ=1 替换 → [S K AA P] / 插入 → [S T AA B P] …
+          - generic [ref=f175e98]: 灵活 KWS 无固定类别、用户词大量未见——枚举真实混淆对不可行，
+          - generic [ref=f175e100]: 两个「为什么」（设计约束的机制）
+          - generic [ref=f175e101]: 为什么约束与相邻三位置都不同：
+          - generic [ref=f175e102]: · 与 uᵢ 相同 → 编辑等于无操作，负样本退化成正样本
+          - generic [ref=f175e103]: · 与相邻音素相同 → 这次编辑很可能被发音吞掉（类比 CTC 连续重复折叠）
+          - generic [ref=f175e104]: ——「难负样本」与原词声学上几乎不可分，失去训练价值
+          - generic [ref=f175e105]: 为什么 δ 封顶在 3：
+          - generic [ref=f175e106]: 编辑距离越大负样本越「容易」；小 δ 保证负样本恰好落在决策边界附近，
+          - generic [ref=f175e107]: 对判别训练有信息量
+          - generic [ref=f175e109]: 价值：模拟误触发的主要来源分布
+          - generic [ref=f175e110]: 误触发的核心来源是音素混淆——用户词与发音相近的非目标词撞车系统就被误唤醒；固定 KWS 类别固定可在训练里天然获得
+          - generic [ref=f175e111]: 类别间判别边界；灵活 KWS 模型内部没有固定类别、许多用户词不在训练集——混淆免疫力无从谈起
+          - generic [ref=f175e112]: 按音素编辑距离合成 = 恰好模拟「发音相近的非目标词」分布——为无固定类别的模型接种疫苗
+          - generic [ref=f175e113]: 局限：只有替换与插入（无删除）；替换音素均匀随机采样不反映真实混淆概率；只在音素符号层扰动不模拟信道层声学形变
+        - paragraph [ref=f175e114]: 图 4 复绘：训练流内的难负样本工厂——两个「为什么」的约束机制（防无操作退化 / 防发音吞掉、防负样本太容易）比算法本身更有信息量。
+    - generic [ref=f175e115]:
+      - paragraph [ref=f175e116]: §03 · 实验与消融
+      - heading "LH 是核心战场，G 是零微调的惊喜" [level=2] [ref=f175e117]
+      - generic [ref=f175e119]: 数据与指标：Libriphrase（LibriSpeech 派生，LE 易负对 / LH 难负对——LH 的负对为发音相近样本）+ SC-V1 测试集 10 条命令词零微调直评（测跨语音特性泛化）。训练流程：train-clean-100/360 长音频训编码器 → Libriphrase 短音频微调 → 端到端训 CED。指标 AUC（阈值无关的整体排序）+ EER（两类错误均衡的工作点）——灵活 KWS 被建模为音频-文本验证任务，输出匹配分数而非闭集类别概率，没有「准确率」可报。
+      - generic [ref=f175e120]:
+        - img [ref=f175e121]:
+          - generic [ref=f175e122]: Table 1 · 主对比：LH（难负对）是核心战场，G 是零微调跨域泛化
+          - generic [ref=f175e123]: "70"
+          - generic [ref=f175e124]: "80"
+          - generic [ref=f175e125]: "90"
+          - generic [ref=f175e126]: "100"
+          - generic [ref=f175e127]: LH 难负对 （AUC%）
+          - generic [ref=f175e129]: "73.58"
+          - generic [ref=f175e130]: EER 32.9
+          - generic [ref=f175e131]: 基线[5]
+          - generic [ref=f175e133]: "84.21"
+          - generic [ref=f175e134]: EER 23.36
+          - generic [ref=f175e135]: 基线[6]
+          - generic [ref=f175e137]: "89.20"
+          - generic [ref=f175e138]: EER 18.4
+          - generic [ref=f175e139]: Ours†
+          - generic [ref=f175e141]: "92.70"
+          - generic [ref=f175e142]: EER 14.4
+          - generic [ref=f175e143]: Ours+混淆
+          - generic [ref=f175e144]: G 命令词 零微调（AUC%）
+          - generic [ref=f175e146]: "81.06"
+          - generic [ref=f175e147]: EER 27.25
+          - generic [ref=f175e148]: 基线[5]
+          - generic [ref=f175e150]: "93.16"
+          - generic [ref=f175e151]: EER 14.05
+          - generic [ref=f175e152]: Ours†
+          - generic [ref=f175e154]: "93.94"
+          - generic [ref=f175e155]: EER 13.45
+          - generic [ref=f175e156]: Ours+混淆
+          - generic [ref=f175e157]: LE 易负对 （AUC%）
+          - generic [ref=f175e159]: "96.70"
+          - generic [ref=f175e160]: EER 8.42
+          - generic [ref=f175e161]: 基线[5]
+          - generic [ref=f175e163]: "97.83"
+          - generic [ref=f175e164]: EER 7.36
+          - generic [ref=f175e165]: 基线[6]
+          - generic [ref=f175e167]: "99.94"
+          - generic [ref=f175e168]: EER 0.8
+          - generic [ref=f175e169]: Ours†
+          - generic [ref=f175e171]: "99.84"
+          - generic [ref=f175e172]: EER 1.7
+          - generic [ref=f175e173]: Ours+混淆
+          - generic [ref=f175e174]: LH：AUC 相对 [6] +10.1%、EER 相对改善 38.3%；LE：EER 相对降 76.9%；G（SC-V1 零微调跨域）：AUC +15.9%、EER −50.6%——P2V 与编码器都没为命令词做过任何适配，同构嵌入的音素结构有跨域稳健性
+        - paragraph [ref=f175e175]: Table 1（柱上为 AUC、注为 EER）：LH 是核心战场（+8.49 AUC / −8.96 EER 绝对）；G 的零微调跨域结果是同构嵌入音素结构稳健性的最强证据。
+      - generic [ref=f175e176]:
+        - img [ref=f175e177]:
+          - generic [ref=f175e178]: 混淆模块的收益分布（Table 1 消融）+ 文本分支规模账
+          - generic: .
+          - generic [ref=f175e179]: 混淆模块 ΔEER（Ours† → Ours+conf）
+          - generic [ref=f175e180]: "1"
+          - generic [ref=f175e181]: "2"
+          - generic [ref=f175e182]: "3"
+          - generic [ref=f175e183]: "4"
+          - generic [ref=f175e184]: "0"
+          - generic [ref=f175e186]: "-4.0"
+          - generic [ref=f175e187]: LH 难负对
+          - generic [ref=f175e188]: −4.0 收益最大
+          - generic [ref=f175e190]: "-0.6"
+          - generic [ref=f175e191]: G 命令词
+          - generic [ref=f175e192]: −0.60 小幅收益
+          - generic [ref=f175e194]: "+0.9"
+          - generic [ref=f175e195]: LE 易负对
+          - generic [ref=f175e196]: +0.9 轻微退化
+          - generic [ref=f175e197]: 收益与测试集负样本难度同源：LH 的负对本来就是发音相近难样本——训练分布对齐收益最大（定制的疫苗）
+          - generic [ref=f175e198]: 文本分支参数量（对数轴）
+          - generic [ref=f175e200]: DistilBERT（基线[6]）
+          - generic [ref=f175e201]: 66M
+          - generic [ref=f175e203]: G2P（本文）
+          - generic [ref=f175e204]: 0.83M
+          - generic [ref=f175e206]: P2V 查表
+          - generic [ref=f175e207]: ≈42KB（零可训练参数）
+          - generic [ref=f175e208]: 文本分支缩 ~80 倍 · CED 全模型 3.8M
+          - generic [ref=f175e209]: 但延迟 / RTF / 运行内存 / 包体积全未报告——
+          - generic [ref=f175e210]: 参数量是轻量化的唯一直接证据
+        - paragraph [ref=f175e211]: 消融 ΔEER + 规模账：混淆模块收益与负样本难度同源（LH −4.0 / G −0.6 / LE +0.9——精度换鲁棒的权衡论文未讨论）；文本分支 66M → 0.83M + 42KB。
+      - generic [ref=f175e212]: 未做的消融（选型时的暗坑）：音频编码器层数与维度（6 层 / d=144）、音素表大小（74）、混淆编辑距离 δ 取值、P2V 构建样本量（50K）、DSP 与其他对齐方式的对比、冻结音频编码器 vs 联合微调、混淆 mini-batch 批内占比——全部无敏感性分析；无多次运行方差（LE 上 0.8 vs 1.7 的 EER 差距统计意义无从判断）。
+    - generic [ref=f175e213]:
+      - paragraph [ref=f175e214]: §04 · 主要贡献
+      - heading "四条贡献" [level=2] [ref=f175e215]
+      - generic [ref=f175e217]:
+        - generic [ref=f175e218]:
+          - generic [ref=f175e219]: "1"
+          - text: 非参数音频同构文本编码器：G2P + P2V 查表——文本嵌入直接导出自配对音频编码器的音素嵌入空间；零投影、零跨模态失配、文本分支除 G2P 外零参数（66M→0.83M，~80×）。
+        - generic [ref=f175e220]:
+          - generic [ref=f175e221]: "2"
+          - text: "混淆关键词自动生成：音素编辑距离 δ∈{1,2,3} 构造难负样本——无固定类别的灵活 KWS 获得对真实音素混淆的判别理解，直击误触发。"
+        - generic [ref=f175e222]:
+          - generic [ref=f175e223]: "3"
+          - text: 判别式端到端 CED：冻结音频编码器 + 同构文本编码器 + 验证器，配合「正 / 随机负 / 同音频混淆负」三路批构造。
+        - generic [ref=f175e224]:
+          - generic [ref=f175e225]: "4"
+          - text: 结果：LH AUC 92.7 / EER 14.4（SOTA）；LE EER 相对降 76.9%；SC-V1 零微调 AUC +15.9% / EER −50.6%。
+      - generic [ref=f175e226]: 可迁移判断：当两个模态需要对齐时，先问能不能让一侧直接从另一侧的表示空间里导出（查表 / 统计平均），而不是训一个投影层去做事后搬运——前者零参数、零残差失配，且天然继承源空间的度量；配套判断：「离散符号中间层」（音素）是跨模态共享原子的最短路径——文本与音频在符号层无交集，但 G2P 让文本进入与音频编码器预测目标完全相同的离散空间，两步接力零学习参数。
+    - generic [ref=f175e227]:
+      - paragraph [ref=f175e228]: §05 · 局限与边界
+      - heading "G2P 单点依赖与平均抹平的细节" [level=2] [ref=f175e229]
+      - generic [ref=f175e231]:
+        - generic [ref=f175e232]:
+          - heading "技术局限" [level=4] [ref=f175e233]
+          - list [ref=f175e234]:
+            - listitem [ref=f175e235]: G2P 依赖与发音错误传播：文本链路唯一入口且推理时无纠错——异读词（同形异音）、专名、缩写、非标准拼写的发音错误直接变错误音素序列，文本嵌入从源头错起；74 音素词表决定可表达发音空间上限；多语种要重建整个音素体系与 G2P。
+            - listitem [ref=f175e236]: 全局向量的上下文无关性：跨 5 万样本平均抹掉协同发音——强上下文依赖的最小对（差异只在重音或细微变体）单向量区分力不足，只能靠验证器兜底。
+            - listitem [ref=f175e237]: 冻结封死联合优化空间：音频侧无法面向验证目标做任务适配——对特定口音的音素预测偏差会原样传导进 P2V 与最终分数。
+            - listitem [ref=f175e238]: 混淆生成的变换空间受限：只有替换与插入（无删除）；替换音素均匀随机不反映真实混淆概率（某些音对天然更易混）；只在音素符号层扰动不模拟信道层声学形变（噪声 / 口音 / 说话人差异）。
+            - listitem [ref=f175e239]: 对齐路径依赖 DSP（借自基线）：对齐错误直接传导进一致矩阵——DSP 本身的选择未做对比论证。
+        - generic [ref=f175e240]:
+          - heading "实验设计不足" [level=4] [ref=f175e241]
+          - list [ref=f175e242]:
+            - listitem [ref=f175e243]: 数据面单一：训练、微调、P2V 构建全在 LibriSpeech 派生数据；SC-V1 只做零微调评估——缺真实远场、噪声、多说话人注册等落地场景。
+            - listitem [ref=f175e244]: 基线覆盖有限：只对比 [5][6] 两个；且 [6] 在 G 上未报告——跨域对比实际只对 [5] 成立。
+            - listitem [ref=f175e245]: 缺端侧系统指标：延迟 / RTF / 运行内存 / 包体积增量全未报告——轻量化是核心卖点但支撑证据只有参数量。
+            - listitem [ref=f175e246]: 消融太薄 + 无统计稳健性：仅混淆模块一项消融；关键超参无敏感性；无多次运行方差与显著性检验。
+            - listitem [ref=f175e247]: 训练成本未披露：GPU 数量、训练时长未报（3.8M 是否含 G2P 也未明确）。
+      - generic [ref=f175e248]: 值得补的方向：上下文相关 P2V（按左右音素条件化查表——三音子思路；或每音素局部向量聚类保留多原型——把协同发音与重音信息存回文本表示）；可学习码本与联合微调（P2V 从统计表改向量量化码本，或「训编码器→重建 P2V→训验证器」循环迭代逐步打破冻结）；更完整的混淆生成（删除变换 + 真实音素混淆矩阵采样 + 带口音 / 噪声的 TTS 声学层增广）；更轻 G2P 或注册侧预计算（服务端转音素、端侧只留查表）；端侧实测补课（RTF / 内存 / 功耗与投影式双编码器的系统级对比）；多语种与重口音扩展。
+    - contentinfo [ref=f175e249]:
+      - generic [ref=f175e250]:
+        - link "📖 深读笔记" [ref=f175e251] [cursor=pointer]:
+          - /url: /papers/2023/Flexible_Keyword_Spotting_Based_On_Homogeneous_Audio-Text_Embedding.md
+        - link "📄 PDF 原稿" [ref=f175e252] [cursor=pointer]:
+          - /url: /papers/2023/Flexible_Keyword_Spotting_Based_On_Homogeneous_Audio-Text_Embedding.pdf
+        - link "arXiv · 2308.06472" [ref=f175e253] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2308.06472
+        - link "← 返回总目录" [ref=f175e254] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f175e255]: 可视化精读页 · 数据与结论均出自论文与深读笔记（Table 1、图 1–4、式 1–2）；P2V ≈42KB 与 80 倍缩减为按论文数字的推算。错误请以 PDF 原稿为准。

@@ -1,0 +1,275 @@
+- generic [active] [ref=f130e1]:
+  - navigation [ref=f130e2]:
+    - generic [ref=f130e3]:
+      - generic [ref=f130e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f130e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f130e6]:
+        - link "深读笔记" [ref=f130e7] [cursor=pointer]:
+          - /url: /papers/2024/Robust_Wake_Word_Spotting_With_Frame-Level_Cross-Modal_Attention_Based_Audio-Visual_Conformer.md
+        - link "PDF 原稿" [ref=f130e8] [cursor=pointer]:
+          - /url: /papers/2024/Robust_Wake_Word_Spotting_With_Frame-Level_Cross-Modal_Attention_Based_Audio-Visual_Conformer.pdf
+        - link "arXiv" [ref=f130e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2403.01700
+  - generic [ref=f130e10]:
+    - banner [ref=f130e11]:
+      - paragraph [ref=f130e12]: 论文精读 · 可视化版 · 2024 №32
+      - heading "「这一帧信音频还是信嘴唇？」—— 把逐帧的模态信任交给注意力去学" [level=1] [ref=f130e13]: 「这一帧信音频还是信嘴唇？」——把逐帧的模态信任交给注意力去学
+      - paragraph [ref=f130e14]: Frame-Level Cross-Modal Attention Based Audio-Visual Conformer（FLCMA）
+      - paragraph [ref=f130e15]: 作者：Haoxu Wang、Ming Cheng、Qiang Fu、Ming Li（通讯）—— 昆山杜克大学 多模态智能系统重点实验室 · 之江实验室
+      - paragraph [ref=f130e16]: 发表：arXiv 2403.01700（2024-03）· MISP 2021 音视频唤醒词检测（AVWWS）数据集
+      - generic [ref=f130e17]:
+        - generic [ref=f130e18]: 远场家庭场景
+        - generic [ref=f130e19]: FLCMA 帧级跨模态注意力
+        - generic [ref=f130e20]: 单编码器替代双编码器
+        - generic [ref=f130e21]: 单模态预训练迁移
+        - generic [ref=f130e22]: Eval WWS 4.57%（当时最优）
+        - generic [ref=f130e23]: 64 帧 × 2.56s 严格对齐
+      - generic [ref=f130e24]:
+        - heading "一分钟版本" [level=2] [ref=f130e25]
+        - list [ref=f130e26]:
+          - listitem [ref=f130e27]: 痛点是三重叠加：远场家庭场景里，说话人距离拉大带来 SNR 下降 + 混响，电视 / 对话造成语音重叠，唤醒词本身只有 2.56 秒四个音节——任何一段被噪声淹没的音节都可能漏检误检。纯音频路线（领域感知训练 / 生成样本扩充 / MVDR 波束形成）的天花板是同一个：声学通道本身就是被污染的信息源。
+          - listitem [ref=f130e28]: 已有音视频 WWS 的三类不足：①「先分后合」——先各训两个鲁棒单模态模型再冻结融合，「谁在什么时候更可信」从未被联合优化；② 融合算子粗糙——加法 / 拼接对每个维度、每帧一视同仁，隐含假设「两模态所有帧贡献均匀」，而真实情况是噪声突发、唇部遮挡偶发；③ 多模态正样本只有 5K+ 条，却大多从零训练，浪费单模态预训练的强初始化。
+          - listitem [ref=f130e29]: 核心模块 FLCMA：把多通道语音领域的「通道级跨通道注意力 CLCCA」推广成「模态级」——给特征扩一个模态维（M=2），注意力作用域锁在帧内模态轴上：音频帧在同一帧唇动里查补充信息，唇动帧在同一帧声学里消歧（很多音素口型相近=同视素）。单模态全局（MHSA）、单模态局部（CONV）、跨模态逐帧（FLCMA）三个正交组件装进同一个 Conformer 块，堆 6 层。
+          - listitem [ref=f130e30]: 对齐是帧级注意力的前提：音频 256 帧 FBank 经子采样 ×1/4 = 64 帧，视频 64 帧 25fps——两个 2.56 秒在物理时间上严格对齐，FLCMA 才有「同一帧」可谈。
+          - listitem [ref=f130e31]: 端到端 + 卷积融合：全链路无冻结、无单模态投票兜底；编码器输出当通道维 M=2 的「图像」，5×5 卷积 4→2→1 逐级压缩——可学习的融合器，减少直接相加 / 拼接造成的「污染」。
+          - listitem [ref=f130e32]: 结果：Eval 集（全部远场）WWS 4.57% 刷新当时最优——官方基线 25.1%、MISP 2021 第一名 5.8%、Zhang et al. 5.74%；与 Zhang 交叉：Dev 上对方更好（3.62 vs 3.86）、Eval 上本文明显反超——收益恰恰在声学条件最恶劣处兑现。
+          - listitem [ref=f130e33]: 两条有信息量的发现：① FLCMA 用单一多模态编码器替代晚融合的两套单模态编码器，AUC 反高 +0.097 / +0.125——参数在模态间共享不但不干扰，联合训练还形成更好表征；② 用于预训练的单模态模型本身并非最优（A-Conformer 11.33% vs 最强 9.78%），但迁移后依然 5.50→4.57——预训练的价值不在「教师有多强」，而在「起点有多稳」。
+    - generic [ref=f130e34]:
+      - paragraph [ref=f130e35]: §01 · 问题陈述
+      - heading "声学通道被污染时，唇动是完全正交的通道" [level=2] [ref=f130e36]
+      - generic [ref=f130e38]: 远场退化的三重叠加：唤醒词检测是智能音箱、手机、可穿戴设备的核心入口，近场干净语音下 CNN / Transformer 已很好——但换到远场家庭场景：① 说话人与设备距离拉大 → SNR 下降 + 混响；② 电视、对话等背景声源 → 语音重叠；③ 唤醒词极短（「Xiao T, Xiao T」约 2.56 秒四个音节）→ 判别信息密度有限。纯音频路线的原理性上限：领域感知训练、生成样本扩充、MVDR 波束形成都只利用声学通道，而波束形成只能缓解不能消除混响与重叠。视觉唇动提供正交互补：电视再吵、语音再重叠，嘴唇开合轨迹依然清晰——这正是 AVSR、音视频分离 / 说话人确认纷纷引入视觉模态的共同动机，也是 MISP 2021 之后 AVWWS 细分方向的由来。
+      - generic [ref=f130e39]: 已有工作的三类不足： ① 「先分后合」两阶段范式（Cheng / Zhang / Wang et al.）：先各训两个鲁棒单模态模型，融合阶段参数冻结，融合模块只能被动接受两个互不适应的表征；Xu et al. 虽端到端训练了音视频 Transformer，最终仍靠单模态模型投票——端到端收益被投票环节打折。 ② 融合算子过于粗糙：X_fused = [X_spec ‖ X_lip]·W_fc 或 X_spec + X_lip——静态线性组合对每个维度、每帧一视同仁，无法表达逐帧的模态间相关性（噪声突发、遮挡偶发，同一句里有的帧音频可靠、有的帧只有唇形能救场）。 ③ 训练数据利用不充分：多模态正样本仅 5K+，而已有工作多从零训练，没利用单模态数据 / 预训练的强初始化。
+      - generic [ref=f130e40]: 三个层层递进的挑战：如何在帧级建模音频-唇动模态间相关性（物理依据：唇动与语音在几十毫秒尺度高度同步）；如何让两模态参数在同一目标下端到端联合优化，摆脱「冻结融合」与「多模型投票」；如何在多模态正样本有限时借单模态预训练抬高起点。验收硬指标：远场 MISP Eval 集刷新当时最优 WWS 分数。
+    - generic [ref=f130e41]:
+      - paragraph [ref=f130e42]: §02 · 方法论
+      - heading "分工记住一句话：MHSA 管全局，CONV 管局部，FLCMA 管跨模态" [level=2] [ref=f130e43]
+      - generic [ref=f130e45]:
+        - img [ref=f130e46]:
+          - generic [ref=f130e47]: 图 2/3 复绘：双前端 → 模态维拼接 → 单一多模态编码器（内嵌 FLCMA）→ 卷积融合 → 池化分类
+          - generic [ref=f130e49]: 音频前端
+          - generic [ref=f130e50]: 80 维 FBank（25ms 窗 / 10ms 移）· 每样本 256 帧
+          - generic [ref=f130e51]: 两层 2D 卷积子采样 ×1/4 → 64 帧 · 线性投影到 D=256
+          - generic [ref=f130e52]: 增强：速度扰动 / SpecAugment / RIR 仿真远场(-15~15dB) / MVDR 波束数据
+          - generic [ref=f130e53]: 256 音频帧 ×10ms = 2.56s，与视频在物理时间上严格对齐
+          - generic [ref=f130e55]: 视觉前端
+          - generic [ref=f130e56]: RetinaFace 检测 + ArcFace 识别锁定目标说话人 → 关键点裁唇区
+          - generic [ref=f130e57]: 112×112×3 · 每样本 64 帧 → ResNet3D-18 → 空间 GAP → (T,D)
+          - generic [ref=f130e58]: 增强：速度扰动 / 逐帧旋转 / 水平翻转 / 颜色抖动 / 灰度化 / 随机直方图均衡
+          - generic [ref=f130e59]: 64 视频帧 ×40ms = 2.56s「Xiao T, Xiao T」四音节
+          - generic [ref=f130e63]: 沿新模态维拼接：Xav = [Xspec, Xlip] ∈ ℝ2×64×256 ——「两路特征」变成「一个张量的两个模态切片」，模态身份不再被拼接抹掉
+          - generic [ref=f130e65]: N=6 × Conformer 块（D=256 · h=4 头 · FFN 1024）
+          - generic [ref=f130e67]: MHSA 多头自注意力 —— 单模态内部的全局（跨时间）相关性
+          - generic [ref=f130e69]: FLCMA 帧级跨模态注意力 ★（式 1）作用域锁在帧内模态轴
+          - generic [ref=f130e70]:
+            - generic [ref=f130e74]: 帧 t 音频
+            - generic [ref=f130e75]: 帧 t 唇动
+          - generic [ref=f130e76]:
+            - generic [ref=f130e80]: 帧 t+1 音频
+            - generic [ref=f130e81]: 帧 t+1 唇动
+          - generic [ref=f130e82]: 音频帧 → 在同一帧唇动里「查询」补充信息
+          - generic [ref=f130e83]: 唇动帧 → 在同一帧声学里「查询」消歧
+          - generic [ref=f130e84]: （很多音素口型相近 = 同视素问题）
+          - generic [ref=f130e86]: CONV 卷积模块 —— 单模态内部的局部相关性
+          - generic [ref=f130e88]: 卷积融合模块（图 3）
+          - generic [ref=f130e89]: 双模态特征图当作通道维 M=2 的「图像」
+          - generic [ref=f130e90]: 5×5 卷积 · 通道 4→2→1 → (B,1,T,D)
+          - generic [ref=f130e91]: 减少直接相加 / 拼接造成的「污染」
+          - generic [ref=f130e93]: 注意力池化
+          - generic [ref=f130e94]: 逐帧重要性权重 → 句级向量
+          - generic [ref=f130e96]: FC + sigmoid → 唤醒词概率
+          - generic [ref=f130e97]: 加权 BCE（负:正 = 1:5）
+          - generic [ref=f130e99]: 预训练迁移三步（正样本只有 5K+，先给一个稳起点）
+          - generic [ref=f130e100]: ① 同配置各训一个单模态模型（前端 + 单模态编码器 + 池化 + 分类器）→ ② 参数迁移到 FLCMA 模型对应位置做初始化
+          - generic [ref=f130e101]: → ③ 整个多模态模型以 lr=0.0001（从零训练用 0.001）联合微调；Adam + 前 10000 步 warmup，batch 48
+          - generic [ref=f130e102]: 分工记忆：MHSA 管单模态全局，CONV 管单模态局部，FLCMA 专管跨模态逐帧交互——三个正交组件装进同一个块
+        - paragraph [ref=f130e103]: 图 2/3 复绘：时间对齐是全系统的前提——音频 256 帧×10ms 与视频 64 帧×40ms 都是 2.56s，两个模态进同一时间坐标系后 FLCMA 才有「同一帧」可谈；编码器块内三个注意力组件正交分工。
+      - generic [ref=f130e104]:
+        - text: Q
+        - subscript [ref=f130e105]: i
+        - superscript [ref=f130e106]: cm
+        - text: ", K"
+        - subscript [ref=f130e107]: i
+        - superscript [ref=f130e108]: cm
+        - text: ", V"
+        - subscript [ref=f130e109]: i
+        - superscript [ref=f130e110]: cm
+        - text: = X
+        - subscript [ref=f130e111]: av
+        - text: W
+        - subscript [ref=f130e112]: i
+        - superscript [ref=f130e113]: cm,·
+        - text: + b ∈ ℝ
+        - superscript [ref=f130e114]: T×M×D/h
+        - text: ； O
+        - subscript [ref=f130e115]: i
+        - superscript [ref=f130e116]: cm
+        - text: = softmax( Q
+        - subscript [ref=f130e117]: i
+        - superscript [ref=f130e118]: cm
+        - text: (K
+        - subscript [ref=f130e119]: i
+        - superscript [ref=f130e120]: cm
+        - text: )
+        - superscript [ref=f130e121]: T
+        - text: / √(D/h) ) · V
+        - subscript [ref=f130e122]: i
+        - superscript [ref=f130e123]: cm
+        - generic [ref=f130e124]: 式 1 · FLCMA：T=64 帧、M=2 模态、D=256、h=4 头（每头 64 维）。关键在形状——注意力矩阵作用在 (T, M) 轴上且被限制在帧内（同名「帧级」的由来）：每个时间帧上音频嵌入与视觉嵌入互相做一次缩放点积注意力；跨时间的长程依赖交给同块的 MHSA。价值是双向的：为带噪语音补唇动信息，同时依据语音降低唇动的音素混淆（同视素）。
+      - generic [ref=f130e125]: 为什么要帧级粒度（两方面）：信息论上，唇动与语音是同一发音动作的两个投影，帧级高度同步——整段平均 / 拼接等于先把帧级对应关系稀释掉再指望网络找回来；实验上，Fig. 4 的注意力回滚显示高权重集中在 0.25 / 1.0 / 1.5 / 2.3 秒附近——恰好是「Xiao T, Xiao T」四个音节的可辨识位置，判别信息本来就稀疏分布在少数关键时刻，帧级机制让模型把计算和信任精确分配到这些时刻。Fig. 5 的 FLCMA 内部注意力图显示同一模态在不同帧拿到不同权重，一模态失置信时从另一模态拉信息补强——这是静态加法 / 拼接结构上做不到的自适应行为。
+      - generic [ref=f130e126]:
+        - text: Score
+        - subscript [ref=f130e127]: WWS
+        - text: = FRR + FAR（FRR = N
+        - subscript [ref=f130e128]: FR
+        - text: /N
+        - subscript [ref=f130e129]: wake
+        - text: ，FAR = N
+        - subscript [ref=f130e130]: FA
+        - text: /N
+        - subscript [ref=f130e131]: non-wake
+        - text: ）
+        - generic [ref=f130e132]: 式 2/3 · 挑战赛指标：漏检伤交互可用性、误报伤用户信任，加和强制两类错误平衡。WWS 分数依赖硬阈值选择、容易被阈值左右，因此作者补充免阈值的 AUC 作为另一参照——Table 1 的呈现技巧：所有系统 AUC 挤在 99.x%，以 99.0 为零点展示（0.636 = 99.636%），否则差异根本看不见。
+    - generic [ref=f130e133]:
+      - paragraph [ref=f130e134]: §03 · 实验与消融
+      - heading "Eval 全远场：收益要在声学最差的地方验收" [level=2] [ref=f130e135]
+      - generic [ref=f130e137]: 数据集：第一届 MISP 挑战赛 2021 AVWWS——检测远场家庭场景的唤醒词「Xiao T, Xiao T」。公开库约 125 小时：训练集 47K+ 负样本 / 5K+ 正样本（正负约 1:9，加权 BCE 负:正 = 1:5 直接回应不平衡），Dev 2K+ 负 / 600+ 正；Eval 8K+ 样本只有远场数据、不公开标注（作者从组委会拿到标注保证公平比较）——模型必须在声学条件最差的模态组合上接受检验。多模态属性完整：音频含单通道近场 / 2 通道中场 / 6 通道远场，视频含单人中场与多人远场。 预处理的工程密度：音频侧 RIR 仿真把近场人工造成中 / 远场 + 官方噪声（SNR −15~15dB 随机）+ MVDR 波束增强数据进训练集（对齐 Eval 分布）；视觉侧 RetinaFace + ArcFace 在多人远场视频里锁定目标说话人再裁唇区。
+      - generic [ref=f130e138]:
+        - img [ref=f130e139]:
+          - generic [ref=f130e140]: Table 1 · 消融（Eval 集 WWS%，越低越好）：晚融合 > 早融合，FLCMA 一致提升，预训练再压一级
+          - generic [ref=f130e141]: 5%
+          - generic [ref=f130e142]: 6%
+          - generic [ref=f130e143]: 7%
+          - generic [ref=f130e144]: 8%
+          - generic [ref=f130e145]: 9%
+          - generic [ref=f130e146]: Transformer 骨干
+          - generic [ref=f130e148]: "8.95"
+          - generic [ref=f130e149]: 早融合 E
+          - generic [ref=f130e151]: "6.67"
+          - generic [ref=f130e152]: 晚融合 L
+          - generic [ref=f130e153]: E→L：深层特征
+          - generic [ref=f130e154]: 已各自语义化
+          - generic [ref=f130e156]: "7.06"
+          - generic [ref=f130e157]: +FLCMA
+          - generic [ref=f130e158]: 略逊 L 但 AUC 更高
+          - generic [ref=f130e159]: (99.518 vs 阈值敏感)
+          - generic [ref=f130e161]: "5.47"
+          - generic [ref=f130e162]: +FLCMA
+          - generic [ref=f130e163]: +预训练
+          - generic [ref=f130e164]: Dev 4.45%
+          - generic [ref=f130e165]: Conformer 骨干
+          - generic [ref=f130e167]: "7.77"
+          - generic [ref=f130e168]: 早融合 E
+          - generic [ref=f130e170]: "6.70"
+          - generic [ref=f130e171]: 晚融合 L
+          - generic [ref=f130e173]: "5.50"
+          - generic [ref=f130e174]: +FLCMA
+          - generic [ref=f130e175]: AUC 99.231
+          - generic [ref=f130e176]: →99.541
+          - generic [ref=f130e178]: "4.57"
+          - generic [ref=f130e179]: +FLCMA
+          - generic [ref=f130e180]: +预训练 ★
+          - generic [ref=f130e181]: Dev 3.86%
+          - generic [ref=f130e182]: 相对 −17%
+          - generic [ref=f130e183]: 关键对照：FLCMA 用单一多模态编码器替代晚融合的两套单模态编码器，AUC 反而 +0.097（Transformer）/ +0.125（Conformer）——联合训练抢回了建模能力
+        - paragraph [ref=f130e184]: Table 1（Eval 集）：两条骨干 × 四级递进。注意 FLCMA-Transformer 的 WWS（7.06）略逊于晚融合（6.67）但 AUC 更好——作者如实报告并用「WWS 阈值敏感、AUC 免阈值」解释，这处自反而增强整组实验可信度。
+      - generic [ref=f130e185]:
+        - img [ref=f130e186]:
+          - generic [ref=f130e187]: Table 3 · MISP 2021 AVWWS 主对比（Eval 集，全部为远场数据）：25.1% → 4.57%
+          - generic [ref=f130e189]: 官方基线（Zhou et al.）
+          - generic [ref=f130e190]: 25.10%
+          - generic [ref=f130e192]: Xu et al. · 端到端 Transformer（投票）
+          - generic [ref=f130e193]: 9.10%
+          - generic [ref=f130e195]: Cheng et al. · 冻结单模态 + 融合
+          - generic [ref=f130e196]: 7.10%
+          - generic [ref=f130e198]: MISP 2021 第一名系统
+          - generic [ref=f130e199]: 5.80%
+          - generic [ref=f130e201]: Zhang et al.（VE-KWS）
+          - generic [ref=f130e202]: 5.74%
+          - generic [ref=f130e203]: Dev 3.62%
+          - generic [ref=f130e205]: Wang et al.
+          - generic [ref=f130e206]: 5.59%
+          - generic [ref=f130e208]: 本文 FLCMA-Conformer + 预训练 ★
+          - generic [ref=f130e209]: 4.57%
+          - generic [ref=f130e210]: Dev 3.86%
+          - generic [ref=f130e211]: 5%
+          - generic [ref=f130e212]: 10%
+          - generic [ref=f130e213]: 15%
+          - generic [ref=f130e214]: 20%
+          - generic [ref=f130e215]: 25%
+          - generic [ref=f130e216]: 注意与 Zhang et al. 的交叉：Dev 上对方更好（3.62 vs 3.86），Eval 上本文明显反超（4.57 vs 5.74）——没在 Dev 过拟合，
+          - generic: .
+          - generic [ref=f130e217]: 帧级跨模态交互的收益恰恰在声学条件最恶劣的远场兑现——这正是引入视觉模态的初衷
+        - paragraph [ref=f130e218]: Table 3：Eval 集 8K+ 样本全部为远场数据。与 Zhang et al. 的交叉关系（Dev 输 / Eval 赢）是最有分量的证据——泛化性更好，帧级跨模态收益在声学最恶劣处兑现。
+      - generic [ref=f130e219]:
+        - img [ref=f130e220]:
+          - generic [ref=f130e221]: Table 2 · 单模态 vs 融合（Eval 集 WWS%）：视觉单打独斗不行，价值只能在互补里兑现
+          - generic [ref=f130e223]: V-LSTM（官方基线 · 纯视觉）
+          - generic [ref=f130e224]: 58.40%
+          - generic [ref=f130e226]: V-Conformer（本文 · 纯视觉）
+          - generic [ref=f130e227]: 21.30%
+          - generic [ref=f130e229]: V-SimAM（最强视觉）
+          - generic [ref=f130e230]: 19.13%
+          - generic [ref=f130e232]: A-Conformer（本文 · 纯音频）
+          - generic [ref=f130e233]: 11.33%
+          - generic [ref=f130e235]: A-ResNet3D（最强音频 · Zhang et al.）
+          - generic [ref=f130e236]: 9.78%
+          - generic [ref=f130e238]: FLCMA-Conformer + 预训练（音视频）★
+          - generic [ref=f130e239]: 4.57%
+          - generic [ref=f130e240]: 10%
+          - generic [ref=f130e241]: 20%
+          - generic [ref=f130e242]: 30%
+          - generic [ref=f130e243]: 40%
+          - generic [ref=f130e244]: 50%
+          - generic [ref=f130e245]: 60%
+          - generic [ref=f130e246]: 两个关键读数：① 融合 4.57% 比两个单模态最优都低一大截（互补而非替代）；② 本文自己的单模态并非最优（A-Conformer 11.33 vs 9.78），
+          - generic [ref=f130e247]: 但作为预训练起点依然显著涨点——预训练的价值不在「教师有多强」，而在「起点有多稳」
+        - paragraph [ref=f130e248]: Table 2：纯视觉系统整体远弱于纯音频（最好的视觉 19.13 vs 最强音频 9.78）——视觉的价值只能在跨模态互补里兑现，不是替代。
+      - generic [ref=f130e249]: 藏在 FRR / FAR 分解里的第四条结论（基于 Table 1 数值的归纳）：只加 FLCMA 时系统倾向压低漏检（FLCMA-Transformer 在 Dev 集 FRR 低至 1.76%、FAR 却 4.18%）——跨模态互补先纠正「听不清也不敢漏」的保守倾向；加预训练后两项趋于平衡（FRR 2.24% / FAR 2.21%）——预训练把决策边界整体校准。两个组件在错误类型上分工互补，不只是分数叠加。
+    - generic [ref=f130e250]:
+      - paragraph [ref=f130e251]: §04 · 主要贡献
+      - heading "三条可转述的判断" [level=2] [ref=f130e252]
+      - generic [ref=f130e254]:
+        - generic [ref=f130e255]:
+          - generic [ref=f130e256]: "1"
+          - text: FLCMA 模块：把多模态融合从句级加法 / 拼接推进到帧级跨模态注意力——「这一帧信谁」成为可学习、可逐帧变化的决策。灵感是把多通道领域的 CLCCA / MFCCA 的「通道」推广成「模态」：多麦克风要逐帧判断哪个通道可信，音视频同样要逐帧判断哪个模态可信，数学结构同构。
+        - generic [ref=f130e257]:
+          - generic [ref=f130e258]: "2"
+          - text: 端到端系统 + 参数组织更经济：单一多模态编码器（参数模态间共享）替代晚融合的两套单模态编码器，卷积融合 + 注意力池化 + 加权 BCE 全链路联合训练，摆脱「冻结融合」「多模型投票」——而且 AUC 反而更高，联合训练抢回了建模能力。
+        - generic [ref=f130e259]:
+          - generic [ref=f130e260]: "3"
+          - text: 单模态预训练迁移 + 反直觉实证：三步迁移（训单模态 → 初始化 → lr 缩 10 倍联合微调）在多模态正样本稀缺时显著抬高起点；并证明「预训练起点不必是最优单模态系统」——价值不在教师强度而在优化起点。三者叠加 Eval 4.57% 刷新当时最优。
+        - generic [ref=f130e261]:
+          - generic [ref=f130e262]: ★
+          - text: 可迁移判断：当两个信息通道在帧级高度同步（发音动作的两个投影），融合粒度必须下沉到帧级才能吃到互补性；粒度不够细时，融合算子的可学习性（注意力 / 卷积栈）比「再训一个更强的单模态」更值得投入。
+    - generic [ref=f130e263]:
+      - paragraph [ref=f130e264]: §05 · 局限与边界
+      - heading "最大的坑：模型要求两路输入永远同时在场" [level=2] [ref=f130e265]
+      - generic [ref=f130e267]:
+        - generic [ref=f130e268]:
+          - heading "技术局限" [level=4] [ref=f130e269]
+          - list [ref=f130e270]:
+            - listitem [ref=f130e271]: 模态缺失无降级路径（部署级硬约束）：结构上要求音频与视觉同时在场，FLCMA 没为「摄像头关闭、人脸出画、唇区遮挡」设计降级，论文未报告任何模态缺失鲁棒性实验——而真实语音设备恰恰经常无视频可用。
+            - listitem [ref=f130e272]: 视觉前处理不轻量：RetinaFace 检测 + ArcFace 识别 + 关键点定位 + 唇区裁剪整条管线在远场多人视频上代价不小；参数量 / 计算量 / 推理延迟全部未报，无法评估端侧常驻监听（毫瓦级功耗预算）可行性。
+            - listitem [ref=f130e273]: 固定窗口离线段分类：按 2.56s 固定窗口做段分类，而唤醒词检测本质是常驻流式任务；FLCMA 与流式解码的兼容性（因果注意力改造、逐帧输出）论文未涉及。
+            - listitem [ref=f130e274]: 从零训练绝对水平仍有限：无预训练的 FLCMA-Transformer（Eval 7.06%）还落后于已有系统——收益高度依赖预训练加持。
+        - generic [ref=f130e275]:
+          - heading "实验设计不足" [level=4] [ref=f130e276]
+          - list [ref=f130e277]:
+            - listitem [ref=f130e278]: 单一数据集 / 唤醒词 / 语言：只在 MISP 2021、一个唤醒词上完成；帧级跨模态注意力对更长唤醒词、音节更密语种是否同样有效，未知。
+            - listitem [ref=f130e279]: 阈值操作点不透明：WWS 对阈值敏感被作者自认，但阈值如何选取、是否 Dev 调优后固定到 Eval 未报告——各系统 WWS 直接比较存在操作点不对齐隐患（AUC 部分弥补）。
+            - listitem [ref=f130e280]: 增强管线未解耦：与 Zhang / Wang et al. 对比时各系统的仿真远场、加噪策略并不一致——端到端训练的增益与更强数据工程的增益没有被完全解耦。
+            - listitem [ref=f130e281]: 单次运行无方差：所有结果均为单次运行，无多次运行方差 / 显著性检验；Dev 与 Eval 差异是否超出随机波动无从判断。
+      - generic [ref=f130e282]: 值得补的方向：预训练升级为大规模音视频自监督（HuBERT 类无标签价值已证，可叠加单模态有监督预训练）；modality dropout 训练——随机屏蔽某一模态迫使模型优雅降级，直接回应部署约束；轻量唇区提取替代 RetinaFace / ArcFace 全家桶 + 量化压缩满足功耗预算；FLCMA 因果化支持流式逐帧输出；把 Fig. 5 暗示的「哪一模态此刻更可信」显式化（与 SNR、唇部遮挡程度做相关性分析）；在 MISP 后续年份与更多关键词上复验，把「一个数据集上的最优」推向「一类问题的通用解」。
+    - contentinfo [ref=f130e283]:
+      - generic [ref=f130e284]:
+        - link "📖 深读笔记" [ref=f130e285] [cursor=pointer]:
+          - /url: /papers/2024/Robust_Wake_Word_Spotting_With_Frame-Level_Cross-Modal_Attention_Based_Audio-Visual_Conformer.md
+        - link "📄 PDF 原稿" [ref=f130e286] [cursor=pointer]:
+          - /url: /papers/2024/Robust_Wake_Word_Spotting_With_Frame-Level_Cross-Modal_Attention_Based_Audio-Visual_Conformer.pdf
+        - link "arXiv · 2403.01700" [ref=f130e287] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2403.01700
+        - link "← 返回总目录" [ref=f130e288] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f130e289]: 可视化精读页 · 数据与结论均出自论文与深读笔记（Table 1/2/3、Fig 2/3/4/5、式 1–3）；错误请以 PDF 原稿为准。

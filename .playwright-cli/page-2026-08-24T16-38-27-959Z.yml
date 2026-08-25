@@ -1,0 +1,262 @@
+- generic [active] [ref=f41e1]:
+  - navigation [ref=f41e2]:
+    - generic [ref=f41e3]:
+      - generic [ref=f41e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f41e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f41e6]:
+        - link "深读笔记" [ref=f41e7] [cursor=pointer]:
+          - /url: /papers/2025/MFA-KWS_Effective_Keyword_Spotting_With_Multi-head_Frame-asynchronous_Decoding.md
+        - link "PDF 原稿" [ref=f41e8] [cursor=pointer]:
+          - /url: /papers/2025/MFA-KWS_Effective_Keyword_Spotting_With_Multi-head_Frame-asynchronous_Decoding.pdf
+        - link "arXiv" [ref=f41e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2505.19577
+  - generic [ref=f41e10]:
+    - banner [ref=f41e11]:
+      - paragraph [ref=f41e12]: 论文精读 · 可视化版 · 2025 №25
+      - heading "MFA-KWS CTC 对冲 Transducer 的误差累积，两支都跳帧，再按趋势一致性融合" [level=1] [ref=f41e13]: MFA-KWSCTC 对冲 Transducer 的误差累积，两支都跳帧，再按趋势一致性融合
+      - paragraph [ref=f41e14]: "MFA-KWS: Effective Keyword Spotting with Multi-head Frame-asynchronous Decoding"
+      - paragraph [ref=f41e15]: 作者：Yu Xi 等 —— 上海交通大学 X-LANCE × 新加坡国立大学（TDT-KWS 的期刊扩展）
+      - paragraph [ref=f41e16]: 发表：2025.05（v3 2025.06）· arXiv:2505.19577 · 解码代码开源
+      - generic [ref=f41e17]:
+        - generic [ref=f41e18]: 流式解码
+        - generic [ref=f41e19]: CTC-Transducer 联训
+        - generic [ref=f41e20]: TDT 跳帧
+        - generic [ref=f41e21]: PSD 跳帧
+        - generic [ref=f41e22]: CDC 融合
+        - generic [ref=f41e23]: 3.3M / 1.5× 加速
+      - generic [ref=f41e24]:
+        - heading "一分钟版本" [level=2] [ref=f41e25]
+        - list [ref=f41e26]:
+          - listitem [ref=f41e27]: 病灶与药方：单支 Transducer 的后验依赖已预测历史——误差沿解码逐步累积，噪声与困难负样本下退化。药方是 CTC：沿时间轴条件独立、无历史依赖，联合训练当正则 + 推理时双支互为校验。
+          - listitem [ref=f41e28]: 双异步：Transducer 头换 TDT（token 级跳帧——预测「这个 token 持续多少帧」，一次前进 d 帧）；CTC 头换 PSD（阈值跳帧——利用 CTC 尖峰性，空白概率 ≥λ 的帧近似丢弃，甜点 35% 跳帧）。
+          - listitem [ref=f41e29]: 核心难题「何时融合」：两支跳帧位置不同步——引入占位符 PH；五种融合策略中 CDC-Last 胜出（滑窗余弦相似度做权重 + PH 用最近非占位值填充——被跳帧状态延续而非归零）。
+          - listitem [ref=f41e30]: 结果：三场景全面 SOTA——Snips FAR=0.02 miss 率相对降 72%、Mobvoi 中文 miss 降 27.66%/68%、LibriKWS-20 任意词平均 83.50 第一；解码比帧同步快 47–63% 且 miss 率同时降 23%——帧异步是双赢不是交换。
+          - listitem [ref=f41e31]: 反直觉证据：CTC 前缀束搜索（57.60）大幅差于贪心（77.16）——通用 ASR 解码不适配 KWS 的直接实证；流式专用解码 > 一切通用解码。
+    - generic [ref=f41e32]:
+      - paragraph [ref=f41e33]: §01 · 问题陈述
+      - heading "ASR 路线四不足与两个必须回答的问题" [level=2] [ref=f41e34]
+      - img [ref=f41e37]:
+        - generic [ref=f41e38]: ASR 路线内部四不足 + 本文的四连挑战
+        - generic [ref=f41e39]:
+          - generic [ref=f41e41]: WFST 解码图
+          - generic [ref=f41e42]: ✕ 实现维护复杂
+          - generic [ref=f41e43]: 工程门槛大
+          - generic [ref=f41e44]: 本文：解码格只围绕
+          - generic [ref=f41e45]: 关键词音子序列展开
+          - generic [ref=f41e47]: 通用 ASR 解码
+          - generic [ref=f41e48]: ✕ 在完整搜索空间展开
+          - generic [ref=f41e49]: 转写假设，不为关键词设优先级
+          - generic [ref=f41e50]: 本文：关键词专用流式解码 +
+          - generic [ref=f41e51]: 任意起点 + bonus 锐化 + 超时过滤
+          - generic [ref=f41e53]: 单支 Transducer 误差累积
+          - generic [ref=f41e54]: ✕ 当前帧后验依赖已预测历史
+          - generic [ref=f41e55]: 错误逐步累积——TDT-KWS 遗留短板
+          - generic [ref=f41e56]: 本文：CTC-Transducer 联训对冲
+          - generic [ref=f41e57]: （条件独立 vs 语言上下文互补）
+          - generic [ref=f41e59]: CTC-AED 联训
+          - generic [ref=f41e60]: ✕ 注意力开销大、token 级
+          - generic [ref=f41e61]: 推理时延显著——不适配 KWS
+          - generic [ref=f41e62]: 本文：保留联训+多头思想，
+          - generic [ref=f41e63]: 彻底避开注意力
+        - generic [ref=f41e65]: 双异步带来的两个新问题（II-D 节原文提出）
+        - generic [ref=f41e66]: 「怎么融合」（fusion method，决定有效性）：CTC-Dom / Trans-Dom / 等权 / CDC-Zero / CDC-Last 五种策略
+        - generic [ref=f41e67]: 「何时融合」（fusion timing，决定效率）：两支跳帧位置不同步 → 占位符 PH 语义约定
+        - generic [ref=f41e68]: 路线背景：端到端分类路线（段级分类）噪声敏感、与训练词耦合不支持任意词；ASR 两阶段路线声学模型解耦关键词、天然支持任意词——难点全落在解码算法设计
+    - generic [ref=f41e69]:
+      - paragraph [ref=f41e70]: §02 · 方法论
+      - heading "共享编码器 + 双解码头 + 帧异步融合" [level=2] [ref=f41e71]
+      - generic [ref=f41e73]:
+        - img [ref=f41e74]:
+          - generic [ref=f41e75]: 架构与解码（图 1）：一个共享编码器、两个解码头、一个帧异步融合解码器
+          - generic [ref=f41e76]:
+            - generic [ref=f41e78]: 40 维 FBank
+            - generic [ref=f41e79]: 25/10ms · 左右拼 5 帧
+            - generic [ref=f41e81]: 共享编码器 ❄
+            - generic [ref=f41e82]: 6 层 DFSMN · 512/320
+            - generic [ref=f41e84]: CTC 头：+2 层 DFSMN + 投影
+            - generic [ref=f41e85]: 尖峰分布 → PSD 阈值跳帧（甜点 35%）
+            - generic [ref=f41e87]: Transducer 头
+            - generic [ref=f41e88]: stateless predictor + TDT 时长头（D_max=4）
+            - generic [ref=f41e90]: 帧异步融合解码器
+            - generic [ref=f41e91]: 双 lattice 并行 + PH 占位符
+            - generic [ref=f41e92]: CDC-Last 滑窗一致性加权（ℓ_win=20）
+          - generic [ref=f41e104]: 联合训练损失（式 8）
+          - generic [ref=f41e105]: L = L_TDT + 0.3·L_CTC——三条理由：CTC 条件独立对冲误差累积
+          - generic [ref=f41e106]: （抑制误报、防关键词过拟合）；CTC 当声学正则改善收敛；
+          - generic [ref=f41e107]: 推理期双支互为校验，融合出比任何单支更稳的置信度
+          - generic [ref=f41e109]: 五种融合策略（表 4 消融选出 CDC-Last）
+          - generic [ref=f41e110]: 单帧类：CTC-Dom / Trans-Dom / 等权——简单但不考虑历史激活
+          - generic [ref=f41e111]: 时序类：CDC-Zero（PH 补 0）/ CDC-Last（PH 用最近非占位值）
+          - generic [ref=f41e112]: CDC-Last 胜出：被跳帧状态延续最近解码状态而非归零——归零制造分数断层破坏滑窗余弦估计
+          - generic [ref=f41e114]: 关键词约束流式解码（全套工作的地基）
+          - generic [ref=f41e115]: 只把关键词 token 序列喂给预测器（训练 teacher forcing 的推理版）；δ(t,0)=1 允许关键词从任意时刻开始；S[t]=δ(t,U)·φ(t,U)
+          - generic [ref=f41e116]: + bonus 边界锐化 + 超时置零 + 长度归一（把得分压进 [0,1]——两支分数才有统一量纲，融合才成立）
+        - paragraph [ref=f41e117]: 参数账本：中英文统一约 3.3M 参数，TDT 时长头新增 <0.1%——效率提升来自解码算法而非更大模型。建模单元英文 70 单音子 / 中文 200 音节——音素/音节级小词表既支持任意词（用户词展开成声学单元序列）又让解码格规模可控。
+      - generic [ref=f41e118]:
+        - text: S
+        - subscript [ref=f41e119]: t
+        - superscript [ref=f41e120]: Fused
+        - text: = (S
+        - subscript [ref=f41e121]: t
+        - superscript [ref=f41e122]: Trans
+        - text: + w
+        - subscript [ref=f41e123]: t
+        - superscript [ref=f41e124]: CDC
+        - text: ·S
+        - subscript [ref=f41e125]: t
+        - superscript [ref=f41e126]: CTC
+        - text: ) / (1 + w
+        - subscript [ref=f41e127]: t
+        - superscript [ref=f41e128]: CDC
+        - text: )，其中 w
+        - subscript [ref=f41e129]: t
+        - superscript [ref=f41e130]: CDC
+        - text: = cos(S
+        - superscript [ref=f41e131]: Trans
+        - subscript [ref=f41e132]: "[t−20:t]"
+        - text: ", S"
+        - superscript [ref=f41e133]: CTC
+        - subscript [ref=f41e134]: "[t−20:t]"
+        - text: )
+        - generic [ref=f41e135]: 为什么用趋势一致性做权重：单帧孤立高分很可能是误报；两个结构完全不同的分支（一个有语言上下文、一个条件独立）在窗口内走势高度一致 = 真实声学事件，此时才给 CTC 更高权重；一致性低时自动退化为 Transducer 主导。
+    - generic [ref=f41e136]:
+      - paragraph [ref=f41e137]: §03 · 实验结果
+      - heading "三场景 SOTA + 双赢的效率账本" [level=2] [ref=f41e138]
+      - generic [ref=f41e140]:
+        - img [ref=f41e141]:
+          - generic [ref=f41e142]: 表 3 联合训练 + 多头解码的增益（Snips，recall%）：miss 率相对降低 72% / 83%
+          - generic [ref=f41e143]: "97.5"
+          - generic [ref=f41e144]: "98.5"
+          - generic [ref=f41e145]: "99.5"
+          - generic [ref=f41e146]: "100"
+          - generic [ref=f41e148]: "98.08"
+          - generic [ref=f41e150]: "98.30"
+          - generic [ref=f41e152]: "98.56"
+          - generic [ref=f41e154]: "98.85"
+          - generic [ref=f41e156]: "99.57"
+          - generic [ref=f41e158]: "99.68"
+          - generic [ref=f41e160]: "99.60"
+          - generic [ref=f41e162]: "99.80"
+          - generic [ref=f41e163]: RNN-T 单支训练
+          - generic [ref=f41e164]: TDT 单支训练
+          - generic [ref=f41e165]: 联合训练 · Transducer 头
+          - generic [ref=f41e166]: 联合训练 + MFA 多头
+          - generic [ref=f41e167]: FAR=0.02（严苛）
+          - generic [ref=f41e168]: FAR=0.05
+          - generic [ref=f41e169]: 联合训练收益双向：训练期 CTC 当正则（每个单支头都超单支训练基线）；推理期双支互为校验（MFA 头再抬一档）
+          - generic [ref=f41e170]: 对 TDT 单支：FAR=0.02 miss 率相对降 72.22%（98.56→99.60）；FAR=0.05 相对降 82.61%（98.85→99.80）
+        - paragraph [ref=f41e171]: 对端到端分类系统（表 6）：FAR=0.05 下 MFA-KWS 领先重训 MDTC 超过 10 个百分点——分类系统在低误报预算下崩得快，ASR 式系统从容。中文固定词（表 7）：MobvoiHotwords 平均 99.79（Xiaowen 99.66 / Wenwen 99.92），相对两词各自最强基线 miss 率降 27.66%/68%——框架跨语言跨建模单元（音节 vs 音子）泛化。
+      - img [ref=f41e173]:
+        - generic [ref=f41e174]: 表 8 任意关键词（LibriKWS-20，macro-accuracy@FAR=0，平均%）：通用解码不适配 KWS 的两个证据
+        - generic [ref=f41e175]: MFA-KWS（联合 + 流式）
+        - generic [ref=f41e177]: "83.50"
+        - generic [ref=f41e178]: CTC 流式解码
+        - generic [ref=f41e180]: "82.43"
+        - generic [ref=f41e181]: Transducer 流式解码
+        - generic [ref=f41e183]: "81.45"
+        - generic [ref=f41e184]: CTC 贪心
+        - generic [ref=f41e186]: "77.16"
+        - generic [ref=f41e187]: Transducer 束搜索 beam=10
+        - generic [ref=f41e189]: "70.57"
+        - generic [ref=f41e190]: Transducer 贪心
+        - generic [ref=f41e192]: "67.57"
+        - generic [ref=f41e193]: CTC 前缀束搜索 beam=10
+        - generic [ref=f41e195]: "57.60"
+        - generic [ref=f41e196]: 反直觉：CTC 前缀束搜索（57.60）
+        - generic [ref=f41e197]: 大幅差于贪心（77.16）——
+        - generic [ref=f41e198]: 通用 ASR 解码不适配 KWS 的直接证据
+        - generic [ref=f41e199]: 证据二：流式专用解码 > 一切通用解码
+        - generic [ref=f41e200]: （CTC 93.86>89.68，Trans 93.18>86.30）
+        - generic [ref=f41e201]: 关键词专用搜索空间的价值独立于模型结构
+        - generic [ref=f41e202]: test-clean / test-other 拆分：MFA 94.25 / 72.75 双子集全部第一；CTC 流式与 Transducer 流式互补而非冗余（82.43 vs 81.45）
+        - generic [ref=f41e203]: 误报评估音频每子集仅 3 小时——低 FAR 档位误报计数样本量小，指标方差风险高
+      - generic [ref=f41e204]:
+        - img [ref=f41e205]:
+          - generic [ref=f41e206]: 效率-精度账本：跳帧甜点在 35%（表 2），MFA 加速 1.47–1.63×（表 10）
+          - generic [ref=f41e207]: ① PSD 跳帧比例 vs recall（Snips，FAR=0.02）
+          - generic [ref=f41e208]: "88"
+          - generic [ref=f41e209]: "92"
+          - generic [ref=f41e210]: "96"
+          - generic [ref=f41e211]: "100"
+          - generic [ref=f41e213]: "98.9"
+          - generic [ref=f41e214]: 0%
+          - generic [ref=f41e216]: 20%
+          - generic [ref=f41e218]: 30%
+          - generic [ref=f41e220]: "98.1"
+          - generic [ref=f41e221]: 35%
+          - generic [ref=f41e223]: 40%
+          - generic [ref=f41e225]: "94.4"
+          - generic [ref=f41e226]: 45%
+          - generic [ref=f41e228]: "88.4"
+          - generic [ref=f41e229]: 50%
+          - generic [ref=f41e230]: 0→35% 仅缓降 0.79 pp；越过 35% 衰退转急（50% 崩到 88.41）
+          - generic [ref=f41e231]: 甜点选定 35%（λφ 按各数据集开发集搜索）——CTC 尖峰分布：真正带语音内容的帧只占少数
+          - generic [ref=f41e232]: ② 解码加速（相对 MFS 帧同步 = 1.0×）
+          - generic [ref=f41e233]: CTC-PSD 单支
+          - generic [ref=f41e235]: 1.94×
+          - generic [ref=f41e236]: TDT-4 单支
+          - generic [ref=f41e238]: 1.60×
+          - generic [ref=f41e239]: MFA-KWS（本文）
+          - generic [ref=f41e241]: 1.54×
+          - generic [ref=f41e242]: RNN-T 单支
+          - generic [ref=f41e244]: 1.22×
+          - generic [ref=f41e245]: MFA（五集 1.47–1.63×）：比 RNN-T 快、与 TDT-4 相当、慢于纯 CTC-PSD
+          - generic [ref=f41e246]: 但检出精度全面高于所有单支——速度-精度同向改善的位置
+          - generic [ref=f41e247]: 总账：MFA 相对 MFS 平均 miss 率相对降 23.0%（2.55% vs 3.31%）且更快——帧异步不是精度换速度、而是双赢
+          - generic [ref=f41e248]: 模型约 3.3M 参数、TDT 时长头开销 <0.1%——效率提升来自解码算法而非更大模型
+        - paragraph [ref=f41e249]: 噪声鲁棒性（表 9，FA=2，五档 SNR 平均）：Snips MFA 94.22 / MFS 93.06 / TDT 86.50 / CTC-FSD 86.44；test-other MFA 75.15 仍最高。三个发现：Transducer 解码在连续语音上比 CTC 稳；噪声下跳帧反而涨点（跳帧滤掉被噪声污染的无关节帧、聚焦关键语音帧）；多头解码各 SNR 档稳定有效。
+    - generic [ref=f41e250]:
+      - paragraph [ref=f41e251]: §04 · 主要贡献
+      - heading "五条可转述的判断" [level=2] [ref=f41e252]
+      - generic [ref=f41e254]:
+        - generic [ref=f41e255]:
+          - generic [ref=f41e256]: "1"
+          - text: MFS-KWSCTC-Transducer 联训 + 多头帧同步解码——条件独立性对冲误差累积、互为正则、互为校验；仅联训即降 miss 至多 72%。
+        - generic [ref=f41e257]:
+          - generic [ref=f41e258]: "2"
+          - text: MFA-KWS + CDC-Last双头帧异步（TDT + PSD）+ 占位符 PH + 滑窗一致性融合——五种策略系统探索，CDC-Last 全面胜出。
+        - generic [ref=f41e259]:
+          - generic [ref=f41e260]: "3"
+          - text: 三场景全面 SOTA英文固定词（Snips）/ 中文固定词（Mobvoi）/ 任意关键词（LibriKWS-20）全超 ASR 式与端到端式基线；多 SNR 噪声下双头显著优于单支。
+        - generic [ref=f41e261]:
+          - generic [ref=f41e262]: "4"
+          - text: 双赢的效率账本加速 47–63% 同时 miss 降 23%、模型 3.3M、时长头 <0.1%——帧异步不是精度换速度；解码代码全开源（KWS 解码研究开源稀缺）。
+    - generic [ref=f41e263]:
+      - paragraph [ref=f41e264]: §05 · 局限性与展望
+      - heading "双解码格状态成本未量化，跳帧安全边际窄" [level=2] [ref=f41e265]
+      - generic [ref=f41e267]:
+        - generic [ref=f41e268]:
+          - heading "方法的技术局限" [level=4] [ref=f41e269]
+          - list [ref=f41e270]:
+            - listitem [ref=f41e271]: 双分支状态成本：同时维护两套解码格 + CDC 滑窗计算——实现复杂度与内存高于任何单支；只报了相对加速比，无内存占用与状态维护成本。
+            - listitem [ref=f41e272]: 超参全局固定：α=0.3 / ℓ_win=20 / 35% / D_max=4 全局常数不自适应——表 2 显示安全边际窄（35% 时 98.10、50% 崩到 88.41），分布偏移下固定阈值有失效风险。
+            - listitem [ref=f41e273]: CDC 滑窗响应滞后：20 帧窗（约 0.6s，笔记推导）对突发短事件有天然滞后；融合权重纯手工规则无可学习参数。
+            - listitem [ref=f41e274]: CTC 条件独立是双刃剑：CTC 头缺语言上下文需 Transducer 兜底；联训后 CTC 头 0.05 档 99.05 仍低于单支 CDC-KWS 的 99.80——联训并非对所有头单调增益。
+        - generic [ref=f41e275]:
+          - heading "实验设计的不足" [level=4] [ref=f41e276]
+          - list [ref=f41e277]:
+            - listitem [ref=f41e278]: 效率指标不完整：无绝对 RTF / 时延 / 内存峰值 / 真机（ARM/DSP/NPU）实测；3.3M 对应 FLOPs 与 CTC 辅助 2 层的开销拆分未报。
+            - listitem [ref=f41e279]: 关键超参缺消融：α、ℓ_win、S_Bonus、T_out 无敏感性分析。
+            - listitem [ref=f41e280]: 噪声覆盖不均：Mobvoi 排除在混噪实验外（自带噪声无法控 SNR）——中文侧无受控噪声数据；融合策略消融只在英文做。
+            - listitem [ref=f41e281]: 误报统计置信度受限：每子集误报音频仅 3 小时、关键词 20 个——低 FAR 档计数样本量小。
+            - listitem [ref=f41e282]: 对比面留白：无 WFST 正面对比、束宽固定 10 未扫、与 U2-KWS 类两遍方法未同场。
+            - listitem [ref=f41e283]: 训练成本未披露：双任务双头的训练时间/显存增量。
+      - generic [ref=f41e284]:
+        - heading "下一步方向（论文展望 + 笔者补充）" [level=3] [ref=f41e285]
+        - paragraph [ref=f41e286]: ① 可学习融合：CDC 余弦权重换成轻量可训练门控（两支滑窗特征为输入）——「怎么融合、何时融合」由数据端到端学出。 ② 自适应跳帧：在线 SNR 估计或分支置信度动态调 λφ 与 D_max——替代全局固定 35%，换取窄裕度下的部署安全。 ③ 双头蒸馏回单头：保联训收益砍推理期双解码开销。 ④ 真机基准：ARM/DSP 实测时延功耗，验证 3.3M + 1.5× 在真实唤醒链路的收益。 ⑤ 任务扩展：更大关键词集、多语言统一模型、多说话人重叠、与关键词偏置结合支持运行时动态注册。 ⑥ 评估补全：中文混噪、更长误报语料、超参消融、WFST 与两遍流式 ASR 同场对比。
+    - contentinfo [ref=f41e287]:
+      - paragraph [ref=f41e288]: 论文精读 · 可视化版 · 2025 №25 · MFA-KWS 多头帧异步解码（上海交大 X-LANCE × NUS，arXiv 2025）
+      - paragraph [ref=f41e289]: 数据来源：论文表 I–X、图 1–3、算法 1–2（经由本库深读笔记核对）。图表坐标由脚本从论文原表计算生成。
+      - generic [ref=f41e290]:
+        - link "📄 深读笔记" [ref=f41e291] [cursor=pointer]:
+          - /url: /papers/2025/MFA-KWS_Effective_Keyword_Spotting_With_Multi-head_Frame-asynchronous_Decoding.md
+        - link "📕 PDF 原稿" [ref=f41e292] [cursor=pointer]:
+          - /url: /papers/2025/MFA-KWS_Effective_Keyword_Spotting_With_Multi-head_Frame-asynchronous_Decoding.pdf
+        - link "🔗 arXiv:2505.19577" [ref=f41e293] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2505.19577
+        - link "💻 GitHub" [ref=f41e294] [cursor=pointer]:
+          - /url: https://github.com/X-LANCE/KWStreamingSearch
+        - link "← 返回论文库" [ref=f41e295] [cursor=pointer]:
+          - /url: /

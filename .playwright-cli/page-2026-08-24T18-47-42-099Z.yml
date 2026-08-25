@@ -1,0 +1,207 @@
+- generic [active] [ref=f88e1]:
+  - navigation [ref=f88e2]:
+    - generic [ref=f88e3]:
+      - generic [ref=f88e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f88e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f88e6]:
+        - link "深读笔记" [ref=f88e7] [cursor=pointer]:
+          - /url: /papers/2024/Efficient_Real-Time_Smart_Keyword_Spotting_Using_Spectrogram-Based_Hybrid_CNN-LSTM_For_Edge_System.md
+        - link "PDF 原稿" [ref=f88e8] [cursor=pointer]:
+          - /url: /papers/2024/Efficient_Real-Time_Smart_Keyword_Spotting_Using_Spectrogram-Based_Hybrid_CNN-LSTM_For_Edge_System.pdf
+        - link "DOI" [ref=f88e9] [cursor=pointer]:
+          - /url: https://doi.org/10.1109/access.2024.3380350
+  - generic [ref=f88e10]:
+    - banner [ref=f88e11]:
+      - paragraph [ref=f88e12]: 论文精读 · 可视化版 · 2024 №12
+      - heading "把梅尔频谱图塞进网络第一层， 89K 参数的「设计-部署-真机」全链路样板" [level=1] [ref=f88e13]: 把梅尔频谱图塞进网络第一层，89K 参数的「设计-部署-真机」全链路样板
+      - paragraph [ref=f88e14]: Efficient Real-Time Smart Keyword Spotting Using Spectrogram-Based Hybrid CNN-LSTM for Edge System（SpectroNet）
+      - paragraph [ref=f88e15]: 作者：Infall Syafalni、Clarence Amadeus 等 4 人 —— 万隆理工学院（ITB）× IMEC
+      - paragraph [ref=f88e16]: 发表：IEEE Access 2024.01 · 部署平台 Jetson Xavier NX + TensorRT
+      - generic [ref=f88e17]:
+        - generic [ref=f88e18]: 梅尔层内嵌网络
+        - generic [ref=f88e19]: DenseNet + 单向 LSTM
+        - generic [ref=f88e20]: 频率轴卷积 / 时间轴留给 LSTM
+        - generic [ref=f88e21]: 89,241 参数 / 93.33%
+        - generic [ref=f88e22]: TensorRT FP16 52ms
+        - generic [ref=f88e23]: 真人语音 LED 闭环
+      - generic [ref=f88e24]:
+        - heading "一分钟版本" [level=2] [ref=f88e25]
+        - list [ref=f88e26]:
+          - listitem [ref=f88e27]: 定位：工程集成型论文——不在单项技术上求高度，而是把「模型设计-数据-硬件选型-推理优化-真机验证」整条链路在一篇里走通并给出全链路数字，适合作为边缘 KWS 部署流程参考样板。
+          - listitem [ref=f88e28]: 架构（SpectroNet）：梅尔频谱图做成网络内自定义层（直接吃 16000 点原始波形，消灭独立特征提取流程）→ DenseNet 空间特征 + 单向LSTM 时序建模。最值得注意的结构细节：卷积和池化几乎只在频率轴上做——两个过渡层都是 1×2 池化，时间维 59 帧一路保持到 LSTM——时序职责整个让渡给 LSTM，职责切分而非能力堆叠。
+          - listitem [ref=f88e29]: 结果：GSC v2 十词闭集（38,546 条）89,241 参数拿到 93.33% 测试精度 / 61ms 真机推理——五模型横评里「精度第二、参数第二少、速度第二快」的平衡位；验证集 95.21% 五者最高、过拟合 2.84% 第二低。
+          - listitem [ref=f88e30]: TensorRT 账本：FP32 引擎 54.9ms（提速 10%）、FP16 52.0ms（14.75%），精度只掉 0.33%；但操作转换率只有 ~53%——自定义梅尔层把近一半计算锁在优化器门外，提速远低于文献 FP16 动辄数倍的预期（笔记推断的权衡，论文未分析）；FP16 引擎构建时间还多 66%。
+          - listitem [ref=f88e31]: 闭环：USB 麦克风采真人语音 → Jetson 推理 → GPIO LED 指示 10 词分类结果，100 次真人发音验证、PC 与 Jetson 精度零损失（部署一致性本身当指标）。
+          - listitem [ref=f88e32]: 成色警告（必读）：摘要与正文数字大面积冲突（180ms vs 61ms、45%/62% vs 10%/14.75% 提速、2.68%/4.84% vs 0.33% 精度损失——疑为 2023 会议版残留，论文零解释）；参数量两处不一致（142,877 vs 89,241）；Hamming/Hanning 窗自相矛盾——引用任何数字前先交叉核对正文表格。
+    - generic [ref=f88e33]:
+      - paragraph [ref=f88e34]: §01 · 问题陈述
+      - heading "云端路线的延迟 / 隐私 / 扩展性三宗罪；边缘路线的工程闭环没人走完" [level=2] [ref=f88e35]
+      - generic [ref=f88e37]: 五个角度的缺口：① 单一架构能力缺陷——纯 CNN 只学空间结构要堆深度、纯 RNN 学不到局部信息，辅音瞬态与共振峰轨迹的局部形状 + 跨时间上下文需要两种能力；② 已有混合架构帕累托不佳——CTC 法 12.21M/98%（自定义集）、混合 CNN-RNN 229K/97.15%、DenseNet-BiLSTM 223K/97.3%、门控卷积 RNN 154.53K/只有 90.6%——小模型掉精度、精度高的不够小；③ 特征提取与模型割裂——离线算频谱图、存文件、再喂网络，「低效、耗时、耗资源」（原话），实时系统还要维护两套软件组件；④ 缺真机真人验证——大量工作只测数据集准确率，「模型精度-部署性能」的鸿沟没填平；⑤ 优化空间没用足——文献显示 TensorRT FP16 吞吐提升可达 746%、INT8 达 1318%；而 TensorRT 比 TFLite 快但多耗 ~40% 能量——框架选择本身就是精度-能耗-速度三角，需实测。
+    - generic [ref=f88e38]:
+      - paragraph [ref=f88e39]: §02 · 方法论
+      - heading "时间轴全程保护给 LSTM；频率轴交给 DenseNet" [level=2] [ref=f88e40]
+      - generic [ref=f88e42]:
+        - img [ref=f88e43]:
+          - generic [ref=f88e44]: Table 3 复绘：端到端管线——时间维（下标 t）从 59 帧起一路保持到 LSTM
+          - generic [ref=f88e46]: 原始波形
+          - generic [ref=f88e47]: 16,000 点（1s @16kHz）
+          - generic [ref=f88e50]: 梅尔频谱图层（内嵌）★
+          - generic [ref=f88e51]: 自定义层 · 118 帧 × 80 梅尔通道
+          - generic [ref=f88e54]: CNN 空间段（DenseNet）
+          - generic [ref=f88e55]: 5×1 conv → 2×2 池化 → 稠密块×2 + 1×2 过渡
+          - generic [ref=f88e58]: 重排 59×10
+          - generic [ref=f88e59]: 时间 × 通道序列
+          - generic [ref=f88e62]: LSTM ×128（单向）
+          - generic [ref=f88e63]: → FC 64 → Dropout 0.5 → 10 类
+          - generic [ref=f88e66]: 职责切分的时间轴证据（Table 3 逐层）
+          - generic [ref=f88e67]: · 118 帧 →（2×2 池化）→ 59 帧：这是时间维唯一一次缩减，发生在网络最早期
+          - generic [ref=f88e68]: · 之后两个过渡层池化都是 1×2：只砍频率维（80→20→10），时间维 59 帧保持不变
+          - generic [ref=f88e69]: · 时间轴上没有卷积核展开——「避免丢失任何可交给 LSTM 提取的时序数据」（论文原话）
+          - generic [ref=f88e70]: · DenseNet 稠密连接（特征复用）让浅网达到深层表达——参数效率的另一来源
+          - generic [ref=f88e72]: 为什么单向 LSTM（笔记推断）
+          - generic [ref=f88e73]: · 双向需要未来帧——与流式
+          - generic [ref=f88e74]: 「来一帧算一帧」的因果性冲突
+          - generic [ref=f88e75]: · 单向少一半反向权重：
+          - generic [ref=f88e76]: C1G2BiLSTM 149.9K/106ms
+          - generic [ref=f88e77]: SpectroNet 89.2K/61ms
+          - generic [ref=f88e79]: 内嵌梅尔层的隐性代价（笔记观察，论文未分析）
+          - generic [ref=f88e80]: TensorRT 只转换 ~53% 操作——自定义梅尔层 + 部分 reshape/LSTM 不在原生算子集内，回退未优化路径 → 实测提速仅 10-14.75%；流水线简洁与优化覆盖率互相牵制
+        - paragraph [ref=f88e81]: 图 A·梅尔层内嵌的三重工程收益：① 流水线从「录音→离线特征脚本→网络」简化为「录音→网络」；② 训练与推理的特征路径完全同源（避免离线脚本与在线实现不一致的隐性精度损失）；③ 端到端单模型便于交给部署优化器整体转换。代价见红框。选 Jetson Xavier NX 的理由：Jetson 家族里 FPS/瓦特最优（Nano 是 FPS/美元最优、AGX 是绝对 FPS 最优）——能效比作为边缘选型第一标准。
+      - generic [ref=f88e82]:
+        - text: Mel(f) = 1127·ln(1 + f/700)； STFT：S(m,k) = Σ x(n+mH)·w(n)·e^(−i2πnk/N)； 参数（Table 4）：窗 512 · 跳步 128（重叠 75%）· 80 梅尔滤波器 · 0-8 kHz
+        - generic [ref=f88e83]: 人话：分帧加窗 → 每帧傅里叶变换 → 功率谱（与共轭相乘）→ 三角梅尔滤波器组 → 对数缩放。梅尔刻度是对数的、贴近人耳频率感知。注意：按 16000 点 / 512 / 128 推算帧数应约 122-125，与 Table 3 的 118 帧对不上——论文未报告推导（细节欠账之一）。
+    - generic [ref=f88e84]:
+      - paragraph [ref=f88e85]: §03 · 实验结果
+      - heading "五模型横评占平衡位；TensorRT 账本诚实但被摘要拖累" [level=2] [ref=f88e86]
+      - generic [ref=f88e88]: 数据与协议：GSC v2 十词子集（go/on/off/yes/no/up/down/left/right/stop），38,546 条按 80/10/10 划分——没有 unknown/silence 背充类（闭集分类，任何非命令词都被强制分进 10 类）。训练：100 epoch 上限 + 早停（耐心 10）、Adam lr 0.001、batch 64、稀疏类别交叉熵。测试与推理全部在 Jetson Xavier NX 上执行。
+      - generic [ref=f88e89]:
+        - img [ref=f88e90]:
+          - generic [ref=f88e91]: Table 11 · 五模型对比：参数量（对数横轴）× 测试精度，标注真机推理延迟
+          - generic [ref=f88e92]: "85"
+          - generic [ref=f88e93]: "88"
+          - generic [ref=f88e94]: "91"
+          - generic [ref=f88e95]: "94"
+          - generic [ref=f88e96]: 10K
+          - generic [ref=f88e97]: 100K
+          - generic [ref=f88e98]: 1M
+          - generic [ref=f88e99]: 10M
+          - generic [ref=f88e100]: 100M
+          - generic [ref=f88e101]: 参数量（对数轴，越左越省）
+          - generic [ref=f88e103]: DSCNN 36.3K · 30ms
+          - generic [ref=f88e105]: C1G2BiLSTM 149.9K · 106ms
+          - generic [ref=f88e107]: SpectroNet 89.2K · 61ms ★
+          - generic [ref=f88e109]: SBNet 874K · 60ms
+          - generic [ref=f88e111]: AlexNet 58.3M · 120ms
+          - generic [ref=f88e112]: SpectroNet 占「精度第二、参数第二少、速度第二快」的平衡位：比 AlexNet 少 99.85% 参数达到相当精度；DSCNN 最轻最快但 85.40% 不可靠
+        - paragraph [ref=f88e113]: 表 11 复绘·测试在 Jetson Xavier NX 上执行。注意论文结论性百分比的口径问题：「少 28.57% 延迟」相对表中任何模型都算不出（相对 AlexNet 应为 49.2%）；「少约 70% 参数」相对各模型也不均匀成立（相对 DSCNN 反而多 1.46 倍）——Table 11 原始数字比这些百分比更可信。
+      - generic [ref=f88e114]:
+        - img [ref=f88e115]:
+          - generic [ref=f88e116]: Table 10 · 训练/验证准确率与过拟合（同超参 100 epoch 上限 + 早停）
+          - generic [ref=f88e117]: "85"
+          - generic [ref=f88e118]: "90"
+          - generic [ref=f88e119]: "95"
+          - generic [ref=f88e120]: "100"
+          - generic [ref=f88e122]: "96.21"
+          - generic [ref=f88e124]: "93.92"
+          - generic [ref=f88e125]: AlexNet
+          - generic [ref=f88e126]: 过拟合 2.29%
+          - generic [ref=f88e128]: "99.56"
+          - generic [ref=f88e130]: "92.81"
+          - generic [ref=f88e131]: SBNet
+          - generic [ref=f88e132]: 过拟合 6.75%
+          - generic [ref=f88e134]: "94.09"
+          - generic [ref=f88e136]: "86.61"
+          - generic [ref=f88e137]: DSCNN
+          - generic [ref=f88e138]: 过拟合 7.68%
+          - generic [ref=f88e140]: "96.00"
+          - generic [ref=f88e142]: "90.65"
+          - generic [ref=f88e143]: C1G2BiLSTM
+          - generic [ref=f88e144]: 过拟合 5.35%
+          - generic [ref=f88e146]: "98.05"
+          - generic [ref=f88e148]: "95.21"
+          - generic [ref=f88e149]: SpectroNet
+          - generic [ref=f88e150]: 过拟合 2.84%
+          - generic [ref=f88e152]: 训练准确率
+          - generic [ref=f88e154]: 验证准确率（SpectroNet 95.21% 五者最高）
+        - paragraph [ref=f88e155]: 表 10 复绘·同超参横评（100 epoch 上限 + 早停耐心 10）。SpectroNet 验证 95.21% 五者最高、过拟合 2.84% 第二低（仅高于 AlexNet 2.29%）；收敛曲线最快到达良好值。学习率小实验：0.0001 显著拉长训练且无收益，论证 0.001 合理。
+      - generic [ref=f88e156]:
+        - img [ref=f88e157]:
+          - generic [ref=f88e158]: Table 13 · TensorRT 优化：提速只有 10-14.75%——近一半操作被自定义层锁在引擎外
+          - generic [ref=f88e159]: "40"
+          - generic [ref=f88e160]: "50"
+          - generic [ref=f88e161]: "60"
+          - generic [ref=f88e163]: 61.0 ms
+          - generic [ref=f88e164]: 未优化
+          - generic [ref=f88e165]: 精度 93.33%
+          - generic [ref=f88e167]: 54.9 ms
+          - generic [ref=f88e168]: FP32 引擎
+          - generic [ref=f88e169]: 精度 93%
+          - generic [ref=f88e171]: 52.0 ms
+          - generic [ref=f88e172]: FP16 引擎
+          - generic [ref=f88e173]: 精度 93%
+          - generic [ref=f88e174]: 提速 10% → 14.75%，精度损失仅 0.33%；FP16 相对 FP16/FP32 无额外精度代价（免费速度档）
+          - generic [ref=f88e175]: 为什么提速远低于文献预期
+          - generic [ref=f88e176]: · 操作转换率：FP32 193/369（52.57%）
+          - generic [ref=f88e177]: FP16 197/365（53.97%）——近一半算子
+          - generic [ref=f88e178]: 回退到未优化路径
+          - generic [ref=f88e179]: · 最合理原因（笔记推断）：自定义梅尔层 +
+          - generic [ref=f88e180]: 部分 reshape/LSTM 不在 TensorRT 原生
+          - generic [ref=f88e181]: 算子集内
+          - generic [ref=f88e182]: · 引擎构建时间：FP32 258.8s → FP16 430.2s
+          - generic [ref=f88e183]: （多 66.29%）
+          - generic [ref=f88e184]: · 文献[31] FP16 动辄 746% 吞吐提升——
+          - generic [ref=f88e185]: 内嵌层换简洁，也把优化器关在门外
+        - paragraph [ref=f88e186]: 表 12/13 复绘·右侧为笔记对「提速远低于文献预期」的解释——内嵌层与优化器覆盖率的矛盾是论文未报告但数据里清晰可见的权衡。FP16 模式下总操作数还从 369 缩到 365。
+      - generic [ref=f88e187]: 消融的缺失（实验设计最大缺口）：论文反复主张混合架构与内嵌层的必要性，但没有任何组件级消融——去掉 LSTM 只留 DenseNet？内嵌层换离线特征差多少？稠密块减半？1×2 换 2×2 池化？全部未做。实际提供的近似证据只有两组：精度档位消融（FP32 vs FP16 精度同为 93%——FP16 是免费速度档）和学习率消融（0.0001 拉长训练且无收益）。Table 11 的五模型横评是「架构路线消融」的弱替代，无法回答归因问题。
+    - generic [ref=f88e188]:
+      - paragraph [ref=f88e189]: §04 · 主要贡献
+      - heading "可转述的四个判断" [level=2] [ref=f88e190]
+      - generic [ref=f88e192]:
+        - generic [ref=f88e193]:
+          - generic [ref=f88e194]: "1"
+          - text: 特征提取变成模型的一部分梅尔层内嵌消除独立频谱转换流程——部署链路少一个组件、特征路径训练/推理同源，最清晰的系统贡献。
+        - generic [ref=f88e195]:
+          - generic [ref=f88e196]: "2"
+          - text: 频率轴 CNN + 时间轴 LSTM 的职责切分时间维保护到 LSTM 之前不衰减、DenseNet 特征复用压参数——89K/93.33% 验证这条切分路线的参数效率。
+        - generic [ref=f88e197]:
+          - generic [ref=f88e198]: "3"
+          - text: FP16 完整代价清单提速 14.75% / 精度 −0.33% / 构建时间 +66% 三列并报——把 FP16 的真实代价摆明面上，部署类论文少见的诚实写法。
+        - generic [ref=f88e199]:
+          - generic [ref=f88e200]: "4"
+          - text: 真机真人闭环 + 部署一致性真人语音 → GPIO LED，100 次发音验证；PC 与 Jetson 精度零损失——「部署一致性」本身作为被验证指标。
+    - generic [ref=f88e201]:
+      - paragraph [ref=f88e202]: §05 · 局限性与展望
+      - heading "「边缘」是 10-20W 的 GPU 板；摘要与正文两套数字" [level=2] [ref=f88e203]
+      - generic [ref=f88e205]:
+        - generic [ref=f88e206]:
+          - heading "方法局限" [level=4] [ref=f88e207]
+          - list [ref=f88e208]:
+            - listitem [ref=f88e209]: 「边缘」的成色：Jetson Xavier NX 是 10-20W 级 GPU 平台——与真唤醒词场景（无线耳机 / MCU 毫瓦常监听）差两三个数量级；系统是定窗触发式分类，VAD / 端点检测 / 流式机制完全没设计。
+            - listitem [ref=f88e210]: 闭集无拒识：10 类无 unknown/silence，93.33% 闭集精度不能外推为开集可用性；误唤醒率 / 拒识率未报告。
+            - listitem [ref=f88e211]: TensorRT 收益被自定义层锁死：~53% 转换率 → 提速停在 10-14.75%；未尝试把梅尔层拆出引擎单独优化。
+            - listitem [ref=f88e212]: LSTM 序列性：59 步逐帧扫描 GPU 难并行——与后续全卷积 / 纯注意力路线相比缺延展性。
+            - listitem [ref=f88e213]: 结构细节欠账：118 帧推不出、稠密块 10→106 通道拼接算术不可复现、过渡层记法自相矛盾。
+        - generic [ref=f88e214]:
+          - heading "实验设计不足" [level=4] [ref=f88e215]
+          - list [ref=f88e216]:
+            - listitem [ref=f88e217]: 摘要-正文数字大面积冲突（精读必警）：180ms vs 61ms、操作减少 59.35%/59.63% vs 52.57%/53.97%、提速 45%/62% vs 10%/14.75%、精度损失 2.68%/4.84% vs 0.33%——疑为团队 2023 MWSCAS 会议版残留，零解释。
+            - listitem [ref=f88e218]: 多处内部不一致：参数 142,877 vs 89,241；收敛 epoch 正文 27 vs 表 30；Hamming vs Hanning 窗；TF 版本两说；稠密块 3 个 vs 2 个；Table 7 的 OS 字段填了 CPU 型号——作者版未经充分编辑。
+            - listitem [ref=f88e219]: 基线偏旧非 SOTA：最新对照是 2019 年的 DSCNN / C1G2BiLSTM；无 MatchboxNet / BC-ResNet；10 类协议与文献 35 类不可比。
+            - listitem [ref=f88e220]: 真人测试太小：100 次发音、说话人数与环境未描述、无显著性；噪声鲁棒性零评测（论文未来工作里自己承认）。
+            - listitem [ref=f88e221]: 缺工程指标：FLOPs / 体积 / 内存 / 功耗全无——而能效恰是选型动机；「少 28.57% 延迟」「少约 70% 参数」等结论百分比与表格对不上。
+      - generic [ref=f88e222]: 值得追的方向：① 补组件级消融（去 LSTM / 离线特征替换内嵌层 / 稠密块数扫描 / 1×2 换 2×2），把混合架构的必要性从主张变成证据；② INT8 量化——论文自己引用了 INT8 有 1318% 吞吐提升的数据却只做到 FP16；③ 梅尔层拆出 TensorRT 引擎或改写为可转换算子，释放被锁的 ~47% 操作；④ 加 unknown/silence 类与误唤醒 / 拒识指标，向真实 KWS 协议靠拢；⑤ 远场 / 噪声 / 多说话人真人测试 + 实测功耗，把「边缘实时」补成完整能效数据；⑥ 流式窗口与端点检测——从定窗分类升级为常开监听；⑦ 论文自指的 FPGA / IC 移植（IMEC 团队背景，专用硬件加速是明确下一步）。
+    - contentinfo [ref=f88e223]:
+      - generic [ref=f88e224]:
+        - link "深读笔记" [ref=f88e225] [cursor=pointer]:
+          - /url: /papers/2024/Efficient_Real-Time_Smart_Keyword_Spotting_Using_Spectrogram-Based_Hybrid_CNN-LSTM_For_Edge_System.md
+        - link "PDF 原稿" [ref=f88e226] [cursor=pointer]:
+          - /url: /papers/2024/Efficient_Real-Time_Smart_Keyword_Spotting_Using_Spectrogram-Based_Hybrid_CNN-LSTM_For_Edge_System.pdf
+        - link "DOI" [ref=f88e227] [cursor=pointer]:
+          - /url: https://doi.org/10.1109/access.2024.3380350
+        - link "演示视频" [ref=f88e228] [cursor=pointer]:
+          - /url: https://youtu.be/1jDInCVdyvU
+        - link "返回总目录" [ref=f88e229] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f88e230]: 深读笔记整理 · 可视化重写 · 数字与表号均对齐笔记（Table 2-13 / Figures 10-16）；「笔记推断 / 观察」标注处为笔记给出的分析与核对，引用以正文表格为准。

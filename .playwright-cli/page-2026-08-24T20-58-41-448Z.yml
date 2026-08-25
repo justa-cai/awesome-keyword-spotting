@@ -1,0 +1,261 @@
+- generic [active] [ref=f138e1]:
+  - navigation [ref=f138e2]:
+    - generic [ref=f138e3]:
+      - generic [ref=f138e4]:
+        - text: ←
+        - link "Awesome Keyword Spotting 论文库" [ref=f138e5] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f138e6]:
+        - link "深读笔记" [ref=f138e7] [cursor=pointer]:
+          - /url: /papers/2024/Streaming_Keyword_Spotting_Boosted_By_Cross-layer_Discrimination_Consistency.md
+        - link "PDF 原稿" [ref=f138e8] [cursor=pointer]:
+          - /url: /papers/2024/Streaming_Keyword_Spotting_Boosted_By_Cross-layer_Discrimination_Consistency.pdf
+        - link "arXiv" [ref=f138e9] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2412.12635
+  - generic [ref=f138e10]:
+    - banner [ref=f138e11]:
+      - paragraph [ref=f138e12]: 论文精读 · 可视化版 · 2024 №36
+      - heading "训练准则合适 ≠ 解码策略合适——把搜索锁死在关键词模板上， 再让中间层在推理期当一次虚警检测器" [level=1] [ref=f138e13]: 训练准则合适 ≠ 解码策略合适——把搜索锁死在关键词模板上，再让中间层在推理期当一次虚警检测器
+      - paragraph [ref=f138e14]: Streaming Keyword Spotting Boosted by Cross-layer Discrimination Consistency（CDC）
+      - paragraph [ref=f138e15]: 作者：Yu Xi*、Haoyu Li*、Xiaoyu Gu、Hao Li、Yidi Jiang、Kai Yu（通讯）—— 上海交大 X-LANCE · 思必驰 · 新加坡国立大学（*共同一作）
+      - paragraph [ref=f138e16]: 发表：arXiv 2412.12635（2024-12）· 声学模型 6 层 DFSMN，一路不改
+      - generic [ref=f138e17]:
+        - generic [ref=f138e18]: 任意起点流式解码
+        - generic [ref=f138e19]: 模板 2U+1 状态 DP
+        - generic [ref=f138e20]: ICTC：训练正则 → 推理判别器
+        - generic [ref=f138e21]: 滑窗余弦 CDC
+        - generic [ref=f138e22]: 漏检率相对降 46.3%
+        - generic [ref=f138e23]: −5dB 域外仍有 63.4 召回
+      - generic [ref=f138e24]:
+        - heading "一分钟版本" [level=2] [ref=f138e25]
+        - list [ref=f138e26]:
+          - listitem [ref=f138e27]: 痛点：训练与解码的错配。CTC 免对齐标注 + 非自回归逐帧输出，是流式 KWS 的主流训练准则——但现成解码器是为 ASR「整句转写」设计的：greedy 搜索的预算大量花在与关键词无关的语音上（同一个 CTC 模型平均只有 71.7%）；KWS 专用解码图方向对（75.8%）但要实现 WFST 图 + Token Passing，工程复杂难迭代，且强噪声下 token 难穿图到达终态（−5dB 只有 23.9）。解码算法做错，声学模型再强也兑现不出来。
+          - listitem [ref=f138e28]: 贡献一：任意起点流式解码（算法 1）：把关键词音素序列插空白符成模板 ỹ（长度 2U+1），只在这个受限模板上做 Viterbi 式 DP——复杂度 O(T·Ũ)；每帧把前两个状态重置为 1，新竞争路径随时入场（关键词无论从哪帧开始都能捕捉，ASR 前缀搜索做不到）；超时 3s 置零 + 路径长度几何平均归一。同一模型平均 71.7→82.1，−5dB 下 22.7→35.5、对图方法 +11.6——纯解码算法的增益，声学模型一分未动。
+          - listitem [ref=f138e29]: 贡献二：CDC 跨层判别一致性：关键观察（Fig 2）——正样本的主层 CTC 分数曲线与中间层 ICTC 分数曲线在唤醒点附近稳定且相似；易误触发的高分负样本激活短暂、两曲线分岔。机理：正样本模式一致，容量受限的中间层也学得会；负样本五花八门，浅层难全部刻画，最终层可能过拟合出虚警模式。于是「两层判别是否一致」（滑窗余弦相似度）本身就成了几乎免费的虚警检测器——ICTC 从训练期正则第一次变成推理期判别信号，零新增可学参数。
+          - listitem [ref=f138e30]: 结果（Table II，FAR=0.05 次/小时）：A 图解码 85.3 → B 流式解码 89.4（+4.1）→ D +ICTC 91.1（低 SNR 集中，−5dB +5.8）→ E +CDC 92.1（−5dB +3.6 到 63.4）。E vs A：平均召回绝对 +6.8，平均漏检率相对降 46.3%（14.7%→7.9%）。
+          - listitem [ref=f138e31]: 最有信息量的负结果：纯历史窗 CDC（His=30/Fut=0，零延迟）只有 90.7，比不用 CDC（91.1）还低——两层分数的分岔主要发生在激活之后，唤醒点之前把两段尚未对齐的曲线拉去算余弦，引入的是噪声不是信号。CDC 的判别信息几乎全部来自未来帧：Fut=30（900ms 延迟）92.1 已逼近上界（Fut=∞ 92.1 / 完全离线 92.3）。
+          - listitem [ref=f138e32]: 层位消融反向验证机理：ICTC 挂第 2 层只有 89.3（太浅在做特征提取）、第 5 层 91.2（太深与主层同质化失去互补）、第 3/4 层（L/2 附近）92.1/92.3——中间分支的价值恰恰在于它「与最终层不一样」，太像或太不像都不行。
+          - listitem [ref=f138e33]: 边界：最优配置引入 900ms 额外延迟（零延迟下 CDC 失效甚至轻微负效——交换相当刚性）；CDC 依赖训练期就带 ICTC 分支（不能免训练套在已训好的普通 CTC 上）；单数据集单唤醒词；融合与度量全手工（余弦 + 简单平均）无敏感性分析；计算开销未量化。
+    - generic [ref=f138e34]:
+      - paragraph [ref=f138e35]: §01 · 问题陈述
+      - heading "KWS 的真实决策是「滑动的局部检测」，不是整句转写" [level=2] [ref=f138e36]
+      - generic [ref=f138e38]: 两类现有解码的具体不足： ① ASR 推理类：流式输出 token 序列再在解码结果里匹配关键词——目标错配：ASR 解码在整个声学空间搜索「最可能的完整假设」，产出完整转写而非为「关键词出现与否」这个二元判断优化。量化差距：同一 CTC 模型 greedy 平均 71.7%、prefix beam=10 也只有 75.5%——更强的通用搜索并没有转化为更好的 KWS；且难以直接控制虚警（论文只能对它们报 FAR=0 下的 accuracy）。 ② KWS 专用解码图：图中含关键词路径 + 可选 filler 路径，为 KWS 定制、效果更好（75.8%）——但落地必须实现 WFST 图 + Token Passing，工程复杂难迭代（换关键词要重新构图）；强噪声下解码 token 难以穿图到达终态，低 SNR 准确率崩掉（−5dB 仅 23.9）。 两类方法共同的问题：都只消费最终输出层的后验，模型中间层学到的判别信息在推理期被整体丢弃。作者前作 TDT-KWS 已为 Transducer 证明「锁死搜索空间在关键词上」的价值，但这条思路没搬到 CTC，中间层信息也一直没人用。
+      - generic [ref=f138e39]: 三个挑战：为 CTC 设计严格帧同步的流式解码——搜索空间锁死在关键词模板内、支持从音频流任意位置发起搜索、效果超过 ASR 类与图类基线、实现比 WFST 简单得多；把中间层（ICTC）信息在推理期用起来——专门区分「真唤醒的正样本」和「容易被误触发的高分负样本」，前提是先回答「中间层到底学到了什么与最终层不同的东西」；CDC 看唤醒点附近的未来帧必然引入延迟——窗口与延迟的权衡量化清楚。本质是在准 / 快 / 省三角里专攻「准」且拒绝付「省」的代价。
+    - generic [ref=f138e40]:
+      - paragraph [ref=f138e41]: §02 · 方法论
+      - heading "双分支打分 + 滑窗余弦一致性" [level=2] [ref=f138e42]
+      - generic [ref=f138e44]:
+        - img [ref=f138e45]:
+          - generic [ref=f138e46]: 图 1/2 复绘：同一个 DFSMN 编码器，主 CTC + 第 3 层 ICTC 双分支 → 四阶段逐帧打分流水线
+          - generic [ref=f138e48]: 声学编码器：6 层 DFSMN（输入 440 维 · 隐层 512 · 投影 320）
+          - generic [ref=f138e49]: 纯前馈、固定记忆块替代递归，左阶 8 / 右阶 2 —— 整网算法延迟极小
+          - generic [ref=f138e50]: 特征 40 维 log FBank · 前后各 5 帧拼接 · 3 帧跳帧（每输入帧 30ms）
+          - generic [ref=f138e51]: 第 3 层（L/2 附近）挂线性投影 → ICTC 分支（中间层 CTC 监督）
+          - generic [ref=f138e52]: 训练损失 L = 0.3·L_ICTC + 0.7·L_CTC；LibriSpeech 960h 预训练 + 24k 句微调
+          - generic [ref=f138e53]: （12k 干净 + 12k 混 WHAM! 0–20dB）· 建模单元 70 音素 + 空白符
+          - generic [ref=f138e57]: 主 CTC 分支（最终层）
+          - generic [ref=f138e58]: 流式解码（算法 1）→ s(init) 逐帧
+          - generic [ref=f138e60]: ICTC 分支（第 3 层）★
+          - generic [ref=f138e61]: 同一个流式解码 → s(inter) 逐帧
+          - generic [ref=f138e63]: CDC：滑窗余弦相似度 s(cdc) = cos( s(init) 窗 , s(inter) 窗 )
+          - generic [ref=f138e64]: 窗口 L_His + L_Fut（最优 0 + 30 帧 = 900ms 未来窗）· 零新增可学参数
+          - generic [ref=f138e66]: 精炼分数 s(refine) = ( s(init) + s(cdc) ) / 2 → 流式输出
+          - generic [ref=f138e67]: 「两层都同意才放行」的软门控，逐帧可算、不破坏流式性
+          - generic [ref=f138e69]: Fig 2 · CDC 的物理来源
+          - generic [ref=f138e70]: 正样本（真唤醒）：两层分数稳定且相似
+          - generic [ref=f138e74]: 唤醒点
+          - generic [ref=f138e75]: 两曲线同涨同落 → 余弦 ≈ 1，分数不被削减
+          - generic [ref=f138e76]: 高分负样本（易误触发）：激活短暂、两曲线分岔
+          - generic [ref=f138e80]: 分岔 → 余弦低，把 s(init) 的高分拉下来
+          - generic [ref=f138e81]: 机理：正样本（同一唤醒词）模式一致，容量受限的
+          - generic [ref=f138e82]: 中间层也学得会；负样本模式五花八门，浅层难全部
+          - generic [ref=f138e83]: 刻画，最终层可能过拟合出虚警模式，ICTC 反而保持
+          - generic [ref=f138e84]: 正则性——「两层是否一致」= 免费的虚警检测器。
+          - generic [ref=f138e85]: （经验现象 + 合理推断，换数据集需重验证，见 §05）
+          - generic [ref=f138e87]: 算法 1 · 关键词模板上的 Viterbi 式 DP（复杂度 O(T·Ũ)，Ũ=2U+1）
+          - generic [ref=f138e88]: 模板 ỹ = [ϕ, y1, ϕ, …, ϕ, yU, ϕ]；每帧 δ(t,1)=δ(t,2)=1 —— 任意起点：新竞争路径每时刻以概率 1 入场；
+          - generic [ref=f138e89]: "空白态 / 音素态各取 max 前驱（对应 CTC 对齐规则完整展开）；Scores[t] = e³ · max{δ(t,Ũ−1), δ(t,Ũ)}；"
+          - generic [ref=f138e90]: 超时 T_out=3s 置零防误积攒 + 长度归一（几何平均）消长度偏置 —— 只需后验矩阵 + 音素序列 + 两个超参。
+        - paragraph [ref=f138e91]: 图 1/2 复绘：ICTC 在 ASR 文献里纯粹是训练期正则（推理时中间分支整体丢弃），本文第一次把它变成推理期信号源——Fig 2 的实证观察是全部设计的出发点。
+      - generic [ref=f138e92]:
+        - text: "δ(t,1) = δ(t,2) = 1（每帧）；Scores[t] = e³ · max{ δ(t,Ũ−1), δ(t,Ũ) }，超时置零后 Scores[t] ← Scores[t]"
+        - superscript [ref=f138e93]: 1/ℓ(t)
+        - generic [ref=f138e94]: 算法 1 的两个关键：每帧重置前两个状态为 1 ——「任意起点」机制，一条新竞争路径在每个时刻都以概率 1 从模板头开始，这是 ASR 前缀搜索（假设从 utterance 开头累积生长）做不到的流式硬需求；e³≈20 的完成奖励放大命中整词的路径，T_out=3s 砍掉过长路径防误积攒，几何平均消除「概率连乘天然偏向短路径」的长度偏置——不同语速、不同关键词长度下分数才可比。
+      - generic [ref=f138e95]:
+        - text: s
+        - subscript [ref=f138e96]: t
+        - superscript [ref=f138e97]: (cdc)
+        - text: = cos( s
+        - superscript [ref=f138e98]: (init)
+        - subscript [ref=f138e99]: "[t−L_His : t+L_Fut]"
+        - text: ", s"
+        - superscript [ref=f138e100]: (inter)
+        - subscript [ref=f138e101]: "[t−L_His : t+L_Fut]"
+        - text: )； s
+        - superscript [ref=f138e102]: (refine)
+        - text: = ( s
+        - superscript [ref=f138e103]: (init)
+        - text: + s
+        - superscript [ref=f138e104]: (cdc)
+        - text: ) / 2
+        - generic [ref=f138e105]: 式 5/6 · CDC：正样本两曲线同涨同落 → 余弦 ≈ 1，分数几乎不被削减；负样本激活短暂且两层分岔 → 余弦低，把 s(init) 的高分拉下来——等价于「两层都同意才放行」的软门控，逐帧可算不破坏流式性。L_Fut 是性能与延迟的调节旋钮。融合与度量全是无参数后处理，克制但有效。
+      - generic [ref=f138e106]: 与前作的承接：TDT-KWS（ICASSP 2024，同团队）为 Transducer 设计——把解码出的关键词 token 序列回灌 predictor 限制后验生成；本文把「锁死搜索空间」思想移植到 CTC，并额外利用 CTC 特有的 ICTC 多分支结构做 CDC 增强——这是 Transducer 框架里没有的天然资产。DFSMN 也是 X-LANCE 长期深耕的架构，与前作形成同架构下不同训练准则的对照。
+    - generic [ref=f138e107]:
+      - paragraph [ref=f138e108]: §03 · 实验与消融
+      - heading "固定虚警工作点比召回，孤立准确率没有意义" [level=2] [ref=f138e109]
+      - generic [ref=f138e111]: "数据与协议：LibriSpeech 960h 预训练（帧级 CE）→ LibriSpeech+Snips 等量采样微调（24k 句 = 12k 干净 + 12k 混 WHAM! 0–20dB）。Hey-Snips：正样本 train/dev/test 5,799/2,484/2,599 句，全部原始负样本汇成 ~97 小时大负样本测试集；鲁棒性把正样本混 {0,5,10,15,20}dB 噪声，另造 −5dB 集（极低且域外 SNR）。指标：固定 FAR 下的召回 + 跨 SNR 宏平均——ASR 基线因难以做虚警解码只报 FAR=0 的 accuracy（作者自认的不得已，两个工作点不同轨不能跨表直比）。增强：速度扰动 {0.9,1.0,1.1} + SpecAugment。"
+      - generic [ref=f138e112]:
+        - img [ref=f138e113]:
+          - generic [ref=f138e114]: Table I · 同一个 CTC 声学模型，只换解码（FAR=0 下宏平均准确率 %，SNR −5dB~+∞ 七档）
+          - generic [ref=f138e115]: "70"
+          - generic [ref=f138e116]: "75"
+          - generic [ref=f138e117]: "80"
+          - generic [ref=f138e118]: "85"
+          - generic [ref=f138e120]: "71.7"
+          - generic [ref=f138e121]: greedy 搜索
+          - generic [ref=f138e122]: （ASR 类）
+          - generic [ref=f138e123]: "−5dB: 22.7"
+          - generic [ref=f138e125]: "75.5"
+          - generic [ref=f138e126]: prefix beam=10
+          - generic [ref=f138e127]: （ASR 类）
+          - generic [ref=f138e128]: "0dB: 50.7"
+          - generic [ref=f138e130]: "75.8"
+          - generic [ref=f138e131]: KWS 解码图
+          - generic [ref=f138e132]: （WFST+Token Passing）
+          - generic [ref=f138e133]: "−5dB: 23.9"
+          - generic [ref=f138e135]: "82.1"
+          - generic [ref=f138e136]: 本文流式解码 ★
+          - generic [ref=f138e137]: "−5dB: 35.5 / 0dB: 68.0"
+          - generic [ref=f138e138]: 相对两个 ASR 基线平均绝对 +10.4 / +6.6 点，相对图基线 +6.3 点；低 SNR 段普遍拿到 ≥10 点绝对增益——纯解码算法的增益，声学模型一分未动
+        - paragraph [ref=f138e139]: Table I（FAR=0，SNR −5dB~+∞ 七档宏平均）：最强的信息在低 SNR 段——ASR 解码因语音被噪声淹没生成不出正确假设、图方法 token 难穿图，本方法强制逐帧输出激活分数，噪声再强也能继续打分。
+      - generic [ref=f138e140]:
+        - img [ref=f138e141]:
+          - generic [ref=f138e142]: Table II · 五配置阶梯（FAR=0.05 次/小时，与图基线同工作点同声学模型，宏平均召回 %）
+          - generic [ref=f138e143]: "82"
+          - generic [ref=f138e144]: "85"
+          - generic [ref=f138e145]: "88"
+          - generic [ref=f138e146]: "91"
+          - generic [ref=f138e147]: "94"
+          - generic [ref=f138e149]: "85.3"
+          - generic [ref=f138e150]: A · 图解码
+          - generic [ref=f138e151]: （无 ICTC）
+          - generic [ref=f138e152]: "−5dB: 41.6"
+          - generic [ref=f138e154]: "89.4"
+          - generic [ref=f138e155]: B · 流式解码
+          - generic [ref=f138e156]: （无 ICTC）
+          - generic [ref=f138e157]: "−5dB: 54.0（+12.4）"
+          - generic [ref=f138e159]: "85.6"
+          - generic [ref=f138e160]: C · 图 + ICTC
+          - generic [ref=f138e161]: 干净列 98.8→98.3 反降
+          - generic [ref=f138e163]: "91.1"
+          - generic [ref=f138e164]: D · 流式 + ICTC
+          - generic [ref=f138e165]: "−5dB: 59.8（+5.8）"
+          - generic [ref=f138e167]: "92.1"
+          - generic [ref=f138e168]: E · D + CDC ★
+          - generic [ref=f138e169]: "−5dB: 63.4（+3.6）"
+          - generic [ref=f138e170]: 三组读数：B→A +4.1（流式解码本身就比图强）；D→B +1.7 且集中在低 SNR（ICTC 对流式远大于对图 +0.3）；E→D +1.0 最难条件收益最大
+          - generic [ref=f138e171]: E vs A：平均召回绝对 +6.8，平均漏检率相对降 46.3%（14.7%→7.9%），在每小时 0.05 次的极低虚警下取得
+        - paragraph [ref=f138e172]: Table II：五配置是三级增益的分解——解码算法（B）、训练正则（D）、推理期 CDC（E）各自贡献多少一目了然；C 对 A 在干净列反降是正则的典型交换曲线。
+      - generic [ref=f138e173]:
+        - img [ref=f138e174]:
+          - generic [ref=f138e175]: Table III/IV · 消融：CDC 的判别信息几乎全部来自唤醒点之后的未来帧；中间层放在 L/2 附近
+          - generic [ref=f138e176]: CDC 窗口扫描（总窗 30 帧 · 宏平均召回 %）
+          - generic [ref=f138e177]: "90.5"
+          - generic [ref=f138e178]: "91.0"
+          - generic [ref=f138e179]: "91.5"
+          - generic [ref=f138e180]: "92.0"
+          - generic [ref=f138e182]: "90.7"
+          - generic [ref=f138e183]: 纯历史窗
+          - generic [ref=f138e184]: His=30/Fut=0
+          - generic [ref=f138e185]: 零延迟但 < D 的 91.1
+          - generic [ref=f138e186]: 负收益！
+          - generic [ref=f138e188]: "91.0"
+          - generic [ref=f138e189]: Fut=10
+          - generic [ref=f138e190]: 300ms
+          - generic [ref=f138e192]: "91.3"
+          - generic [ref=f138e193]: Fut=20
+          - generic [ref=f138e194]: 600ms
+          - generic [ref=f138e196]: "91.5"
+          - generic [ref=f138e197]: Fut=25
+          - generic [ref=f138e198]: 750ms
+          - generic [ref=f138e200]: "92.1"
+          - generic [ref=f138e201]: Fut=30 ★
+          - generic [ref=f138e202]: 900ms
+          - generic [ref=f138e203]: 上界：Fut=∞ 92.1 · 完全离线 92.3 —— 不到 1s 延迟已逼近上界；唤醒点之前算余弦引入的是噪声不是信号
+          - generic [ref=f138e204]: ICTC 位置（w=0.3）与权重（第 3 层）
+          - generic [ref=f138e205]: "89"
+          - generic [ref=f138e206]: "90"
+          - generic [ref=f138e207]: "91"
+          - generic [ref=f138e208]: "92"
+          - generic [ref=f138e210]: "89.3"
+          - generic [ref=f138e211]: 第2层
+          - generic [ref=f138e212]: 太浅
+          - generic [ref=f138e214]: "92.1"
+          - generic [ref=f138e215]: 第3层
+          - generic [ref=f138e216]: L/2
+          - generic [ref=f138e218]: "92.3"
+          - generic [ref=f138e219]: 第4层
+          - generic [ref=f138e221]: "91.2"
+          - generic [ref=f138e222]: 第5层
+          - generic [ref=f138e223]: 太深
+          - generic [ref=f138e225]: "91.2"
+          - generic [ref=f138e226]: w=0.1
+          - generic [ref=f138e228]: "91.4"
+          - generic [ref=f138e229]: w=0.2
+          - generic [ref=f138e231]: "92.1"
+          - generic [ref=f138e232]: w=0.3
+          - generic [ref=f138e234]: "91.8"
+          - generic [ref=f138e235]: w=0.4
+          - generic [ref=f138e236]: 太浅在做特征提取未编码关键词；
+          - generic [ref=f138e237]: 太深与主层同质化失去互补性
+          - generic [ref=f138e238]: w 过大稀释主 CTC 目标，
+          - generic [ref=f138e239]: 过小中间分支学不到判别力
+          - generic [ref=f138e240]: 反向验证机理：中间分支的价值恰恰在于它「与最终层不一样」，太像或太不像都不行
+        - paragraph [ref=f138e241]: Table III/IV：窗口扫描的负结果（纯历史窗 90.7 < 不用 CDC 的 91.1）与层位扫描的非单调（第 2/5 层都差）是两组最有信息量的消融——分别定位了 CDC 的信号来源与中间分支的存在条件。
+      - generic [ref=f138e242]: 两个藏在表里的细节：① 正则的典型交换曲线——ICTC 对图解码（C vs A）在干净列反降（98.8→98.3）、15dB 降（97.5→96.8），只在低 SNR 正贡献：训练目标被中间损失分走权重后，高 SNR 的极致优化受一点伤，换来噪声下的稳健；② w=0.1 时干净列 99.9 略高于 w=0.3 的 99.8——干净条件下 CDC/ICTC 边际收益近饱和，其价值主要体现在噪声与域外条件；部署场景干净时可减小 w 换更稳的主任务优化。
+    - generic [ref=f138e243]:
+      - paragraph [ref=f138e244]: §04 · 主要贡献
+      - heading "三条贡献 + 一条可迁移判断" [level=2] [ref=f138e245]
+      - generic [ref=f138e247]:
+        - generic [ref=f138e248]:
+          - generic [ref=f138e249]: "1"
+          - text: 面向 CTC 的流式解码算法：关键词模板 2U+1 状态 DP + 每帧概率重置的任意起点 + 超时截断与长度归一——相对 ASR 解码平均 +10.4/+6.6 点、相对图基线 +6.3 点，实现只需后验矩阵 + 音素序列 + 两个超参，换关键词只需换一条音素序列（图方法要重新构图）。
+        - generic [ref=f138e250]:
+          - generic [ref=f138e251]: "2"
+          - text: CDC 跨层判别一致性：基于正 / 负样本上两层分数行为的实证观察，用滑窗余弦把「两层判别是否一致」变成逐帧分数——把训练期正则第一次变成推理期判别器，零新增可学参数。
+        - generic [ref=f138e252]:
+          - generic [ref=f138e253]: "3"
+          - text: 干净与带噪系统验证：FAR=0.05/h 下平均召回绝对 +6.8、漏检率相对降 46.3%；−5dB 域外条件召回仍有 63.4，各 SNR 档全面领先。
+        - generic [ref=f138e254]:
+          - generic [ref=f138e255]: ★
+          - text: 可迁移判断：同一套后验，解码算法决定系统落在工作点曲线的哪个位置、以及曲线能被推到多好——把「KWS 只关心这一个词」的先验直接写进解码结构（受限模板 DP），比通用搜索更强还更简单；而训练期的辅助分支（正则）不必在推理期丢弃——它的「弱」正是它与主层互补的来源。
+    - generic [ref=f138e256]:
+      - paragraph [ref=f138e257]: §05 · 局限与边界
+      - heading "900ms 延迟的交换相当刚性" [level=2] [ref=f138e258]
+      - generic [ref=f138e260]:
+        - generic [ref=f138e261]:
+          - heading "技术局限" [level=4] [ref=f138e262]
+          - list [ref=f138e263]:
+            - listitem [ref=f138e264]: 延迟代价：最优 CDC 配置引入 900ms 额外延迟——唤醒类产品对响应延迟通常敏感；零延迟配置（Fut=0）下 CDC 几乎失效甚至轻微负效（90.7 对 91.1），延迟与增益的交换刚性，没有中间档可退。
+            - listitem [ref=f138e265]: 依赖训练期 ICTC 分支：CDC 需要模型训练时就带中间 CTC 监督——无法直接套在已训好的普通 CTC 模型上免训练获益，迁移必须重新微调。
+            - listitem [ref=f138e266]: 融合与度量手工选择：余弦相似度 + 简单平均固定不变，无可学习权重，未探索其他一致性度量，无敏感性分析。
+            - listitem [ref=f138e267]: 硬截断与机理假设：T_out=3s 超限路径直接置零——对语速极慢说话人或更长关键词是否安全未讨论；「正样本两层一致、负样本分岔」是 Hey-Snips 上的经验现象，「浅层容量小学得会一致正模式」是合理推断而非理论保证，换数据集换关键词需重验证。
+        - generic [ref=f138e268]:
+          - heading "实验设计不足" [level=4] [ref=f138e269]
+          - list [ref=f138e270]:
+            - listitem [ref=f138e271]: 单一数据集 / 唤醒词：只有 Hey-Snips 英文一个唤醒词；多关键词、多语言、多数据集泛化未报告。
+            - listitem [ref=f138e272]: 基线全在 CTC 家族内：greedy / prefix beam / KWS 图——没与 Transducer 系 KWS（含作者自己的 TDT-KWS）或专用小型 KWS 架构正面对比，无法定位在更大方法版图中的位置。
+            - listitem [ref=f138e273]: 工作点不同轨：ASR 基线报 FAR=0 accuracy、图与本方法报 FAR=0.05/h recall——Table I 与 Table II 不能直接跨表比较（作者自认不得已）。
+            - listitem [ref=f138e274]: 开销与负样本类型：额外跑一遍 ICTC 分支解码 + 逐帧滑窗余弦的 RTF / 内存 / 新增参数完全未量化；负样本只有 Snips 同分布 + WHAM! 混音，缺真实远场、混响、电视漏音等虚警压力主要来源；单次运行无种子方差。
+      - generic [ref=f138e275]: 值得补的方向：把「锁死搜索空间 + 任意起点」扩展到 Transducer/TDT，与前作统一成跨训练准则的流式 KWS 解码理论；CDC 窗口做成延迟预算自适应，或在流式约束下用因果预测近似未来帧信息消掉 900ms——Table III 显示纯因果窗目前是负收益，这是明确的开放问题；学习式融合（小网络 / 可学权重）与更丰富的一致性度量（相关性、散度）；真实远场、多关键词、多语言上检验 Fig 2 观察的普适性；补齐计算开销与混响 / 电视音频等误触发源下的虚警评测。
+    - contentinfo [ref=f138e276]:
+      - generic [ref=f138e277]:
+        - link "📖 深读笔记" [ref=f138e278] [cursor=pointer]:
+          - /url: /papers/2024/Streaming_Keyword_Spotting_Boosted_By_Cross-layer_Discrimination_Consistency.md
+        - link "📄 PDF 原稿" [ref=f138e279] [cursor=pointer]:
+          - /url: /papers/2024/Streaming_Keyword_Spotting_Boosted_By_Cross-layer_Discrimination_Consistency.pdf
+        - link "arXiv · 2412.12635" [ref=f138e280] [cursor=pointer]:
+          - /url: https://arxiv.org/abs/2412.12635
+        - link "← 返回总目录" [ref=f138e281] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=f138e282]: 可视化精读页 · 数据与结论均出自论文与深读笔记（Table I–IV、Fig 1/2、算法 1、式 1–6）；错误请以 PDF 原稿为准。
