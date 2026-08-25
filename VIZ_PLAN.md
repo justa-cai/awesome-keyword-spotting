@@ -1,7 +1,7 @@
 # 可视化精读改写计划（VIZ_PLAN）
 
 按年份倒序把全部论文笔记重写为自包含 HTML+SVG 可视化精读页。每篇：读笔记 → python 生成 4 张 SVG → 注入统一模板 HTML → 校验 → 截图自查 → 提交推送。
-**总进度：242 / 305**
+**总进度：243 / 305**
 
 ## 2026（24 篇）
 **进度：24 / 24**
@@ -243,7 +243,7 @@
 - [⬜] Zero-Shot Federated Learning with New Classes for Audio Classification
 
 ## 2020（29 篇）
-**进度：28 / 29**
+**进度：29 / 29**
 
 - [x] A Depthwise Separable Convolutional Neural Network for Keyword Spotting on an Embedded System
 - [⬜] AutoKWS: Keyword Spotting with Differentiable Architecture Search
@@ -273,7 +273,7 @@
 - [x] Training Keyword Spotting Models on Non-IID Data with Federated Learning
 - [x] Training Wake Word Detection with Synthesized Speech Data on Confusion Words
 - [x] Very Fast Keyword Spotting System with Real Time Factor Below 0.01
-- [⬜] WSRNet: Joint Spotting and Recognition of Handwritten Words
+- [x] WSRNet: Joint Spotting and Recognition of Handwritten Words
 
 ## 2019（22 篇）
 **进度：0 / 22**
