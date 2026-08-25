@@ -1,0 +1,272 @@
+- generic [ref=f267e2]:
+  - generic [ref=f267e3]: 论文精读 · 可视化版 · 2021 №4
+  - heading "准确率是代理指标： 直接优化「正样本排在负样本前面」的概率" [level=1] [ref=f267e4]: 准确率是代理指标：直接优化「正样本排在负样本前面」的概率
+  - generic [ref=f267e5]:
+    - generic [ref=f267e6]: AUC Optimization · 清华 / 西工大
+    - generic [ref=f267e7]: arXiv 2107.05859 · 即插即用换损失
+    - generic [ref=f267e8]: 成对合页损失 + mini-batch 近似 + 混合 CE
+    - generic [ref=f267e9]: 10% 数据下 AUC +3–5% · 低误报点召回更高
+  - generic [ref=f267e10]: 一句话：交叉熵逐样本独立优化分类准确率，不管正负样本得分的相对排序——而排序质量恰恰决定 KWS 部署时的误报-召回权衡。本文把排序学习的 AUC 损失（成对合页 + mini-batch 近似）引入 KWS 训练：任何骨干只换损失函数即插即用。数据越少收益越大——10% 训练数据下 AUC 绝对提升 3–5%，20% 下 2–3%，全数据下仍正向不掉准确率；混合 CE（α≈0.5）兼顾收敛速度与排序质量。
+  - generic [ref=f267e11]:
+    - generic [ref=f267e12]: TL;DR
+    - listitem [ref=f267e13]: ◈ 核心错位：CE 以分类准确率为目标、逐样本独立处理——无法建模正负样本间的相对排序；分类准确率很高时，模型仍可能在关键工作点（极低误报下的召回）表现不佳。
+    - listitem [ref=f267e14]: ◈ 数据越少越糟：自定义新关键词、低资源语言、小批量个性化部署——标注稀少时 CE 模型过拟合、误报率显著上升，恰是 KWS 最痛的场景。
+    - listitem [ref=f267e15]: ◈ AUC 的排序定义：AUC = P(f(x₊) > f(x₋)) + 0.5·P(相等)——随机抽一正一负，正样本得分更高的概率。直接反映 ROC 权衡曲线的质量，是部署体验的合理度量。
+    - listitem [ref=f267e16]: ◈ 可优化化：成对合页损失 L_pair = max(0, 1 − (f(x₊) − f(x₋)))——正样本比负样本高出至少间隔 1 则零损失，否则线性惩罚；信息论视角等价于最大化排序间隔。
+    - listitem [ref=f267e17]: ◈ mini-batch 高效近似：全数据成对代价 O(N₊·N₋) 太贵——batch 内算所有正负对取平均；KWS 35 类设定负样本远多，批内对数可控。batch 越大估计越准（消融验证），采样需类别均衡。
+    - listitem [ref=f267e18]: ◈ 混合损失 L = α·L_CE + (1−α)·L_AUC（α≈0.5）：CE 给逐样本梯度（收敛快），AUC 给成对梯度（排序直控）——纯 AUC 收敛慢的问题被混合策略缓解。
+    - listitem [ref=f267e19]: ◈ 结果（约值）：10% 数据 AUC +3–5%、20% +2–3%、100% 小幅正向；FAR<0.1% 的低误报工作点保持更高召回——排序红利恰在用户容忍度最低的区域兑现。
+    - listitem [ref=f267e20]: ◈ 边界：批内估计方差（正样本少时不可靠）；35 类要做多次一对多二分类 AUC（2022 跟进工作把 O(K²) 压到 O(K)）；未与 ListNet/LambdaRank 等排序损失对比；未做流式评估。
+  - heading "§01 问题：优化目标与部署体验的错位" [level=2] [ref=f267e21]:
+    - generic [ref=f267e22]: §01
+    - text: 问题：优化目标与部署体验的错位
+  - generic [ref=f267e23]: CE 优化代理指标，部署取决于排序质量
+  - generic [ref=f267e24]:
+    - generic [ref=f267e25]:
+      - heading "CE 的盲区" [level=3] [ref=f267e26]
+      - paragraph [ref=f267e27]: 交叉熵只保证每个样本对自己的标签负责——正负样本得分的相对位置无人管。只要每个样本都过自己的阈值，训练损失就满意；但 ROC 曲线上的交叠区（正样本得分低于某些负样本）正是误报-召回权衡恶化的源头。
+    - generic [ref=f267e28]:
+      - heading "低数据场景放大问题" [level=3] [ref=f267e29]
+      - paragraph [ref=f267e30]: 新增自定义关键词、低资源语言、小批量个性化——标注稀少时 CE 模型过拟合，泛化下降且误报率显著上升。这些场景不是边缘情况，恰是 KWS 产品的高频需求（用户自定义唤醒词）。
+    - generic [ref=f267e31]:
+      - heading "AUC 为什么是对的那把尺" [level=3] [ref=f267e32]
+      - paragraph [ref=f267e33]: AUC 直接度量「随机一正一负，正样本排在前面的概率」——它不关心绝对阈值，只关心排序。KWS 部署时用户调阈值找的是 ROC 曲线上的工作点，曲线质量（AUC）高，每个工作点的体验都更好。
+    - generic [ref=f267e34]:
+      - heading "成对损失的天然抗过拟合" [level=3] [ref=f267e35]
+      - paragraph [ref=f267e36]: 即使样本总量少，样本之间的「关系」（谁该排在谁前面）仍在提供监督信号——比较式学习在一定程度上缓解了数据稀少时的过拟合，这解释了为什么低数据场景下 AUC 优化收益更大。
+  - generic [ref=f267e37]:
+    - img [ref=f267e38]:
+      - generic [ref=f267e40]: AUC 优化：别optimize准确率，optimize「正样本排在负样本前面」的概率
+      - generic [ref=f267e41]: ① 交叉熵优化的是代理指标，部署体验取决于排序质量
+      - generic [ref=f267e43]: CE 不管排序
+      - generic [ref=f267e44]: 交叉熵以分类准确率为目标，逐样本独立处理——无法建模正负样本间的
+      - generic [ref=f267e45]: 相对排序关系；分类准确率很高，模型仍可能在关键工作点（极低误报下
+      - generic [ref=f267e46]: 的召回）表现不佳
+      - generic [ref=f267e48]: 数据越少越糟
+      - generic [ref=f267e49]: 新增自定义关键词 · 低资源语言 · 小批量个性化部署——标注稀少时 CE
+      - generic [ref=f267e50]: 模型过拟合，测试集泛化下降，误报率显著上升——恰是 KWS 最痛的场景
+      - generic [ref=f267e52]: AUC 才是部署指标
+      - generic [ref=f267e53]: AUC = 分类器把正样本排在负样本之前的概率——直接反映误报-召回权衡
+      - generic [ref=f267e54]: 曲线的质量；本文主张：训练目标就该直接对齐部署时的实际指标
+      - generic [ref=f267e55]: ② 方法：成对合页损失近似 AUC，即插即用换掉损失函数
+      - generic [ref=f267e57]: AUC 的排序定义
+      - generic [ref=f267e58]: AUC = P(f(x₊) > f(x₋))
+      - generic [ref=f267e59]: + 0.5·P(f(x₊) = f(x₋))
+      - generic [ref=f267e60]: f(x₊) 关键词样本的预测得分
+      - generic [ref=f267e61]: f(x₋) 非关键词样本的预测得分
+      - generic [ref=f267e62]: 含义：随机抽一正一负，
+      - generic [ref=f267e63]: 正样本得分更高的概率
+      - generic [ref=f267e64]: 信息论视角：成对损失等价于最大化
+      - generic [ref=f267e65]: 正负样本间的排序间隔（ranking margin）
+      - generic [ref=f267e66]: ——决策边界泛化性质更好
+      - generic [ref=f267e68]: 成对排序损失（合页）
+      - generic [ref=f267e69]: L_pair = max(0, 1 − (f(x₊) − f(x₋)))
+      - generic [ref=f267e70]: · 正样本得分比负样本高出至少 1 的间隔
+      - generic [ref=f267e71]: → 该对损失为零；否则线性惩罚
+      - generic [ref=f267e72]: · 合页损失在排序问题上的应用
+      - generic [ref=f267e73]: mini-batch 高效近似：
+      - generic [ref=f267e74]: · 全数据成对代价 O(N₊·N₋) 太贵
+      - generic [ref=f267e75]: · 每个 batch 内算 N₊×N₋ 对取平均
+      - generic [ref=f267e76]: · KWS 35 类设定（1 目标词 + 静音/未知
+      - generic [ref=f267e77]: + 33 其他）负样本远多——批内对可控
+      - generic [ref=f267e79]: 混合损失：收敛与排序兼得
+      - generic [ref=f267e80]: L_total = α·L_CE + (1−α)·L_AUC
+      - generic [ref=f267e81]: · CE：逐样本梯度信号，收敛快
+      - generic [ref=f267e82]: · AUC：成对梯度信号，直指排序质量
+      - generic [ref=f267e83]: · 纯 AUC 收敛慢——混合策略缓解
+      - generic [ref=f267e84]: α ≈ 0.5 推荐（数据集而异）
+      - generic [ref=f267e85]: · α→1 退化为纯 CE
+      - generic [ref=f267e86]: · α→0 收敛缓慢
+      - generic [ref=f267e87]: 训练注意：batch 内需类别均衡，
+      - generic [ref=f267e88]: 保证有足够正负对做可靠估计；
+      - generic [ref=f267e89]: 配 SpecAugment 时频遮蔽
+      - generic [ref=f267e90]: ③ 即插即用：任何骨干、只换损失
+      - generic [ref=f267e92]: 方法建立在任何现有小 footprint 骨干上（DS-CNN-S / DS-CNN-L 等），仅替换训练目标函数、不改网络结构——
+      - generic [ref=f267e93]: 极强的通用性与即插即用性：现有训练流水线加一行损失就能吃到 AUC 优化的收益
+      - generic [ref=f267e94]: 低数据场景优势更大的机理：成对损失通过「比较」学习——即使样本总量少，样本间的关系仍在提供监督信号，一定程度上缓解了数据稀少时的过拟合
+      - generic [ref=f267e96]: +3–5%
+      - generic [ref=f267e97]: AUC 绝对提升（10% 数据）
+      - generic [ref=f267e98]: +2–3%
+      - generic [ref=f267e99]: AUC 提升（20% 数据）
+      - generic [ref=f267e100]: 正向
+      - generic [ref=f267e101]: 100% 数据下仍不掉点
+      - generic [ref=f267e102]: FAR<0.1%
+      - generic [ref=f267e103]: 低误报点保持更高召回
+      - generic [ref=f267e104]: α≈0.5
+      - generic [ref=f267e105]: 混合损失推荐配比
+      - generic [ref=f267e106]: 清华 / 西北工业大学 · arXiv 2107.05859；GSC 35 类约 10.5 万条 1 秒语音；骨干 DS-CNN-S/L；数据量扫 10% / 20% / 50% / 100%；指标 = 分类准确率 + AUC 分数 + 不同误报率下的召回曲线；数字为约值
+    - generic [ref=f267e107]: 图1 · 机制全景：上半是 CE 与排序质量的错位，中段是方法三件（AUC 排序定义 / 成对合页损失 / 混合策略），底部是即插即用特性与关键数字。
+  - heading "§02 方法：把 AUC 变成可微的损失" [level=2] [ref=f267e108]:
+    - generic [ref=f267e109]: §02
+    - text: 方法：把 AUC 变成可微的损失
+  - generic [ref=f267e110]: 成对合页 · mini-batch 近似 · 与 CE 的分工混合
+  - generic [ref=f267e111]:
+    - generic [ref=f267e112]: "AUC = P(f(x₊) > f(x₋)) + 0.5 · P(f(x₊) = f(x₋)) L_pair = max( 0, 1 − (f(x₊) − f(x₋)) ) # 合页：间隔 ≥1 零损失 L_total = α · L_CE + (1−α) · L_AUC # α ≈ 0.5 推荐"
+    - generic [ref=f267e113]: 人话：AUC 本身不可微，但它的排序语义可以写成「每对正负样本都拉开至少 1 的间隔」——这正是合页损失。batch 内所有正负组合各算一次取平均，就是 AUC 的无偏近似。混合 CE 的原因很实际：成对梯度不如逐样本梯度直接，纯 AUC 收敛慢——CE 负责快速把模型带到合理区域，AUC 负责精修排序。
+  - generic [ref=f267e114]:
+    - generic [ref=f267e115]:
+      - heading "即插即用的工程含义" [level=3] [ref=f267e116]
+      - paragraph [ref=f267e117]: 方法建立在任何现有骨干上（DS-CNN-S/L 等），只替换训练目标、不改网络结构——现有训练流水线加一行损失就能吃到收益。对存量系统而言这是改造成本最低的一类优化。
+    - generic [ref=f267e118]:
+      - heading "batch 采样是隐形前提" [level=3] [ref=f267e119]
+      - paragraph [ref=f267e120]: 每个 batch 必须有足够的正负样本对做可靠估计——类别均衡的采样策略不是锦上添花而是方法成立的前提；正样本太少的 batch 估计方差大，AUC 优化会失真。
+  - generic [ref=f267e121]:
+    - img [ref=f267e122]:
+      - generic [ref=f267e124]: 机制解剖：CE 的盲区与成对损失的纠偏
+      - generic [ref=f267e125]: 两种损失下的得分分布（示意）
+      - generic [ref=f267e127]: CE 训练：准确率高但排序可乱
+      - generic [ref=f267e143]: 交叠区：排序错误的源头
+      - generic [ref=f267e144]: 每个样本只跟自己的标签比——正负样本的相对位置无人管
+      - generic [ref=f267e146]: 成对 AUC 损失：拉开且有间隔
+      - generic [ref=f267e158]: margin ≥ 1
+      - generic [ref=f267e159]: 每对正负样本都被显式比较
+      - generic [ref=f267e160]: 交叠被逐对消灭——低误报工作点的召回直接受益
+      - generic [ref=f267e161]: batch 内成对计算与混合配比
+      - generic [ref=f267e163]: mini-batch 里的 N₊ × N₋ 个对
+      - generic [ref=f267e165]: +
+      - generic [ref=f267e167]: +
+      - generic [ref=f267e169]: −
+      - generic [ref=f267e171]: −
+      - generic [ref=f267e173]: −
+      - generic [ref=f267e175]: −
+      - generic [ref=f267e177]: −
+      - generic [ref=f267e186]: 2 × 5 = 10 对
+      - generic [ref=f267e187]: batch 越大 → 对越多 → AUC 估计越准（消融验证）；
+      - generic [ref=f267e188]: batch 里正样本太少时估计方差大——采样需类别均衡
+      - generic [ref=f267e190]: 混合损失：两种梯度信号的分工
+      - generic [ref=f267e191]: L_total = α·L_CE + (1−α)·L_AUC
+      - generic [ref=f267e192]: · CE 逐样本：告诉每个样本「该是哪类」——收敛快
+      - generic [ref=f267e193]: · AUC 逐对：告诉每对样本「谁该在前」——排序直控
+      - generic [ref=f267e194]: · α≈0.5 平衡；α 扫描是「准确率 vs 排序质量」的旋钮
+      - generic [ref=f267e195]: 合页间隔参数（默认 1）：太小排序松，太大训练难——
+      - generic [ref=f267e196]: 又一个要按任务调的超参
+      - generic [ref=f267e197]: 左：CE 只保证每个样本过自己的阈值，正负分布的交叠区就是排序错误；成对损失把交叠逐对拉开并要求 margin。右：batch 内所有正负组合都算一对——batch 大小直接决定 AUC 估计质量
+    - generic [ref=f267e198]: 图2 · 机制解剖：左是两种损失下的得分分布示意（CE 留下交叠区 vs 成对损失拉开且有 margin），右是 batch 内成对计算的几何与混合损失的分工。
+  - heading "§03 实验：数据越少，越值钱" [level=2] [ref=f267e199]:
+    - generic [ref=f267e200]: §03
+    - text: 实验：数据越少，越值钱
+  - generic [ref=f267e201]: GSC 35 类 · DS-CNN-S/L · 数据量扫 10/20/50/100%
+  - generic [ref=f267e202]:
+    - img [ref=f267e203]:
+      - generic [ref=f267e205]: 主结果（约值）：数据越少，AUC 优化越值钱
+      - generic [ref=f267e206]: AUC 绝对提升 vs 训练数据量
+      - generic [ref=f267e207]: "+1"
+      - generic [ref=f267e208]: "+2"
+      - generic [ref=f267e209]: "+3"
+      - generic [ref=f267e210]: "+4"
+      - generic [ref=f267e211]: "+5"
+      - generic [ref=f267e216]: +4%
+      - generic [ref=f267e217]: 10%
+      - generic [ref=f267e219]: +2.5%
+      - generic [ref=f267e220]: 20%
+      - generic [ref=f267e222]: +1.2%
+      - generic [ref=f267e223]: 50%
+      - generic [ref=f267e225]: +0.5%
+      - generic [ref=f267e226]: 100%
+      - generic [ref=f267e227]: 训练数据比例 →
+      - generic [ref=f267e228]: AUC 提升↑
+      - generic [ref=f267e229]: 读数：
+      - generic [ref=f267e230]: · 10% 数据 +3–5% / 20% +2–3% / 100% 小幅正向——收益与数据稀缺度成正比
+      - generic [ref=f267e231]: · 全数据下不掉准确率：AUC 优化在充足数据下无害，在稀缺数据下高收益
+      - generic [ref=f267e232]: · 低误报工作点（FAR<0.1%）保持更高召回——排序质量的红利恰在
+      - generic [ref=f267e233]: 用户容忍度最低的区域兑现
+      - generic [ref=f267e234]: · 混合 α=0.5 最优：α→1 退化为纯 CE，α→0 收敛缓慢
+      - generic [ref=f267e235]: 低误报区放大 + 消融
+      - generic [ref=f267e237]: ROC 低误报端（示意）
+      - generic [ref=f267e246]: CE
+      - generic [ref=f267e247]: CE+AUC ★
+      - generic [ref=f267e248]: FAR<0.1% 工作区
+      - generic [ref=f267e249]: 误报率（低段放大）→
+      - generic [ref=f267e250]: 召回↑
+      - generic [ref=f267e252]: 消融读数
+      - generic [ref=f267e253]: · batch size ↑ → 批内对更多 → AUC 估计更准 → 效果更好
+      - generic [ref=f267e254]: · 合页间隔（默认 1）：太小排序松 · 太大训练难
+      - generic [ref=f267e255]: 证据边界：未与 ListNet / LambdaRank / RankNet 等其他
+      - generic [ref=f267e256]: 排序损失对比——成对合页是否最优形式未知；未探索与
+      - generic [ref=f267e257]: 量化/剪枝的交互；未做流式/持续监听场景评估
+      - generic [ref=f267e258]: 后续：Interspeech 2022 跟进工作把多类 AUC 的 O(K²) 压到 O(K)
+      - generic [ref=f267e259]: 注：数字为笔记记录的约值（原文见 arXiv 2107.05859）；骨干 DS-CNN-S/L · GSC 35 类；AUC 分数为主指标，分类准确率作护栏指标（混合策略保证不掉）
+    - generic [ref=f267e260]: 图3 · 主结果：左是 AUC 提升随训练数据量的衰减曲线与读数，右是 ROC 低误报端放大示意与消融读数（batch 大小、间隔参数）及证据边界。
+  - table [ref=f267e261]:
+    - rowgroup [ref=f267e262]:
+      - row [ref=f267e263]:
+        - columnheader "训练数据量" [ref=f267e264]
+        - columnheader "AUC 提升（约值）" [ref=f267e265]
+        - columnheader "解读" [ref=f267e266]
+      - row [ref=f267e267]:
+        - cell "10%" [ref=f267e268]
+        - cell "+3–5%（绝对）" [ref=f267e269]
+        - cell "收益最大档——比较式学习缓解过拟合" [ref=f267e270]
+      - row [ref=f267e271]:
+        - cell "20%" [ref=f267e272]
+        - cell "+2–3%" [ref=f267e273]
+        - cell "仍显著" [ref=f267e274]
+      - row [ref=f267e275]:
+        - cell "50%" [ref=f267e276]
+        - cell "+1% 左右" [ref=f267e277]
+        - cell "收益递减开始" [ref=f267e278]
+      - row [ref=f267e279]:
+        - cell "100%" [ref=f267e280]
+        - cell "小幅正向" [ref=f267e281]
+        - cell "充足数据下无害——准确率不掉" [ref=f267e282]
+  - generic [ref=f267e283]:
+    - generic [ref=f267e284]: 读表要点
+    - listitem [ref=f267e285]: ◈ 收益与数据稀缺度成正比——这条曲线的形状本身就是方法的价值主张：它是给「低资源/自定义关键词」场景准备的工具，不是给全数据刷 SOTA 的。
+    - listitem [ref=f267e286]: ◈ 低误报工作点（FAR<0.1%）保持更高召回——排序质量的红利恰在用户容忍度最低的区域兑现，产品视角比平均 AUC 更有意义。
+    - listitem [ref=f267e287]: ◈ 消融两条：batch size ↑ → 批内对更多 → AUC 估计更准 → 效果更好；合页间隔（默认 1）太小排序松、太大训练难。
+    - listitem [ref=f267e288]: ◈ 证据边界：未与 ListNet/LambdaRank/RankNet 对比（成对合页是否最优形式未知）；未探索与量化/剪枝的交互（压缩后排序优势是否保持）；未做流式评估。
+  - heading "§04 贡献" [level=2] [ref=f267e289]:
+    - generic [ref=f267e290]: §04
+    - text: 贡献
+  - generic [ref=f267e291]: 四点：从视角转换到工程落地
+  - generic [ref=f267e292]:
+    - generic [ref=f267e293]:
+      - generic [ref=f267e294]: "1"
+      - paragraph [ref=f267e295]: 首次把 AUC 优化引入 KWS：分类损失优化准确率但不直接优化排序质量——AUC 优化填补这个空白，为 KWS 训练目标设计提供「直接优化部署体验指标」的新视角。
+    - generic [ref=f267e296]:
+      - generic [ref=f267e297]: "2"
+      - paragraph [ref=f267e298]: 低数据场景的鲁棒性证据：10%/20% 数据下显著提升泛化（尤其误报控制）——为低资源语言 KWS 和快速定制新关键词提供有效方案。
+    - generic [ref=f267e299]:
+      - generic [ref=f267e300]: "3"
+      - paragraph [ref=f267e301]: mini-batch 高效实现：全局 AUC 优化近似为 batch 内成对损失，标准 SGD 流程即可——无需改计算图，轻松集成现有流水线。
+    - generic [ref=f267e302]:
+      - generic [ref=f267e303]: "4"
+      - paragraph [ref=f267e304]: 混合损失策略：CE 保准确率与收敛速度、AUC 管排序质量——解决纯 AUC 收敛慢的问题，是实用的训练配方。
+  - heading "§05 局限与判断" [level=2] [ref=f267e305]:
+    - generic [ref=f267e306]: §05
+    - text: 局限与判断
+  - generic [ref=f267e307]: 批内估计方差 · 多类扩展 · 超参敏感
+  - generic [ref=f267e308]:
+    - img [ref=f267e309]:
+      - generic [ref=f267e311]: 边界与延伸
+      - generic [ref=f267e313]: 技术边界
+      - generic [ref=f267e314]: · 计算复杂度增加：batch 内算所有正负对，类别不平衡时成本显著上升；
+      - generic [ref=f267e315]: 批内近似也引入估计方差——正样本少的 batch 估计不准
+      - generic [ref=f267e316]: · 多类扩展难：原始 AUC 为二分类设计，35 类要做多次一对多的二分类
+      - generic [ref=f267e317]: AUC 优化——训练复杂度上升（2022 跟进工作压到 O(K)）
+      - generic [ref=f267e318]: · 超参敏感：α 最优值随数据量/任务而异——极低数据（如 1%）下可能
+      - generic [ref=f267e319]: 与中等数据量完全不同
+      - generic [ref=f267e320]: · 收敛速度：纯 AUC 损失慢于 CE（成对梯度不如逐样本直接），混合
+      - generic [ref=f267e321]: 策略部分缓解
+      - generic [ref=f267e323]: 实验边界 + 延伸
+      - generic [ref=f267e324]: · 未在流式/持续监听场景评估——帧级 AUC 优化可能要特殊设计
+      - generic [ref=f267e325]: · 自定义关键词分析有限：新词只有极少正样本，批内估计不可靠
+      - generic [ref=f267e326]: · 未与其他排序损失（ListNet/LambdaRank/RankNet）对比
+      - generic [ref=f267e327]: · 未探索与量化/剪枝的交互——压缩后排序优势是否保持未知
+      - generic [ref=f267e328]: 延伸：多类 AUC（one-vs-rest / multiclass）降训练开销；与量化/剪枝
+      - generic [ref=f267e329]: 结合并验证压缩后排序保持；多语言/噪声/非声调语言泛化；流式帧级
+      - generic [ref=f267e330]: AUC 的特殊设计
+      - generic [ref=f267e331]: 可迁移判断：直接优化部署时的实际指标（误报-召回权衡）而非代理指标（准确率），是提升用户体验的有效途径——这一思路适用于所有需要精细权衡精度与召回的语音任务
+    - generic [ref=f267e332]: 图4 · 边界与延伸：左技术边界（成对计算成本、批内方差、多类 O(K²)、α 敏感、收敛慢），右实验边界（无流式、自定义词分析有限、无排序损失横比、无压缩交互）+ 延伸方向。
+  - generic [ref=f267e333]:
+    - generic [ref=f267e334]: 可迁移判断
+    - paragraph [ref=f267e335]: ↳ 直接优化部署指标，别停在代理指标：准确率是训练方便的代理，部署体验取决于误报-召回权衡——凡是「阈值调来调去找体验」的系统，都值得问一句：训练目标对齐的是哪个指标？
+    - paragraph [ref=f267e336]: ↳ 比较式学习是低数据的天然补丁：样本少时「关系」仍丰富——N 个样本有 O(N²) 对关系可供监督。成对损失的低数据红利揭示了这个通用机制，适用于任何稀缺标注场景。
+    - paragraph [ref=f267e337]: ↳ 代理损失与目标损失混合是务实解：目标对齐的损失（AUC）往往收敛特性差，代理损失（CE）快但不对齐——α 混合各取所长；先问「哪个负责收敛、哪个负责对齐」再定配比。
+    - paragraph [ref=f267e338]: ↳ batch 内估计的前提是类别均衡：任何依赖批内统计的损失（成对、对比、度量学习）都隐含「batch 里要有足够的各类样本」——采样策略是方法的一部分，不是训练脚本的细节。
+  - generic [ref=f267e339]:
+    - link "arXiv 2107.05859 ↗" [ref=f267e340] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2107.05859
+    - link "← 返回总目录" [ref=f267e341] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f267e342]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值 · 2021 №4 · 189+/305

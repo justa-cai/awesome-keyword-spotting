@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AUC 优化的鲁棒小足迹 KWS · 论文精读可视化</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;}
+.wrap{max-width:980px;margin:0 auto;padding:56px 28px 80px;}
+.kicker{font-size:13px;letter-spacing:.22em;color:var(--acc);font-weight:700;margin-bottom:14px;text-transform:uppercase;}
+h1.hero{font-size:40px;line-height:1.32;font-weight:800;letter-spacing:.01em;margin-bottom:18px;}
+h1.hero .g{color:var(--acc);}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+.chip{font-size:12.5px;padding:4px 13px;border:1px solid var(--line);border-radius:999px;color:var(--ink2);background:#fffdf8;}
+.chip.acc{background:var(--lt);border-color:#bfe5d6;color:var(--dk);}
+.meta{border-left:3px solid var(--acc);background:#fffdf8;padding:12px 18px;font-size:13.5px;color:var(--ink2);margin-bottom:40px;border-radius:0 8px 8px 0;}
+.meta b{color:var(--ink);}
+h2{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:800;margin:56px 0 6px;}
+h2 .no{flex:none;font-size:12px;font-weight:800;color:#fff;background:var(--ink);padding:3px 10px;border-radius:999px;letter-spacing:.08em;}
+.h2sub{font-size:13.5px;color:var(--ink3);margin:0 0 18px 46px;}
+.tldr{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-bottom:8px;}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--dk);letter-spacing:.12em;margin-bottom:10px;}
+.tldr li{list-style:none;font-size:14.5px;color:var(--ink2);padding-left:20px;position:relative;margin-bottom:7px;}
+.tldr li:before{content:"◈";position:absolute;left:0;color:var(--acc);font-size:12px;top:2px;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.card{background:#fffdf8;border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
+.card h3{font-size:15.5px;font-weight:700;margin-bottom:8px;}
+.card p{font-size:13.5px;color:var(--ink2);}
+.card.acc{background:var(--lt);border-color:#bfe5d6;}
+.card.acc h3{color:var(--dk);}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4;}
+.card.bad h3{color:var(--warn);}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--lt);color:var(--dk);margin-bottom:8px;}
+.fig{margin:26px 0;}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:14px;}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:10px;line-height:1.7;}
+.cap b{color:var(--ink2);}
+.formula{background:#fffdf8;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 12px 12px 0;padding:16px 20px;margin:16px 0;}
+.formula .f{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:15px;color:var(--ink);background:#f2f4ef;padding:10px 14px;border-radius:8px;margin-bottom:10px;overflow-x:auto;white-space:pre;}
+.formula .why{font-size:13.5px;color:var(--ink2);}
+.formula .why b{color:var(--dk);}
+table.tb{width:100%;border-collapse:collapse;background:#fffdf8;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:18px 0;font-size:13.5px;}
+table.tb th{background:var(--ink);color:#fff;padding:10px 14px;text-align:left;font-weight:700;font-size:13px;}
+table.tb td{padding:10px 14px;border-top:1px solid var(--line);color:var(--ink2);}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:700;}
+.contrib{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:18px 0;}
+.contrib .row{display:flex;gap:16px;padding:12px 0;border-bottom:1px dashed var(--line);}
+.contrib .row:last-child{border-bottom:none;}
+.contrib .n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.contrib .row p{font-size:14px;color:var(--ink2);}
+.contrib .row p b{color:var(--ink);}
+.lim{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.judge{background:#fffaf4;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:18px 0;}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.12em;margin-bottom:10px;}
+.judge p{font-size:14px;color:var(--ink2);margin-bottom:8px;}
+.judge p b{color:var(--ink);}
+.foot{margin-top:64px;padding-top:28px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.pill{display:inline-block;font-size:13px;font-weight:700;color:var(--dk);background:var(--lt);border:1px solid #bfe5d6;border-radius:999px;padding:7px 18px;text-decoration:none;}
+.pill.ghost{background:transparent;color:var(--ink2);border-color:var(--line);}
+.foot-note{font-size:12px;color:var(--ink3);margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2021 №4</div>
+<h1 class="hero">准确率是代理指标：<br>直接优化<span class="g">「正样本排在负样本前面」</span>的概率</h1>
+<div class="chips">
+<span class="chip acc">AUC Optimization · 清华 / 西工大</span>
+<span class="chip">arXiv 2107.05859 · 即插即用换损失</span>
+<span class="chip">成对合页损失 + mini-batch 近似 + 混合 CE</span>
+<span class="chip">10% 数据下 AUC +3–5% · 低误报点召回更高</span>
+</div>
+<div class="meta">
+<b>一句话</b>：交叉熵逐样本独立优化分类准确率，不管正负样本得分的相对排序——而排序质量恰恰决定 KWS 部署时的误报-召回权衡。本文把排序学习的 AUC 损失（成对合页 + mini-batch 近似）引入 KWS 训练：任何骨干只换损失函数即插即用。数据越少收益越大——10% 训练数据下 AUC 绝对提升 3–5%，20% 下 2–3%，全数据下仍正向不掉准确率；混合 CE（α≈0.5）兼顾收敛速度与排序质量。
+</div>
+
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<li>核心错位：CE 以分类准确率为目标、<b>逐样本独立处理</b>——无法建模正负样本间的相对排序；分类准确率很高时，模型仍可能在关键工作点（极低误报下的召回）表现不佳。</li>
+<li>数据越少越糟：自定义新关键词、低资源语言、小批量个性化部署——标注稀少时 CE 模型过拟合、误报率显著上升，恰是 KWS 最痛的场景。</li>
+<li>AUC 的排序定义：<b>AUC = P(f(x₊) &gt; f(x₋)) + 0.5·P(相等)</b>——随机抽一正一负，正样本得分更高的概率。直接反映 ROC 权衡曲线的质量，是部署体验的合理度量。</li>
+<li>可优化化：成对合页损失 <b>L_pair = max(0, 1 − (f(x₊) − f(x₋)))</b>——正样本比负样本高出至少间隔 1 则零损失，否则线性惩罚；信息论视角等价于最大化排序间隔。</li>
+<li>mini-batch 高效近似：全数据成对代价 O(N₊·N₋) 太贵——batch 内算所有正负对取平均；KWS 35 类设定负样本远多，批内对数可控。<b>batch 越大估计越准</b>（消融验证），采样需类别均衡。</li>
+<li>混合损失 L = α·L_CE + (1−α)·L_AUC（α≈0.5）：CE 给逐样本梯度（收敛快），AUC 给成对梯度（排序直控）——纯 AUC 收敛慢的问题被混合策略缓解。</li>
+<li>结果（约值）：10% 数据 AUC <b>+3–5%</b>、20% +2–3%、100% 小幅正向；FAR&lt;0.1% 的低误报工作点保持更高召回——排序红利恰在用户容忍度最低的区域兑现。</li>
+<li>边界：批内估计方差（正样本少时不可靠）；35 类要做多次一对多二分类 AUC（2022 跟进工作把 O(K²) 压到 O(K)）；未与 ListNet/LambdaRank 等排序损失对比；未做流式评估。</li>
+</div>
+
+<h2><span class="no">§01</span>问题：优化目标与部署体验的错位</h2>
+<div class="h2sub">CE 优化代理指标，部署取决于排序质量</div>
+<div class="cards">
+<div class="card bad">
+<h3>CE 的盲区</h3>
+<p>交叉熵只保证每个样本对自己的标签负责——正负样本得分的相对位置无人管。只要每个样本都过自己的阈值，训练损失就满意；但 ROC 曲线上的交叠区（正样本得分低于某些负样本）正是误报-召回权衡恶化的源头。</p>
+</div>
+<div class="card bad">
+<h3>低数据场景放大问题</h3>
+<p>新增自定义关键词、低资源语言、小批量个性化——标注稀少时 CE 模型过拟合，泛化下降且误报率显著上升。这些场景不是边缘情况，恰是 KWS 产品的高频需求（用户自定义唤醒词）。</p>
+</div>
+<div class="card">
+<h3>AUC 为什么是对的那把尺</h3>
+<p>AUC 直接度量「随机一正一负，正样本排在前面的概率」——它不关心绝对阈值，只关心排序。KWS 部署时用户调阈值找的是 ROC 曲线上的工作点，曲线质量（AUC）高，每个工作点的体验都更好。</p>
+</div>
+<div class="card">
+<h3>成对损失的天然抗过拟合</h3>
+<p>即使样本总量少，样本之间的「关系」（谁该排在谁前面）仍在提供监督信号——比较式学习在一定程度上缓解了数据稀少时的过拟合，这解释了为什么低数据场景下 AUC 优化收益更大。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AUC 优化：优化的不是准确率，是「正样本排在负样本前面」的概率</text>
+<line x1="36.0" y1="60.0" x2="760.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 交叉熵优化的是代理指标，部署体验取决于排序质量</text>
+<rect x="36.0" y="98.0" width="848.0" height="66.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="136.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CE 不管排序</text>
+<text x="205.0" y="117.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">交叉熵以分类准确率为目标，逐样本独立处理——无法建模正负样本间的</text>
+<text x="205.0" y="132.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">相对排序关系；分类准确率很高，模型仍可能在关键工作点（极低误报下</text>
+<text x="205.0" y="147.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">的召回）表现不佳</text>
+<rect x="36.0" y="172.0" width="848.0" height="66.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="210.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">数据越少越糟</text>
+<text x="205.0" y="191.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">新增自定义关键词 · 低资源语言 · 小批量个性化部署——标注稀少时 CE</text>
+<text x="205.0" y="206.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">模型过拟合，测试集泛化下降，误报率显著上升——恰是 KWS 最痛的场景</text>
+<rect x="36.0" y="246.0" width="848.0" height="66.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="284.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AUC 才是部署指标</text>
+<text x="205.0" y="265.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">AUC = 分类器把正样本排在负样本之前的概率——直接反映误报-召回权衡</text>
+<text x="205.0" y="280.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">曲线的质量；本文主张：训练目标就该直接对齐部署时的实际指标</text>
+<text x="36.0" y="348.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 方法：成对合页损失近似 AUC，即插即用换掉损失函数</text>
+<rect x="36.0" y="364.0" width="272.0" height="200.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="172.0" y="386.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AUC 的排序定义</text>
+<text x="52.0" y="408.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">AUC = P(f(x₊) &gt; f(x₋))</text>
+<text x="52.0" y="422.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">     + 0.5·P(f(x₊) = f(x₋))</text>
+<text x="52.0" y="437.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="451.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">f(x₊) 关键词样本的预测得分</text>
+<text x="52.0" y="466.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">f(x₋) 非关键词样本的预测得分</text>
+<text x="52.0" y="480.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="495.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">含义：随机抽一正一负，</text>
+<text x="52.0" y="509.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">正样本得分更高的概率</text>
+<text x="52.0" y="524.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="538.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">信息论视角：成对损失等价于最大化</text>
+<text x="52.0" y="553.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">正负样本间的排序间隔（ranking margin）</text>
+<text x="52.0" y="567.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——决策边界泛化性质更好</text>
+<rect x="324.0" y="364.0" width="272.0" height="200.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="460.0" y="386.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">成对排序损失（合页）</text>
+<text x="340.0" y="408.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">L_pair = max(0, 1 − (f(x₊) − f(x₋)))</text>
+<text x="340.0" y="422.5" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="340.0" y="437.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 正样本得分比负样本高出至少 1 的间隔</text>
+<text x="340.0" y="451.5" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  → 该对损失为零；否则线性惩罚</text>
+<text x="340.0" y="466.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 合页损失在排序问题上的应用</text>
+<text x="340.0" y="480.5" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="340.0" y="495.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">mini-batch 高效近似：</text>
+<text x="340.0" y="509.5" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全数据成对代价 O(N₊·N₋) 太贵</text>
+<text x="340.0" y="524.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 每个 batch 内算 N₊×N₋ 对取平均</text>
+<text x="340.0" y="538.5" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· KWS 35 类设定（1 目标词 + 静音/未知</text>
+<text x="340.0" y="553.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  + 33 其他）负样本远多——批内对可控</text>
+<rect x="612.0" y="364.0" width="272.0" height="200.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="748.0" y="386.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">混合损失：收敛与排序兼得</text>
+<text x="628.0" y="408.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">L_total = α·L_CE + (1−α)·L_AUC</text>
+<text x="628.0" y="421.8" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="628.0" y="435.6" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· CE：逐样本梯度信号，收敛快</text>
+<text x="628.0" y="449.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· AUC：成对梯度信号，直指排序质量</text>
+<text x="628.0" y="463.2" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 纯 AUC 收敛慢——混合策略缓解</text>
+<text x="628.0" y="477.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="628.0" y="490.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">α ≈ 0.5 推荐（数据集而异）</text>
+<text x="628.0" y="504.6" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· α→1 退化为纯 CE</text>
+<text x="628.0" y="518.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· α→0 收敛缓慢</text>
+<text x="628.0" y="532.2" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="628.0" y="546.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练注意：batch 内需类别均衡，</text>
+<text x="628.0" y="559.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">保证有足够正负对做可靠估计；</text>
+<text x="628.0" y="573.6" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">配 SpecAugment 时频遮蔽</text>
+<text x="36.0" y="588.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 即插即用：任何骨干、只换损失</text>
+<rect x="36.0" y="604.0" width="848.0" height="92.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="628.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">方法建立在任何现有小 footprint 骨干上（DS-CNN-S / DS-CNN-L 等），仅替换训练目标函数、不改网络结构——</text>
+<text x="52.0" y="643.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">极强的通用性与即插即用性：现有训练流水线加一行损失就能吃到 AUC 优化的收益</text>
+<text x="52.0" y="658.0" font-size="9.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="673.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">低数据场景优势更大的机理：成对损失通过「比较」学习——即使样本总量少，样本间的关系仍在提供监督信号，一定程度上缓解了数据稀少时的过拟合</text>
+<rect x="36.0" y="716.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="742.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+3–5%</text>
+<text x="130.0" y="762.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">AUC 绝对提升（10% 数据）</text>
+<text x="298.0" y="742.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+2–3%</text>
+<text x="298.0" y="762.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">AUC 提升（20% 数据）</text>
+<text x="466.0" y="742.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">正向</text>
+<text x="466.0" y="762.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">100% 数据下仍不掉点</text>
+<text x="634.0" y="742.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FAR&lt;0.1%</text>
+<text x="634.0" y="762.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">低误报点保持更高召回</text>
+<text x="802.0" y="742.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">α≈0.5</text>
+<text x="802.0" y="762.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">混合损失推荐配比</text>
+<text x="36.0" y="800.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">清华 / 西北工业大学 · arXiv 2107.05859；GSC 35 类约 10.5 万条 1 秒语音；骨干 DS-CNN-S/L；数据量扫 10% / 20% / 50% / 100%；指标 = 分类准确率 + AUC 分数 + 不同误报率下的召回曲线；数字为约值</text>
+</svg>
+<div class="cap"><b>图1 · 机制全景</b>：上半是 CE 与排序质量的错位，中段是方法三件（AUC 排序定义 / 成对合页损失 / 混合策略），底部是即插即用特性与关键数字。</div>
+</div>
+
+<h2><span class="no">§02</span>方法：把 AUC 变成可微的损失</h2>
+<div class="h2sub">成对合页 · mini-batch 近似 · 与 CE 的分工混合</div>
+
+<div class="formula">
+<div class="f">AUC = P(f(x₊) &gt; f(x₋)) + 0.5 · P(f(x₊) = f(x₋))
+L_pair = max( 0, 1 − (f(x₊) − f(x₋)) )        # 合页：间隔 ≥1 零损失
+L_total = α · L_CE + (1−α) · L_AUC            # α ≈ 0.5 推荐</div>
+<div class="why"><b>人话</b>：AUC 本身不可微，但它的排序语义可以写成「每对正负样本都拉开至少 1 的间隔」——这正是合页损失。batch 内所有正负组合各算一次取平均，就是 AUC 的无偏近似。混合 CE 的原因很实际：成对梯度不如逐样本梯度直接，纯 AUC 收敛慢——CE 负责快速把模型带到合理区域，AUC 负责精修排序。</div>
+</div>
+
+<div class="cards">
+<div class="card acc">
+<h3>即插即用的工程含义</h3>
+<p>方法建立在任何现有骨干上（DS-CNN-S/L 等），只替换训练目标、不改网络结构——现有训练流水线加一行损失就能吃到收益。对存量系统而言这是改造成本最低的一类优化。</p>
+</div>
+<div class="card acc">
+<h3>batch 采样是隐形前提</h3>
+<p>每个 batch 必须有足够的正负样本对做可靠估计——类别均衡的采样策略不是锦上添花而是方法成立的前提；正样本太少的 batch 估计方差大，AUC 优化会失真。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：CE 的盲区与成对损失的纠偏</text>
+<line x1="36.0" y1="56.0" x2="440.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="223.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两种损失下的得分分布（示意）</text>
+<rect x="48.0" y="92.0" width="355.0" height="158.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="60.0" y="112.0" font-size="9.3" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CE 训练：准确率高但排序可乱</text>
+<line x1="78.0" y1="212.0" x2="378.00" y2="212.00" stroke="#d8d8d0" stroke-width="1"/>
+<rect x="108.0" y="186.0" width="18.0" height="26.0" rx="2" fill="#c9d8e8" opacity="0.85"/>
+<rect x="130.0" y="174.0" width="18.0" height="38.0" rx="2" fill="#c9d8e8" opacity="0.85"/>
+<rect x="152.0" y="162.0" width="18.0" height="50.0" rx="2" fill="#c9d8e8" opacity="0.85"/>
+<rect x="174.0" y="152.0" width="18.0" height="60.0" rx="2" fill="#c9d8e8" opacity="0.85"/>
+<rect x="196.0" y="162.0" width="18.0" height="50.0" rx="2" fill="#c9d8e8" opacity="0.85"/>
+<rect x="218.0" y="176.0" width="18.0" height="36.0" rx="2" fill="#c9d8e8" opacity="0.85"/>
+<rect x="240.0" y="188.0" width="18.0" height="24.0" rx="2" fill="#c9d8e8" opacity="0.85"/>
+<rect x="228.0" y="182.0" width="18.0" height="30.0" rx="2" fill="#9fc8b8" opacity="0.85"/>
+<rect x="250.0" y="166.0" width="18.0" height="46.0" rx="2" fill="#9fc8b8" opacity="0.85"/>
+<rect x="272.0" y="154.0" width="18.0" height="58.0" rx="2" fill="#9fc8b8" opacity="0.85"/>
+<rect x="294.0" y="148.0" width="18.0" height="64.0" rx="2" fill="#9fc8b8" opacity="0.85"/>
+<rect x="316.0" y="160.0" width="18.0" height="52.0" rx="2" fill="#9fc8b8" opacity="0.85"/>
+<rect x="338.0" y="172.0" width="18.0" height="40.0" rx="2" fill="#9fc8b8" opacity="0.85"/>
+<rect x="360.0" y="184.0" width="18.0" height="28.0" rx="2" fill="#9fc8b8" opacity="0.85"/>
+<rect x="218.0" y="122.0" width="60.0" height="90.0" rx="4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<text x="248.0" y="226.0" font-size="7.8" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">交叠区：排序错误的源头</text>
+<text x="178.0" y="244.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每个样本只跟自己的标签比——正负样本的相对位置无人管</text>
+<rect x="48.0" y="262.0" width="355.0" height="158.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="60.0" y="282.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">成对 AUC 损失：拉开且有间隔</text>
+<line x1="78.0" y1="382.0" x2="378.00" y2="382.00" stroke="#d8d8d0" stroke-width="1"/>
+<rect x="94.0" y="360.0" width="18.0" height="22.0" rx="2" fill="#c9d8e8" opacity="0.85"/>
+<rect x="116.0" y="348.0" width="18.0" height="34.0" rx="2" fill="#c9d8e8" opacity="0.85"/>
+<rect x="138.0" y="336.0" width="18.0" height="46.0" rx="2" fill="#c9d8e8" opacity="0.85"/>
+<rect x="160.0" y="328.0" width="18.0" height="54.0" rx="2" fill="#c9d8e8" opacity="0.85"/>
+<rect x="182.0" y="338.0" width="18.0" height="44.0" rx="2" fill="#c9d8e8" opacity="0.85"/>
+<rect x="204.0" y="352.0" width="18.0" height="30.0" rx="2" fill="#c9d8e8" opacity="0.85"/>
+<rect x="278.0" y="354.0" width="18.0" height="28.0" rx="2" fill="#9fc8b8" opacity="0.85"/>
+<rect x="300.0" y="338.0" width="18.0" height="44.0" rx="2" fill="#9fc8b8" opacity="0.85"/>
+<rect x="322.0" y="324.0" width="18.0" height="58.0" rx="2" fill="#9fc8b8" opacity="0.85"/>
+<rect x="344.0" y="316.0" width="18.0" height="66.0" rx="2" fill="#9fc8b8" opacity="0.85"/>
+<rect x="366.0" y="328.0" width="18.0" height="54.0" rx="2" fill="#9fc8b8" opacity="0.85"/>
+<line x1="230.0" y1="312.0" x2="270.00" y2="312.00" stroke="#0b6e52" stroke-width="1.6"/>
+<text x="250.0" y="306.0" font-size="7.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">margin ≥ 1</text>
+<text x="250.0" y="396.0" font-size="7.8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每对正负样本都被显式比较</text>
+<text x="178.0" y="414.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">交叠被逐对消灭——低误报工作点的召回直接受益</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">batch 内成对计算与混合配比</text>
+<rect x="436.0" y="92.0" width="408.0" height="170.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="450.0" y="112.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">mini-batch 里的 N₊ × N₋ 个对</text>
+<circle cx="490" cy="126" r="8" fill="#0b6e52"/>
+<text x="490.0" y="129.0" font-size="9" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+</text>
+<circle cx="530" cy="126" r="8" fill="#0b6e52"/>
+<text x="530.0" y="129.0" font-size="9" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+</text>
+<circle cx="490" cy="178" r="8" fill="#33507a"/>
+<text x="490.0" y="181.0" font-size="9" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−</text>
+<circle cx="530" cy="178" r="8" fill="#33507a"/>
+<text x="530.0" y="181.0" font-size="9" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−</text>
+<circle cx="570" cy="178" r="8" fill="#33507a"/>
+<text x="570.0" y="181.0" font-size="9" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−</text>
+<circle cx="610" cy="178" r="8" fill="#33507a"/>
+<text x="610.0" y="181.0" font-size="9" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−</text>
+<circle cx="650" cy="178" r="8" fill="#33507a"/>
+<text x="650.0" y="181.0" font-size="9" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−</text>
+<line x1="490.0" y1="134.0" x2="490.00" y2="170.00" stroke="#c9d8e8" stroke-width="0.7"/>
+<line x1="490.0" y1="134.0" x2="530.00" y2="170.00" stroke="#c9d8e8" stroke-width="0.7"/>
+<line x1="490.0" y1="134.0" x2="570.00" y2="170.00" stroke="#c9d8e8" stroke-width="0.7"/>
+<line x1="490.0" y1="134.0" x2="610.00" y2="170.00" stroke="#c9d8e8" stroke-width="0.7"/>
+<line x1="490.0" y1="134.0" x2="650.00" y2="170.00" stroke="#c9d8e8" stroke-width="0.7"/>
+<line x1="530.0" y1="134.0" x2="490.00" y2="170.00" stroke="#c9d8e8" stroke-width="0.7"/>
+<line x1="530.0" y1="134.0" x2="530.00" y2="170.00" stroke="#c9d8e8" stroke-width="0.7"/>
+<line x1="530.0" y1="134.0" x2="570.00" y2="170.00" stroke="#c9d8e8" stroke-width="0.7"/>
+<line x1="530.0" y1="134.0" x2="610.00" y2="170.00" stroke="#c9d8e8" stroke-width="0.7"/>
+<line x1="530.0" y1="134.0" x2="650.00" y2="170.00" stroke="#c9d8e8" stroke-width="0.7"/>
+<text x="590.0" y="158.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2 × 5 = 10 对</text>
+<text x="450.0" y="210.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">batch 越大 → 对越多 → AUC 估计越准（消融验证）；</text>
+<text x="450.0" y="224.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">batch 里正样本太少时估计方差大——采样需类别均衡</text>
+<rect x="436.0" y="270.0" width="408.0" height="128.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="450.0" y="290.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">混合损失：两种梯度信号的分工</text>
+<text x="450.0" y="308.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">L_total = α·L_CE + (1−α)·L_AUC</text>
+<text x="450.0" y="320.6" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="333.2" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· CE 逐样本：告诉每个样本「该是哪类」——收敛快</text>
+<text x="450.0" y="345.8" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· AUC 逐对：告诉每对样本「谁该在前」——排序直控</text>
+<text x="450.0" y="358.4" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· α≈0.5 平衡；α 扫描是「准确率 vs 排序质量」的旋钮</text>
+<text x="450.0" y="371.0" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="383.6" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">合页间隔参数（默认 1）：太小排序松，太大训练难——</text>
+<text x="450.0" y="396.2" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">又一个要按任务调的超参</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：CE 只保证每个样本过自己的阈值，正负分布的交叠区就是排序错误；成对损失把交叠逐对拉开并要求 margin。右：batch 内所有正负组合都算一对——batch 大小直接决定 AUC 估计质量</text>
+</svg>
+<div class="cap"><b>图2 · 机制解剖</b>：左是两种损失下的得分分布示意（CE 留下交叠区 vs 成对损失拉开且有 margin），右是 batch 内成对计算的几何与混合损失的分工。</div>
+</div>
+
+<h2><span class="no">§03</span>实验：数据越少，越值钱</h2>
+<div class="h2sub">GSC 35 类 · DS-CNN-S/L · 数据量扫 10/20/50/100%</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（约值）：数据越少，AUC 优化越值钱</text>
+<line x1="36.0" y1="56.0" x2="470.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AUC 绝对提升 vs 训练数据量</text>
+<line x1="66.0" y1="290.0" x2="446.00" y2="290.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="66.0" y1="110.0" x2="66.00" y2="290.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="66.0" y1="254.0" x2="446.00" y2="254.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="257.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+1</text>
+<line x1="66.0" y1="218.0" x2="446.00" y2="218.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="221.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+2</text>
+<line x1="66.0" y1="182.0" x2="446.00" y2="182.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="185.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+3</text>
+<line x1="66.0" y1="146.0" x2="446.00" y2="146.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="149.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+4</text>
+<line x1="66.0" y1="110.0" x2="446.00" y2="110.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="113.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+5</text>
+<line x1="100.5" y1="146.0" x2="135.09" y2="200.00" stroke="#0b6e52" stroke-width="2"/>
+<line x1="135.1" y1="200.0" x2="238.73" y2="246.80" stroke="#0b6e52" stroke-width="2"/>
+<line x1="238.7" y1="246.8" x2="411.45" y2="272.00" stroke="#0b6e52" stroke-width="2"/>
+<circle cx="100.5" cy="146.0" r="5.5" fill="#0b6e52"/>
+<text x="100.5" y="136.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+4%</text>
+<text x="100.5" y="304.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10%</text>
+<circle cx="135.1" cy="200.0" r="5.5" fill="#0b6e52"/>
+<text x="135.1" y="190.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+2.5%</text>
+<text x="135.1" y="304.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">20%</text>
+<circle cx="238.7" cy="246.8" r="5.5" fill="#0b6e52"/>
+<text x="238.7" y="236.8" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1.2%</text>
+<text x="238.7" y="304.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">50%</text>
+<circle cx="411.5" cy="272.0" r="5.5" fill="#0b6e52"/>
+<text x="411.5" y="262.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+0.5%</text>
+<text x="411.5" y="304.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">100%</text>
+<text x="256.0" y="318.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">训练数据比例 →</text>
+<text x="70.0" y="104.0" font-size="7.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">AUC 提升↑</text>
+<text x="66.0" y="336.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="66.0" y="350.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 10% 数据 +3–5% / 20% +2–3% / 100% 小幅正向——收益与数据稀缺度成正比</text>
+<text x="66.0" y="363.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全数据下不掉准确率：AUC 优化在充足数据下无害，在稀缺数据下高收益</text>
+<text x="66.0" y="376.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 低误报工作点（FAR&lt;0.1%）保持更高召回——排序质量的红利恰在</text>
+<text x="66.0" y="389.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   用户容忍度最低的区域兑现</text>
+<text x="66.0" y="402.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 混合 α=0.5 最优：α→1 退化为纯 CE，α→0 收敛缓慢</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">低误报区放大 + 消融</text>
+<rect x="500.0" y="92.0" width="324.0" height="158.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="112.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ROC 低误报端（示意）</text>
+<line x1="540.0" y1="220.0" x2="800.00" y2="220.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="540.0" y1="120.0" x2="540.00" y2="220.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="540.0" y1="220.0" x2="571.20" y2="185.00" stroke="#c9d8e8" stroke-width="2"/>
+<line x1="571.2" y1="185.0" x2="618.00" y2="158.00" stroke="#c9d8e8" stroke-width="2"/>
+<line x1="618.0" y1="158.0" x2="683.00" y2="138.00" stroke="#c9d8e8" stroke-width="2"/>
+<line x1="683.0" y1="138.0" x2="800.00" y2="120.00" stroke="#c9d8e8" stroke-width="2"/>
+<line x1="540.0" y1="220.0" x2="555.60" y2="175.00" stroke="#0b6e52" stroke-width="2"/>
+<line x1="555.6" y1="175.0" x2="592.00" y2="145.00" stroke="#0b6e52" stroke-width="2"/>
+<line x1="592.0" y1="145.0" x2="670.00" y2="128.00" stroke="#0b6e52" stroke-width="2"/>
+<line x1="670.0" y1="128.0" x2="800.00" y2="120.00" stroke="#0b6e52" stroke-width="2"/>
+<text x="740.0" y="186.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">CE</text>
+<text x="740.0" y="146.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CE+AUC ★</text>
+<line x1="580.0" y1="120.0" x2="580.00" y2="220.00" stroke="#c0392b" stroke-width="1" stroke-dasharray="3,3"/>
+<text x="584.0" y="132.0" font-size="7.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FAR&lt;0.1% 工作区</text>
+<text x="670.0" y="234.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">误报率（低段放大）→</text>
+<text x="534.0" y="130.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">召回↑</text>
+<rect x="500.0" y="258.0" width="324.0" height="140.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="514.0" y="276.0" font-size="9" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融读数</text>
+<text x="514.0" y="292.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· batch size ↑ → 批内对更多 → AUC 估计更准 → 效果更好</text>
+<text x="514.0" y="304.8" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 合页间隔（默认 1）：太小排序松 · 太大训练难</text>
+<text x="514.0" y="317.6" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="330.4" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">证据边界：未与 ListNet / LambdaRank / RankNet 等其他</text>
+<text x="514.0" y="343.2" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">排序损失对比——成对合页是否最优形式未知；未探索与</text>
+<text x="514.0" y="356.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">量化/剪枝的交互；未做流式/持续监听场景评估</text>
+<text x="514.0" y="368.8" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="381.6" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">后续：Interspeech 2022 跟进工作把多类 AUC 的 O(K²) 压到 O(K)</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：数字为笔记记录的约值（原文见 arXiv 2107.05859）；骨干 DS-CNN-S/L · GSC 35 类；AUC 分数为主指标，分类准确率作护栏指标（混合策略保证不掉）</text>
+</svg>
+<div class="cap"><b>图3 · 主结果</b>：左是 AUC 提升随训练数据量的衰减曲线与读数，右是 ROC 低误报端放大示意与消融读数（batch 大小、间隔参数）及证据边界。</div>
+</div>
+<table class="tb">
+<tr><th>训练数据量</th><th>AUC 提升（约值）</th><th>解读</th></tr>
+<tr class="hl"><td>10%</td><td>+3–5%（绝对）</td><td>收益最大档——比较式学习缓解过拟合</td></tr>
+<tr><td>20%</td><td>+2–3%</td><td>仍显著</td></tr>
+<tr><td>50%</td><td>+1% 左右</td><td>收益递减开始</td></tr>
+<tr><td>100%</td><td>小幅正向</td><td>充足数据下无害——准确率不掉</td></tr>
+</table>
+<div class="tldr" style="margin-top:14px;">
+<div class="tt">读表要点</div>
+<li>收益与数据稀缺度成正比——这条曲线的形状本身就是方法的价值主张：它是给「低资源/自定义关键词」场景准备的工具，不是给全数据刷 SOTA 的。</li>
+<li>低误报工作点（FAR&lt;0.1%）保持更高召回——排序质量的红利恰在<b>用户容忍度最低</b>的区域兑现，产品视角比平均 AUC 更有意义。</li>
+<li>消融两条：batch size ↑ → 批内对更多 → AUC 估计更准 → 效果更好；合页间隔（默认 1）太小排序松、太大训练难。</li>
+<li>证据边界：未与 ListNet/LambdaRank/RankNet 对比（成对合页是否最优形式未知）；未探索与量化/剪枝的交互（压缩后排序优势是否保持）；未做流式评估。</li>
+</div>
+
+<h2><span class="no">§04</span>贡献</h2>
+<div class="h2sub">四点：从视角转换到工程落地</div>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>首次把 AUC 优化引入 KWS</b>：分类损失优化准确率但不直接优化排序质量——AUC 优化填补这个空白，为 KWS 训练目标设计提供「直接优化部署体验指标」的新视角。</p></div>
+<div class="row"><div class="n">2</div><p><b>低数据场景的鲁棒性证据</b>：10%/20% 数据下显著提升泛化（尤其误报控制）——为低资源语言 KWS 和快速定制新关键词提供有效方案。</p></div>
+<div class="row"><div class="n">3</div><p><b>mini-batch 高效实现</b>：全局 AUC 优化近似为 batch 内成对损失，标准 SGD 流程即可——无需改计算图，轻松集成现有流水线。</p></div>
+<div class="row"><div class="n">4</div><p><b>混合损失策略</b>：CE 保准确率与收敛速度、AUC 管排序质量——解决纯 AUC 收敛慢的问题，是实用的训练配方。</p></div>
+</div>
+
+<h2><span class="no">§05</span>局限与判断</h2>
+<div class="h2sub">批内估计方差 · 多类扩展 · 超参敏感</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 计算复杂度增加：batch 内算所有正负对，类别不平衡时成本显著上升；</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  批内近似也引入估计方差——正样本少的 batch 估计不准</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多类扩展难：原始 AUC 为二分类设计，35 类要做多次一对多的二分类</text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  AUC 优化——训练复杂度上升（2022 跟进工作压到 O(K)）</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 超参敏感：α 最优值随数据量/任务而异——极低数据（如 1%）下可能</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  与中等数据量完全不同</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 收敛速度：纯 AUC 损失慢于 CE（成对梯度不如逐样本直接），混合</text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  策略部分缓解</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验边界 + 延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未在流式/持续监听场景评估——帧级 AUC 优化可能要特殊设计</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 自定义关键词分析有限：新词只有极少正样本，批内估计不可靠</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未与其他排序损失（ListNet/LambdaRank/RankNet）对比</text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未探索与量化/剪枝的交互——压缩后排序优势是否保持未知</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸：多类 AUC（one-vs-rest / multiclass）降训练开销；与量化/剪枝</text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">结合并验证压缩后排序保持；多语言/噪声/非声调语言泛化；流式帧级</text>
+<text x="536.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">AUC 的特殊设计</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：直接优化部署时的实际指标（误报-召回权衡）而非代理指标（准确率），是提升用户体验的有效途径——这一思路适用于所有需要精细权衡精度与召回的语音任务</text>
+</svg>
+<div class="cap"><b>图4 · 边界与延伸</b>：左技术边界（成对计算成本、批内方差、多类 O(K²)、α 敏感、收敛慢），右实验边界（无流式、自定义词分析有限、无排序损失横比、无压缩交互）+ 延伸方向。</div>
+</div>
+<div class="judge">
+<div class="jt">可迁移判断</div>
+<p>↳ <b>直接优化部署指标，别停在代理指标</b>：准确率是训练方便的代理，部署体验取决于误报-召回权衡——凡是「阈值调来调去找体验」的系统，都值得问一句：训练目标对齐的是哪个指标？</p>
+<p>↳ <b>比较式学习是低数据的天然补丁</b>：样本少时「关系」仍丰富——N 个样本有 O(N²) 对关系可供监督。成对损失的低数据红利揭示了这个通用机制，适用于任何稀缺标注场景。</p>
+<p>↳ <b>代理损失与目标损失混合是务实解</b>：目标对齐的损失（AUC）往往收敛特性差，代理损失（CE）快但不对齐——α 混合各取所长；先问「哪个负责收敛、哪个负责对齐」再定配比。</p>
+<p>↳ <b>batch 内估计的前提是类别均衡</b>：任何依赖批内统计的损失（成对、对比、度量学习）都隐含「batch 里要有足够的各类样本」——采样策略是方法的一部分，不是训练脚本的细节。</p>
+</div>
+
+<div class="foot">
+<a class="pill" href="https://arxiv.org/abs/2107.05859">arXiv 2107.05859 ↗</a>
+<a class="pill ghost" href="../index.html">← 返回总目录</a>
+</div>
+<div class="foot-note">笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值 · 2021 №4 · 189+/305</div>
+</div>
+</body>
+</html>

@@ -1,7 +1,7 @@
 # 可视化精读改写计划（VIZ_PLAN）
 
 按年份倒序把全部论文笔记重写为自包含 HTML+SVG 可视化精读页。每篇：读笔记 → python 生成 4 张 SVG → 注入统一模板 HTML → 校验 → 截图自查 → 提交推送。
-**总进度：189 / 305**
+**总进度：190 / 305**
 
 ## 2026（24 篇）
 **进度：24 / 24**
@@ -211,7 +211,7 @@
 - [⬜] Wake Word Detection Based on Res2Net（基于 Res2Net 的唤醒词检测模型）
 
 ## 2021（28 篇）
-**进度：3 / 28**
+**进度：4 / 28**
 
 - [⬜] AUC Optimization for Robust Small-footprint Keyword Spotting with Limited Training Data
 - [⬜] A Separable Temporal Convolution Neural Network with Attention for Small-Footprint Keyword Spotting
