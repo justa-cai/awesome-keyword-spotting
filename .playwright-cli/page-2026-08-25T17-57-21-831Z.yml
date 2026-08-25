@@ -1,0 +1,272 @@
+- generic [ref=f312e2]:
+  - generic [ref=f312e3]: 论文精读 · 可视化版 · 2021 №27
+  - heading "乘法从网络里消失： 用脉冲和阈值做唤醒——30 倍能耗的价与限" [level=1] [ref=f312e4]: 乘法从网络里消失：用脉冲和阈值做唤醒——30 倍能耗的价与限
+  - generic [ref=f312e5]:
+    - generic [ref=f312e6]: WaveSense · SynSense AG（神经形态芯片公司）
+    - generic [ref=f312e7]: arXiv 2111.01456 · TCN × SNN 首次系统结合
+    - generic [ref=f312e8]: 速率编码 · LIF 神经元 · 代理梯度 BPTT
+    - generic [ref=f312e9]: GSC 93%（等价 ANN 95.5）· 理论能耗 ~1/30
+  - generic [ref=f312e10]: 一句话：always-on 的 KWS 在电池设备上持续烧浮点乘加。SNN 用脉冲（0/1）通信——权重×脉冲退化为条件加法、神经元只在发放时计算、神经形态芯片原生加速，理论能耗低 1–3 个数量级；但发放函数不可微没法反向传播、准确率落后。WaveSense 把 ANN 里成熟的 TCN 架构搬进脉冲域：速率编码（特征值→发放概率）→ 脉冲时间卷积 + LIF + 残差 → 频率读出，代理梯度直接在脉冲域训练。93% 准确率（等价 ANN 95.5、SOTA 97.5），理论能耗约 1/30——用 4–5 个点换 30 倍省电的交易记录。
+  - generic [ref=f312e11]:
+    - generic [ref=f312e12]: TL;DR
+    - listitem [ref=f312e13]: ◈ SNN 的三个省电台柱：脉冲代乘加（权重×0/1 = 条件加法，单操作理论能耗 ~乘加的 1/30）；事件驱动稀疏（发放率仅 10–20%，80–90% 时间步静默免算）；类脑硬件加速（Loihi/TrueNorth/SynSense Speck——作者自家产品线，原生跑脉冲）。
+    - listitem [ref=f312e14]: ◈ 三道坎一次回应：阶跃发放不可微 → 代理梯度（反向传播时用可微函数近似阶跃导数，快速 Sigmoid 1/(1+|πx/2|)² 最佳）；架构无套路 → 把 TCN 迁进脉冲域（卷积+LIF+残差）；准确率落后 → 直接脉冲域训练避开 ANN-to-SNN 转换损失。
+    - listitem [ref=f312e15]: ◈ LIF 神经元：U(t) = β·U(t−1) + W·X(t)；超阈值发脉冲并减阈值。β<1 的泄漏让膜电位无输入时衰减——天然携带时序记忆；β=0.8–0.9 最佳（过低丢时序信息、过高积累难区分）。
+    - listitem [ref=f312e16]: ◈ 速率编码是 ANN→SNN 的桥：特征值归一化为发放概率，T 个时间步伯努利采样——值越大脉冲越密。代价：信息以频率承载需要多个时间步，且引入量化损失。
+    - listitem [ref=f312e17]: ◈ 推理在时间维展开 T 步，每步全是加法与阈值比较——乘法在整个网络里消失；读出统计末层 T 步脉冲频率过 softmax，交叉熵训练。
+    - listitem [ref=f312e18]: ◈ 结果：GSC 12 类 ~93%（等价 ANN 95.5 / SOTA 97.5）；理论能耗 ~1/30；vs ANN-to-SNN 转换（~90%）直接训练 +3 点；vs 全连接 SNN 时间卷积 +3–5 点；去残差掉 2–3 点。
+    - listitem [ref=f312e19]: ◈ T（时间步）是权衡旋钮：T=20→89%、T=50→93%、T=100→93.5%——延迟与能耗随 T 线性涨，边际收益陡降；甜点 T=50（~50ms）。
+    - listitem [ref=f312e20]: ◈ 最大的坑：能耗是理论估计不是实测（脉冲操作数×单操作理论能耗）——芯片的时钟/IO/SRAM 访问可能显著吃掉纸面收益；无 Speck/Loihi 真机数据。
+  - heading "§01 问题：常驻监听的电池账" [level=2] [ref=f312e21]:
+    - generic [ref=f312e22]: §01
+    - text: 问题：常驻监听的电池账
+  - generic [ref=f312e23]: SNN 的省电原理与落地的三道坎
+  - generic [ref=f312e24]:
+    - generic [ref=f312e25]:
+      - heading "为什么脉冲比浮点省" [level=3] [ref=f312e26]
+      - paragraph [ref=f312e27]: ANN 的乘加要访问权重 SRAM + 浮点乘法器；SNN 的输入是 0/1——乘法退化成「有脉冲就加权重，没脉冲就跳过」的条件加法，且稀疏发放让多数神经元多数时刻完全静默——两重节省相乘。
+    - generic [ref=f312e28]:
+      - heading "不可微的发放函数" [level=3] [ref=f312e29]
+      - paragraph [ref=f312e30]: LIF 的阶跃发放 Θ(U−V_th) 在阈值处梯度无穷大、其余为零——反向传播的链式法则在这里断掉。代理梯度的思路很朴素：前向照样阶跃，反向「假装」它是平滑函数。
+    - generic [ref=f312e31]:
+      - heading "准确率的账" [level=3] [ref=f312e32]
+      - paragraph [ref=f312e33]: 同架构下 SNN 比 ANN 低 2–3 点（脉冲化本身的代价）；比 SOTA 低 4–5 点（SNN 架构经验还落后成熟 ANN 设计）——yes/yeah 类精细区分仍是弱项。
+    - generic [ref=f312e34]:
+      - heading "公司背景的影响" [level=3] [ref=f312e35]
+      - paragraph [ref=f312e36]: 作者是 SynSense（神经形态芯片公司）——架构设计刻意与 Speck/Xylo 的计算模型高度匹配（可直接映射）。利益相关：理论能耗数字是卖点；学术边界：无真机实测恰是最该补的一环。
+  - generic [ref=f312e37]:
+    - img [ref=f312e38]:
+      - generic [ref=f312e40]: WaveSense：用脉冲代替浮点——把时间卷积搬进脉冲神经网络
+      - generic [ref=f312e41]: ① SNN 的三个省电台柱 + KWS 的三道坎
+      - generic [ref=f312e43]: KWS 常驻电池设备（手表/耳机/IoT）——ANN 的浮点乘加持续烧电；SNN 理论能耗低 1–3 个数量级
+      - generic [ref=f312e44]: 但三道坎：发放函数不可微没法反向传播；准确率落后 ANN；SNN 架构设计经验不足——本文用 TCN 迁移 + 代理梯度一次回应
+      - generic [ref=f312e46]: 脉冲代乘加
+      - generic [ref=f312e47]: 突触权重 × 脉冲(0/1) 退化为条件加法（脉冲=1 则累加权重）——
+      - generic [ref=f312e48]: 省掉浮点乘法，单次操作理论能耗约为乘加的 1/30
+      - generic [ref=f312e50]: 事件驱动稀疏
+      - generic [ref=f312e51]: 神经元只在发放时计算——大多数神经元大多数时间步静默（稀疏激活
+      - generic [ref=f312e52]: 10–20% 发放率），有效计算量大幅下降
+      - generic [ref=f312e54]: 类脑硬件加速
+      - generic [ref=f312e55]: 专用神经形态芯片（Intel Loihi · IBM TrueNorth · SynSense
+      - generic [ref=f312e56]: Speck/Xylo——作者自家产品线）原生跑脉冲计算，极低功耗
+      - generic [ref=f312e58]: 三道坎
+      - generic [ref=f312e59]: ① 阶跃发放函数不可微 → 反向传播失效；② 准确率落后等价 ANN
+      - generic [ref=f312e60]: 2–3%、落后 SOTA 4–5%；③ SNN 架构设计无成熟套路
+      - generic [ref=f312e61]: ② WaveSense 流水线：从连续特征到脉冲判决
+      - generic [ref=f312e63]: MFCC 40 维
+      - generic [ref=f312e64]: 连续值特征
+      - generic [ref=f312e66]: 速率编码
+      - generic [ref=f312e67]: 值→概率发脉冲 T=20–5
+      - generic [ref=f312e68]: 0 步
+      - generic [ref=f312e70]: 脉冲时间卷积块
+      - generic [ref=f312e71]: 卷积（加法）→ LIF ·
+      - generic [ref=f312e72]: 残差
+      - generic [ref=f312e74]: 频率读出
+      - generic [ref=f312e75]: 统计 T 步脉冲数 → so
+      - generic [ref=f312e76]: ftmax
+      - generic [ref=f312e78]: 分类输出
+      - generic [ref=f312e79]: 交叉熵（代理梯度 BPTT）
+      - generic [ref=f312e81]: LIF 神经元（基本计算单元）
+      - generic [ref=f312e82]: U(t) = β·U(t−1) + W·X(t) ← 膜电位（β 泄漏因子）
+      - generic [ref=f312e83]: S(t) = Θ(U(t) − V_th) ← 超阈值发脉冲
+      - generic [ref=f312e84]: U(t) ← U(t) − V_th·S(t) ← 发完减阈值
+      - generic [ref=f312e85]: β<1：无输入时电位衰减——模拟生物膜泄漏，
+      - generic [ref=f312e86]: 天然携带时序记忆；β=0.8–0.9 最佳（消融）
+      - generic [ref=f312e88]: 代理梯度训练
+      - generic [ref=f312e89]: 阶跃函数不可微（阈值处梯度∞其余 0）→ 反向传播失效
+      - generic [ref=f312e90]: 解法：反向传播时代理函数近似阶跃导数
+      - generic [ref=f312e91]: · 快速 Sigmoid：1/(1+|πx/2|)² ★ 最佳
+      - generic [ref=f312e92]: · Sigmoid / ArcTan 代理
+      - generic [ref=f312e93]: BPTT：时间维展开 + 每个脉冲生成处替换梯度
+      - generic [ref=f312e94]: 直接在脉冲域训练——不走「先训 ANN 再转换」的老路
+      - generic [ref=f312e96]: ~93%
+      - generic [ref=f312e97]: GSC 12 类（等价 ANN 95–96 · SOTA 97–98）
+      - generic [ref=f312e98]: ~30×
+      - generic [ref=f312e99]: 理论能耗降低 vs 等价 ANN
+      - generic [ref=f312e100]: 10–20%
+      - generic [ref=f312e101]: 平均脉冲发放率（稀疏）
+      - generic [ref=f312e102]: T=50
+      - generic [ref=f312e103]: 推理时间步（约 50ms 延迟）
+      - generic [ref=f312e104]: −2~3%
+      - generic [ref=f312e105]: 去残差连接的掉点
+      - generic [ref=f312e106]: SynSense AG（神经形态芯片公司）· arXiv 2111.01456；首次把 TCN 系统迁移进 SNN-KWS；数字为约值
+    - generic [ref=f312e107]: 图1 · 机制全景：上半是三个省电台柱与三道坎，中段是五步流水线、LIF 神经元方程与代理梯度训练，底部是关键数字。
+  - heading "§02 方法：速率编码 + 脉冲时间卷积" [level=2] [ref=f312e108]:
+    - generic [ref=f312e109]: §02
+    - text: 方法：速率编码 + 脉冲时间卷积
+  - generic [ref=f312e110]: 连续值怎么进脉冲世界 · 一次推理的时间展开
+  - generic [ref=f312e111]:
+    - generic [ref=f312e112]: "LIF: U(t) = β·U(t−1) + W·X(t) ← 膜电位积分（β=0.8–0.9 泄漏） S(t) = Θ(U(t) − V_th) ← 超阈值发脉冲 U(t) ← U(t) − V_th·S(t) ← 发放后减阈值 编码: 特征值 → [0,1] → T 步按概率发脉冲（速率编码 T=20–50） 读出: 末层每神经元 T 步脉冲频率 → softmax → 交叉熵 训练: BPTT + 代理梯度（快速 Sigmoid: 1/(1+|πx/2|)²）"
+    - generic [ref=f312e113]: 人话：LIF 像一个带漏的水桶——输入脉冲是注水，泄漏让水位慢慢降，满了（超阈值）就倒掉一格并发出一个脉冲。水位本身就是对输入历史的加权记忆，这就是 SNN 不用 RNN 结构也自带时序能力的原因。
+  - generic [ref=f312e114]:
+    - generic [ref=f312e115]:
+      - heading "残差连接在脉冲域的额外意义" [level=3] [ref=f312e116]
+      - paragraph [ref=f312e117]: 除常规的梯度通路作用外，脉冲域的 BPTT 要沿时间维传梯度——深度网络的梯度衰减更严重；残差把前层脉冲直接跳到后层，去掉了准确率掉 2–3 点——比 ANN 里残差的边际价值更高。
+    - generic [ref=f312e118]:
+      - heading "不走 ANN-to-SNN 转换的理由" [level=3] [ref=f312e119]
+      - paragraph [ref=f312e120]: 传统路线先训 ANN 再把 ReLU 激活映射为脉冲发放率——转换过程引入精度损失（对比：~90% vs 直接训练 93%）。直接脉冲域训练能优化「脉冲域的决策边界」——代价是训练超参更敏感。
+  - generic [ref=f312e121]:
+    - img [ref=f312e122]:
+      - generic [ref=f312e124]: 机制解剖：速率编码怎么工作 · 一次推理的时间展开
+      - generic [ref=f312e125]: 速率编码（ANN→SNN 的桥）
+      - generic [ref=f312e127]: 特征值 → 发放概率
+      - generic [ref=f312e128]: 特征值 0.9
+      - generic [ref=f312e150]: → 发放率 ≈ 90%
+      - generic [ref=f312e151]: 特征值 0.5
+      - generic [ref=f312e173]: → 发放率 ≈ 50%
+      - generic [ref=f312e174]: 特征值 0.2
+      - generic [ref=f312e196]: → 发放率 ≈ 20%
+      - generic [ref=f312e197]: 特征值越大 → T 步内脉冲越密
+      - generic [ref=f312e198]: 信息以「频率」承载——需要多个时间步
+      - generic [ref=f312e199]: T 越大编码越准但延迟线性涨
+      - generic [ref=f312e200]: 一次推理的时间展开
+      - generic [ref=f312e202]: 每个时间步干一次
+      - generic [ref=f312e203]: "t = 1 … T（T=20–50）:"
+      - generic [ref=f312e204]: ① 输入脉冲 × 卷积核 → 加法累加（非乘法）
+      - generic [ref=f312e205]: ② 累加值作为电流进 LIF → 更新膜电位
+      - generic [ref=f312e206]: ③ 超阈值 → 发脉冲 + 减阈值；不超 → 泄漏衰减
+      - generic [ref=f312e207]: ④ 残差连接把前层脉冲跳接到后层（梯度通路）
+      - generic [ref=f312e208]: 读出：统计末层每神经元 T 步总脉冲数（频率）
+      - generic [ref=f312e209]: → softmax → 交叉熵
+      - generic [ref=f312e210]: 权衡三角：T ↑ → 编码更准 · 延迟 ↑ · 能耗 ↑
+      - generic [ref=f312e211]: （线性）——T=50 是本文的甜点（93% / ~50ms）
+      - generic [ref=f312e212]: 左：速率编码把连续特征变成脉冲频率——特征值当概率、每步伯努利采样，代价是需要多个时间步承载信息。右：一次推理在时间维展开 T 步，每步全是加法与阈值比较——乘法在这个网络里消失了
+    - generic [ref=f312e213]: 图2 · 机制解剖：左是速率编码的图景（三个特征值对应三档脉冲密度），右是一次推理在 T 个时间步的展开与每步的操作序列。
+  - heading "§03 实验：30 倍能耗的价签" [level=2] [ref=f312e214]:
+    - generic [ref=f312e215]: §03
+    - text: 实验：30 倍能耗的价签
+  - generic [ref=f312e216]: 准确率阶梯 · T 的权衡曲线 · 消融
+  - generic [ref=f312e217]:
+    - img [ref=f312e218]:
+      - generic [ref=f312e220]: 主结果（约值）：30 倍能耗换 4–5 个点的准确率
+      - generic [ref=f312e221]: 准确率阶梯（GSC 12 类）
+      - generic [ref=f312e222]: "90"
+      - generic [ref=f312e223]: "92"
+      - generic [ref=f312e224]: "94"
+      - generic [ref=f312e225]: "96"
+      - generic [ref=f312e226]: "98"
+      - generic [ref=f312e227]: "100"
+      - generic [ref=f312e229]: ~93.0
+      - generic [ref=f312e230]: WaveSens
+      - generic [ref=f312e231]: e SNN
+      - generic [ref=f312e233]: ~95.5
+      - generic [ref=f312e234]: 等价 ANN（同
+      - generic [ref=f312e235]: 架构 ReLU）
+      - generic [ref=f312e237]: ~97.5
+      - generic [ref=f312e238]: SOTA ANN
+      - generic [ref=f312e239]: （BC-ResN
+      - generic [ref=f312e240]: et/KWT）
+      - generic [ref=f312e241]: SNN 落后等价 ANN 2–3 点、落后 SOTA 4–5 点——能耗换精度
+      - generic [ref=f312e242]: 读数：
+      - generic [ref=f312e243]: · SNN vs 等价 ANN：−2~3 点（同架构）——脉冲化本身的代价
+      - generic [ref=f312e244]: · vs SOTA：−4~5 点——SNN 架构经验仍落后成熟 ANN 设计
+      - generic [ref=f312e245]: · 理论能耗 ~1/30：乘法→条件加法 + 10–20% 稀疏发放
+      - generic [ref=f312e246]: · vs ANN-to-SNN 转换（~90%）：直接训练 +3 点
+      - generic [ref=f312e247]: · vs 全连接 SNN：时间卷积 +3~5 点
+      - generic [ref=f312e248]: T（时间步）的权衡曲线
+      - generic [ref=f312e254]: ~89
+      - generic [ref=f312e255]: T=20
+      - generic [ref=f312e257]: ~91
+      - generic [ref=f312e258]: T=30
+      - generic [ref=f312e260]: ~93
+      - generic [ref=f312e261]: T=50
+      - generic [ref=f312e263]: ~94
+      - generic [ref=f312e264]: T=100
+      - generic [ref=f312e265]: 时间步 →（延迟与能耗线性同步增长）
+      - generic [ref=f312e267]: 甜点 T=50：93% / ~50ms
+      - generic [ref=f312e268]: T=20 只 89%（编码损失太大）；T=100 只 +0.5 点
+      - generic [ref=f312e269]: 但延迟翻倍——边际收益陡降；β=0.8–0.9 与快速
+      - generic [ref=f312e270]: Sigmoid 代理是另两个消融甜点
+      - generic [ref=f312e271]: 注：数字为笔记记录的约值（原文见 arXiv 2111.01456）；能耗为理论估计（脉冲操作数 × 单操作理论能耗）——非芯片实测；延迟按每时间步 ~1ms 估算
+    - generic [ref=f312e272]: 图3 · 主结果：左是 SNN/等价 ANN/SOTA 三方准确率阶梯，右是 T（时间步）扫描的边际收益递减与三个消融甜点。
+  - table [ref=f312e273]:
+    - rowgroup [ref=f312e274]:
+      - row [ref=f312e275]:
+        - columnheader "对比项" [ref=f312e276]
+        - columnheader "结果（约值）" [ref=f312e277]
+        - columnheader "解读" [ref=f312e278]
+      - row [ref=f312e279]:
+        - cell "WaveSense vs 等价 ANN" [ref=f312e280]
+        - cell "93% vs 95.5%" [ref=f312e281]
+        - cell "脉冲化代价 2–3 点" [ref=f312e282]
+      - row [ref=f312e283]:
+        - cell "vs SOTA（BC-ResNet/KWT）" [ref=f312e284]
+        - cell "−4~5 点" [ref=f312e285]
+        - cell "架构经验差距" [ref=f312e286]
+      - row [ref=f312e287]:
+        - cell "理论能耗" [ref=f312e288]
+        - cell "~1/30" [ref=f312e289]
+        - cell "条件加法 + 稀疏发放" [ref=f312e290]
+      - row [ref=f312e291]:
+        - cell "vs ANN-to-SNN 转换" [ref=f312e292]
+        - cell "+3 点" [ref=f312e293]
+        - cell "直接训练的价值" [ref=f312e294]
+      - row [ref=f312e295]:
+        - cell "vs 全连接 SNN" [ref=f312e296]
+        - cell "+3~5 点" [ref=f312e297]
+        - cell "时间卷积迁移的价值" [ref=f312e298]
+  - generic [ref=f312e299]:
+    - generic [ref=f312e300]: 读表要点
+    - listitem [ref=f312e301]: ◈ 两级差距要分开读：−2~3 点是同架构脉冲化的固有代价（编码损失 + 二值通信），−4~5 点里多出的部分是架构经验差距（SNN 设计还没吃透 TCN 的脉冲版最优形状）——后者会随研究收敛，前者是范式的底价。
+    - listitem [ref=f312e302]: ◈ T 曲线的形状有普适性：T=20→50 涨 4 点（编码精度是瓶颈），T=50→100 只涨 0.5 点（信息已编完，多步只是重复采样）——甜点在编码损失与延迟的交点。
+    - listitem [ref=f312e303]: ◈ 消融甜点：β=0.8–0.9（过低丢时序/过高积累）、快速 Sigmoid 代理（准确率与稳定性）、残差（−2~3 点）——三个都是复现的直接起点。
+  - heading "§04 贡献" [level=2] [ref=f312e304]:
+    - generic [ref=f312e305]: §04
+    - text: 贡献
+  - generic [ref=f312e306]: 五点：从架构迁移到训练范式
+  - generic [ref=f312e307]:
+    - generic [ref=f312e308]:
+      - generic [ref=f312e309]: "1"
+      - paragraph [ref=f312e310]: TCN 首次系统迁移进 SNN-KWS：脉冲时间卷积结合 CNN 局部特征提取与 SNN 低功耗——为 SNN 的 KWS 应用提供新架构选择。
+    - generic [ref=f312e311]:
+      - generic [ref=f312e312]: "2"
+      - paragraph [ref=f312e313]: 证明 SNN 可以低得多能耗实现竞争力准确率：93% + 理论 1/30——准确率-能耗权衡的量化记录。
+    - generic [ref=f312e314]:
+      - generic [ref=f312e315]: "3"
+      - paragraph [ref=f312e316]: 可直接映射类脑硬件的实用架构：时间卷积 + LIF + 速率编码与 Speck/Xylo/Loihi 的计算模型高度匹配。
+    - generic [ref=f312e317]:
+      - generic [ref=f312e318]: "4"
+      - paragraph [ref=f312e319]: 代理梯度在真实语音任务验证：精心设计的代理函数 + BPTT 能有效训练深层 SNN。
+    - generic [ref=f312e320]:
+      - generic [ref=f312e321]: "5"
+      - paragraph [ref=f312e322]: ANN-to-SNN 转换的替代路线：直接脉冲域训练避免转换精度损失（+3 点的实证）。
+  - heading "§05 局限与判断" [level=2] [ref=f312e323]:
+    - generic [ref=f312e324]: §05
+    - text: 局限与判断
+  - generic [ref=f312e325]: 理论能耗 ≠ 实测 · 延迟 T 倍 · 仅干净 GSC
+  - generic [ref=f312e326]:
+    - img [ref=f312e327]:
+      - generic [ref=f312e329]: 边界与延伸
+      - generic [ref=f312e331]: 技术边界
+      - generic [ref=f312e332]: · 准确率差距：−4~5 点 vs SOTA——商业 KWS 可能不可接受；
+      - generic [ref=f312e333]: 精细区分（yes/yeah 类声学近邻）SNN 仍弱于 ANN
+      - generic [ref=f312e334]: · 能耗是理论估计：脉冲操作数 × 单操作理论能耗——实际芯片
+      - generic [ref=f312e335]: 的时钟/IO/SRAM 访问模式可能让实测显著偏离；无 Speck/Loihi
+      - generic [ref=f312e336]: 实测数据，「低功耗」声明缺实证
+      - generic [ref=f312e337]: · 推理延迟：T=20–50 个时间步——约为 ANN 的 T 倍（~50ms）
+      - generic [ref=f312e338]: · 训练复杂：BPTT 时间展开 + 代理梯度——超参敏感度高
+      - generic [ref=f312e339]: · 编码信息损失：速率编码量化损失，增 T 缓解但增延迟
+      - generic [ref=f312e341]: 实验边界 + 延伸
+      - generic [ref=f312e342]: · 仅 GSC 干净数据：噪声/远场/自定义词未验证
+      - generic [ref=f312e343]: · 无真实芯片实测（能耗/延迟/准确率）
+      - generic [ref=f312e344]: · 未探更先进编码（自适应/原始波形 SNN）
+      - generic [ref=f312e345]: · 关键词类型（短/长 · 常见/罕见）无细粒度分析
+      - generic [ref=f312e346]: 延伸：真机部署实测；混合 ANN-SNN（前端 ANN 提特征 +
+      - generic [ref=f312e347]: 后端 SNN 分类——两头的好处）；混合精度时间步；ANN 教师
+      - generic [ref=f312e348]: 蒸馏 SNN 学生；事件驱动特征提取
+      - generic [ref=f312e349]: 定位：极端低功耗 always-on 场景的早期基线——
+      - generic [ref=f312e350]: 类脑硬件成熟前，架构与训练方法是先行储备
+      - generic [ref=f312e351]: 可迁移判断：SNN 用准确率换能耗（−4~5 点换 ~30×）——这笔交易只在「电池比准确率更稀缺」的场景成立；理论能耗估计必须实测验证，芯片的 IO 与访存常吃掉纸面收益
+    - generic [ref=f312e352]: 图4 · 边界与延伸：左技术边界（准确率差距、理论能耗未实测、T 倍延迟、训练复杂、编码损失），右实验边界（仅 GSC、无真机、无先进编码）+ 延伸方向与定位。
+  - generic [ref=f312e353]:
+    - generic [ref=f312e354]: 可迁移判断
+    - paragraph [ref=f312e355]: ↳ SNN 的交易只在「电池比准确率更稀缺」时成立：−4~5 点换 ~30× 理论能耗——手表耳机 IoT 传感器接受这笔交易；音箱与手机不缺这点电，SNN 对它们没有吸引力。选范式先看供电约束。
+    - paragraph [ref=f312e356]: ↳ 理论能耗估计必须实测验证：脉冲操作数 × 单操作能耗的纸面算法忽略了芯片的时钟/IO/SRAM 访问——神经形态芯片的真实瓶颈常在访存不在计算；任何「理论 N 倍」声明在真机数据出来前都要打折读。
+    - paragraph [ref=f312e357]: ↳ 成熟 ANN 架构可以平移到新范式：TCN 迁进脉冲域就拿到 +3~5 点——新计算范式的早期，最有效的架构设计往往不是发明新结构，而是把旧范式的成功结构忠实翻译过去。
+    - paragraph [ref=f312e358]: ↳ 不可微不是死路，是工程问题：代理梯度用「前向真实、反向近似」的策略绕过阶跃——凡是遇到不可微组件（量化、采样、阈值）都可以套这个模式，SNN 只是它最出名的应用。
+  - generic [ref=f312e359]:
+    - link "arXiv 2111.01456 ↗" [ref=f312e360] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2111.01456
+    - link "← 返回总目录" [ref=f312e361] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f312e362]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值 · 能耗为理论估计（非芯片实测）· 2021 №27 · 212+/305

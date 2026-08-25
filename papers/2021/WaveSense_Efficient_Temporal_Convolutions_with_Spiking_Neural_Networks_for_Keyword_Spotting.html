@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WaveSense：脉冲时间卷积 KWS · 论文精读可视化</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;}
+.wrap{max-width:980px;margin:0 auto;padding:56px 28px 80px;}
+.kicker{font-size:13px;letter-spacing:.22em;color:var(--acc);font-weight:700;margin-bottom:14px;text-transform:uppercase;}
+h1.hero{font-size:40px;line-height:1.32;font-weight:800;letter-spacing:.01em;margin-bottom:18px;}
+h1.hero .g{color:var(--acc);}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+.chip{font-size:12.5px;padding:4px 13px;border:1px solid var(--line);border-radius:999px;color:var(--ink2);background:#fffdf8;}
+.chip.acc{background:var(--lt);border-color:#bfe5d6;color:var(--dk);}
+.meta{border-left:3px solid var(--acc);background:#fffdf8;padding:12px 18px;font-size:13.5px;color:var(--ink2);margin-bottom:40px;border-radius:0 8px 8px 0;}
+.meta b{color:var(--ink);}
+h2{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:800;margin:56px 0 6px;}
+h2 .no{flex:none;font-size:12px;font-weight:800;color:#fff;background:var(--ink);padding:3px 10px;border-radius:999px;letter-spacing:.08em;}
+.h2sub{font-size:13.5px;color:var(--ink3);margin:0 0 18px 46px;}
+.tldr{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-bottom:8px;}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--dk);letter-spacing:.12em;margin-bottom:10px;}
+.tldr li{list-style:none;font-size:14.5px;color:var(--ink2);padding-left:20px;position:relative;margin-bottom:7px;}
+.tldr li:before{content:"◈";position:absolute;left:0;color:var(--acc);font-size:12px;top:2px;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.card{background:#fffdf8;border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
+.card h3{font-size:15.5px;font-weight:700;margin-bottom:8px;}
+.card p{font-size:13.5px;color:var(--ink2);}
+.card.acc{background:var(--lt);border-color:#bfe5d6;}
+.card.acc h3{color:var(--dk);}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4;}
+.card.bad h3{color:var(--warn);}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--lt);color:var(--dk);margin-bottom:8px;}
+.fig{margin:26px 0;}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:14px;}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:10px;line-height:1.7;}
+.cap b{color:var(--ink2);}
+.formula{background:#fffdf8;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 12px 12px 0;padding:16px 20px;margin:16px 0;}
+.formula .f{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:15px;color:var(--ink);background:#f2f4ef;padding:10px 14px;border-radius:8px;margin-bottom:10px;overflow-x:auto;white-space:pre;}
+.formula .why{font-size:13.5px;color:var(--ink2);}
+.formula .why b{color:var(--dk);}
+table.tb{width:100%;border-collapse:collapse;background:#fffdf8;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:18px 0;font-size:13.5px;}
+table.tb th{background:var(--ink);color:#fff;padding:10px 14px;text-align:left;font-weight:700;font-size:13px;}
+table.tb td{padding:10px 14px;border-top:1px solid var(--line);color:var(--ink2);}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:700;}
+.contrib{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:18px 0;}
+.contrib .row{display:flex;gap:16px;padding:12px 0;border-bottom:1px dashed var(--line);}
+.contrib .row:last-child{border-bottom:none;}
+.contrib .n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.contrib .row p{font-size:14px;color:var(--ink2);}
+.contrib .row p b{color:var(--ink);}
+.lim{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.judge{background:#fffaf4;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:18px 0;}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.12em;margin-bottom:10px;}
+.judge p{font-size:14px;color:var(--ink2);margin-bottom:8px;}
+.judge p b{color:var(--ink);}
+.foot{margin-top:64px;padding-top:28px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.pill{display:inline-block;font-size:13px;font-weight:700;color:var(--dk);background:var(--lt);border:1px solid #bfe5d6;border-radius:999px;padding:7px 18px;text-decoration:none;}
+.pill.ghost{background:transparent;color:var(--ink2);border-color:var(--line);}
+.foot-note{font-size:12px;color:var(--ink3);margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2021 №27</div>
+<h1 class="hero">乘法从网络里消失：<br>用<span class="g">脉冲和阈值</span>做唤醒——30 倍能耗的价与限</h1>
+<div class="chips">
+<span class="chip acc">WaveSense · SynSense AG（神经形态芯片公司）</span>
+<span class="chip">arXiv 2111.01456 · TCN × SNN 首次系统结合</span>
+<span class="chip">速率编码 · LIF 神经元 · 代理梯度 BPTT</span>
+<span class="chip">GSC 93%（等价 ANN 95.5）· 理论能耗 ~1/30</span>
+</div>
+<div class="meta">
+<b>一句话</b>：always-on 的 KWS 在电池设备上持续烧浮点乘加。SNN 用脉冲（0/1）通信——权重×脉冲退化为条件加法、神经元只在发放时计算、神经形态芯片原生加速，理论能耗低 1–3 个数量级；但发放函数不可微没法反向传播、准确率落后。WaveSense 把 ANN 里成熟的 TCN 架构搬进脉冲域：速率编码（特征值→发放概率）→ 脉冲时间卷积 + LIF + 残差 → 频率读出，代理梯度直接在脉冲域训练。93% 准确率（等价 ANN 95.5、SOTA 97.5），理论能耗约 1/30——用 4–5 个点换 30 倍省电的交易记录。
+</div>
+
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<li><b>SNN 的三个省电台柱</b>：脉冲代乘加（权重×0/1 = 条件加法，单操作理论能耗 ~乘加的 1/30）；事件驱动稀疏（发放率仅 10–20%，80–90% 时间步静默免算）；类脑硬件加速（Loihi/TrueNorth/SynSense Speck——作者自家产品线，原生跑脉冲）。</li>
+<li><b>三道坎一次回应</b>：阶跃发放不可微 → <b>代理梯度</b>（反向传播时用可微函数近似阶跃导数，快速 Sigmoid 1/(1+|πx/2|)² 最佳）；架构无套路 → <b>把 TCN 迁进脉冲域</b>（卷积+LIF+残差）；准确率落后 → 直接脉冲域训练避开 ANN-to-SNN 转换损失。</li>
+<li><b>LIF 神经元</b>：U(t) = β·U(t−1) + W·X(t)；超阈值发脉冲并减阈值。β&lt;1 的泄漏让膜电位无输入时衰减——<b>天然携带时序记忆</b>；β=0.8–0.9 最佳（过低丢时序信息、过高积累难区分）。</li>
+<li><b>速率编码是 ANN→SNN 的桥</b>：特征值归一化为发放概率，T 个时间步伯努利采样——值越大脉冲越密。代价：信息以频率承载需要多个时间步，且引入量化损失。</li>
+<li>推理在时间维展开 T 步，每步全是<b>加法与阈值比较</b>——乘法在整个网络里消失；读出统计末层 T 步脉冲频率过 softmax，交叉熵训练。</li>
+<li>结果：GSC 12 类 <b>~93%</b>（等价 ANN 95.5 / SOTA 97.5）；理论能耗 ~<b>1/30</b>；vs ANN-to-SNN 转换（~90%）直接训练 +3 点；vs 全连接 SNN 时间卷积 +3–5 点；去残差掉 2–3 点。</li>
+<li><b>T（时间步）是权衡旋钮</b>：T=20→89%、T=50→93%、T=100→93.5%——延迟与能耗随 T 线性涨，边际收益陡降；甜点 T=50（~50ms）。</li>
+<li>最大的坑：<b>能耗是理论估计不是实测</b>（脉冲操作数×单操作理论能耗）——芯片的时钟/IO/SRAM 访问可能显著吃掉纸面收益；无 Speck/Loihi 真机数据。</li>
+</div>
+
+<h2><span class="no">§01</span>问题：常驻监听的电池账</h2>
+<div class="h2sub">SNN 的省电原理与落地的三道坎</div>
+<div class="cards">
+<div class="card acc">
+<h3>为什么脉冲比浮点省</h3>
+<p>ANN 的乘加要访问权重 SRAM + 浮点乘法器；SNN 的输入是 0/1——乘法退化成「有脉冲就加权重，没脉冲就跳过」的条件加法，且稀疏发放让多数神经元多数时刻完全静默——两重节省相乘。</p>
+</div>
+<div class="card bad">
+<h3>不可微的发放函数</h3>
+<p>LIF 的阶跃发放 Θ(U−V_th) 在阈值处梯度无穷大、其余为零——反向传播的链式法则在这里断掉。代理梯度的思路很朴素：前向照样阶跃，反向「假装」它是平滑函数。</p>
+</div>
+<div class="card bad">
+<h3>准确率的账</h3>
+<p>同架构下 SNN 比 ANN 低 2–3 点（脉冲化本身的代价）；比 SOTA 低 4–5 点（SNN 架构经验还落后成熟 ANN 设计）——yes/yeah 类精细区分仍是弱项。</p>
+</div>
+<div class="card">
+<h3>公司背景的影响</h3>
+<p>作者是 SynSense（神经形态芯片公司）——架构设计刻意与 Speck/Xylo 的计算模型高度匹配（可直接映射）。利益相关：理论能耗数字是卖点；学术边界：无真机实测恰是最该补的一环。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">WaveSense：用脉冲代替浮点——把时间卷积搬进脉冲神经网络</text>
+<line x1="36.0" y1="60.0" x2="660.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① SNN 的三个省电台柱 + KWS 的三道坎</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 常驻电池设备（手表/耳机/IoT）——ANN 的浮点乘加持续烧电；SNN 理论能耗低 1–3 个数量级</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">但三道坎：发放函数不可微没法反向传播；准确率落后 ANN；SNN 架构设计经验不足——本文用 TCN 迁移 + 代理梯度一次回应</text>
+<rect x="36.0" y="152.0" width="848.0" height="48.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="181.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">脉冲代乘加</text>
+<text x="215.0" y="172.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">突触权重 × 脉冲(0/1) 退化为条件加法（脉冲=1 则累加权重）——</text>
+<text x="215.0" y="190.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">省掉浮点乘法，单次操作理论能耗约为乘加的 1/30</text>
+<rect x="36.0" y="208.0" width="848.0" height="48.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="237.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">事件驱动稀疏</text>
+<text x="215.0" y="228.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">神经元只在发放时计算——大多数神经元大多数时间步静默（稀疏激活</text>
+<text x="215.0" y="246.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">10–20% 发放率），有效计算量大幅下降</text>
+<rect x="36.0" y="264.0" width="848.0" height="48.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="293.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">类脑硬件加速</text>
+<text x="215.0" y="284.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">专用神经形态芯片（Intel Loihi · IBM TrueNorth · SynSense</text>
+<text x="215.0" y="302.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Speck/Xylo——作者自家产品线）原生跑脉冲计算，极低功耗</text>
+<rect x="36.0" y="320.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="349.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三道坎</text>
+<text x="215.0" y="340.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">① 阶跃发放函数不可微 → 反向传播失效；② 准确率落后等价 ANN</text>
+<text x="215.0" y="358.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">2–3%、落后 SOTA 4–5%；③ SNN 架构设计无成熟套路</text>
+<text x="36.0" y="332.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② WaveSense 流水线：从连续特征到脉冲判决</text>
+<rect x="36.0" y="352.0" width="160.0" height="66.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="116.0" y="374.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MFCC 40 维</text>
+<text x="116.0" y="392.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">连续值特征</text>
+<text x="116.0" y="404.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<line x1="196.0" y1="385.0" x2="212.00" y2="385.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="212.0" y="352.0" width="160.0" height="66.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="292.0" y="374.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">速率编码</text>
+<text x="292.0" y="392.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">值→概率发脉冲 T=20–5</text>
+<text x="292.0" y="404.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0 步</text>
+<line x1="372.0" y1="385.0" x2="388.00" y2="385.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="388.0" y="352.0" width="160.0" height="66.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="468.0" y="374.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">脉冲时间卷积块</text>
+<text x="468.0" y="392.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">卷积（加法）→ LIF · </text>
+<text x="468.0" y="404.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">残差</text>
+<line x1="548.0" y1="385.0" x2="564.00" y2="385.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="564.0" y="352.0" width="160.0" height="66.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="644.0" y="374.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">频率读出</text>
+<text x="644.0" y="392.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">统计 T 步脉冲数 → so</text>
+<text x="644.0" y="404.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ftmax</text>
+<line x1="724.0" y1="385.0" x2="740.00" y2="385.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="740.0" y="352.0" width="160.0" height="66.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="820.0" y="374.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">分类输出</text>
+<text x="820.0" y="392.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">交叉熵（代理梯度 BPTT）</text>
+<text x="820.0" y="404.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<rect x="36.0" y="436.0" width="416.0" height="122.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="244.0" y="458.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LIF 神经元（基本计算单元）</text>
+<text x="52.0" y="480.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">U(t) = β·U(t−1) + W·X(t)     ← 膜电位（β 泄漏因子）</text>
+<text x="52.0" y="493.5" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">S(t) = Θ(U(t) − V_th)          ← 超阈值发脉冲</text>
+<text x="52.0" y="507.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">U(t) ← U(t) − V_th·S(t)        ← 发完减阈值</text>
+<text x="52.0" y="520.5" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="534.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">β&lt;1：无输入时电位衰减——模拟生物膜泄漏，</text>
+<text x="52.0" y="547.5" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">天然携带时序记忆；β=0.8–0.9 最佳（消融）</text>
+<rect x="468.0" y="436.0" width="416.0" height="122.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="676.0" y="458.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">代理梯度训练</text>
+<text x="484.0" y="480.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">阶跃函数不可微（阈值处梯度∞其余 0）→ 反向传播失效</text>
+<text x="484.0" y="493.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="506.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">解法：反向传播时代理函数近似阶跃导数</text>
+<text x="484.0" y="519.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 快速 Sigmoid：1/(1+|πx/2|)² ★ 最佳</text>
+<text x="484.0" y="532.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Sigmoid / ArcTan 代理</text>
+<text x="484.0" y="545.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="558.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">BPTT：时间维展开 + 每个脉冲生成处替换梯度</text>
+<text x="484.0" y="571.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">直接在脉冲域训练——不走「先训 ANN 再转换」的老路</text>
+<rect x="36.0" y="606.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="632.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~93%</text>
+<text x="130.0" y="652.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC 12 类（等价 ANN 95–96 · SOTA 97–98）</text>
+<text x="298.0" y="632.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~30×</text>
+<text x="298.0" y="652.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">理论能耗降低 vs 等价 ANN</text>
+<text x="466.0" y="632.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">10–20%</text>
+<text x="466.0" y="652.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">平均脉冲发放率（稀疏）</text>
+<text x="634.0" y="632.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">T=50</text>
+<text x="634.0" y="652.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">推理时间步（约 50ms 延迟）</text>
+<text x="802.0" y="632.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−2~3%</text>
+<text x="802.0" y="652.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">去残差连接的掉点</text>
+<text x="36.0" y="690.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SynSense AG（神经形态芯片公司）· arXiv 2111.01456；首次把 TCN 系统迁移进 SNN-KWS；数字为约值</text>
+</svg>
+<div class="cap"><b>图1 · 机制全景</b>：上半是三个省电台柱与三道坎，中段是五步流水线、LIF 神经元方程与代理梯度训练，底部是关键数字。</div>
+</div>
+
+<h2><span class="no">§02</span>方法：速率编码 + 脉冲时间卷积</h2>
+<div class="h2sub">连续值怎么进脉冲世界 · 一次推理的时间展开</div>
+
+<div class="formula">
+<div class="f">LIF:     U(t) = β·U(t−1) + W·X(t)        ← 膜电位积分（β=0.8–0.9 泄漏）
+         S(t) = Θ(U(t) − V_th)           ← 超阈值发脉冲
+         U(t) ← U(t) − V_th·S(t)         ← 发放后减阈值
+编码:    特征值 → [0,1] → T 步按概率发脉冲（速率编码 T=20–50）
+读出:    末层每神经元 T 步脉冲频率 → softmax → 交叉熵
+训练:    BPTT + 代理梯度（快速 Sigmoid: 1/(1+|πx/2|)²）</div>
+<div class="why"><b>人话</b>：LIF 像一个带漏的水桶——输入脉冲是注水，泄漏让水位慢慢降，满了（超阈值）就倒掉一格并发出一个脉冲。水位本身就是对输入历史的加权记忆，这就是 SNN 不用 RNN 结构也自带时序能力的原因。</div>
+</div>
+
+<div class="cards">
+<div class="card acc">
+<h3>残差连接在脉冲域的额外意义</h3>
+<p>除常规的梯度通路作用外，脉冲域的 BPTT 要沿时间维传梯度——深度网络的梯度衰减更严重；残差把前层脉冲直接跳到后层，去掉了准确率掉 2–3 点——比 ANN 里残差的边际价值更高。</p>
+</div>
+<div class="card acc">
+<h3>不走 ANN-to-SNN 转换的理由</h3>
+<p>传统路线先训 ANN 再把 ReLU 激活映射为脉冲发放率——转换过程引入精度损失（对比：~90% vs 直接训练 93%）。直接脉冲域训练能优化「脉冲域的决策边界」——代价是训练超参更敏感。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：速率编码怎么工作 · 一次推理的时间展开</text>
+<line x1="36.0" y1="56.0" x2="590.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">速率编码（ANN→SNN 的桥）</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="60.0" y="112.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">特征值 → 发放概率</text>
+<text x="68.0" y="140.0" font-size="8.3" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">特征值 0.9</text>
+<rect x="148.0" y="126.0" width="72.0" height="16.0" rx="4" fill="#9fc8b8"/>
+<rect x="248.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="255.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="262.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="269.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="276.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="283.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="290.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="297.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="304.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="311.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="318.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="325.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="332.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="339.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="346.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="353.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="360.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="367.0" y="133.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="374.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="381.0" y="128.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<text x="318.0" y="156.0" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 发放率 ≈ 90%</text>
+<text x="68.0" y="186.0" font-size="8.3" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">特征值 0.5</text>
+<rect x="148.0" y="172.0" width="40.0" height="16.0" rx="4" fill="#9fc8b8"/>
+<rect x="248.0" y="174.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="255.0" y="179.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="262.0" y="174.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="269.0" y="179.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="276.0" y="174.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="283.0" y="174.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="290.0" y="179.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="297.0" y="174.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="304.0" y="179.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="311.0" y="174.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="318.0" y="174.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="325.0" y="174.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="332.0" y="174.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="339.0" y="179.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="346.0" y="174.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="353.0" y="174.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="360.0" y="174.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="367.0" y="174.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="374.0" y="174.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="381.0" y="179.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<text x="318.0" y="202.0" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 发放率 ≈ 50%</text>
+<text x="68.0" y="232.0" font-size="8.3" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">特征值 0.2</text>
+<rect x="148.0" y="218.0" width="16.0" height="16.0" rx="4" fill="#9fc8b8"/>
+<rect x="248.0" y="225.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="255.0" y="225.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="262.0" y="220.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="269.0" y="225.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="276.0" y="220.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="283.0" y="225.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="290.0" y="225.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="297.0" y="220.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="304.0" y="225.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="311.0" y="225.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="318.0" y="220.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="325.0" y="225.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="332.0" y="225.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="339.0" y="225.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="346.0" y="225.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="353.0" y="220.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="360.0" y="225.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="367.0" y="220.0" width="4.0" height="12.0" rx="1" fill="#0b6e52"/>
+<rect x="374.0" y="225.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<rect x="381.0" y="225.0" width="4.0" height="2.0" rx="1" fill="#e6e6df"/>
+<text x="318.0" y="248.0" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 发放率 ≈ 20%</text>
+<text x="213.0" y="282.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">特征值越大 → T 步内脉冲越密</text>
+<text x="213.0" y="296.0" font-size="8.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">信息以「频率」承载——需要多个时间步</text>
+<text x="213.0" y="316.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">T 越大编码越准但延迟线性涨</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一次推理的时间展开</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="450.0" y="112.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">每个时间步干一次</text>
+<text x="450.0" y="130.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">t = 1 … T（T=20–50）:</text>
+<text x="450.0" y="144.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">① 输入脉冲 × 卷积核 → 加法累加（非乘法）</text>
+<text x="450.0" y="159.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② 累加值作为电流进 LIF → 更新膜电位</text>
+<text x="450.0" y="173.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 超阈值 → 发脉冲 + 减阈值；不超 → 泄漏衰减</text>
+<text x="450.0" y="188.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">④ 残差连接把前层脉冲跳接到后层（梯度通路）</text>
+<text x="450.0" y="202.5" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="217.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读出：统计末层每神经元 T 步总脉冲数（频率）</text>
+<text x="450.0" y="231.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ softmax → 交叉熵</text>
+<text x="450.0" y="246.0" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="260.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">权衡三角：T ↑ → 编码更准 · 延迟 ↑ · 能耗 ↑</text>
+<text x="450.0" y="275.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（线性）——T=50 是本文的甜点（93% / ~50ms）</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：速率编码把连续特征变成脉冲频率——特征值当概率、每步伯努利采样，代价是需要多个时间步承载信息。右：一次推理在时间维展开 T 步，每步全是加法与阈值比较——乘法在这个网络里消失了</text>
+</svg>
+<div class="cap"><b>图2 · 机制解剖</b>：左是速率编码的图景（三个特征值对应三档脉冲密度），右是一次推理在 T 个时间步的展开与每步的操作序列。</div>
+</div>
+
+<h2><span class="no">§03</span>实验：30 倍能耗的价签</h2>
+<div class="h2sub">准确率阶梯 · T 的权衡曲线 · 消融</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（约值）：30 倍能耗换 4–5 个点的准确率</text>
+<line x1="36.0" y1="56.0" x2="530.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率阶梯（GSC 12 类）</text>
+<line x1="52.0" y1="262.0" x2="456.00" y2="262.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="265.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="52.0" y1="232.0" x2="456.00" y2="232.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="235.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">92</text>
+<line x1="52.0" y1="202.0" x2="456.00" y2="202.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="205.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">94</text>
+<line x1="52.0" y1="172.0" x2="456.00" y2="172.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="175.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">96</text>
+<line x1="52.0" y1="142.0" x2="456.00" y2="142.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="145.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">98</text>
+<line x1="52.0" y1="112.0" x2="456.00" y2="112.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="115.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">100</text>
+<rect x="96.0" y="217.0" width="90.0" height="45.0" rx="4" fill="#0b6e52"/>
+<text x="141.0" y="211.0" font-size="9" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~93.0</text>
+<text x="141.0" y="276.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">WaveSens</text>
+<text x="141.0" y="286.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">e SNN</text>
+<rect x="226.0" y="179.5" width="90.0" height="82.5" rx="4" fill="#9fc8b8"/>
+<text x="271.0" y="173.5" font-size="9" fill="#9fc8b8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~95.5</text>
+<text x="271.0" y="276.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">等价 ANN（同</text>
+<text x="271.0" y="286.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">架构 ReLU）</text>
+<rect x="356.0" y="149.5" width="90.0" height="112.5" rx="4" fill="#c9d8e8"/>
+<text x="401.0" y="143.5" font-size="9" fill="#c9d8e8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~97.5</text>
+<text x="401.0" y="276.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">SOTA ANN</text>
+<text x="401.0" y="286.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（BC-ResN</text>
+<text x="401.0" y="296.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">et/KWT）</text>
+<text x="256.0" y="106.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">SNN 落后等价 ANN 2–3 点、落后 SOTA 4–5 点——能耗换精度</text>
+<text x="56.0" y="300.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="56.0" y="314.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SNN vs 等价 ANN：−2~3 点（同架构）——脉冲化本身的代价</text>
+<text x="56.0" y="327.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· vs SOTA：−4~5 点——SNN 架构经验仍落后成熟 ANN 设计</text>
+<text x="56.0" y="340.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 理论能耗 ~1/30：乘法→条件加法 + 10–20% 稀疏发放</text>
+<text x="56.0" y="353.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· vs ANN-to-SNN 转换（~90%）：直接训练 +3 点</text>
+<text x="56.0" y="366.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· vs 全连接 SNN：时间卷积 +3~5 点</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">T（时间步）的权衡曲线</text>
+<rect x="500.0" y="92.0" width="324.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="546.0" y1="230.0" x2="776.00" y2="230.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="546.0" y1="193.3" x2="574.75" y2="168.89" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="574.8" y1="168.9" x2="632.25" y2="144.44" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="632.2" y1="144.4" x2="776.00" y2="138.33" stroke="#0b6e52" stroke-width="1.8"/>
+<circle cx="546.0" cy="193.3" r="3.5" fill="#0b6e52"/>
+<text x="546.0" y="186.3" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~89</text>
+<text x="546.0" y="242.0" font-size="7" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">T=20</text>
+<circle cx="574.8" cy="168.9" r="3.5" fill="#0b6e52"/>
+<text x="574.8" y="161.9" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~91</text>
+<text x="574.8" y="242.0" font-size="7" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">T=30</text>
+<circle cx="632.2" cy="144.4" r="3.5" fill="#0b6e52"/>
+<text x="632.2" y="137.4" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~93</text>
+<text x="632.2" y="242.0" font-size="7" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">T=50</text>
+<circle cx="776.0" cy="138.3" r="3.5" fill="#0b6e52"/>
+<text x="776.0" y="131.3" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">~94</text>
+<text x="776.0" y="242.0" font-size="7" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">T=100</text>
+<text x="661.0" y="256.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">时间步 →（延迟与能耗线性同步增长）</text>
+<rect x="514.0" y="258.0" width="296.0" height="74.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="661.0" y="276.0" font-size="8.8" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">甜点 T=50：93% / ~50ms</text>
+<text x="661.0" y="292.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">T=20 只 89%（编码损失太大）；T=100 只 +0.5 点</text>
+<text x="661.0" y="304.5" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">但延迟翻倍——边际收益陡降；β=0.8–0.9 与快速</text>
+<text x="661.0" y="317.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Sigmoid 代理是另两个消融甜点</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：数字为笔记记录的约值（原文见 arXiv 2111.01456）；能耗为理论估计（脉冲操作数 × 单操作理论能耗）——非芯片实测；延迟按每时间步 ~1ms 估算</text>
+</svg>
+<div class="cap"><b>图3 · 主结果</b>：左是 SNN/等价 ANN/SOTA 三方准确率阶梯，右是 T（时间步）扫描的边际收益递减与三个消融甜点。</div>
+</div>
+<table class="tb">
+<tr><th>对比项</th><th>结果（约值）</th><th>解读</th></tr>
+<tr><td>WaveSense vs 等价 ANN</td><td>93% vs 95.5%</td><td>脉冲化代价 2–3 点</td></tr>
+<tr><td>vs SOTA（BC-ResNet/KWT）</td><td>−4~5 点</td><td>架构经验差距</td></tr>
+<tr class="hl"><td>理论能耗</td><td>~1/30</td><td>条件加法 + 稀疏发放</td></tr>
+<tr><td>vs ANN-to-SNN 转换</td><td>+3 点</td><td>直接训练的价值</td></tr>
+<tr><td>vs 全连接 SNN</td><td>+3~5 点</td><td>时间卷积迁移的价值</td></tr>
+</table>
+<div class="tldr" style="margin-top:14px;">
+<div class="tt">读表要点</div>
+<li>两级差距要分开读：−2~3 点是<b>同架构脉冲化</b>的固有代价（编码损失 + 二值通信），−4~5 点里多出的部分是<b>架构经验差距</b>（SNN 设计还没吃透 TCN 的脉冲版最优形状）——后者会随研究收敛，前者是范式的底价。</li>
+<li>T 曲线的形状有普适性：T=20→50 涨 4 点（编码精度是瓶颈），T=50→100 只涨 0.5 点（信息已编完，多步只是重复采样）——<b>甜点在编码损失与延迟的交点</b>。</li>
+<li>消融甜点：β=0.8–0.9（过低丢时序/过高积累）、快速 Sigmoid 代理（准确率与稳定性）、残差（−2~3 点）——三个都是复现的直接起点。</li>
+</div>
+
+<h2><span class="no">§04</span>贡献</h2>
+<div class="h2sub">五点：从架构迁移到训练范式</div>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>TCN 首次系统迁移进 SNN-KWS</b>：脉冲时间卷积结合 CNN 局部特征提取与 SNN 低功耗——为 SNN 的 KWS 应用提供新架构选择。</p></div>
+<div class="row"><div class="n">2</div><p><b>证明 SNN 可以低得多能耗实现竞争力准确率</b>：93% + 理论 1/30——准确率-能耗权衡的量化记录。</p></div>
+<div class="row"><div class="n">3</div><p><b>可直接映射类脑硬件的实用架构</b>：时间卷积 + LIF + 速率编码与 Speck/Xylo/Loihi 的计算模型高度匹配。</p></div>
+<div class="row"><div class="n">4</div><p><b>代理梯度在真实语音任务验证</b>：精心设计的代理函数 + BPTT 能有效训练深层 SNN。</p></div>
+<div class="row"><div class="n">5</div><p><b>ANN-to-SNN 转换的替代路线</b>：直接脉冲域训练避免转换精度损失（+3 点的实证）。</p></div>
+</div>
+
+<h2><span class="no">§05</span>局限与判断</h2>
+<div class="h2sub">理论能耗 ≠ 实测 · 延迟 T 倍 · 仅干净 GSC</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 准确率差距：−4~5 点 vs SOTA——商业 KWS 可能不可接受；</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  精细区分（yes/yeah 类声学近邻）SNN 仍弱于 ANN</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 能耗是理论估计：脉冲操作数 × 单操作理论能耗——实际芯片</text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  的时钟/IO/SRAM 访问模式可能让实测显著偏离；无 Speck/Loihi</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  实测数据，「低功耗」声明缺实证</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 推理延迟：T=20–50 个时间步——约为 ANN 的 T 倍（~50ms）</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练复杂：BPTT 时间展开 + 代理梯度——超参敏感度高</text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 编码信息损失：速率编码量化损失，增 T 缓解但增延迟</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验边界 + 延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 仅 GSC 干净数据：噪声/远场/自定义词未验证</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无真实芯片实测（能耗/延迟/准确率）</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未探更先进编码（自适应/原始波形 SNN）</text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 关键词类型（短/长 · 常见/罕见）无细粒度分析</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸：真机部署实测；混合 ANN-SNN（前端 ANN 提特征 +</text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">后端 SNN 分类——两头的好处）；混合精度时间步；ANN 教师</text>
+<text x="536.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">蒸馏 SNN 学生；事件驱动特征提取</text>
+<text x="536.0" y="238.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">定位：极端低功耗 always-on 场景的早期基线——</text>
+<text x="536.0" y="265.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">类脑硬件成熟前，架构与训练方法是先行储备</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：SNN 用准确率换能耗（−4~5 点换 ~30×）——这笔交易只在「电池比准确率更稀缺」的场景成立；理论能耗估计必须实测验证，芯片的 IO 与访存常吃掉纸面收益</text>
+</svg>
+<div class="cap"><b>图4 · 边界与延伸</b>：左技术边界（准确率差距、理论能耗未实测、T 倍延迟、训练复杂、编码损失），右实验边界（仅 GSC、无真机、无先进编码）+ 延伸方向与定位。</div>
+</div>
+<div class="judge">
+<div class="jt">可迁移判断</div>
+<p>↳ <b>SNN 的交易只在「电池比准确率更稀缺」时成立</b>：−4~5 点换 ~30× 理论能耗——手表耳机 IoT 传感器接受这笔交易；音箱与手机不缺这点电，SNN 对它们没有吸引力。选范式先看供电约束。</p>
+<p>↳ <b>理论能耗估计必须实测验证</b>：脉冲操作数 × 单操作能耗的纸面算法忽略了芯片的时钟/IO/SRAM 访问——神经形态芯片的真实瓶颈常在访存不在计算；任何「理论 N 倍」声明在真机数据出来前都要打折读。</p>
+<p>↳ <b>成熟 ANN 架构可以平移到新范式</b>：TCN 迁进脉冲域就拿到 +3~5 点——新计算范式的早期，最有效的架构设计往往不是发明新结构，而是把旧范式的成功结构忠实翻译过去。</p>
+<p>↳ <b>不可微不是死路，是工程问题</b>：代理梯度用「前向真实、反向近似」的策略绕过阶跃——凡是遇到不可微组件（量化、采样、阈值）都可以套这个模式，SNN 只是它最出名的应用。</p>
+</div>
+
+<div class="foot">
+<a class="pill" href="https://arxiv.org/abs/2111.01456">arXiv 2111.01456 ↗</a>
+<a class="pill ghost" href="../index.html">← 返回总目录</a>
+</div>
+<div class="foot-note">笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值 · 能耗为理论估计（非芯片实测）· 2021 №27 · 212+/305</div>
+</div>
+</body>
+</html>
