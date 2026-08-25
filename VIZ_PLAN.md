@@ -1,7 +1,7 @@
 # 可视化精读计划（VIZ_PLAN）
 
 > 逐篇把 305 篇深读笔记重写为 HTML+SVG 可视化页（2026→2018 倒序）。
-**进度：140 / 305**
+**进度：141 / 305**
 > 进度以本文件为准；`viz_manifest.json` 是机器可读版（站点 viz 按钮按它门控）。
 
 ## 2026（24/24）
@@ -117,7 +117,7 @@
 - [✅] Utilizing TTS Synthesized Data for Efficient Development o…
 - [✅] Wake Word and Speech Recognition Application on Edge Devic…
 
-## 2023（36/41）
+## 2023（37/41）
 
 - [✅] A 3.8μW 10 关键词抗噪关键词检出处理器：对称压缩三值权重神经网络
 - [✅] 少神经元神经形态关键词检测的时间编码器对比：TDE 与双突触 E-I 元件
@@ -155,7 +155,7 @@
 - [✅] TACos：学习时间结构化嵌入的小样本关键词检测
 - [✅] The DKU Post-Challenge Audio-Visual Wake Word Spotting Sys…
 - [✅] The taste of IPA：面向任意语言的开放词表关键词检测与强制对齐
-- [⬜] U2-KWS: 统一两遍开放式词表关键词检测
+- [✅] U2-KWS: 统一两遍开放式词表关键词检测
 - [⬜] 理解时序弱监督训练：以关键词检测为案例的深度研究
 - [⬜] Unified Keyword Spotting and Audio Tagging on Mobile Devic…
 - [⬜] VE-KWS：视觉模态增强的端到端关键词检测
