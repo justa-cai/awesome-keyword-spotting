@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>音素边界检测：与其逐帧看，不如段对段地比 | 论文精读 2020 №20 · 基础组件</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.22em;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:14px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.sub{font-size:17px;color:var(--ink2);margin-bottom:22px;font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.chip{font-size:12.5px;padding:5px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2);font-weight:600}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink2);margin-bottom:40px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:10px;vertical-align:-6px}
+h2{font-size:24px;font-weight:800;margin-bottom:18px;letter-spacing:.01em}
+h3{font-size:17px;font-weight:700;margin:26px 0 10px}
+p{margin-bottom:14px;color:#2c3646}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:.14em;margin-bottom:10px}
+.tldr li{list-style:none;padding-left:22px;position:relative;margin-bottom:8px;color:#2c3646;font-size:15px}
+.tldr li::before{content:"◆";position:absolute;left:2px;color:var(--acc);font-size:10px;top:7px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px}
+.card h4{font-size:15px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13.5px;color:var(--ink2);margin-bottom:0}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h4{color:var(--dk)}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4}
+.card.bad h4{color:var(--warn)}
+.fig{margin:26px 0}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:9px;text-align:center}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 22px;margin:16px 0;font-size:15px}
+.formula .f{font-family:"SF Mono",Consolas,"Liberation Mono",monospace;font-size:14.5px;color:var(--ink);background:#f4f4ef;border-radius:8px;padding:10px 16px;margin-bottom:8px;overflow-x:auto;white-space:pre-wrap}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;margin:16px 0}
+table.tb th{background:#eff1ec;color:var(--ink);font-weight:700;text-align:left;padding:10px 14px;border-bottom:2px solid var(--line);font-size:13px}
+table.tb td{padding:9px 14px;border-bottom:1px solid #f0f0ea;color:#2c3646;vertical-align:top}
+table.tb tr:last-child td{border-bottom:none}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.contrib{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:18px 0}
+.contrib .row{display:flex;gap:14px;margin-bottom:12px;align-items:flex-start}
+.contrib .row:last-child{margin-bottom:0}
+.contrib .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lt);color:var(--dk);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.contrib .row p{margin:0;font-size:14px;color:#2c3646}
+.judge{background:#fdf8f0;border:1px solid #eadfc8;border-radius:12px;padding:20px 24px;margin:18px 0}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:#5a4a2f;margin-bottom:10px;font-weight:600}
+.judge .rw{font-size:13.5px;color:#7a6a4a;padding-left:18px;position:relative;margin-bottom:9px}
+.judge .rw::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-size:12px;padding:4px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink3);font-weight:600}
+.foot-note{font-size:12px;color:var(--ink3);width:100%;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2020 №20 · 基础组件</div>
+<h1 class="hero">音素边界检测：与其逐帧看，<span class="g">不如「段对段」地比</span></h1>
+<div class="sub">Phoneme Boundary Detection Using Learnable Segmental Features —— Bar-Ilan + Facebook 把边界检测的特征与比较方式都交给学习</div>
+<div class="chips">
+<span class="chip acc">音素边界检测</span><span class="chip">可学习段特征</span><span class="chip">段间比较</span><span class="chip">可变长分段</span><span class="chip">KWS 前置组件</span>
+</div>
+<div class="meta">
+<b>Bar-Ilan University + Facebook Inc.（Gabbay / Hoshen）· arXiv 2002.04992（2020.02）</b><br>
+问题：手工特征抓不全多样的边界线索（能量/频谱形状/共振峰 · 不同音素对差异大）· 方法：可变长段 + 可学习编码器提段特征 + 可学习比较函数（MLP）判段间差异，端到端 BCE<br>
+一句话：边界检测的「特征」和「怎么比」都交给学习——精度超手工特征，下游音素级 KWS 跟着受益。
+</div>
+
+<section>
+<span class="no">01</span><h2>问题：地基不准，楼都在晃</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>音素边界（相邻音素的过渡点）是<b>音素级 KWS、语音分割、语音分析</b>的地基——边界偏两帧，音素段就切错，序列匹配跟着错位。</li>
+<li>传统方法用手工特征（MFCC、频谱变化率）识别边界，但边界线索五花八门：<b>元音→辅音</b>是能量骤降+共振峰收敛，<b>辅音→辅音</b>是频谱形状整体切换——一套固定特征打天下不现实。</li>
+<li>本文的两步学习：<b>段特征可学</b>（可变长段 + 编码器专攻边界）+ <b>比较方式可学</b>（MLP 替代固定距离度量）——特征层和结构层各自独立有效。</li>
+<li>特征可视化给出机制证据：学到的特征聚焦频谱变化最显著的时刻，且<b>不同边界类型被不同特征模式捕获</b>——网络自发分化出「边界类型探测器」。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音素边界检测：与其逐帧看，不如「段对段」地比</text>
+<line x1="36.0" y1="60.0" x2="620.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 边界为什么重要 + 手工特征为什么不够</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音素边界（相邻音素的过渡点）是音素级 KWS、语音分割、语音分析的地基——地基不准，上面的楼都在晃</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">传统方法用手工特征（MFCC · 频谱变化率）识别边界——但边界的声学线索五花八门，固定特征抓不全</text>
+<rect x="36.0" y="152.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="181.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">线索多样</text>
+<text x="215.0" y="181.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">能量变化 · 频谱形状变化 · 共振峰过渡——不同线索混在不同类型的边界里</text>
+<rect x="36.0" y="208.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="237.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界异质</text>
+<text x="215.0" y="237.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">元音-辅音与辅音-辅音的边界特征模式差异很大——一套固定特征打天下不现实</text>
+<rect x="36.0" y="264.0" width="848.0" height="48.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="293.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">可学习的解法</text>
+<text x="215.0" y="293.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">让特征为「边界检测」这个任务端到端优化——学到比手工更有效的线索</text>
+<text x="36.0" y="296.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 两步机制：段特征 + 段间比较</text>
+<rect x="36.0" y="312.0" width="416.0" height="178.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="334.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">可学习分段特征</text>
+<text x="52.0" y="358.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 音频切成连续时间段（Segments）——</text>
+<text x="52.0" y="373.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  段边界 = 候选音素边界</text>
+<text x="52.0" y="388.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 段长可变——适应不同音素的持续时长</text>
+<text x="52.0" y="403.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 每段一个特征表示：可学习编码器从</text>
+<text x="52.0" y="418.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  原始频谱提取，专攻边界检测</text>
+<text x="52.0" y="433.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 端到端优化——特征为任务而生</text>
+<rect x="468.0" y="312.0" width="416.0" height="178.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="676.0" y="334.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">段间比较</text>
+<text x="484.0" y="358.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 边界的本质 = 相邻段之间的声学变化</text>
+<text x="484.0" y="373.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 提取相邻段特征 → 计算差异/相似度</text>
+<text x="484.0" y="388.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 差异显著 → 判定包含音素边界</text>
+<text x="484.0" y="403.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="418.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 关键：用可学习比较函数（MLP）</text>
+<text x="484.0" y="433.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  而非固定的距离度量——「怎么比」也学</text>
+<text x="484.0" y="448.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输出：帧级边界概率 · BCE 损失</text>
+<text x="36.0" y="512.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 与 KWS 的关系：地基与楼</text>
+<rect x="36.0" y="528.0" width="848.0" height="62.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="552.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 音素级 KWS（音素序列匹配）依赖精确边界——边界误差直接变匹配误差</text>
+<text x="52.0" y="569.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文是前端组件不是完整系统：把地基打准，楼（KWS）跟着稳——下游实测有提升</text>
+<rect x="36.0" y="626.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="652.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">可学习 > 固定</text>
+<text x="130.0" y="672.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">边界检测精度对比</text>
+<text x="298.0" y="652.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">段比较 > 逐帧</text>
+<text x="298.0" y="672.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">结构化方法优势</text>
+<text x="466.0" y="652.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">下游 KWS</text>
+<text x="466.0" y="672.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">边界更准 → KWS 提升</text>
+<text x="634.0" y="652.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">V-C ≠ C-C</text>
+<text x="634.0" y="672.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">不同边界类型不同特征模式</text>
+<text x="802.0" y="652.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">端到端</text>
+<text x="802.0" y="672.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">从频谱到边界无手工特征</text>
+<text x="36.0" y="710.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Bar-Ilan University + Facebook（Gabbay / Hoshen）· arXiv 2002.04992（2020.02）；音素级时间标注语料 · 准确率/精确率/召回率评估</text>
+</svg>
+<div class="cap">图 1 · 全景：边界的重要性与手工特征短板 → 段特征 + 段间比较 → 与 KWS 的地基关系 → 核心数字带</div>
+</section>
+
+<section>
+<span class="no">02</span><h2>机制：变化只在对比中可见</h2>
+<p>「段间比较」优于「逐帧判断」的道理很朴素：<b>边界是变化，而单帧里看不见变化</b>。把相邻段的特征送进可学习比较函数，变化量直接变成输入——模型要学的只是「什么样的变化算边界」。连「怎么比」都由 MLP 学（而非固定的欧氏/余弦距离），意味着不同特征维度的重要性、非线性组合方式都留给数据决定。</p>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：段怎么切怎么比 · 边界线索有多杂</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">检测流水线</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="62.0" y="112.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">频谱序列（示意）</text>
+<rect x="68.0" y="148.0" width="4.0" height="12.0" rx="1" fill="#9fc8b8"/>
+<rect x="73.0" y="140.3" width="4.0" height="19.7" rx="1" fill="#9fc8b8"/>
+<rect x="78.0" y="134.5" width="4.0" height="25.5" rx="1" fill="#9fc8b8"/>
+<rect x="83.0" y="132.0" width="4.0" height="28.0" rx="1" fill="#9fc8b8"/>
+<rect x="88.0" y="133.5" width="4.0" height="26.5" rx="1" fill="#9fc8b8"/>
+<rect x="93.0" y="138.4" width="4.0" height="21.6" rx="1" fill="#9fc8b8"/>
+<rect x="98.0" y="145.7" width="4.0" height="14.3" rx="1" fill="#9fc8b8"/>
+<rect x="103.0" y="142.4" width="4.0" height="17.6" rx="1" fill="#9fc8b8"/>
+<rect x="108.0" y="135.9" width="4.0" height="24.1" rx="1" fill="#9fc8b8"/>
+<rect x="113.0" y="132.4" width="4.0" height="27.6" rx="1" fill="#9fc8b8"/>
+<rect x="118.0" y="132.7" width="4.0" height="27.3" rx="1" fill="#9fc8b8"/>
+<rect x="123.0" y="136.7" width="4.0" height="23.3" rx="1" fill="#9fc8b8"/>
+<rect x="128.0" y="143.5" width="4.0" height="16.5" rx="1" fill="#9fc8b8"/>
+<rect x="133.0" y="144.6" width="4.0" height="15.4" rx="1" fill="#9fc8b8"/>
+<rect x="138.0" y="137.5" width="4.0" height="22.5" rx="1" fill="#9fc8b8"/>
+<rect x="143.0" y="133.0" width="4.0" height="27.0" rx="1" fill="#9fc8b8"/>
+<rect x="148.0" y="132.2" width="4.0" height="27.8" rx="1" fill="#9fc8b8"/>
+<rect x="153.0" y="135.2" width="4.0" height="24.8" rx="1" fill="#9fc8b8"/>
+<rect x="158.0" y="141.4" width="4.0" height="18.6" rx="1" fill="#9fc8b8"/>
+<rect x="163.0" y="146.8" width="4.0" height="13.2" rx="1" fill="#9fc8b8"/>
+<rect x="168.0" y="126.7" width="4.0" height="33.3" rx="1" fill="#9fc8b8"/>
+<rect x="173.0" y="126.1" width="4.0" height="33.9" rx="1" fill="#9fc8b8"/>
+<rect x="178.0" y="126.1" width="4.0" height="33.9" rx="1" fill="#9fc8b8"/>
+<rect x="183.0" y="126.8" width="4.0" height="33.2" rx="1" fill="#9fc8b8"/>
+<rect x="188.0" y="128.2" width="4.0" height="31.8" rx="1" fill="#9fc8b8"/>
+<rect x="193.0" y="130.1" width="4.0" height="29.9" rx="1" fill="#9fc8b8"/>
+<rect x="198.0" y="132.5" width="4.0" height="27.5" rx="1" fill="#9fc8b8"/>
+<rect x="203.0" y="135.3" width="4.0" height="24.7" rx="1" fill="#9fc8b8"/>
+<rect x="208.0" y="138.3" width="4.0" height="21.7" rx="1" fill="#9fc8b8"/>
+<rect x="213.0" y="138.6" width="4.0" height="21.4" rx="1" fill="#9fc8b8"/>
+<rect x="218.0" y="135.6" width="4.0" height="24.4" rx="1" fill="#9fc8b8"/>
+<rect x="223.0" y="132.8" width="4.0" height="27.2" rx="1" fill="#9fc8b8"/>
+<rect x="228.0" y="130.4" width="4.0" height="29.6" rx="1" fill="#9fc8b8"/>
+<rect x="233.0" y="128.4" width="4.0" height="31.6" rx="1" fill="#9fc8b8"/>
+<rect x="238.0" y="127.0" width="4.0" height="33.0" rx="1" fill="#9fc8b8"/>
+<rect x="243.0" y="126.2" width="4.0" height="33.8" rx="1" fill="#9fc8b8"/>
+<rect x="248.0" y="126.0" width="4.0" height="34.0" rx="1" fill="#9fc8b8"/>
+<rect x="253.0" y="126.6" width="4.0" height="33.4" rx="1" fill="#9fc8b8"/>
+<rect x="258.0" y="127.8" width="4.0" height="32.2" rx="1" fill="#9fc8b8"/>
+<rect x="263.0" y="129.5" width="4.0" height="30.5" rx="1" fill="#9fc8b8"/>
+<rect x="268.0" y="140.1" width="4.0" height="19.9" rx="1" fill="#9fc8b8"/>
+<rect x="273.0" y="132.3" width="4.0" height="27.7" rx="1" fill="#9fc8b8"/>
+<rect x="278.0" y="135.3" width="4.0" height="24.7" rx="1" fill="#9fc8b8"/>
+<rect x="283.0" y="147.2" width="4.0" height="12.8" rx="1" fill="#9fc8b8"/>
+<rect x="288.0" y="139.2" width="4.0" height="20.8" rx="1" fill="#9fc8b8"/>
+<rect x="293.0" y="132.1" width="4.0" height="27.9" rx="1" fill="#9fc8b8"/>
+<rect x="298.0" y="135.9" width="4.0" height="24.1" rx="1" fill="#9fc8b8"/>
+<rect x="303.0" y="148.2" width="4.0" height="11.8" rx="1" fill="#9fc8b8"/>
+<rect x="308.0" y="138.4" width="4.0" height="21.6" rx="1" fill="#9fc8b8"/>
+<rect x="313.0" y="132.0" width="4.0" height="28.0" rx="1" fill="#9fc8b8"/>
+<rect x="318.0" y="136.6" width="4.0" height="23.4" rx="1" fill="#9fc8b8"/>
+<rect x="323.0" y="149.3" width="4.0" height="10.7" rx="1" fill="#9fc8b8"/>
+<rect x="328.0" y="137.6" width="4.0" height="22.4" rx="1" fill="#9fc8b8"/>
+<rect x="333.0" y="132.0" width="4.0" height="28.0" rx="1" fill="#9fc8b8"/>
+<rect x="338.0" y="137.3" width="4.0" height="22.7" rx="1" fill="#9fc8b8"/>
+<rect x="343.0" y="149.7" width="4.0" height="10.3" rx="1" fill="#9fc8b8"/>
+<rect x="348.0" y="136.9" width="4.0" height="23.1" rx="1" fill="#9fc8b8"/>
+<rect x="353.0" y="132.0" width="4.0" height="28.0" rx="1" fill="#9fc8b8"/>
+<rect x="358.0" y="138.1" width="4.0" height="21.9" rx="1" fill="#9fc8b8"/>
+<rect x="363.0" y="148.6" width="4.0" height="11.4" rx="1" fill="#9fc8b8"/>
+<rect x="68.0" y="166.0" width="80.0" height="16.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<rect x="148.0" y="166.0" width="100.0" height="16.0" rx="3" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<rect x="248.0" y="166.0" width="100.0" height="16.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="108.0" y="178.0" font-size="7.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">段 A</text>
+<text x="198.0" y="178.0" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">段 B</text>
+<text x="298.0" y="178.0" font-size="7.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">段 C</text>
+<line x1="148.0" y1="160.0" x2="148.00" y2="188.00" stroke="#c0392b" stroke-width="1.6" stroke-dasharray="3,2"/>
+<line x1="248.0" y1="160.0" x2="248.00" y2="188.00" stroke="#c0392b" stroke-width="1.6" stroke-dasharray="3,2"/>
+<text x="64.0" y="246.0" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="64.0" y="259.5" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">f(A), f(B) → 可学习比较 MLP → 差异分</text>
+<text x="64.0" y="273.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">差异分高 → 此处是音素边界（红虚线）</text>
+<text x="64.0" y="286.5" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="64.0" y="300.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么「比较」优于「逐帧」：</text>
+<text x="64.0" y="313.5" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 边界是「变化」——单帧里看不见变化</text>
+<text x="64.0" y="327.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 段对段的对比把变化量直接变成输入</text>
+<text x="64.0" y="340.5" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 「怎么比」由 MLP 学——比固定距离灵活</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界线索有多杂</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="450.0" y="112.0" width="380.0" height="44.0" rx="8" fill="#eef6f1" stroke="#dde2e9" stroke-width="1"/>
+<text x="464.0" y="131.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">元音→辅音</text>
+<text x="464.0" y="147.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">能量骤降 + 共振峰收敛</text>
+<rect x="450.0" y="166.0" width="380.0" height="44.0" rx="8" fill="#fffaf4" stroke="#dde2e9" stroke-width="1"/>
+<text x="464.0" y="185.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">辅音→辅音</text>
+<text x="464.0" y="201.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">频谱形状整体切换（弱能量线索）</text>
+<rect x="450.0" y="220.0" width="380.0" height="44.0" rx="8" fill="#e8edf5" stroke="#dde2e9" stroke-width="1"/>
+<text x="464.0" y="239.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">辅音→元音</text>
+<text x="464.0" y="255.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">能量渐起 + 共振峰展开</text>
+<text x="450.0" y="288.0" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="301.2" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">实测发现（特征可视化）：</text>
+<text x="450.0" y="314.4" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 学到的特征聚焦「频谱变化最显著的时间点」</text>
+<text x="450.0" y="327.6" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 不同类型边界被不同特征模式捕获——</text>
+<text x="450.0" y="340.8" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  网络自己分化出了「边界类型探测器」</text>
+<text x="450.0" y="354.0" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="367.2" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">这正是手工特征给不了的自适应分工</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：频谱切成可变长段，相邻段特征过可学习比较函数得差异分——差异大处即边界。右：三类边界的声学线索完全不同，学习式特征自发分化出对应的模式——这是「为任务学特征」的直接证据</text>
+</svg>
+<div class="cap">图 2 · 机制解剖：可变长段与比较流水线 · 三类边界的不同声学线索</div>
+<div class="formula">
+<div class="f">分段:   x → [seg₁, seg₂, …]（可变长，段边界 = 候选音素边界）
+段特征: f_i = Encoder(seg_i)              ← 可学习，专攻边界检测
+比较:   diff = CompareMLP(f_i, f_j)       ← 可学习的比较函数（非固定距离）
+输出:   P(boundary) → BCE 损失（边界/非边界二分类）</div>
+<div class="why"><b>人话：</b>把音频剪成一段一段，每段写一张「声学名片」；相邻两张名片交给一个学会了「怎么对比」的小网络——差异够大就判定这里有个音素边界。名片怎么写、怎么比，全是学出来的。</div>
+</div>
+<p><b>可变长段</b>是必要的结构选择：音素持续时长天然不同（爆破音几十毫秒、元音上百毫秒），固定窗要么切碎长音素要么跨过短音素——段的边界对齐音素的边界，比较才有意义。</p>
+</section>
+
+<section>
+<span class="no">03</span><h2>结果：两层优势，下游传导</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：两层优势叠加，下游跟着受益</text>
+<line x1="36.0" y1="56.0" x2="540.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两组对比（示意）</text>
+<line x1="52.0" y1="262.0" x2="456.00" y2="262.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="265.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">72</text>
+<line x1="52.0" y1="222.9" x2="456.00" y2="222.87" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="225.9" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">78</text>
+<line x1="52.0" y1="183.7" x2="456.00" y2="183.74" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="186.7" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">84</text>
+<line x1="52.0" y1="144.6" x2="456.00" y2="144.61" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="147.6" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<text x="178.0" y="108.0" font-size="8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">特征：固定 vs 可学习</text>
+<rect x="96.0" y="222.9" width="66.0" height="39.1" rx="4" fill="#c9d8e8"/>
+<text x="129.0" y="216.9" font-size="8.3" fill="#c9d8e8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~78</text>
+<text x="129.0" y="276.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">手工特征</text>
+<rect x="180.0" y="157.7" width="66.0" height="104.3" rx="4" fill="#0b6e52"/>
+<text x="213.0" y="151.7" font-size="8.3" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~88</text>
+<text x="213.0" y="276.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">可学习段特</text>
+<text x="213.0" y="286.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">征 ★</text>
+<text x="368.0" y="108.0" font-size="8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">判断：逐帧 vs 段比较</text>
+<rect x="286.0" y="209.8" width="66.0" height="52.2" rx="4" fill="#c9d8e8"/>
+<text x="319.0" y="203.8" font-size="8.3" fill="#c9d8e8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~80</text>
+<text x="319.0" y="276.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">逐帧独立</text>
+<rect x="370.0" y="157.7" width="66.0" height="104.3" rx="4" fill="#0b6e52"/>
+<text x="403.0" y="151.7" font-size="8.3" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~88</text>
+<text x="403.0" y="276.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">段间比较 </text>
+<text x="403.0" y="286.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">★</text>
+<text x="256.0" y="106.0" font-size="7.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">边界检测 F1（示意量级）——两层改进各自独立有效</text>
+<text x="56.0" y="312.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="56.0" y="326.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 特征层：可学习段特征 > 手工声学特征</text>
+<text x="56.0" y="339.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 结构层：段间比较 > 逐帧独立判断</text>
+<text x="56.0" y="352.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 两层正交——叠加使用效果最佳</text>
+<text x="56.0" y="365.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 下游 KWS：边界更准 → 音素级 KWS 提升</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">受益链条与地基角色</text>
+<rect x="500.0" y="92.0" width="324.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="560.0" y="112.0" width="210.0" height="42.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="665.0" y="129.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">精确边界检测</text>
+<text x="665.0" y="145.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文</text>
+<line x1="665.0" y1="154.0" x2="665.00" y2="170.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="560.0" y="170.0" width="210.0" height="42.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="665.0" y="187.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音素序列对齐</text>
+<text x="665.0" y="203.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">分割/对齐</text>
+<line x1="665.0" y1="212.0" x2="665.00" y2="228.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="560.0" y="228.0" width="210.0" height="42.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="665.0" y="245.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音素级 KWS</text>
+<text x="665.0" y="261.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">下游任务</text>
+<text x="514.0" y="296.0" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="309.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">边界误差的传播：</text>
+<text x="514.0" y="322.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 边界偏 2 帧 → 音素段切错 →</text>
+<text x="514.0" y="335.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  序列匹配错位 → KWS 误判</text>
+<text x="514.0" y="348.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 地基的精度是乘性放大的——</text>
+<text x="514.0" y="361.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  组件论文的价值常被低估</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：条形为笔记定性记录的示意（arXiv 2002.04992），具体数值回对原文；标准语料（含音素级时间标注）· 准确率/精确率/召回率</text>
+</svg>
+<div class="cap">图 3 · 主结果（定性）：特征层与结构层两组对比 · 边界精度到 KWS 的受益链条</div>
+<table class="tb">
+<tr><th>对比</th><th>结论</th><th>解读</th></tr>
+<tr class="hl"><td>可学习段特征 vs 手工特征</td><td>更优</td><td>特征为任务而生，抓全多样线索</td></tr>
+<tr class="hl"><td>段间比较 vs 逐帧独立</td><td>更优</td><td>变化只在对比中可见</td></tr>
+<tr><td>两层组合</td><td>正交叠加</td><td>特征层与结构层各自贡献</td></tr>
+<tr><td>下游 KWS</td><td>提升</td><td>边界更准 → 音素序列匹配更稳</td></tr>
+<tr><td>特征可视化</td><td>类型分化</td><td>V-C 与 C-C 被不同模式捕获</td></tr>
+</table>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>边界误差是乘性放大的。</b>边界偏 2 帧 → 音素段切错 → 序列匹配错位 → KWS 误判——地基精度经过管线逐级传导放大，这正是组件论文的价值常被低估的原因：它改进的不是某个指标，是整条链的输入。</p></div>
+<div class="row"><div class="n">2</div><p><b>特征类型分化是最有说服力的证据。</b>如果学习式特征只是「更准的手工特征」，模式应该均匀；实测显示不同边界类型对应不同特征模式——网络自发建立了「分类型探测器」的结构，这是端到端学习超越特征工程的直接证据。</p></div>
+<div class="row"><div class="n">3</div><p><b>与 #10 部分检测器构成上下游。</b>#10 的部分检测器靠强制对齐拿音素边界来切关键词——本文正是把那个「上游依赖」做得更准；同一目录里两篇论文合起来看，音素级方法的地基与楼就都齐了。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">04</span><h2>边界：组件的先天约束</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 标注昂贵：训练需要音素级起止时间标注——</text>
+<text x="72.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  这类数据获取成本高（人工听标逐帧核对）</text>
+<text x="72.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 标注不一致：不同标注者对「边界在哪一帧」</text>
+<text x="72.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  意见不同——监督信号本身有噪声</text>
+<text x="72.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 段级延迟：可变长段要攒够帧才能提特征——</text>
+<text x="72.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  不利于流式处理</text>
+<text x="72.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 只是组件：不是完整 KWS 系统——收益要经</text>
+<text x="72.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  过下游传导，不能直接对标端到端 KWS</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸 + 系列坐标</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 弱监督/无监督边界检测——摆脱精确标注</text>
+<text x="536.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 直接集成进端到端 KWS 系统</text>
+<text x="536.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多尺度段特征——不同粒度的语音结构</text>
+<text x="536.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 自监督预训练利用无标注语音</text>
+<text x="536.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 实时流式段级特征提取</text>
+<text x="536.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系列坐标（音素级基础设施谱系）：</text>
+<text x="536.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 强制对齐工具（Kaldi 等）：边界的传统供应方</text>
+<text x="536.0" y="240.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文（2020）：边界检测本身可学习化</text>
+<text x="536.0" y="254.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #10 部分检测器：靠对齐拿音素边界切关键词</text>
+<text x="536.0" y="268.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——本文正是把它的「上游依赖」做得更准</text>
+<text x="536.0" y="281.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2021 TAML：音素级文本锚定——下游消费者</text>
+<text x="536.0" y="295.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 谱系逻辑：组件精度 × 乘性传导 = 系统收益</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：检测「变化」的任务，比较相邻窗口优于独立打分——变化只在对比中可见；当一个手工组件是整条管线的上游时，把它学习化的收益会被下游乘性放大，组件论文的杠杆常被低估</text>
+</svg>
+<div class="cap">图 4 · 边界与延伸：标注昂贵 · 标注不一致 · 段级延迟 · 组件定位</div>
+<div class="cards">
+<div class="card bad"><h4>标注昂贵</h4><p>训练需要音素级起止时间标注——人工听标逐帧核对，成本高；这正是后续弱监督方向要解的痛点。</p></div>
+<div class="card bad"><h4>标注不一致</h4><p>不同标注者对「边界在哪一帧」意见不同——监督信号本身有噪声，模型学到的精度有天花板。</p></div>
+<div class="card bad"><h4>段级延迟</h4><p>可变长段要攒够帧才能提特征——流式场景不友好；实时段级提取是开放工程问题。</p></div>
+<div class="card"><h4>只是组件</h4><p>不是完整 KWS 系统——收益要经下游传导，不能直接对标端到端 KWS 的数字。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">05</span><h2>可迁移的判断</h2>
+<div class="judge">
+<div class="jt">JUDGMENTS · 能带走的三条</div>
+<p>① 检测「变化」的任务，比较相邻窗口优于独立打分。</p>
+<div class="rw">变化（边界、切换点、突变）只在对比中可见——单帧/单窗口的绝对特征天然缺这个维度；把「对比什么、怎么对比」也参数化交给学习，比手工设计差分特征更灵活。</div>
+<p>② 管线上游的组件精度是乘性传导的。</p>
+<div class="rw">边界检测偏一点，序列匹配错一截——改进上游组件的收益会被下游放大；评估「要不要优化这个组件」时看它乘了多少下游，而不是只看组件自身指标的绝对值。</div>
+<p>③ 端到端学习对特征工程的超越，要看「模式分化」。</p>
+<div class="rw">如果学习式特征只是把手工特征做得更准，收益有限；像本文这样自发分化出类型探测器（不同边界不同模式），说明网络找到了手工设计没预见的结构——这才是「学习超过设计」的真证据。</div>
+</div>
+<p><b>系列坐标</b>：音素级基础设施谱系——强制对齐工具（Kaldi 等）是边界的传统供应方；本文（2020）把边界检测本身学习化；#10 部分检测器（同年）是边界的直接消费者（靠对齐切关键词）；2021 年 TAML 的音素级文本锚定是更下游的延伸——「组件精度 × 乘性传导 = 系统收益」是这个谱系的共同逻辑。</p>
+</section>
+
+<div class="foot">
+<span class="pill">arXiv 2002.04992</span><span class="pill">Bar-Ilan / Facebook</span><span class="pill">可学习段特征</span><span class="pill">段间比较</span>
+<div class="foot-note">本页条形为笔记定性记录的示意，具体数值以原文为准 · 本页为可视化精读笔记，图表由 SVG 重绘</div>
+</div>
+
+</div>
+</body>
+</html>
