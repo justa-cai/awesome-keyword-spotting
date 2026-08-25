@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全无监督训练的少样本关键词检测：伪 TTS 数据引擎</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 15.5px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  table.tb { width: 100%; border-collapse: collapse; margin: 18px 0; background: var(--card);
+    border-radius: 12px; overflow: hidden; font-size: 13.8px; }
+  table.tb th { background: var(--acc-lt); color: var(--acc-dk); font-weight: 700;
+    padding: 10px 12px; text-align: left; }
+  table.tb td { padding: 9px 12px; border-top: 1px solid var(--line); color: var(--ink2); }
+  table.tb td b { color: var(--ink); }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №17</div>
+  <h1 class="hero">零人工标签训练少样本 KWS：<br>正负样本都是<span class="g">免费合成</span>的</h1>
+  <div class="chips">
+    <span class="chip">ICASSP 2023 · 首尔国立大学</span>
+    <span class="chip">伪 TTS 数据引擎 + 原型网络</span>
+    <span class="chip">wav2vec2.0 伪音素</span>
+    <span class="chip">GSCv1 + MSWC-en · 100 次重复</span>
+  </div>
+  <div class="meta">度量学习的训练目标不需要文本标签——只需要「哪些样本同发音」的分组关系。伪音素切段 × 不同参考语音 = 免费的多视角正样本；不同切段天然互为负样本。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>两根刺</b>：标注依赖（每条「唤醒词出现没出现」都要人听打标，成本随词数线性膨胀）+ 关键词不可换（只为选定词学过判别边界，换词 = 重采+重训+发版）——对用户自定义唤醒词是结构性障碍。</li>
+      <li><b>核心反问</b>：度量学习只需要样本间的「同/异」分组关系，不需要显式文本监督——如果能批量拿到「同发音、多说话人多韵律」的多视角样本，标注语料还非有不可吗？</li>
+      <li><b>数据引擎</b>：无标注语音 → wav2vec2.0 表征 → k-means 得伪音素序列 → 随机切段（L∈10–20）成任意「伪关键词」→ 配参考语音喂伪 TTS 合成——发音内容与音色韵律解耦重组，换视角只需换参考语音。</li>
+      <li><b>三环零标签</b>：wav2vec2.0 自监督 + 伪 TTS 只用无标注语音训练（VITS 架构）+ 原型网络不需标签——任何一环换成有监督组件（如真 TTS），链条就断。</li>
+      <li><b>域适配</b>：音量缩放（峰值→0.2–0.9）+ 模拟混响（p=0.9）+ MUSAN 加噪（SNR 10–20，p=0.9）——把真实录音的条件多样性人工注入合成分布。</li>
+      <li><b>缓冲区机制</b>：囤 32768 类、每次迭代抽 512 类训练、换血 1 类——生成开销摊薄到近零，又不过拟合当前缓冲区（与 RL replay buffer 同构的生产者-消费者设计）。</li>
+      <li><b>主结果</b>：GSCv1 上 1-shot Acc(target) 76.0 vs 监督基线 69.0（+7.0）——两边公平地都跨域时，全无监督反而多数指标占优；MSWC-en（监督主场）落后 3–6 点。</li>
+      <li><b>增强消融</b>：去掉全部增强 1-shot 从 76.0 崩到 49.5（−26.5）；无增强时 20-shot 的 AUROC（76.7）还不如有增强的 1-shot（81.1）——瓶颈在嵌入空间的域失配，不是样本量。</li>
+      <li><b>编码器</b>：TC-ResNet 改造——avgpool 换单层 GRU（保关键词内部时序动态）、宽度 k=2（撑 512-way 细粒度）、40 MFCC → 192 维嵌入。</li>
+      <li><b>边界</b>：合成多样性天花板（MSWC 输 3–6 点的直接原因）；免标注 ≠ 免成本（伪 TTS 训 500k 迭代 + 预生成 32768×6 条）；Dth 定在 EER 而产品工作在极低虚警区；全英语链路零跨语言验证。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：标注是 FS-KWS 最贵的一环</h2>
+  <div class="h2sub">所有路线的预训练都吃真实标注语料</div>
+  <p class="lead">分类式 KWS 把一切非目标声音压成单一 other 类——非目标声音在现实里无穷无尽，训练只见有限的负样本集合，检测性能被这个集合的天花板卡住；KWS 在真实场景里更接近开放集检测而非封闭集分类。已有 FS-KWS 路线（元学习/迁移学习/度量学习）在「怎么用少量样本适配新类」上各有创新，但预训练统统依赖大规模带关键词标签的真实语料——数据瓶颈原封不动。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>常规 TTS 进不了无监督链条</h4>
+      <p>TTS 本身要文本-语音配对才能训练——招进来就等于把监督从后门放回去了。伪 TTS 是为低资源迁移学习设计的预训练模型：伪音素从 wav2vec2 表征聚类而来，整条链没有一处人工标签。</p>
+    </div>
+    <div class="card bad">
+      <h4>合成到真实的域失配</h4>
+      <p>合成语音再干净，与真实录音（信道/混响/噪声/口音）都有分布差距——Table 1 消融显示去掉增强后 1-shot 掉 26.5 个点。「干净」在分布意义上反而是偏科：真实语音的响度、房间、噪声条件它一样都不沾。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：数据引擎 → 域适配 → 度量学习</h2>
+  <div class="h2sub">分解发音因子，再按度量学习需要的形式重组</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 980">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="980.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">全无监督 FS-KWS：度量学习不需要标签，只需要「分组关系」</text>
+<line x1="36.0" y1="60.0" x2="620.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 两根刺 + 一个反问</text>
+<rect x="36.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主流 KWS 的两根硬刺</text>
+<text x="52.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标注依赖：每条「唤醒词出现没出现」都要人听过打标——</text>
+<text x="52.0" y="155.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  成本随候选词数线性膨胀</text>
+<text x="52.0" y="168.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词不可换：只为选定词学过判别边界，从没学过</text>
+<text x="52.0" y="181.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  区分非目标声音内部的多样性——换词 = 重采+重训+发版</text>
+<text x="52.0" y="194.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">元学习/迁移/度量学习各路线，预训练统统吃真实标注语料</text>
+<rect x="474.0" y="98.0" width="414.0" height="96.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">核心反问（Section 1）</text>
+<text x="490.0" y="140.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">度量学习的训练目标本身不需要文本标签——</text>
+<text x="490.0" y="152.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  只需要知道「哪些样本同发音、哪些不同」的分组关系</text>
+<text x="490.0" y="165.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="177.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">如果能批量拿到「同发音、多说话人多韵律」的</text>
+<text x="490.0" y="190.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  多视角样本，标注的 KWS 语料还非有不可吗？</text>
+<text x="490.0" y="202.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="215.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">赌注：表征学习的瓶颈是分组信息，不是标签语义——</text>
+<text x="490.0" y="227.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  而分组信息可以由合成系统免费提供</text>
+<text x="36.0" y="214.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 三段式流水线：数据引擎 → 域适配 → 度量学习</text>
+<rect x="36.0" y="230.0" width="460.0" height="150.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="252.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">数据引擎（正负样本都是免费的）</text>
+<rect x="52.0" y="255.0" width="200.0" height="18.0" rx="9" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="152.0" y="268.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">无标注语音</text>
+<text x="262.0" y="268.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">MLS 英语（不用 transcript）</text>
+<rect x="52.0" y="277.0" width="200.0" height="18.0" rx="9" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="152.0" y="290.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">wav2vec2.0 表征</text>
+<text x="262.0" y="290.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">XLSR-53 预训练</text>
+<rect x="52.0" y="299.0" width="200.0" height="18.0" rx="9" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="152.0" y="312.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">k-means 聚类</text>
+<text x="262.0" y="312.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 伪音素序列（无文本 token）</text>
+<rect x="52.0" y="321.0" width="200.0" height="18.0" rx="9" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="152.0" y="334.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">随机切段 L∈(10,20)</text>
+<text x="262.0" y="334.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 任意「伪关键词」</text>
+<rect x="52.0" y="343.0" width="200.0" height="18.0" rx="9" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="152.0" y="356.0" font-size="9" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">× 参考语音 → 伪 TTS</text>
+<text x="262.0" y="356.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">发音内容 + 音色韵律解耦重组</text>
+<text x="52.0" y="368.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">正样本：同切段 × 不同参考语音；负样本：不同切段天然互异</text>
+<rect x="516.0" y="230.0" width="368.0" height="70.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="532.0" y="252.0" font-size="12" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">域适配：三重增强</text>
+<text x="532.0" y="272.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">音量缩放（峰值 → 0.2–0.9）· 模拟混响（RIR，p=0.9）</text>
+<text x="532.0" y="285.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· MUSAN 加噪（SNR 10–20，p=0.9）——把真实录音的条件</text>
+<text x="532.0" y="298.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  多样性人工注入合成分布，压低域失配</text>
+<rect x="516.0" y="312.0" width="368.0" height="68.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="532.0" y="334.0" font-size="12" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">度量学习（原型网络 N-way K-shot）</text>
+<text x="532.0" y="354.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">编码器：TC-ResNet 改造（avgpool→单层 GRU 保时序动态；</text>
+<text x="532.0" y="367.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  k=2 放宽容量撑 512-way 细粒度；40 MFCC → 192 维嵌入）</text>
+<text x="532.0" y="380.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">缓冲区囤 32768 类，每次迭代抽 512 类、换血 1 类</text>
+<text x="36.0" y="386.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 推理：最近原型答「是谁」，阈值答「是不是」</text>
+<rect x="36.0" y="400.0" width="848.0" height="78.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="56.0" y="424.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注册：K 条目标词语音 → 嵌入均值 = 原型 cn（式 1）；查询：x → 编码 → 最近原型（式 4）→</text>
+<text x="56.0" y="444.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">dist &lt; Dth 才接受候选类，否则输出 unknown（式 5）——训练期的封闭集分类干净地转成使用期的开放集检测</text>
+<text x="56.0" y="462.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Dth 定在「是否 unknown」二分类的等错误率（EER）点，按目标虚警率可调</text>
+<text x="460.0" y="482.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">缓冲区机制 = 生产者-消费者设计（与 RL replay buffer 同构）：M_update(1) ≪ N(512) ≪ M_buffer(32768)——生成开销摊薄到近零，又保住类别多样性</text>
+<rect x="36.0" y="496.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="522.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<text x="130.0" y="542.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">人工标签（三环全无监督）</text>
+<text x="298.0" y="522.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+7.0</text>
+<text x="298.0" y="542.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GSCv1 1-shot Acc vs 监督</text>
+<text x="466.0" y="522.0" font-size="15" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+26.5</text>
+<text x="466.0" y="542.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">增强消融 1-shot 提升</text>
+<text x="634.0" y="522.0" font-size="15" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">32768</text>
+<text x="634.0" y="542.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">缓冲区类别数</text>
+<text x="802.0" y="522.0" font-size="15" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−3~6</text>
+<text x="802.0" y="542.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">MSWC 上 vs 同域监督</text>
+<text x="36.0" y="580.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">三环零标签：wav2vec2.0 自监督预训练 + 伪 TTS 只用无标注语音训练（VITS 架构，500k 迭代）+ 原型网络不需标签——任何一环换有监督组件（如真 TTS），链条就断</text>
+<text x="36.0" y="596.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">评测：GSCv1（30 词抽 10 目标 + 20 unknown）与 MSWC-en（700 万样本 3.9 万词抽 100 测试词）各重复 100 次报均值 + 95% 置信区间</text>
+</svg>
+    <p class="cap"><b>图1 · 框架全景</b>：两根刺与核心反问；三段式流水线（伪 TTS 数据引擎 → 三重增强域适配 → 原型网络度量学习 + 32768 类缓冲区）；推理的两步判决（最近原型 + 阈值）。
+  </div>
+  </div>
+  <div class="formula">
+    <div class="f">c_n = (1/K) Σ f(x_n,k)　→　p(y=n|x) = softmax(−dist(f(x), c_n))　→　ŷ = argmin_n dist；dist &lt; D_th 接受，否则 unknown</div>
+    <div class="why"><b>人话</b>：原型是每个伪关键词在嵌入空间的质心；负距离过 softmax 做分类。推理两步走——<b>最近原型回答「是谁」，阈值回答「是不是」</b>：距离小于 Dth 才接受候选类，否则拒识为 unknown，Dth 按目标虚警率调节。训练期的封闭集分类干净地转成了使用期的开放集检测。</div>
+  </div>
+  <p class="sub"><b>为什么伪音素当内容因子</b>：wav2vec2.0 的自监督表征携带丰富语音学信息，k-means 得到的 token 序列近似音素级发音单元——想换「视角」只需换参考语音，发音内容不动。与视觉领域用 GAN 潜空间搜索造多视角同思路，但语音侧有伪音素这个显式内容因子，可控性和可解释性更强。</p>
+
+  <h2><span class="no">§03</span>实验：双数据集 + 100 次重复</h2>
+  <div class="h2sub">GSCv1（双方都跨域）vs MSWC-en（监督主场）</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 460">
+<rect x="0.0" y="0.0" width="880.0" height="460.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主对比（Table 1）：一个数据集赢、一个输——域失配的不对称</text>
+<line x1="36.0" y1="56.0" x2="640.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="88.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GSCv1 · 双方都跨域 · Acc(target) %</text>
+<line x1="60.0" y1="316.0" x2="380.0" y2="316.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="54.0" y="320.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">65</text>
+<line x1="60.0" y1="256.0" x2="380.0" y2="256.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="54.0" y="260.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">75</text>
+<line x1="60.0" y1="196.0" x2="380.0" y2="196.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="54.0" y="200.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">85</text>
+<line x1="60.0" y1="136.0" x2="380.0" y2="136.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="54.0" y="140.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">95</text>
+<rect x="100.0" y="250.0" width="42.0" height="96.0" rx="4" fill="#0b6e52"/>
+<rect x="148.0" y="292.0" width="42.0" height="54.0" rx="4" fill="#c9d8e8"/>
+<text x="121.0" y="244.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">76.0</text>
+<text x="169.0" y="286.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">69.0</text>
+<text x="145.0" y="364.0" font-size="10" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1-shot</text>
+<rect x="200.0" y="160.0" width="42.0" height="186.0" rx="4" fill="#0b6e52"/>
+<rect x="248.0" y="163.0" width="42.0" height="183.0" rx="4" fill="#c9d8e8"/>
+<text x="221.0" y="154.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">91.0</text>
+<text x="269.0" y="157.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">90.5</text>
+<text x="245.0" y="364.0" font-size="10" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5-shot</text>
+<rect x="300.0" y="146.2" width="42.0" height="199.8" rx="4" fill="#0b6e52"/>
+<rect x="348.0" y="143.8" width="42.0" height="202.2" rx="4" fill="#c9d8e8"/>
+<text x="321.0" y="140.2" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">93.3</text>
+<text x="369.0" y="137.8" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">93.7</text>
+<text x="345.0" y="364.0" font-size="10" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">20-shot</text>
+<rect x="270.0" y="116.0" width="100.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="320.0" y="131.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1-shot +7.0 ★</text>
+<text x="640.0" y="88.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MSWC-en · 监督主场 · Acc(target) %</text>
+<line x1="480.0" y1="316.0" x2="800.0" y2="316.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="474.0" y="320.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">65</text>
+<line x1="480.0" y1="256.0" x2="800.0" y2="256.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="474.0" y="260.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">75</text>
+<line x1="480.0" y1="196.0" x2="800.0" y2="196.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="474.0" y="200.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">85</text>
+<line x1="480.0" y1="136.0" x2="800.0" y2="136.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="474.0" y="140.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">95</text>
+<rect x="520.0" y="303.4" width="42.0" height="42.6" rx="4" fill="#0b6e52"/>
+<rect x="568.0" y="269.2" width="42.0" height="76.8" rx="4" fill="#c9d8e8"/>
+<text x="541.0" y="297.4" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">67.1</text>
+<text x="589.0" y="263.2" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">72.8</text>
+<text x="565.0" y="364.0" font-size="10" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1-shot</text>
+<rect x="620.0" y="187.0" width="42.0" height="159.0" rx="4" fill="#0b6e52"/>
+<rect x="668.0" y="155.8" width="42.0" height="190.2" rx="4" fill="#c9d8e8"/>
+<text x="641.0" y="181.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">86.5</text>
+<text x="689.0" y="149.8" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">91.7</text>
+<text x="665.0" y="364.0" font-size="10" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5-shot</text>
+<rect x="720.0" y="157.6" width="42.0" height="188.4" rx="4" fill="#0b6e52"/>
+<rect x="768.0" y="139.6" width="42.0" height="206.4" rx="4" fill="#c9d8e8"/>
+<text x="741.0" y="151.6" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">91.4</text>
+<text x="789.0" y="133.6" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">94.4</text>
+<text x="765.0" y="364.0" font-size="10" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">20-shot</text>
+<rect x="690.0" y="116.0" width="100.0" height="22.0" rx="11" fill="#f7e3df"/>
+<text x="740.0" y="131.0" font-size="9.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">落后 3–6 点</text>
+<rect x="320.0" y="376.0" width="240.0" height="22.0" rx="11" fill="#f4f8f6"/>
+<text x="440.0" y="391.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">绿 = 本文（全无监督）· 蓝 = MSWC 监督基线</text>
+<text x="36.0" y="428.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">解读：监督基线在 MSWC 训练——测 MSWC 同域、测 GSCv1 跨域；本文测两个集都是「合成→真实」跨域。两边公平地都跨域时（GSCv1），全无监督反而多数指标占优——</text>
+<text x="36.0" y="445.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">合成表征不针对单一录音条件过拟合，泛化面更宽；注意：监督基线是现搭的，非领域 SOTA，结论含义是「标注语料的角色可被替代大半」</text>
+</svg>
+    <p class="cap"><b>图2 · 主对比（Table 1 · Acc(target)）</b>：GSCv1 双方都跨域——全无监督 1-shot +7.0 占优；MSWC-en 是监督基线主场——本文落后 3–6 点。域失配的不对称解释了两边胜负。
+  </div>
+  </div>
+  <table class="tb">
+    <tr><th>设置</th><th>GSCv1 本文</th><th>GSCv1 监督</th><th>MSWC 本文</th><th>MSWC 监督</th></tr>
+    <tr><td><b>1-shot Acc(target)</b></td><td><b>76.0</b></td><td>69.0</td><td>67.1</td><td><b>72.8</b></td></tr>
+    <tr><td>5-shot Acc(target)</td><td><b>91.0</b></td><td>90.5</td><td>86.5</td><td><b>91.7</b></td></tr>
+    <tr><td>20-shot Acc(target)</td><td>93.3</td><td><b>93.7</b></td><td>91.4</td><td><b>94.4</b></td></tr>
+    <tr><td>1-shot Acc(total)</td><td><b>69.6</b></td><td>66.0</td><td>62.2</td><td><b>64.8</b></td></tr>
+    <tr><td>1-shot AUROC</td><td><b>81.1</b></td><td>77.8</td><td>74.5</td><td><b>75.9</b></td></tr>
+  </table>
+  <p class="sub">嵌入空间的主观验证：GSCv1 的 t-SNE 可视化里 10 个目标词形成清晰分离的簇——训练方案（合成 + 原型）与推理方案（原型 + 距离）的判别有效性有直观证据。</p>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">唯一的消融（增强 on/off）：干净合成语音 ≠ 好训练分布</text>
+<line x1="36.0" y1="56.0" x2="540.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="260.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GSCv1 Acc(target)：增强边际收益随 K 递减</text>
+<line x1="66.0" y1="295.3" x2="450.0" y2="295.3" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="299.3" font-size="9.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">50</text>
+<line x1="66.0" y1="258.7" x2="450.0" y2="258.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="262.7" font-size="9.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">60</text>
+<line x1="66.0" y1="222.0" x2="450.0" y2="222.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="226.0" font-size="9.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">70</text>
+<line x1="66.0" y1="185.3" x2="450.0" y2="185.3" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="189.3" font-size="9.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">80</text>
+<line x1="66.0" y1="148.7" x2="450.0" y2="148.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="152.7" font-size="9.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="66.0" y1="112.0" x2="450.0" y2="112.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="116.0" font-size="9.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">100</text>
+<rect x="110.0" y="297.2" width="46.0" height="34.8" rx="4" fill="#e8b8b0"/>
+<rect x="162.0" y="200.0" width="46.0" height="132.0" rx="4" fill="#0b6e52"/>
+<text x="133.0" y="291.2" font-size="9" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">49.5</text>
+<text x="185.0" y="194.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">76.0</text>
+<text x="159.0" y="350.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1-shot</text>
+<rect x="106.0" y="170.0" width="60.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="136.0" y="185.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+26.5</text>
+<rect x="230.0" y="192.7" width="46.0" height="139.3" rx="4" fill="#e8b8b0"/>
+<rect x="282.0" y="145.0" width="46.0" height="187.0" rx="4" fill="#0b6e52"/>
+<text x="253.0" y="186.7" font-size="9" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">78.0</text>
+<text x="305.0" y="139.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">91.0</text>
+<text x="279.0" y="350.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5-shot</text>
+<rect x="226.0" y="115.0" width="60.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="256.0" y="130.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+13.0</text>
+<rect x="350.0" y="160.4" width="46.0" height="171.6" rx="4" fill="#e8b8b0"/>
+<rect x="402.0" y="136.6" width="46.0" height="195.4" rx="4" fill="#0b6e52"/>
+<text x="373.0" y="154.4" font-size="9" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">86.8</text>
+<text x="425.0" y="130.6" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">93.3</text>
+<text x="399.0" y="350.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">20-shot</text>
+<rect x="346.0" y="106.6" width="60.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="376.0" y="121.6" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+6.5</text>
+<text x="680.0" y="92.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AUROC：堆样本填不平表征缺陷</text>
+<line x1="554.0" y1="273.1" x2="800.0" y2="273.1" stroke="#eef0ec" stroke-width="1"/>
+<text x="548.0" y="277.1" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">65</text>
+<line x1="554.0" y1="227.4" x2="800.0" y2="227.4" stroke="#eef0ec" stroke-width="1"/>
+<text x="548.0" y="231.4" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">75</text>
+<line x1="554.0" y1="181.7" x2="800.0" y2="181.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="548.0" y="185.7" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">85</text>
+<line x1="560.0" y1="276.8" x2="608.4" y2="243.4" stroke="#c0392b" stroke-width="2.2" stroke-dasharray="5 4"/>
+<line x1="608.4" y1="243.4" x2="790.0" y2="219.7" stroke="#c0392b" stroke-width="2.2" stroke-dasharray="5 4"/>
+<circle cx="560.0" cy="276.8" r="5.5" fill="#c0392b" stroke="#fff" stroke-width="1.5"/>
+<circle cx="608.4" cy="243.4" r="5.5" fill="#c0392b" stroke="#fff" stroke-width="1.5"/>
+<circle cx="790.0" cy="219.7" r="5.5" fill="#c0392b" stroke="#fff" stroke-width="1.5"/>
+<line x1="560.0" y1="199.5" x2="608.4" y2="155.2" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="608.4" y1="155.2" x2="790.0" y2="145.6" stroke="#0b6e52" stroke-width="2.2"/>
+<circle cx="560.0" cy="199.5" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<circle cx="608.4" cy="155.2" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<circle cx="790.0" cy="145.6" r="5.5" fill="#0b6e52" stroke="#fff" stroke-width="1.5"/>
+<text x="680.0" y="314.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">K = 1 → 20（注册样本数）</text>
+<rect x="560.0" y="102.0" width="12.0" height="12.0" rx="3" fill="#c0392b"/>
+<text x="576.0" y="112.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">无增强</text>
+<rect x="640.0" y="102.0" width="12.0" height="12.0" rx="3" fill="#0b6e52"/>
+<text x="656.0" y="112.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">有增强</text>
+<text x="680.0" y="136.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">无增强 20-shot（76.7）还不如</text>
+<text x="680.0" y="150.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">有增强 1-shot（81.1）——瓶颈在</text>
+<text x="680.0" y="164.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">嵌入空间的域失配，不是样本量</text>
+<text x="36.0" y="408.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么 K 小时增强收益被放大：原型是 K 条支持嵌入的均值——K 越小，单条样本携带的域偏差越直接进原型；增强让编码器对录音条件不变，支持嵌入更稳、原型更准</text>
+</svg>
+    <p class="cap"><b>图3 · 增强消融（唯一消融）</b>：去掉增强 1-shot 崩 26.5 个点，边际收益随 K 递减；无增强时 20-shot 的 AUROC 还不如有增强的 1-shot——瓶颈在嵌入空间域失配，不是样本量。
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界：免标注 ≠ 免成本，EER ≠ 产品工作点</text>
+<line x1="36.0" y1="56.0" x2="460.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="92.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="116.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="136.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 合成多样性天花板（论文自认）：TTS 对说话人、语速、</text>
+<text x="72.0" y="150.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  韵律可控性有限——MSWC 输给同域监督 3–6 点的直接原因；</text>
+<text x="72.0" y="165.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  论文把合成语音多样性列为「最关键的钥匙」</text>
+<text x="72.0" y="179.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="194.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 域失配只被缓解未被根除：三重增强是通用手段，</text>
+<text x="72.0" y="208.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  精细域匹配算法留待探索</text>
+<text x="72.0" y="223.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="237.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 编码器输入仍是 40 维 MFCC 手工特征——数据无监督了，</text>
+<text x="72.0" y="252.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  特征还是 1980 年代那套；没直接消费 wav2vec2 表征</text>
+<text x="72.0" y="266.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="281.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 伪关键词长度 (10,20) 是经验超参：对极短（单音节）或</text>
+<text x="72.0" y="295.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  更长关键词的覆盖未验证</text>
+<text x="72.0" y="310.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="72.0" y="324.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 隐性算力：伪 TTS 先训 500k 迭代 + 缓冲区预生成</text>
+<text x="72.0" y="339.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  32768×6 条——标注预算换成了无标注语料 + GPU 时间</text>
+<rect x="520.0" y="92.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="116.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验设计边界</text>
+<text x="536.0" y="136.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 基线只有自建 Supervised(MSWC) 与去掉增强的自消融——</text>
+<text x="536.0" y="150.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  未与元学习/迁移/度量学习公开数字对比，领域坐标系位置不明</text>
+<text x="536.0" y="165.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="179.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全英语链路：MLS 英语训练，GSCv1/MSWC-en 评测——</text>
+<text x="536.0" y="194.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  跨语言泛化零验证（伪音素不依赖正字法，本是跨语言优势）</text>
+<text x="536.0" y="208.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="223.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Dth 固定在 EER 工作点——真实唤醒词产品工作在极低</text>
+<text x="536.0" y="237.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  虚警区间，EER 处的排序未必外推得到产品工作点</text>
+<text x="536.0" y="252.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="266.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 100 次重复每次仍只抽 10 目标/20 unknown——关键词选择</text>
+<text x="536.0" y="281.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  方差被平均未被消除；MSWC 测试词限定 2000–3000 样本</text>
+<text x="536.0" y="295.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （选择偏倚）</text>
+<text x="536.0" y="310.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="324.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 增强消融只有全开/全关：三种增强各自贡献没拆开</text>
+<text x="36.0" y="420.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：度量学习的监督是分组关系不是标签语义——凡能免费批量制造「同语义、多视角」样本组的系统（可控合成/潜空间搜索），都能替代标注语料的这一角色</text>
+</svg>
+    <p class="cap"><b>图4 · 边界</b>：合成多样性天花板、MFCC 手工特征、隐性算力成本（免标注≠免成本）；EER 工作点 vs 产品低虚警区间、全英语链路、基线自建等实验设计边界。
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：五条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>首个全无监督 FS-KWS 训练框架</b>：三环全部零人工标签、训练期不接触任何真实数据。</p></div>
+    <div class="row"><div class="n">2</div><p><b>伪 TTS 从迁移学习工具改造成度量学习数据引擎</b>：伪音素切段造任意伪关键词、参考语音控制多视角——「分解发音因子再按需重组」可迁移到其他任务。</p></div>
+    <div class="row"><div class="n">3</div><p><b>实证结论</b>：不用任何真实与标注数据，在 GSCv1 上多数指标反超 MSWC 监督基线——高保真可控合成有替代标注语料的潜力。</p></div>
+    <div class="row"><div class="n">4</div><p><b>缓冲区机制</b>（M_update≪N≪M_buffer）把合成数据的生成开销压到可负担，「无限量数据」工程上可行。</p></div>
+    <div class="row"><div class="n">5</div><p><b>两个可转述的工程判断</b>：生成干净语音本身不保证下游最优；简单增强即可大幅缓解合成-真实域失配。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">结论的含义不是「无监督打败监督」</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>合成多样性天花板</h4>
+      <p>TTS 对说话人、语速、韵律的可控性有限，与真实多条件录音的变异性有差距——MSWC 上输给同域监督 3–6 个点的直接原因；论文把合成语音多样性列为性能提升「最关键的钥匙」。</p>
+    </div>
+    <div class="card bad">
+      <h4>特征端还是手工的</h4>
+      <p>编码器输入仍是 40 维 MFCC——数据无监督了，特征还是 1980 年代那套；没有直接消费 wav2vec2.0 表征或以其为蒸馏教师。</p>
+    </div>
+    <div class="card bad">
+      <h4>免标注 ≠ 免成本</h4>
+      <p>伪 TTS 要先训 500k 迭代、缓冲区要预生成 32768×6 条语音——只是把标注预算换成了无标注语料加 GPU 时间；编码器参数量、推理延迟、流式可行性均未报告。</p>
+    </div>
+    <div class="card bad">
+      <h4>评测边界</h4>
+      <p>基线是现搭的（非领域 SOTA），未与元学习/迁移/度量学习公开数字对比；Dth 定在 EER 而产品工作在极低虚警区间；全英语链路零跨语言验证；增强消融只有全开/全关。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>度量学习的监督是分组关系不是标签语义——凡能免费批量制造「同语义、多视角」样本组的系统（可控合成/潜空间搜索）都能替代标注语料的这一角色。</li>
+      <li>生成数据的「干净」是分布偏科：简单增强把真实条件多样性人工注入合成分布，比追求更高保真的干净合成更划算。</li>
+      <li>few-shot 的原型是 K 条嵌入的均值——K 越小，单条样本的域偏差越直接进原型；对注册样本做条件不变的编码器改造，收益在 K 小时被放大。</li>
+      <li>数据生成与数据消费解耦（缓冲区 + 缓慢换血）：生成开销摊薄到近零又不过拟合当前池——replay buffer 的思想适用于一切在线造数据的训练。</li>
+      <li>对比实验要标注域关系：一个数据集赢一个输时，先画「谁同域谁跨域」的不对称表，再下结论。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2210.02732" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="Fully_Unsupervised_Training_Of_Few-shot_Keyword_Spotting.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
