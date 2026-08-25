@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>软 VAD + 全局查询注意力：KWS 与声纹共用耳朵还互相递话 | 论文精读 2020 №15</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.22em;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:14px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.sub{font-size:17px;color:var(--ink2);margin-bottom:22px;font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.chip{font-size:12.5px;padding:5px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2);font-weight:600}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink2);margin-bottom:40px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:10px;vertical-align:-6px}
+h2{font-size:24px;font-weight:800;margin-bottom:18px;letter-spacing:.01em}
+h3{font-size:17px;font-weight:700;margin:26px 0 10px}
+p{margin-bottom:14px;color:#2c3646}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:.14em;margin-bottom:10px}
+.tldr li{list-style:none;padding-left:22px;position:relative;margin-bottom:8px;color:#2c3646;font-size:15px}
+.tldr li::before{content:"◆";position:absolute;left:2px;color:var(--acc);font-size:10px;top:7px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px}
+.card h4{font-size:15px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13.5px;color:var(--ink2);margin-bottom:0}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h4{color:var(--dk)}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4}
+.card.bad h4{color:var(--warn)}
+.fig{margin:26px 0}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:9px;text-align:center}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 22px;margin:16px 0;font-size:15px}
+.formula .f{font-family:"SF Mono",Consolas,"Liberation Mono",monospace;font-size:14.5px;color:var(--ink);background:#f4f4ef;border-radius:8px;padding:10px 16px;margin-bottom:8px;overflow-x:auto;white-space:pre-wrap}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;margin:16px 0}
+table.tb th{background:#eff1ec;color:var(--ink);font-weight:700;text-align:left;padding:10px 14px;border-bottom:2px solid var(--line);font-size:13px}
+table.tb td{padding:9px 14px;border-bottom:1px solid #f0f0ea;color:#2c3646;vertical-align:top}
+table.tb tr:last-child td{border-bottom:none}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.contrib{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:18px 0}
+.contrib .row{display:flex;gap:14px;margin-bottom:12px;align-items:flex-start}
+.contrib .row:last-child{margin-bottom:0}
+.contrib .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lt);color:var(--dk);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.contrib .row p{margin:0;font-size:14px;color:#2c3646}
+.judge{background:#fdf8f0;border:1px solid #eadfc8;border-radius:12px;padding:20px 24px;margin:18px 0}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:#5a4a2f;margin-bottom:10px;font-weight:600}
+.judge .rw{font-size:13.5px;color:#7a6a4a;padding-left:18px;position:relative;margin-bottom:9px}
+.judge .rw::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-size:12px;padding:4px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink3);font-weight:600}
+.foot-note{font-size:12px;color:var(--ink3);width:100%;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2020 №15</div>
+<h1 class="hero">Soft VAD + 全局查询注意力：共用耳朵的 KWS 与声纹，<span class="g">还会互相递话</span></h1>
+<div class="sub">Multi-Task Network for Noise-Robust KWS and SV —— KAIST 给 KWS+SV 框架加装的两个机构</div>
+<div class="chips">
+<span class="chip acc">CTC 软 VAD</span><span class="chip">全局查询注意力</span><span class="chip">KWS + SV 多任务</span><span class="chip">噪声鲁棒</span><span class="chip">KAIST</span>
+</div>
+<div class="meta">
+<b>KAIST（韩国科学技术院）· arXiv 2005.03867（2020.05）</b><br>
+与 №14（Apple）同题的机构增强版：共享编码器 + KWS/SV 双头之上，加装 <b>CTC 软 VAD</b>（帧级语音概率当特征权重抗噪）与 <b>全局查询注意力</b>（KWS 嵌入当 Query 引导 SV）<br>
+一句话：任务间不只是共享特征——软 VAD 给两个任务配一套共同抗噪滤波，查询注意力让 KWS 把「唤醒词在哪」定向递给 SV。
+</div>
+
+<section>
+<span class="no">01</span><h2>问题：共享之外还缺两样</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>与 №14（Apple）同一命题：KWS 与 SV 独立运行的计算冗余、特征浪费、噪声下双崩——本文认可共享编码器框架，但指出它<b>还缺两样东西</b>。</li>
+<li>缺件一：<b>联合抗噪</b>——噪声帧对两个任务都是毒，独立降噪不如在共享特征上统一压噪。</li>
+<li>缺件二：<b>任务间的信息通道</b>——共享只让两个任务「并肩干活」，还没有机制让 KWS 把关键词信息<b>递给</b> SV。</li>
+<li>两个机构的消融都立得住：去掉软 VAD 噪声下双崩、去掉查询注意力 SV 明显掉——<b>SNR 越低多任务优势越大</b>。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Soft VAD + 全局查询注意力：KWS 与声纹共用耳朵，还互相递话</text>
+<line x1="36.0" y1="60.0" x2="720.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 独立 KWS + 独立 SV：老三样问题 + 噪声放大</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">与 #14（Apple）同题：KWS 与 SV 独立运行——计算冗余 · 共享声学特征用不上 · 噪声下各自硬扛</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">本文的增量：给共享编码器框架加装两个新机构——CTC 软 VAD（抗噪）+ 全局查询注意力（KWS→SV 传话）</text>
+<rect x="36.0" y="152.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="181.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">计算冗余</text>
+<text x="215.0" y="181.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">两个模块各自前端 + 声学编码——重复计算</text>
+<rect x="36.0" y="208.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="237.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">特征浪费</text>
+<text x="215.0" y="237.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">频谱包络 · 基频等共享特征，独立训练用不上互补性</text>
+<rect x="36.0" y="264.0" width="848.0" height="48.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="293.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声下双崩</text>
+<text x="215.0" y="293.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">独立系统各自处理噪声，缺乏联合降噪——噪声一来两个任务同时退化</text>
+<text x="36.0" y="300.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 架构：共享编码器 + 双头 + 两个新机构</text>
+<rect x="36.0" y="320.0" width="200.0" height="210.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="136.0" y="346.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音频频谱</text>
+<rect x="66.0" y="380.0" width="140.0" height="56.0" rx="8" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="136.0" y="402.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">共享编码器</text>
+<text x="136.0" y="420.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN + RNN</text>
+<rect x="56.0" y="476.0" width="160.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="136.0" y="494.0" font-size="8.8" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 分支（软 VAD）</text>
+<text x="136.0" y="510.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级语音概率</text>
+<rect x="288.0" y="320.0" width="200.0" height="92.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="388.0" y="344.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 头</text>
+<text x="388.0" y="366.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词分类 → L_KWS</text>
+<text x="388.0" y="384.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">输出关键词嵌入</text>
+<rect x="288.0" y="438.0" width="200.0" height="92.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="388.0" y="462.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SV 头</text>
+<text x="388.0" y="484.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">说话人嵌入 → L_SV</text>
+<text x="388.0" y="502.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">AM-Softmax / ArcFace</text>
+<line x1="236.0" y1="400.0" x2="288.00" y2="366.00" stroke="#8a93a5" stroke-width="1.4"/>
+<line x1="236.0" y1="440.0" x2="288.00" y2="484.00" stroke="#8a93a5" stroke-width="1.4"/>
+<line x1="236.0" y1="497.0" x2="288.00" y2="400.00" stroke="#8a93a5" stroke-width="1.2" stroke-dasharray="3,2"/>
+<line x1="388.0" y1="412.0" x2="388.00" y2="438.00" stroke="#d97a2b" stroke-width="2"/>
+<text x="400.0" y="430.0" font-size="8" fill="#d97a2b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Query</text>
+<rect x="540.0" y="320.0" width="344.0" height="92.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="712.0" y="344.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机构一：CTC 软 VAD</text>
+<text x="556.0" y="366.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 帧级语音概率 p_vad(t) 当注意力权重</text>
+<text x="556.0" y="380.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· h'(t) = p_vad(t) · h(t)——语音帧保留 ·</text>
+<text x="556.0" y="394.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  噪声帧压低——软判决不丢边界信息</text>
+<rect x="540.0" y="438.0" width="344.0" height="92.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="712.0" y="462.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机构二：全局查询注意力</text>
+<text x="556.0" y="484.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· KWS 嵌入当 Query · 共享特征当 K/V</text>
+<text x="556.0" y="498.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 交叉注意力让 SV 聚焦「说唤醒词时」的</text>
+<text x="556.0" y="512.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  声纹——KWS 向 SV 定向传话</text>
+<text x="36.0" y="560.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 三项联合损失</text>
+<rect x="36.0" y="576.0" width="848.0" height="50.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="460.0" y="598.0" font-size="13.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">L_total = L_KWS + λ · L_SV + μ · L_VAD</text>
+<text x="460.0" y="618.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">分类交叉熵 + 说话人损失 + CTC 语音检测损失——λ、μ 控制三任务平衡</text>
+<rect x="36.0" y="660.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="686.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">双任务 > 单任务</text>
+<text x="130.0" y="706.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 与 SV 均超基线</text>
+<text x="298.0" y="686.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">显著抗噪</text>
+<text x="298.0" y="706.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Soft VAD 在噪声下的贡献</text>
+<text x="466.0" y="686.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SV EER ↓</text>
+<text x="466.0" y="706.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GQA 的定向增益</text>
+<text x="634.0" y="686.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SNR<0dB</text>
+<text x="634.0" y="706.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">多任务优势放大区</text>
+<text x="802.0" y="686.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">共享 > 独立</text>
+<text x="802.0" y="706.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">编码器消融结论</text>
+<text x="36.0" y="744.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KAIST（韩国科学技术院）· arXiv 2005.03867（2020.05）；KWS 分类 + SV（EER）· 多 SNR 噪声评估</text>
+</svg>
+<div class="cap">图 1 · 全景：独立系统三问题 → 共享架构 + 两个新机构 → 三项联合损失 → 核心数字带</div>
+</section>
+
+<section>
+<span class="no">02</span><h2>机制：软判决与传话筒</h2>
+<p><b>CTC 软 VAD</b> 的巧劲在「软」字：传统 VAD 做二值硬判决，语音起止处的边界信息一刀切全丢。本文在共享编码器上加一个 CTC 分支输出<b>帧级语音概率</b>，直接当乘法权重作用在共享特征上——语音帧保留、噪声帧压扁，边界过渡帧拿中间值。它与主任务端到端联合训练，学到的「哪里有语音」自动服务于两个下游任务。</p>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：软 VAD 怎么加权 · 查询注意力怎么传话</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 软 VAD 的加权</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="88.0" y1="180.0" x2="348.00" y2="180.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="88.0" y1="174.0" x2="131.33" y2="171.00" stroke="#0b6e52" stroke-width="2"/>
+<line x1="131.3" y1="171.0" x2="174.67" y2="129.00" stroke="#0b6e52" stroke-width="2"/>
+<line x1="174.7" y1="129.0" x2="218.00" y2="123.00" stroke="#0b6e52" stroke-width="2"/>
+<line x1="218.0" y1="123.0" x2="261.33" y2="126.00" stroke="#0b6e52" stroke-width="2"/>
+<line x1="261.3" y1="126.0" x2="304.67" y2="168.00" stroke="#0b6e52" stroke-width="2"/>
+<line x1="304.7" y1="168.0" x2="348.00" y2="174.00" stroke="#0b6e52" stroke-width="2"/>
+<text x="218.0" y="114.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">p_vad(t)：帧级语音概率（CTC 分支输出）</text>
+<text x="64.0" y="214.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">加权后特征 h'(t) = p_vad(t) · h(t)：</text>
+<rect x="72.0" y="260.0" width="28.0" height="4.0" rx="3" fill="#d5e0d9"/>
+<rect x="112.0" y="258.0" width="28.0" height="6.0" rx="3" fill="#d5e0d9"/>
+<rect x="152.0" y="230.0" width="28.0" height="34.0" rx="3" fill="#0b6e52"/>
+<rect x="192.0" y="226.0" width="28.0" height="38.0" rx="3" fill="#0b6e52"/>
+<rect x="232.0" y="228.0" width="28.0" height="36.0" rx="3" fill="#0b6e52"/>
+<rect x="272.0" y="256.0" width="28.0" height="8.0" rx="3" fill="#d5e0d9"/>
+<rect x="312.0" y="260.0" width="28.0" height="4.0" rx="3" fill="#d5e0d9"/>
+<text x="148.0" y="276.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">语音帧保留 · 噪声帧压扁</text>
+<text x="64.0" y="296.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 软 vs 硬：硬判决 VAD 在边界一刀切——</text>
+<text x="64.0" y="309.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  语音起止处的过渡信息全丢；软概率保留它们</text>
+<text x="64.0" y="322.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· p_vad 与主任务联合训练——VAD 学会的</text>
+<text x="64.0" y="335.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「哪里有语音」自动服务于两个下游任务</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">全局查询注意力</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="450.0" y="114.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">一个反常识的连接方向：</text>
+<text x="450.0" y="128.2" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="142.4" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Query = KWS 分支的关键词嵌入</text>
+<text x="450.0" y="156.6" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Key / Value = 共享编码器特征</text>
+<text x="450.0" y="170.8" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 交叉注意力输出 → 喂给 SV 分支</text>
+<text x="450.0" y="185.0" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="199.2" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">语义：SV 不必对整段音频提取声纹——</text>
+<text x="450.0" y="213.4" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 先告诉它「在说唤醒词的那几帧在哪」，</text>
+<text x="450.0" y="227.6" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SV 聚焦该语境下的说话人特征</text>
+<text x="450.0" y="241.8" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="256.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么叫「全局」：Query 是整句级别的关键</text>
+<text x="450.0" y="270.2" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">词嵌入（全局判断），不是逐帧查询——一次</text>
+<text x="450.0" y="284.4" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力就把关键词的时空定位传给 SV</text>
+<text x="450.0" y="298.6" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="312.8" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">消融佐证：去掉 GQA → SV 明显掉 · KWS 微降——</text>
+<text x="450.0" y="327.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">信息流确实是 KWS → SV 的单向传递</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：CTC 分支输出帧级语音概率，当乘法权重压低噪声帧、保留语音帧——软判决不丢边界。右：KWS 嵌入当 Query 对共享特征做交叉注意力，把「唤醒词在哪」的信息定向传给 SV——任务间不只是共享，还会递话</text>
+</svg>
+<div class="cap">图 2 · 机制解剖：软 VAD 的概率加权 · 查询注意力的 KWS→SV 信息流</div>
+<div class="formula">
+<div class="f">软 VAD:    p_vad(t) = softmax(CTC_branch(h(t)))    ← 帧级语音概率
+           h'(t) = p_vad(t) · h(t)                    ← 概率当乘法权重
+GQA:       Attention(Q=KWS 嵌入, K/V=共享特征) → 喂给 SV 分支
+L_total = L_KWS + λ·L_SV + μ·L_VAD</div>
+<div class="why"><b>人话：</b>软 VAD 是给两个任务配的同一副降噪耳机——不是把非语音段剪掉（硬剪会伤边界），而是把它的音量调小。查询注意力是个传话筒：KWS 先听出「这是唤醒词」，转头告诉 SV「重点听说话那几帧的音色」。</div>
+</div>
+<p><b>全局查询注意力</b>的连接方向有点反直觉：Query 不是来自 SV 而是来自 <b>KWS 分支的关键词嵌入</b>——整句级别的全局判断（所以叫「全局」查询），对共享特征做交叉注意力后喂给 SV。语义上：SV 不必对整段音频平均提声纹，而是聚焦「说唤醒词的那几帧」的说话人特征。消融佐证了信息流方向——去掉 GQA 时 SV 明显掉、KWS 只微降，说明传话确实是 KWS→SV 的单向受益。</p>
+</section>
+
+<section>
+<span class="no">03</span><h2>结果：噪声越大，优势越大</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：每个机构都消融得起 · 噪声越大优势越大</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融阶梯（噪声条件，示意）</text>
+<line x1="52.0" y1="262.0" x2="456.00" y2="262.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="265.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">72</text>
+<line x1="52.0" y1="224.5" x2="456.00" y2="224.50" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="227.5" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">78</text>
+<line x1="52.0" y1="187.0" x2="456.00" y2="187.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="190.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">84</text>
+<line x1="52.0" y1="149.5" x2="456.00" y2="149.50" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="152.5" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="52.0" y1="112.0" x2="456.00" y2="112.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="115.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">96</text>
+<rect x="82.0" y="224.5" width="72.0" height="37.5" rx="4" fill="#c9d8e8"/>
+<text x="118.0" y="218.5" font-size="8.5" fill="#c9d8e8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~78</text>
+<text x="118.0" y="276.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">独立编码器</text>
+<rect x="180.0" y="180.8" width="72.0" height="81.2" rx="4" fill="#9fc8b8"/>
+<text x="216.0" y="174.8" font-size="8.5" fill="#9fc8b8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~85</text>
+<text x="216.0" y="276.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">共享编码器</text>
+<rect x="278.0" y="162.0" width="72.0" height="100.0" rx="4" fill="#5d9c85"/>
+<text x="314.0" y="156.0" font-size="8.5" fill="#5d9c85" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~88</text>
+<text x="314.0" y="276.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">− GQA</text>
+<rect x="376.0" y="130.8" width="72.0" height="131.2" rx="4" fill="#0b6e52"/>
+<text x="412.0" y="124.8" font-size="8.5" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~93</text>
+<text x="412.0" y="276.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">完整（VAD</text>
+<text x="412.0" y="286.0" font-size="6.8" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">+GQA）★</text>
+<text x="256.0" y="106.0" font-size="7.4" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">去掉 Soft VAD：两任务噪声下都明显掉（未画）；去掉 GQA：SV 掉 · KWS 微降</text>
+<text x="56.0" y="316.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="56.0" y="330.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 共享 &gt; 独立编码器——多任务本身就有收益</text>
+<text x="56.0" y="343.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· GQA 主要利好 SV——信息流是 KWS→SV 单向的</text>
+<text x="56.0" y="356.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Soft VAD 是抗噪主力——噪声下两个任务都靠它</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SNR 越低，优势越大</text>
+<rect x="500.0" y="92.0" width="324.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="556.0" y1="234.0" x2="766.00" y2="234.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="556.0" y1="124.0" x2="556.00" y2="234.00" stroke="#d8d8d0" stroke-width="1"/>
+<line x1="556.0" y1="132.8" x2="640.00" y2="139.40" stroke="#0b6e52" stroke-width="2"/>
+<line x1="640.0" y1="139.4" x2="724.00" y2="154.80" stroke="#0b6e52" stroke-width="2"/>
+<line x1="724.0" y1="154.8" x2="766.00" y2="170.20" stroke="#0b6e52" stroke-width="2"/>
+<text x="560.0" y="164.2" font-size="7.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多任务+VAD ★</text>
+<line x1="556.0" y1="137.2" x2="640.00" y2="150.40" stroke="#c0392b" stroke-width="2"/>
+<line x1="640.0" y1="150.4" x2="724.00" y2="173.50" stroke="#c0392b" stroke-width="2"/>
+<line x1="724.0" y1="173.5" x2="766.00" y2="195.50" stroke="#c0392b" stroke-width="2"/>
+<text x="560.0" y="189.5" font-size="7.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单任务基线</text>
+<text x="556.0" y="246.0" font-size="7.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">20</text>
+<text x="640.0" y="246.0" font-size="7.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10</text>
+<text x="724.0" y="246.0" font-size="7.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<text x="766.0" y="246.0" font-size="7.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">-5</text>
+<text x="661.0" y="260.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">SNR (dB) → 越右越吵</text>
+<text x="514.0" y="280.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 干净条件：两者差距小</text>
+<text x="514.0" y="293.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SNR &lt; 0dB：差距拉到最大——噪声才是</text>
+<text x="514.0" y="306.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  多任务+软VAD 的主场</text>
+<text x="514.0" y="319.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 机理：噪声帧被 p_vad 压低——两个任务</text>
+<text x="514.0" y="332.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  共享同一套「抗噪滤波」</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：条形与曲线为笔记定性记录的示意（arXiv 2005.03867），具体数值回对原文；KWS 分类 + SV EER 双指标 · 多 SNR 噪声评估</text>
+</svg>
+<div class="cap">图 3 · 主结果（定性）：消融阶梯 · SNR 扫描下多任务优势的放大</div>
+<table class="tb">
+<tr><th>配置</th><th>KWS</th><th>SV</th><th>说明</th></tr>
+<tr><td>独立编码器（基线）</td><td>基线</td><td>基线</td><td>两套系统各自硬扛</td></tr>
+<tr><td>共享编码器</td><td>↑</td><td>↑</td><td>多任务本身就有收益</td></tr>
+<tr class="hl"><td>+ CTC 软 VAD</td><td>噪声下显著↑</td><td>噪声下显著↑</td><td>抗噪主力，两任务共享</td></tr>
+<tr class="hl"><td>+ 全局查询注意力（完整）</td><td>微升</td><td>EER 明显↓</td><td>KWS→SV 的定向增益</td></tr>
+</table>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>SNR&lt;0dB 是多任务的主场。</b>干净条件下单任务与多任务差距不大；信噪比转负后差距拉到最大——噪声帧被 p_vad 统一压低，两个任务共享同一套「抗噪滤波」，这是独立系统拿不到的结构优势。</p></div>
+<div class="row"><div class="n">2</div><p><b>消融的分工清晰。</b>软 VAD 管横向（两任务共同的噪声鲁棒性）、GQA 管纵向（KWS 向 SV 的信息传递）——两个机构作用面不同，叠加不冗余。</p></div>
+<div class="row"><div class="n">3</div><p><b>与 №14 的关系是「框架 → 机构」。</b>Apple 那篇确立了共享编码器 + 双头的基本框架；本文在其上加装两个可拆卸的机构并逐一消融验证——同一年的两条线合起来才是 KWS+SV 多任务的完整拼图。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">04</span><h2>边界：机构多了账也多了</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 复杂度上涨：三头 + 交叉注意力——训练与调优</text>
+<text x="72.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  难度高于单任务系统，出问题更难归因</text>
+<text x="72.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 配对数据要求：KWS 标签 + 说话人标签 + VAD 标签</text>
+<text x="72.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （CTC 可从对齐弱监督学）——数据工程不轻</text>
+<text x="72.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 任务权衡：KWS 与 SV 优化方向可能冲突，λ/μ 要细调</text>
+<text x="72.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声评估范围有限：更多样的噪声类型/条件评估不足</text>
+<text x="72.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 实时性：多任务推理延迟可能高于单独 KWS——</text>
+<text x="72.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  always-on 场景要重新核功耗账</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸 + 系列坐标</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 动态任务路由（按输入选任务）</text>
+<text x="536.0" y="143.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 更多任务联合（语种 · 情感）</text>
+<text x="536.0" y="157.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 轻量化多任务设计——嵌入式部署</text>
+<text x="536.0" y="171.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 流式多任务实时推理</text>
+<text x="536.0" y="185.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 对抗训练进一步抗噪</text>
+<text x="536.0" y="199.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="212.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系列坐标（KWS+SV 谱系）：</text>
+<text x="536.0" y="226.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· #14 Apple（同年）：共享编码器 + 双头——</text>
+<text x="536.0" y="240.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  基础框架版</text>
+<text x="536.0" y="254.2" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 本文（KAIST）：加装软 VAD + 查询注意力——</text>
+<text x="536.0" y="268.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  机构增强版（抗噪 + 任务传话）</text>
+<text x="536.0" y="281.8" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2021 两阶段 KWS+SV：串行架构深化</text>
+<text x="536.0" y="295.6" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2021 KWS+VAD 交叉注意力：注意力版多任务</text>
+<text x="536.0" y="309.4" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——GQA 思想的直接延续</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：多任务框架的下一步不是加更多任务，而是加「任务间的信息通道」——共享只让任务并肩干活，注意力让它们互相递话；辅助分支（软 VAD）的价值在于其输出能被主任务当工具用</text>
+</svg>
+<div class="cap">图 4 · 边界与延伸：复杂度 · 三重数据要求 · 任务权衡 · 实时性</div>
+<div class="cards">
+<div class="card bad"><h4>复杂度上涨</h4><p>三头 + 交叉注意力 + CTC 分支——训练与调优难度高于单任务，出问题更难归因。</p></div>
+<div class="card bad"><h4>三重数据要求</h4><p>KWS 标签 + 说话人标签 + VAD 监督（CTC 可弱监督学）——配对数据工程不轻。</p></div>
+<div class="card bad"><h4>任务权衡</h4><p>KWS 与 SV 优化方向可能冲突，λ/μ 两个平衡系数要细调——比双任务又多一个旋钮。</p></div>
+<div class="card"><h4>实时性存疑</h4><p>多任务推理延迟可能高于单独 KWS——always-on 场景的功耗账要重新核；流式化是后续方向。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">05</span><h2>可迁移的判断</h2>
+<div class="judge">
+<div class="jt">JUDGMENTS · 能带走的三条</div>
+<p>① 多任务框架的下一步不是加任务，是加「任务间的信息通道」。</p>
+<div class="rw">共享编码器只让任务并肩干活；用任务 A 的输出当任务 B 的注意力 Query，才让它们互相递话——「共享特征」到「传递信息」是多任务设计的关键升级，注意力是现成的管道。</div>
+<p>② 辅助分支的价值在于其输出能被主任务当工具用。</p>
+<div class="rw">CTC 软 VAD 不是为了 VAD 指标本身——它的帧级概率变成主任务的特征权重。设计辅助损失时问一句：辅助任务的输出能不能作为可微的工具反哺主任务？能的话收益翻倍。</div>
+<p>③ 软判决优于硬判决，边界信息比干净的二分更值钱。</p>
+<div class="rw">硬 VAD、硬剪枝、硬路由都在边界处丢信息；软概率保留过渡区的连续性，且端到端可训——凡是「判断后使用」的中间模块，先考虑输出概率而不是输出决定。</div>
+</div>
+<p><b>系列坐标</b>：KWS+SV 谱系的 2020 双子星——№14（Apple）给基础框架，本文（KAIST）给机构增强；2021 年两阶段 KWS+SV 深化串行架构、KWS+VAD 交叉注意力把 GQA 思想推广开——「任务间信息通道」从此成为 KWS 多任务设计的标配议题。</p>
+</section>
+
+<div class="foot">
+<span class="pill">arXiv 2005.03867</span><span class="pill">KAIST</span><span class="pill">CTC 软 VAD</span><span class="pill">GQA</span>
+<div class="foot-note">本页条形与曲线为笔记定性记录的示意，具体数值以原文为准 · 本页为可视化精读笔记，图表由 SVG 重绘</div>
+</div>
+
+</div>
+</body>
+</html>
