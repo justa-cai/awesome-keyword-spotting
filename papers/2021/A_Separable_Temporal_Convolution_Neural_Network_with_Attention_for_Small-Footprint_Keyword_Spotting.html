@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STCNN：可分离时间卷积 + 双重注意力 · 论文精读可视化</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;}
+.wrap{max-width:980px;margin:0 auto;padding:56px 28px 80px;}
+.kicker{font-size:13px;letter-spacing:.22em;color:var(--acc);font-weight:700;margin-bottom:14px;text-transform:uppercase;}
+h1.hero{font-size:40px;line-height:1.32;font-weight:800;letter-spacing:.01em;margin-bottom:18px;}
+h1.hero .g{color:var(--acc);}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+.chip{font-size:12.5px;padding:4px 13px;border:1px solid var(--line);border-radius:999px;color:var(--ink2);background:#fffdf8;}
+.chip.acc{background:var(--lt);border-color:#bfe5d6;color:var(--dk);}
+.meta{border-left:3px solid var(--acc);background:#fffdf8;padding:12px 18px;font-size:13.5px;color:var(--ink2);margin-bottom:40px;border-radius:0 8px 8px 0;}
+.meta b{color:var(--ink);}
+h2{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:800;margin:56px 0 6px;}
+h2 .no{flex:none;font-size:12px;font-weight:800;color:#fff;background:var(--ink);padding:3px 10px;border-radius:999px;letter-spacing:.08em;}
+.h2sub{font-size:13.5px;color:var(--ink3);margin:0 0 18px 46px;}
+.tldr{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-bottom:8px;}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--dk);letter-spacing:.12em;margin-bottom:10px;}
+.tldr li{list-style:none;font-size:14.5px;color:var(--ink2);padding-left:20px;position:relative;margin-bottom:7px;}
+.tldr li:before{content:"◈";position:absolute;left:0;color:var(--acc);font-size:12px;top:2px;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.card{background:#fffdf8;border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
+.card h3{font-size:15.5px;font-weight:700;margin-bottom:8px;}
+.card p{font-size:13.5px;color:var(--ink2);}
+.card.acc{background:var(--lt);border-color:#bfe5d6;}
+.card.acc h3{color:var(--dk);}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4;}
+.card.bad h3{color:var(--warn);}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--lt);color:var(--dk);margin-bottom:8px;}
+.fig{margin:26px 0;}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:14px;}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:10px;line-height:1.7;}
+.cap b{color:var(--ink2);}
+.formula{background:#fffdf8;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 12px 12px 0;padding:16px 20px;margin:16px 0;}
+.formula .f{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:15px;color:var(--ink);background:#f2f4ef;padding:10px 14px;border-radius:8px;margin-bottom:10px;overflow-x:auto;white-space:pre;}
+.formula .why{font-size:13.5px;color:var(--ink2);}
+.formula .why b{color:var(--dk);}
+table.tb{width:100%;border-collapse:collapse;background:#fffdf8;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:18px 0;font-size:13.5px;}
+table.tb th{background:var(--ink);color:#fff;padding:10px 14px;text-align:left;font-weight:700;font-size:13px;}
+table.tb td{padding:10px 14px;border-top:1px solid var(--line);color:var(--ink2);}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:700;}
+.contrib{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:18px 0;}
+.contrib .row{display:flex;gap:16px;padding:12px 0;border-bottom:1px dashed var(--line);}
+.contrib .row:last-child{border-bottom:none;}
+.contrib .n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.contrib .row p{font-size:14px;color:var(--ink2);}
+.contrib .row p b{color:var(--ink);}
+.lim{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.judge{background:#fffaf4;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:18px 0;}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.12em;margin-bottom:10px;}
+.judge p{font-size:14px;color:var(--ink2);margin-bottom:8px;}
+.judge p b{color:var(--ink);}
+.foot{margin-top:64px;padding-top:28px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.pill{display:inline-block;font-size:13px;font-weight:700;color:var(--dk);background:var(--lt);border:1px solid #bfe5d6;border-radius:999px;padding:7px 18px;text-decoration:none;}
+.pill.ghost{background:transparent;color:var(--ink2);border-color:var(--line);}
+.foot-note{font-size:12px;color:var(--ink3);margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2021 №2</div>
+<h1 class="hero">卷积预算别平摊：<br><span class="g">全押在时间轴上</span>，再用两把注意力拧准焦点</h1>
+<div class="chips">
+<span class="chip acc">STCNN · 北理工 + 小米</span>
+<span class="chip">arXiv 2109.00260 · 40 维 MFCC</span>
+<span class="chip">时间 DW 卷积 + 1×1 · 通道+时间双注意力</span>
+<span class="chip">~40K 参数 GSC 12 类约 95%（同档 DS-CNN +1–2%）</span>
+</div>
+<div class="meta">
+<b>一句话</b>：关键词识别真正依赖的是时间维度的时序模式（音素序列），而 MFCC 已经把频率信息编码成了通道——那卷积层的参数就不该平摊给频率轴。STCNN 把 2D 深度可分离卷积进一步分解为「时间深度卷积 + 1×1」，再串联通道注意力（选重要特征）与时间注意力（聚焦核心音素段）：约 40K 参数在 GSC 12 类拿到约 95%，同参数量比 DS-CNN 高 1–2 个点，双重注意力再白拿 1–2 个点。
+</div>
+
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<li>边缘 KWS 三重约束：参数 &lt;100K · 计算 &lt;10M MADD · 高准确率——标准 CNN 有效，但极低预算下怎么搭架构仍是开放问题（智能手表/无线耳机/IoT 的典型档位）。</li>
+<li>两个架构缺口：标准 2D 卷积把预算平摊给时间和频率两轴，极小参数量下<b>时间动态建模不足</b>；固定卷积权重对所有时间步和通道一视同仁，<b>无法自适应聚焦</b>最有判别力的核心音素段。</li>
+<li>核心分解：<b>时间深度卷积</b>（每通道独立沿时间卷积，核 3/5，参数 C×K_t）+ <b>逐点 1×1</b>（通道混合，参数 C_in×C_out）——标准 2D 卷积的频率核开销整个省掉。</li>
+<li>敢砍频率轴的理由：频率信息已被 MFCC 滤波器组编码进特征通道——卷积层要学的增量主要在时间模式（音素先后顺序）上。与 TC-ResNet/MatchboxNet 的时间向 1D 化是同一脉络。</li>
+<li><b>通道注意力</b>：GAP → FC 降维（r=4）→ ReLU → FC 升维 → Sigmoid——参数仅 2·(C²/r)，增强判别通道抑制噪声通道；<b>时间注意力</b>：沿通道聚合 → FC → Sigmoid——输出每个时间步的权重，聚焦核心音素段、弱化静音/过渡。</li>
+<li>两把注意力串联（先通道后时间）且插在<b>中间层</b>效果最佳；消融：单独通道 +0.8–1.2%、单独时间 +0.5–0.8%、叠加 +1–2%——两个维度正交互补。</li>
+<li>三档变体 S/M/L（20K/40K/80K）：S 档参数减半只掉 1–2%；L 档在 35 类上接近 200K 参数的 DS-CNN——参数效率优势在各档与各词表规模都保持。</li>
+<li>边界：固定长度片段输入（非流式）、仅 GSC 干净近讲（无噪声/远场）、未叠量化/蒸馏、未与同期 KWT 等 Transformer 对比；注意力省参数但引入推理延迟。</li>
+</div>
+
+<h2><span class="no">§01</span>问题：预算极小时，架构怎么搭</h2>
+<div class="h2sub">时间维度缺口 + 特征选择缺口</div>
+<div class="cards">
+<div class="card bad">
+<h3>2D 卷积平摊预算</h3>
+<p>标准二维卷积的核同时覆盖时间和频率——参数 C_in×C_out×K_t×K_f 里频率核占一半开销。关键词识别依赖的是音素序列的时间动态，频率维提供的是通道信息——预算平摊在极小参数量下两头都不够。</p>
+</div>
+<div class="card bad">
+<h3>固定权重不挑重点</h3>
+<p>卷积权重对所有时间步和频率通道一视同仁——但关键词的判别力集中在核心音素段，词前后的静音与过渡段只占算力不供信息。没有自适应机制，模型被迫为无关区域付账。</p>
+</div>
+<div class="card">
+<h3>三重约束的现实档位</h3>
+<p>智能手表、无线耳机、IoT 传感器的典型预算：参数 &lt;100K、计算 &lt;10M MADD、准确率不能掉——在这个档位上，每一份参数都要花在任务结构最需要的地方。</p>
+</div>
+<div class="card">
+<h3>与时间向 1D 化脉络的关系</h3>
+<p>TC-ResNet、MatchboxNet 一脉都走过「时间向 1D 化」路线；STCNN 的差异是把可分离分解做彻底（时间 DW + 1×1），并配双注意力补上「特征选择」这个缺口——分解负责省，注意力负责准。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">STCNN：把卷积预算花在时间轴上，再用两把注意力拧准焦点</text>
+<line x1="36.0" y1="60.0" x2="640.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 极小预算下的两个架构缺口</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边缘 KWS 三重约束：参数 &lt;100K · 计算 &lt;10M MADD · 高准确率——标准 CNN 有效但在极低预算下怎么搭架构仍是开放问题</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（智能手表 / 无线耳机 / IoT 传感器的典型预算档。注意：固定长度片段输入，非流式——这是本文的边界也是后续工作的入口）</text>
+<rect x="36.0" y="152.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="182.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">时间维度处理不足</text>
+<text x="200.0" y="173.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标准 2D 卷积同时处理时间和频率两个轴，计算预算被平摊——极小参数量下</text>
+<text x="200.0" y="191.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">无法充分建模关键词真正依赖的时间动态（音素序列、时序韵律）</text>
+<rect x="36.0" y="210.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="240.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">特征选择不充分</text>
+<text x="200.0" y="231.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">固定卷积权重对所有时间步和频率通道一视同仁——无法自适应聚焦</text>
+<text x="200.0" y="249.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">最有判别力的时间段（核心音素段）与通道，静音/过渡段占据算力</text>
+<rect x="36.0" y="268.0" width="848.0" height="50.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="298.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">理论洞察</text>
+<text x="200.0" y="289.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词识别主要依赖时间维度的时序模式；频率维度提供的是特征通道信息</text>
+<text x="200.0" y="307.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——把计算重点压到时间轴上更参数高效，这是「可分离时间卷积」的动机</text>
+<text x="36.0" y="336.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 三段式流水线：MFCC → 可分离时间卷积块 → 双重注意力 → 分类</text>
+<rect x="36.0" y="356.0" width="196.0" height="74.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="134.0" y="378.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">40 维 MFCC 输入</text>
+<text x="134.0" y="396.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 主流特征，计算效率</text>
+<text x="134.0" y="410.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">高于频谱图输入</text>
+<line x1="232.0" y1="393.0" x2="256.00" y2="393.00" stroke="#8a93a5" stroke-width="1.4"/>
+<rect x="256.0" y="356.0" width="196.0" height="74.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="354.0" y="378.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">堆叠可分离时间卷积块</text>
+<text x="354.0" y="396.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">时间 DW 卷积（核 3/5）</text>
+<text x="354.0" y="410.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">+ 逐点 1×1 + BN + ReLU</text>
+<line x1="452.0" y1="393.0" x2="476.00" y2="393.00" stroke="#8a93a5" stroke-width="1.4"/>
+<rect x="476.0" y="356.0" width="196.0" height="74.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="574.0" y="378.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">双重注意力（串联）</text>
+<text x="574.0" y="396.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">先通道注意力选重要特征，</text>
+<text x="574.0" y="410.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">再时间注意力聚焦关键时间段</text>
+<line x1="672.0" y1="393.0" x2="696.00" y2="393.00" stroke="#8a93a5" stroke-width="1.4"/>
+<rect x="696.0" y="356.0" width="196.0" height="74.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="794.0" y="378.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">全局平均池化 + FC</text>
+<text x="794.0" y="396.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">二分类/多分类头输出</text>
+<text x="794.0" y="410.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词后验</text>
+<rect x="36.0" y="448.0" width="420.0" height="118.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="246.0" y="470.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">可分离时间卷积的参数账</text>
+<text x="52.0" y="492.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">时间深度卷积：每通道独立沿时间卷积，参数 = C × K_t</text>
+<text x="52.0" y="506.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">逐点卷积（1×1）：沿通道混合，参数 = C_in × C_out</text>
+<text x="52.0" y="521.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="535.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">对比标准 2D 卷积（C_in × C_out × K_t × K_f）：</text>
+<text x="52.0" y="550.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">把频率核的开销整个省掉——参数大头只花在时间轴</text>
+<rect x="476.0" y="448.0" width="408.0" height="118.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="680.0" y="470.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三档变体</text>
+<text x="492.0" y="492.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">STCNN-S（~20K 参数）：比 M 档省一半参数，</text>
+<text x="492.0" y="506.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   准确率只降 1–2%</text>
+<text x="492.0" y="521.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">STCNN-M（~40K）：主力档，GSC 12 类约 95%</text>
+<text x="492.0" y="535.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">STCNN-L（~80K）：35 类上接近 200K 参数 DS-CNN</text>
+<text x="492.0" y="550.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="492.0" y="564.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不同规模的缩放路径清晰，参数效率优势在各档保持</text>
+<rect x="36.0" y="620.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="646.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~40K</text>
+<text x="130.0" y="666.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数 · GSC 12 类约 95%</text>
+<text x="298.0" y="646.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1–2%</text>
+<text x="298.0" y="666.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">vs 同参数量 DS-CNN</text>
+<text x="466.0" y="646.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">50%</text>
+<text x="466.0" y="666.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">vs 标准 CNN 参数减半同精度</text>
+<text x="634.0" y="646.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1–2%</text>
+<text x="634.0" y="666.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">双重注意力的增益</text>
+<text x="802.0" y="646.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3 档</text>
+<text x="802.0" y="666.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">S 20K / M 40K / L 80K</text>
+<text x="36.0" y="704.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">北京理工大学 + 小米 · arXiv 2109.00260；GSC v2 的 10 类 / 12 类 / 35 类三档评测；注意力插在中间层效果最佳（消融）；表中数字为笔记记录的约值</text>
+</svg>
+<div class="cap"><b>图1 · 机制全景</b>：上半是两个架构缺口与理论洞察，中段是三段式流水线与参数账、三档变体，底部是关键数字。</div>
+</div>
+
+<h2><span class="no">§02</span>方法：分解 + 双注意力</h2>
+<div class="h2sub">时间深度卷积 · 1×1 通道混合 · SE 式重加权 · 时间步门控</div>
+
+<div class="formula">
+<div class="f">可分离时间卷积块:
+  时间 DW 卷积:  参数 C × K_t        （核 3/5，每通道独立沿时间）
+  逐点 1×1 卷积: 参数 C_in × C_out   （通道间信息混合）
+  + BN + ReLU
+vs 标准 2D 卷积: C_in × C_out × K_t × K_f   ← 频率核开销整个消失</div>
+<div class="why"><b>人话</b>：把「方形核」砍成「时间条」——MFCC 前端已经把频率信息编码成通道（40 维各对应一个频带），卷积层再学频率模式的边际收益小，学时间模式（音素先后顺序、时序韵律）才是关键词判别的主体。参数大头全压在时间轴上。</div>
+</div>
+
+<div class="formula">
+<div class="f">通道注意力:  GAP → FC(C→C/r) → ReLU → FC(C/r→C) → Sigmoid   # 逐通道权重，参数 2·(C²/r)
+时间注意力:  沿通道聚合 → FC → Sigmoid → 逐时间步权重
+串联: 先通道（选重要特征）→ 再时间（聚焦关键时段），插在中间层</div>
+<div class="why"><b>人话</b>：两把注意力拧两个正交的维度——通道那把决定「听哪些特征」，时间那把决定「听哪个时段」（核心音素段权重高、词前后静音/过渡低）。SE 式瓶颈（r=4）让通道注意力几乎不花参数；插入位置有讲究：太浅特征未成形，太深信息已流失，中间层最佳。</div>
+</div>
+
+<div class="cards">
+<div class="card acc">
+<h3>为什么两把注意力互补</h3>
+<p>通道注意力作用在「特征」维（哪些通道携带判别信息），时间注意力作用在「时刻」维（哪些帧是核心音素段）——维度正交，各自的增益（0.8–1.2% / 0.5–0.8%）叠加后到 1–2%，大于简单相加的趋势说明确实在补不同的短板。</p>
+</div>
+<div class="card acc">
+<h3>流水线的完整形状</h3>
+<p>MFCC（40 维）→ 堆叠的可分离时间卷积块 → 双重注意力 → 全局平均池化 → 全连接分类头。三段各司其职：卷积块负责时间模式提取（省参数），注意力负责重加权（准），GAP+FC 负责判决（轻）。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker></defs>
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：卷积怎么分解 · 两把注意力各拧什么</text>
+<line x1="36.0" y1="56.0" x2="520.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">从 2D 深度可分离到「时间向」分解</text>
+<rect x="48.0" y="92.0" width="360.0" height="190.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="133.0" y="118.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">标准 2D 卷积视野</text>
+<rect x="68.0" y="130.0" width="130.0" height="110.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<line x1="88.0" y1="138.0" x2="88.00" y2="232.00" stroke="#e2e6ea" stroke-width="1"/>
+<line x1="106.0" y1="138.0" x2="106.00" y2="232.00" stroke="#e2e6ea" stroke-width="1"/>
+<line x1="124.0" y1="138.0" x2="124.00" y2="232.00" stroke="#e2e6ea" stroke-width="1"/>
+<line x1="142.0" y1="138.0" x2="142.00" y2="232.00" stroke="#e2e6ea" stroke-width="1"/>
+<line x1="160.0" y1="138.0" x2="160.00" y2="232.00" stroke="#e2e6ea" stroke-width="1"/>
+<line x1="178.0" y1="138.0" x2="178.00" y2="232.00" stroke="#e2e6ea" stroke-width="1"/>
+<line x1="76.0" y1="148.0" x2="190.00" y2="148.00" stroke="#e2e6ea" stroke-width="1"/>
+<line x1="76.0" y1="166.0" x2="190.00" y2="166.00" stroke="#e2e6ea" stroke-width="1"/>
+<line x1="76.0" y1="184.0" x2="190.00" y2="184.00" stroke="#e2e6ea" stroke-width="1"/>
+<line x1="76.0" y1="202.0" x2="190.00" y2="202.00" stroke="#e2e6ea" stroke-width="1"/>
+<line x1="76.0" y1="220.0" x2="190.00" y2="220.00" stroke="#e2e6ea" stroke-width="1"/>
+<rect x="120.0" y="174.0" width="46.0" height="34.0" rx="3" fill="#c0392b" opacity="0.4"/>
+<text x="133.0" y="124.0" font-size="8" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">T × F 方形核</text>
+<text x="133.0" y="254.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">频率轴也占参数预算</text>
+<line x1="218.0" y1="190.0" x2="258.00" y2="190.00" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#ar)"/>
+<text x="238.0" y="180.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">分解</text>
+<text x="338.0" y="118.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">STCNN：只卷时间</text>
+<rect x="268.0" y="120.0" width="140.0" height="16.0" rx="3" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<rect x="324.0" y="120.0" width="26.0" height="16.0" rx="3" fill="#0b6e52" opacity="0.75"/>
+<rect x="268.0" y="146.0" width="140.0" height="16.0" rx="3" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<rect x="324.0" y="146.0" width="26.0" height="16.0" rx="3" fill="#0b6e52" opacity="0.75"/>
+<rect x="268.0" y="172.0" width="140.0" height="16.0" rx="3" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<rect x="324.0" y="172.0" width="26.0" height="16.0" rx="3" fill="#0b6e52" opacity="0.75"/>
+<rect x="268.0" y="198.0" width="140.0" height="16.0" rx="3" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<rect x="324.0" y="198.0" width="26.0" height="16.0" rx="3" fill="#0b6e52" opacity="0.75"/>
+<text x="338.0" y="230.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每通道一条时间条（核 3/5）</text>
+<text x="338.0" y="242.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1×1 负责通道间混合</text>
+<rect x="48.0" y="292.0" width="360.0" height="56.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="226.0" y="312.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么敢砍频率轴：频率信息已被 MFCC 滤波器组编码成通道</text>
+<text x="226.0" y="328.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">——卷积层要学的增量主要在时间模式（音素先后顺序）上</text>
+<text x="226.0" y="341.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">同类思想：TC-ResNet / MatchboxNet 一脉的时间向 1D 化路线</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">双重注意力：通道选特征，时间选时刻</text>
+<rect x="436.0" y="92.0" width="408.0" height="256.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="450.0" y="114.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 通道注意力（增强判别通道 · 抑制噪声通道）</text>
+<rect x="450.0" y="124.0" width="88.0" height="22.0" rx="4" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="494.0" y="139.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">全局平均池化</text>
+<line x1="538.0" y1="135.0" x2="556.00" y2="135.00" stroke="#8a93a5" stroke-width="1.2" marker-end="url(#ar)"/>
+<rect x="558.0" y="124.0" width="108.0" height="22.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="612.0" y="139.0" font-size="7.8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FC 降维(r=4)→ReLU</text>
+<line x1="666.0" y1="135.0" x2="684.00" y2="135.00" stroke="#8a93a5" stroke-width="1.2" marker-end="url(#ar)"/>
+<rect x="686.0" y="124.0" width="100.0" height="22.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="736.0" y="139.0" font-size="7.8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FC 升维→Sigmoid</text>
+<text x="450.0" y="162.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">参数 ≈ 2·(C²/r)——r=4 压缩后额外参数极少，却买来通道级重加权</text>
+<text x="450.0" y="190.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 时间注意力（聚焦核心音素段 · 弱化静音/过渡）</text>
+<rect x="450.0" y="200.0" width="110.0" height="22.0" rx="4" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="505.0" y="215.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">沿通道维聚合</text>
+<line x1="560.0" y1="211.0" x2="578.00" y2="211.00" stroke="#8a93a5" stroke-width="1.2" marker-end="url(#ar)"/>
+<rect x="580.0" y="200.0" width="96.0" height="22.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="628.0" y="215.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FC 层</text>
+<line x1="676.0" y1="211.0" x2="694.00" y2="211.00" stroke="#8a93a5" stroke-width="1.2" marker-end="url(#ar)"/>
+<rect x="696.0" y="200.0" width="96.0" height="22.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="744.0" y="215.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Sigmoid</text>
+<rect x="460.0" y="276.0" width="16.0" height="6.0" rx="2" fill="#b8d8c8"/>
+<rect x="484.0" y="276.0" width="16.0" height="6.0" rx="2" fill="#b8d8c8"/>
+<rect x="508.0" y="276.0" width="16.0" height="6.0" rx="2" fill="#b8d8c8"/>
+<rect x="532.0" y="276.0" width="16.0" height="6.0" rx="2" fill="#b8d8c8"/>
+<rect x="556.0" y="274.0" width="16.0" height="8.0" rx="2" fill="#0b6e52"/>
+<rect x="580.0" y="262.5" width="16.0" height="19.5" rx="2" fill="#0b6e52"/>
+<rect x="604.0" y="254.4" width="16.0" height="27.6" rx="2" fill="#0b6e52"/>
+<rect x="628.0" y="252.1" width="16.0" height="29.9" rx="2" fill="#0b6e52"/>
+<rect x="652.0" y="256.2" width="16.0" height="25.8" rx="2" fill="#0b6e52"/>
+<rect x="676.0" y="265.6" width="16.0" height="16.4" rx="2" fill="#0b6e52"/>
+<rect x="700.0" y="276.0" width="16.0" height="6.0" rx="2" fill="#b8d8c8"/>
+<rect x="724.0" y="276.0" width="16.0" height="6.0" rx="2" fill="#b8d8c8"/>
+<rect x="748.0" y="276.0" width="16.0" height="6.0" rx="2" fill="#b8d8c8"/>
+<rect x="772.0" y="276.0" width="16.0" height="6.0" rx="2" fill="#b8d8c8"/>
+<text x="615.0" y="294.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">时间步权重（示意）：核心音素段高 · 词前后静音/过渡低</text>
+<text x="450.0" y="320.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">串联顺序：先通道选重要特征 → 再时间聚焦关键段</text>
+<text x="450.0" y="336.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">消融：单独通道 +0.8–1.2% · 单独时间 +0.5–0.8% · 叠加 +1–2%</text>
+<text x="450.0" y="350.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（大于两者之和的简单相加趋势——互补协同）；插在中间层最佳</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：分解把「方形核」的频率维开销整个省掉——MFCC 已经把频率信息编码进通道，卷积层要学的增量在时间轴。右：两把注意力各拧一个维度，串联应用且插在中间层</text>
+</svg>
+<div class="cap"><b>图2 · 机制解剖</b>：左是从 2D 方形核到时间条的分解图景与「敢砍频率轴」的理由，右是两把注意力的流水（通道 SE 式瓶颈、时间步权重示意）与串联顺序。</div>
+</div>
+
+<h2><span class="no">§03</span>实验：同档赢 DS-CNN，注意力白拿点数</h2>
+<div class="h2sub">GSC v2 · 10/12/35 三档词表 · 参数-准确率对比 + 消融</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（约值）：同参数量赢 DS-CNN，注意力白拿 1–2 个点</text>
+<line x1="36.0" y1="56.0" x2="580.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">参数-准确率档位（GSC · 约值）</text>
+<line x1="92.0" y1="320.0" x2="456.00" y2="320.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="88.0" y="323.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="92.0" y1="260.0" x2="456.00" y2="260.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="88.0" y="263.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">92</text>
+<line x1="92.0" y1="200.0" x2="456.00" y2="200.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="88.0" y="203.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">94</text>
+<line x1="92.0" y1="140.0" x2="456.00" y2="140.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="88.0" y="143.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">96</text>
+<circle cx="126.9" cy="215.0" r="6" fill="#0b6e52"/>
+<text x="134.9" y="218.0" font-size="8" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">STCNN-S</text>
+<circle cx="157.8" cy="170.0" r="6" fill="#0b6e52"/>
+<text x="165.8" y="173.0" font-size="8" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">STCNN-M</text>
+<circle cx="219.6" cy="140.0" r="6" fill="#0b6e52"/>
+<text x="227.6" y="143.0" font-size="8" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">STCNN-L</text>
+<circle cx="157.8" cy="215.0" r="6" fill="#c9d8e8"/>
+<text x="165.8" y="218.0" font-size="8" fill="#c9d8e8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN 同档</text>
+<circle cx="405.1" cy="134.0" r="6" fill="#c9d8e8"/>
+<text x="413.1" y="137.0" font-size="8" fill="#c9d8e8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN 大档</text>
+<text x="96.0" y="102.0" font-size="1" fill="#ffffff" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">D.append placeholder</text>
+<text x="256.0" y="336.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量（K）· 横轴</text>
+<text x="256.0" y="106.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率 90–97% 区间（12 类为主，35 类整体下移）</text>
+<line x1="157.8" y1="215.0" x2="157.82" y2="170.00" stroke="#0a6b4e" stroke-width="1.2" stroke-dasharray="3,3"/>
+<text x="161.8" y="191.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1–2%</text>
+<text x="56.0" y="346.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="56.0" y="360.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 同为 ~40K：STCNN-M 比 DS-CNN 高 1–2 个点（12 类 ~95%）</text>
+<text x="56.0" y="373.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· STCNN-S（20K）：参数减半只掉 1–2%——预算最紧时的选择</text>
+<text x="56.0" y="386.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· STCNN-L（80K）在 35 类上接近 200K 的 DS-CNN——大词表下</text>
+<text x="56.0" y="399.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   参数效率优势保持</text>
+<text x="56.0" y="412.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· vs 标准 CNN：参数减 50% 达到相近或更高准确率</text>
+<text x="670.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融与子集泛化</text>
+<rect x="508.0" y="92.0" width="324.0" height="152.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="520.0" y="112.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力贡献拆解（准确率提升）</text>
+<text x="520.0" y="138.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">仅通道注意力</text>
+<rect x="616.0" y="127.0" width="90.0" height="14.0" rx="7" fill="#9fc8b8"/>
+<text x="710.0" y="138.0" font-size="8.3" fill="#9fc8b8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.8–1.2%</text>
+<text x="520.0" y="172.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">仅时间注意力</text>
+<rect x="616.0" y="161.0" width="58.5" height="14.0" rx="7" fill="#7fb69f"/>
+<text x="678.5" y="172.0" font-size="8.3" fill="#7fb69f" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.5–0.8%</text>
+<text x="520.0" y="206.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">双重叠加 ★</text>
+<rect x="616.0" y="195.0" width="135.0" height="14.0" rx="7" fill="#0b6e52"/>
+<text x="755.0" y="206.0" font-size="8.3" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1–2%</text>
+<text x="520.0" y="232.0" font-size="8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">两把注意力维度不同（通道 vs 时刻）→ 互补不重复；</text>
+<text x="520.0" y="244.0" font-size="8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">插入位置消融：中间层最佳（太浅特征未成形，太深信息已流失）</text>
+<rect x="508.0" y="254.0" width="324.0" height="128.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="520.0" y="274.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三档子集任务</text>
+<text x="520.0" y="292.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 10 类 / 12 类 / 35 类全部评测——方法不挑词表规模</text>
+<text x="520.0" y="305.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 35 类准确率自然低于 12 类（类别越多越难），</text>
+<text x="520.0" y="318.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   但参数效率优势保持</text>
+<text x="520.0" y="331.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全部结果限于 GSC v2（干净近讲）——噪声/远场未验证</text>
+<text x="520.0" y="344.0" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="520.0" y="357.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">引用提醒：本页数字为笔记记录的约值，原文见 arXiv 2109.00260；</text>
+<text x="520.0" y="370.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">未与同期 KWT 等高效 Transformer 对比</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：无流式适配（固定长度片段输入）、无量化/剪枝叠加、无延迟实测——参数量与 MADD 是仅有的效率证据</text>
+</svg>
+<div class="cap"><b>图3 · 主结果</b>：左是参数-准确率档位图（STCNN 三档 vs DS-CNN 两档）与读数，右是注意力贡献拆解与三档子集泛化、引用提醒。</div>
+</div>
+<table class="tb">
+<tr><th>对比项</th><th>结果（约值）</th><th>一句话</th></tr>
+<tr><td>STCNN-M（~40K）vs DS-CNN 同档</td><td>+1–2%（12 类 ~95%）</td><td>时间向分解在同预算下更优</td></tr>
+<tr><td>STCNN vs 标准 CNN</td><td>参数 −50%，准确率相近或更高</td><td>分解本身的效率红利</td></tr>
+<tr class="hl"><td>双重注意力 vs 无注意力</td><td>+1–2%</td><td>近乎白拿的性能（参数极少）</td></tr>
+<tr><td>STCNN-S（~20K）vs M 档</td><td>参数 −50%，准确率 −1–2%</td><td>预算最紧时的选择</td></tr>
+<tr><td>STCNN-L（~80K）vs 200K DS-CNN</td><td>35 类上接近</td><td>大词表下效率优势保持</td></tr>
+</table>
+<div class="tldr" style="margin-top:14px;">
+<div class="tt">读表要点</div>
+<li>10/12/35 三档词表全部评测——35 类准确率自然低于 12 类（类别越多越难），但参数效率优势不随词表规模消失——方法不挑任务规模。</li>
+<li>注意力的成本要分两面看：参数上几乎免费（2·C²/r），但全局池化 + FC 在推理时引入额外延迟——「免费」只对参数量成立，不对延迟成立。</li>
+<li>所有结果限于 GSC v2 干净近讲——噪声与远场未验证，从基准到真实部署之间没有桥。</li>
+</div>
+
+<h2><span class="no">§04</span>贡献</h2>
+<div class="h2sub">四点：从架构到泛化</div>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>面向时间的可分离卷积架构</b>：2D 卷积分解为一维时间卷积 + 逐点卷积，极低参数量下高效建模时间模式——充分利用语音信号的时序特性。</p></div>
+<div class="row"><div class="n">2</div><p><b>双重注意力集成</b>：通道注意力增强判别特征、时间注意力聚焦关键时段——两个正交维度互补协同，不显著增加参数的情况下显著提升准确率。</p></div>
+<div class="row"><div class="n">3</div><p><b>卓越的参数效率</b>：约 4 万参数在 GSC 上约 95% 准确率，相似参数量下优于标准 DS-CNN。</p></div>
+<div class="row"><div class="n">4</div><p><b>跨词表规模泛化</b>：10 类、12 类、35 类任务上均表现良好——方法不绑定特定任务规模。</p></div>
+</div>
+
+<h2><span class="no">§05</span>局限与判断</h2>
+<div class="h2sub">非流式 · 仅 GSC · 未叠压缩 · 缺 Transformer 对照</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 流式未探索：当前配置处理固定长度片段，未适配流式/因果推理——</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  时间卷积改因果 + 注意力改增量式是 obvious 但未做的下一步</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 注意力的推理开销：参数极少，但全局池化 + FC 在推理时引入</text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  额外延迟——注意力「免费」只对参数量成立，不对延迟成立</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 仅 GSC 评估：噪声与远场性能未验证——干净近讲基准到真实</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  部署之间没有桥</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 卷积核大小（3/5）对时间建模的影响分析不深——核长与时序</text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  模式长度（音节数）的关系没有系统消融</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验边界 + 延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未与量化/剪枝/蒸馏等压缩技术结合——结构效率与数值效率</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  是两个正交维度，只做了一个</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 缺同期高效 Transformer（KWT 等）对比——「注意力路线」与</text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「卷积路线」在 20–80K 档位的优劣无从判断</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 数字多为约值表述，精确表与方差未在笔记中保留</text>
+<text x="536.0" y="197.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸：因果时间卷积实现流式 KWS；蒸馏进一步压缩；多样化</text>
+<text x="536.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">声学条件验证；核大小 × 音节长度的系统消融；与量化的叠加</text>
+<text x="536.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（两维压缩正交）</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：当特征前端已经把频率信息编码成通道（MFCC/Mel），卷积层的增量学习重点就该压到时间轴——「向任务结构对齐算子」比均匀堆 2D 卷积更省；两把注意力拧两个正交维度，互补不重复</text>
+</svg>
+<div class="cap"><b>图4 · 边界与延伸</b>：左技术边界（流式未探索、注意力延迟、仅 GSC、核大小分析浅），右实验边界（未叠量化/剪枝、缺 KWT 对照）+ 延伸方向。</div>
+</div>
+<div class="judge">
+<div class="jt">可迁移判断</div>
+<p>↳ <b>算子向任务结构对齐</b>：特征前端已经把频率信息编码成通道时，卷积层的增量学习就该压到时间轴——「按任务的信息分布分配参数预算」比均匀堆 2D 卷积更省。这条对任何结构化输入（时序、图、多模态）都成立。</p>
+<p>↳ <b>两把注意力拧两个正交维度</b>：通道（听什么特征）与时间（听哪个时刻）不重叠——注意力模块设计先问「拧的维度正交吗」，正交才可能叠加增益，重叠只会重复浪费。</p>
+<p>↳ <b>注意力「免费」要对指标说清</b>：SE 式瓶颈让参数近乎为零，但池化与 FC 的延迟真实存在——报告效率时要分别对参数量与延迟讲，别用「参数极少」掩盖「推理变慢」。</p>
+<p>↳ <b>结构效率与数值效率是正交的两维</b>：本文只做了结构维（分解+注意力）；量化/剪枝/蒸馏是数值维——两维叠加（结构压缩 × int8）往往还有乘法空间，单维做到头不是终点。</p>
+</div>
+
+<div class="foot">
+<a class="pill" href="https://arxiv.org/abs/2109.00260">arXiv 2109.00260 ↗</a>
+<a class="pill ghost" href="../index.html">← 返回总目录</a>
+</div>
+<div class="foot-note">笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值（原文有精确表）· 2021 №2 · 187+/305</div>
+</div>
+</body>
+</html>

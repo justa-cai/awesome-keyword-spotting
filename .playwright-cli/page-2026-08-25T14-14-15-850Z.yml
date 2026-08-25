@@ -1,0 +1,267 @@
+- generic [ref=f263e2]:
+  - generic [ref=f263e3]: 论文精读 · 可视化版 · 2021 №2
+  - heading "卷积预算别平摊： 全押在时间轴上，再用两把注意力拧准焦点" [level=1] [ref=f263e4]: 卷积预算别平摊：全押在时间轴上，再用两把注意力拧准焦点
+  - generic [ref=f263e5]:
+    - generic [ref=f263e6]: STCNN · 北理工 + 小米
+    - generic [ref=f263e7]: arXiv 2109.00260 · 40 维 MFCC
+    - generic [ref=f263e8]: 时间 DW 卷积 + 1×1 · 通道+时间双注意力
+    - generic [ref=f263e9]: ~40K 参数 GSC 12 类约 95%（同档 DS-CNN +1–2%）
+  - generic [ref=f263e10]: 一句话：关键词识别真正依赖的是时间维度的时序模式（音素序列），而 MFCC 已经把频率信息编码成了通道——那卷积层的参数就不该平摊给频率轴。STCNN 把 2D 深度可分离卷积进一步分解为「时间深度卷积 + 1×1」，再串联通道注意力（选重要特征）与时间注意力（聚焦核心音素段）：约 40K 参数在 GSC 12 类拿到约 95%，同参数量比 DS-CNN 高 1–2 个点，双重注意力再白拿 1–2 个点。
+  - generic [ref=f263e11]:
+    - generic [ref=f263e12]: TL;DR
+    - listitem [ref=f263e13]: ◈ 边缘 KWS 三重约束：参数 <100K · 计算 <10M MADD · 高准确率——标准 CNN 有效，但极低预算下怎么搭架构仍是开放问题（智能手表/无线耳机/IoT 的典型档位）。
+    - listitem [ref=f263e14]: ◈ 两个架构缺口：标准 2D 卷积把预算平摊给时间和频率两轴，极小参数量下时间动态建模不足；固定卷积权重对所有时间步和通道一视同仁，无法自适应聚焦最有判别力的核心音素段。
+    - listitem [ref=f263e15]: ◈ 核心分解：时间深度卷积（每通道独立沿时间卷积，核 3/5，参数 C×K_t）+ 逐点 1×1（通道混合，参数 C_in×C_out）——标准 2D 卷积的频率核开销整个省掉。
+    - listitem [ref=f263e16]: ◈ 敢砍频率轴的理由：频率信息已被 MFCC 滤波器组编码进特征通道——卷积层要学的增量主要在时间模式（音素先后顺序）上。与 TC-ResNet/MatchboxNet 的时间向 1D 化是同一脉络。
+    - listitem [ref=f263e17]: ◈ 通道注意力：GAP → FC 降维（r=4）→ ReLU → FC 升维 → Sigmoid——参数仅 2·(C²/r)，增强判别通道抑制噪声通道；时间注意力：沿通道聚合 → FC → Sigmoid——输出每个时间步的权重，聚焦核心音素段、弱化静音/过渡。
+    - listitem [ref=f263e18]: ◈ 两把注意力串联（先通道后时间）且插在中间层效果最佳；消融：单独通道 +0.8–1.2%、单独时间 +0.5–0.8%、叠加 +1–2%——两个维度正交互补。
+    - listitem [ref=f263e19]: ◈ 三档变体 S/M/L（20K/40K/80K）：S 档参数减半只掉 1–2%；L 档在 35 类上接近 200K 参数的 DS-CNN——参数效率优势在各档与各词表规模都保持。
+    - listitem [ref=f263e20]: ◈ 边界：固定长度片段输入（非流式）、仅 GSC 干净近讲（无噪声/远场）、未叠量化/蒸馏、未与同期 KWT 等 Transformer 对比；注意力省参数但引入推理延迟。
+  - heading "§01 问题：预算极小时，架构怎么搭" [level=2] [ref=f263e21]:
+    - generic [ref=f263e22]: §01
+    - text: 问题：预算极小时，架构怎么搭
+  - generic [ref=f263e23]: 时间维度缺口 + 特征选择缺口
+  - generic [ref=f263e24]:
+    - generic [ref=f263e25]:
+      - heading "2D 卷积平摊预算" [level=3] [ref=f263e26]
+      - paragraph [ref=f263e27]: 标准二维卷积的核同时覆盖时间和频率——参数 C_in×C_out×K_t×K_f 里频率核占一半开销。关键词识别依赖的是音素序列的时间动态，频率维提供的是通道信息——预算平摊在极小参数量下两头都不够。
+    - generic [ref=f263e28]:
+      - heading "固定权重不挑重点" [level=3] [ref=f263e29]
+      - paragraph [ref=f263e30]: 卷积权重对所有时间步和频率通道一视同仁——但关键词的判别力集中在核心音素段，词前后的静音与过渡段只占算力不供信息。没有自适应机制，模型被迫为无关区域付账。
+    - generic [ref=f263e31]:
+      - heading "三重约束的现实档位" [level=3] [ref=f263e32]
+      - paragraph [ref=f263e33]: 智能手表、无线耳机、IoT 传感器的典型预算：参数 <100K、计算 <10M MADD、准确率不能掉——在这个档位上，每一份参数都要花在任务结构最需要的地方。
+    - generic [ref=f263e34]:
+      - heading "与时间向 1D 化脉络的关系" [level=3] [ref=f263e35]
+      - paragraph [ref=f263e36]: TC-ResNet、MatchboxNet 一脉都走过「时间向 1D 化」路线；STCNN 的差异是把可分离分解做彻底（时间 DW + 1×1），并配双注意力补上「特征选择」这个缺口——分解负责省，注意力负责准。
+  - generic [ref=f263e37]:
+    - img [ref=f263e38]:
+      - generic [ref=f263e40]: STCNN：把卷积预算花在时间轴上，再用两把注意力拧准焦点
+      - generic [ref=f263e41]: ① 极小预算下的两个架构缺口
+      - generic [ref=f263e43]: 边缘 KWS 三重约束：参数 <100K · 计算 <10M MADD · 高准确率——标准 CNN 有效但在极低预算下怎么搭架构仍是开放问题
+      - generic [ref=f263e44]: （智能手表 / 无线耳机 / IoT 传感器的典型预算档。注意：固定长度片段输入，非流式——这是本文的边界也是后续工作的入口）
+      - generic [ref=f263e46]: 时间维度处理不足
+      - generic [ref=f263e47]: 标准 2D 卷积同时处理时间和频率两个轴，计算预算被平摊——极小参数量下
+      - generic [ref=f263e48]: 无法充分建模关键词真正依赖的时间动态（音素序列、时序韵律）
+      - generic [ref=f263e50]: 特征选择不充分
+      - generic [ref=f263e51]: 固定卷积权重对所有时间步和频率通道一视同仁——无法自适应聚焦
+      - generic [ref=f263e52]: 最有判别力的时间段（核心音素段）与通道，静音/过渡段占据算力
+      - generic [ref=f263e54]: 理论洞察
+      - generic [ref=f263e55]: 关键词识别主要依赖时间维度的时序模式；频率维度提供的是特征通道信息
+      - generic [ref=f263e56]: ——把计算重点压到时间轴上更参数高效，这是「可分离时间卷积」的动机
+      - generic [ref=f263e57]: ② 三段式流水线：MFCC → 可分离时间卷积块 → 双重注意力 → 分类
+      - generic [ref=f263e59]: 40 维 MFCC 输入
+      - generic [ref=f263e60]: KWS 主流特征，计算效率
+      - generic [ref=f263e61]: 高于频谱图输入
+      - generic [ref=f263e63]: 堆叠可分离时间卷积块
+      - generic [ref=f263e64]: 时间 DW 卷积（核 3/5）
+      - generic [ref=f263e65]: + 逐点 1×1 + BN + ReLU
+      - generic [ref=f263e67]: 双重注意力（串联）
+      - generic [ref=f263e68]: 先通道注意力选重要特征，
+      - generic [ref=f263e69]: 再时间注意力聚焦关键时间段
+      - generic [ref=f263e71]: 全局平均池化 + FC
+      - generic [ref=f263e72]: 二分类/多分类头输出
+      - generic [ref=f263e73]: 关键词后验
+      - generic [ref=f263e75]: 可分离时间卷积的参数账
+      - generic [ref=f263e76]: 时间深度卷积：每通道独立沿时间卷积，参数 = C × K_t
+      - generic [ref=f263e77]: 逐点卷积（1×1）：沿通道混合，参数 = C_in × C_out
+      - generic [ref=f263e78]: 对比标准 2D 卷积（C_in × C_out × K_t × K_f）：
+      - generic [ref=f263e79]: 把频率核的开销整个省掉——参数大头只花在时间轴
+      - generic [ref=f263e81]: 三档变体
+      - generic [ref=f263e82]: STCNN-S（~20K 参数）：比 M 档省一半参数，
+      - generic [ref=f263e83]: 准确率只降 1–2%
+      - generic [ref=f263e84]: STCNN-M（~40K）：主力档，GSC 12 类约 95%
+      - generic [ref=f263e85]: STCNN-L（~80K）：35 类上接近 200K 参数 DS-CNN
+      - generic [ref=f263e86]: 不同规模的缩放路径清晰，参数效率优势在各档保持
+      - generic [ref=f263e88]: ~40K
+      - generic [ref=f263e89]: 参数 · GSC 12 类约 95%
+      - generic [ref=f263e90]: +1–2%
+      - generic [ref=f263e91]: vs 同参数量 DS-CNN
+      - generic [ref=f263e92]: 50%
+      - generic [ref=f263e93]: vs 标准 CNN 参数减半同精度
+      - generic [ref=f263e94]: +1–2%
+      - generic [ref=f263e95]: 双重注意力的增益
+      - generic [ref=f263e96]: 3 档
+      - generic [ref=f263e97]: S 20K / M 40K / L 80K
+      - generic [ref=f263e98]: 北京理工大学 + 小米 · arXiv 2109.00260；GSC v2 的 10 类 / 12 类 / 35 类三档评测；注意力插在中间层效果最佳（消融）；表中数字为笔记记录的约值
+    - generic [ref=f263e99]: 图1 · 机制全景：上半是两个架构缺口与理论洞察，中段是三段式流水线与参数账、三档变体，底部是关键数字。
+  - heading "§02 方法：分解 + 双注意力" [level=2] [ref=f263e100]:
+    - generic [ref=f263e101]: §02
+    - text: 方法：分解 + 双注意力
+  - generic [ref=f263e102]: 时间深度卷积 · 1×1 通道混合 · SE 式重加权 · 时间步门控
+  - generic [ref=f263e103]:
+    - generic [ref=f263e104]: "可分离时间卷积块: 时间 DW 卷积: 参数 C × K_t （核 3/5，每通道独立沿时间） 逐点 1×1 卷积: 参数 C_in × C_out （通道间信息混合） + BN + ReLU vs 标准 2D 卷积: C_in × C_out × K_t × K_f ← 频率核开销整个消失"
+    - generic [ref=f263e105]: 人话：把「方形核」砍成「时间条」——MFCC 前端已经把频率信息编码成通道（40 维各对应一个频带），卷积层再学频率模式的边际收益小，学时间模式（音素先后顺序、时序韵律）才是关键词判别的主体。参数大头全压在时间轴上。
+  - generic [ref=f263e106]:
+    - generic [ref=f263e107]: "通道注意力: GAP → FC(C→C/r) → ReLU → FC(C/r→C) → Sigmoid # 逐通道权重，参数 2·(C²/r) 时间注意力: 沿通道聚合 → FC → Sigmoid → 逐时间步权重 串联: 先通道（选重要特征）→ 再时间（聚焦关键时段），插在中间层"
+    - generic [ref=f263e108]: 人话：两把注意力拧两个正交的维度——通道那把决定「听哪些特征」，时间那把决定「听哪个时段」（核心音素段权重高、词前后静音/过渡低）。SE 式瓶颈（r=4）让通道注意力几乎不花参数；插入位置有讲究：太浅特征未成形，太深信息已流失，中间层最佳。
+  - generic [ref=f263e109]:
+    - generic [ref=f263e110]:
+      - heading "为什么两把注意力互补" [level=3] [ref=f263e111]
+      - paragraph [ref=f263e112]: 通道注意力作用在「特征」维（哪些通道携带判别信息），时间注意力作用在「时刻」维（哪些帧是核心音素段）——维度正交，各自的增益（0.8–1.2% / 0.5–0.8%）叠加后到 1–2%，大于简单相加的趋势说明确实在补不同的短板。
+    - generic [ref=f263e113]:
+      - heading "流水线的完整形状" [level=3] [ref=f263e114]
+      - paragraph [ref=f263e115]: MFCC（40 维）→ 堆叠的可分离时间卷积块 → 双重注意力 → 全局平均池化 → 全连接分类头。三段各司其职：卷积块负责时间模式提取（省参数），注意力负责重加权（准），GAP+FC 负责判决（轻）。
+  - generic [ref=f263e116]:
+    - img [ref=f263e117]:
+      - generic [ref=f263e119]: 机制解剖：卷积怎么分解 · 两把注意力各拧什么
+      - generic [ref=f263e120]: 从 2D 深度可分离到「时间向」分解
+      - generic [ref=f263e122]: 标准 2D 卷积视野
+      - generic [ref=f263e125]: T × F 方形核
+      - generic [ref=f263e126]: 频率轴也占参数预算
+      - generic [ref=f263e127]: 分解
+      - generic [ref=f263e128]: STCNN：只卷时间
+      - generic [ref=f263e137]: 每通道一条时间条（核 3/5）
+      - generic [ref=f263e138]: 1×1 负责通道间混合
+      - generic [ref=f263e140]: 为什么敢砍频率轴：频率信息已被 MFCC 滤波器组编码成通道
+      - generic [ref=f263e141]: ——卷积层要学的增量主要在时间模式（音素先后顺序）上
+      - generic [ref=f263e142]: 同类思想：TC-ResNet / MatchboxNet 一脉的时间向 1D 化路线
+      - generic [ref=f263e143]: 双重注意力：通道选特征，时间选时刻
+      - generic [ref=f263e145]: ① 通道注意力（增强判别通道 · 抑制噪声通道）
+      - generic [ref=f263e147]: 全局平均池化
+      - generic [ref=f263e149]: FC 降维(r=4)→ReLU
+      - generic [ref=f263e151]: FC 升维→Sigmoid
+      - generic [ref=f263e152]: 参数 ≈ 2·(C²/r)——r=4 压缩后额外参数极少，却买来通道级重加权
+      - generic [ref=f263e153]: ② 时间注意力（聚焦核心音素段 · 弱化静音/过渡）
+      - generic [ref=f263e155]: 沿通道维聚合
+      - generic [ref=f263e157]: FC 层
+      - generic [ref=f263e159]: Sigmoid
+      - generic [ref=f263e174]: 时间步权重（示意）：核心音素段高 · 词前后静音/过渡低
+      - generic [ref=f263e175]: 串联顺序：先通道选重要特征 → 再时间聚焦关键段
+      - generic [ref=f263e176]: 消融：单独通道 +0.8–1.2% · 单独时间 +0.5–0.8% · 叠加 +1–2%
+      - generic [ref=f263e177]: （大于两者之和的简单相加趋势——互补协同）；插在中间层最佳
+      - generic [ref=f263e178]: 左：分解把「方形核」的频率维开销整个省掉——MFCC 已经把频率信息编码进通道，卷积层要学的增量在时间轴。右：两把注意力各拧一个维度，串联应用且插在中间层
+    - generic [ref=f263e179]: 图2 · 机制解剖：左是从 2D 方形核到时间条的分解图景与「敢砍频率轴」的理由，右是两把注意力的流水（通道 SE 式瓶颈、时间步权重示意）与串联顺序。
+  - heading "§03 实验：同档赢 DS-CNN，注意力白拿点数" [level=2] [ref=f263e180]:
+    - generic [ref=f263e181]: §03
+    - text: 实验：同档赢 DS-CNN，注意力白拿点数
+  - generic [ref=f263e182]: GSC v2 · 10/12/35 三档词表 · 参数-准确率对比 + 消融
+  - generic [ref=f263e183]:
+    - img [ref=f263e184]:
+      - generic [ref=f263e186]: 主结果（约值）：同参数量赢 DS-CNN，注意力白拿 1–2 个点
+      - generic [ref=f263e187]: 参数-准确率档位（GSC · 约值）
+      - generic [ref=f263e188]: "90"
+      - generic [ref=f263e189]: "92"
+      - generic [ref=f263e190]: "94"
+      - generic [ref=f263e191]: "96"
+      - generic [ref=f263e193]: STCNN-S
+      - generic [ref=f263e195]: STCNN-M
+      - generic [ref=f263e197]: STCNN-L
+      - generic [ref=f263e199]: DS-CNN 同档
+      - generic [ref=f263e201]: DS-CNN 大档
+      - generic [ref=f263e202]: D.append placeholder
+      - generic [ref=f263e203]: 参数量（K）· 横轴
+      - generic [ref=f263e204]: 准确率 90–97% 区间（12 类为主，35 类整体下移）
+      - generic [ref=f263e206]: +1–2%
+      - generic [ref=f263e207]: 读数：
+      - generic [ref=f263e208]: · 同为 ~40K：STCNN-M 比 DS-CNN 高 1–2 个点（12 类 ~95%）
+      - generic [ref=f263e209]: · STCNN-S（20K）：参数减半只掉 1–2%——预算最紧时的选择
+      - generic [ref=f263e210]: · STCNN-L（80K）在 35 类上接近 200K 的 DS-CNN——大词表下
+      - generic [ref=f263e211]: 参数效率优势保持
+      - generic [ref=f263e212]: · vs 标准 CNN：参数减 50% 达到相近或更高准确率
+      - generic [ref=f263e213]: 消融与子集泛化
+      - generic [ref=f263e215]: 注意力贡献拆解（准确率提升）
+      - generic [ref=f263e216]: 仅通道注意力
+      - generic [ref=f263e218]: 0.8–1.2%
+      - generic [ref=f263e219]: 仅时间注意力
+      - generic [ref=f263e221]: 0.5–0.8%
+      - generic [ref=f263e222]: 双重叠加 ★
+      - generic [ref=f263e224]: 1–2%
+      - generic [ref=f263e225]: 两把注意力维度不同（通道 vs 时刻）→ 互补不重复；
+      - generic [ref=f263e226]: 插入位置消融：中间层最佳（太浅特征未成形，太深信息已流失）
+      - generic [ref=f263e228]: 三档子集任务
+      - generic [ref=f263e229]: · 10 类 / 12 类 / 35 类全部评测——方法不挑词表规模
+      - generic [ref=f263e230]: · 35 类准确率自然低于 12 类（类别越多越难），
+      - generic [ref=f263e231]: 但参数效率优势保持
+      - generic [ref=f263e232]: · 全部结果限于 GSC v2（干净近讲）——噪声/远场未验证
+      - generic [ref=f263e233]: 引用提醒：本页数字为笔记记录的约值，原文见 arXiv 2109.00260；
+      - generic [ref=f263e234]: 未与同期 KWT 等高效 Transformer 对比
+      - generic [ref=f263e235]: 注：无流式适配（固定长度片段输入）、无量化/剪枝叠加、无延迟实测——参数量与 MADD 是仅有的效率证据
+    - generic [ref=f263e236]: 图3 · 主结果：左是参数-准确率档位图（STCNN 三档 vs DS-CNN 两档）与读数，右是注意力贡献拆解与三档子集泛化、引用提醒。
+  - table [ref=f263e237]:
+    - rowgroup [ref=f263e238]:
+      - row [ref=f263e239]:
+        - columnheader "对比项" [ref=f263e240]
+        - columnheader "结果（约值）" [ref=f263e241]
+        - columnheader "一句话" [ref=f263e242]
+      - row [ref=f263e243]:
+        - cell "STCNN-M（~40K）vs DS-CNN 同档" [ref=f263e244]
+        - cell "+1–2%（12 类 ~95%）" [ref=f263e245]
+        - cell "时间向分解在同预算下更优" [ref=f263e246]
+      - row [ref=f263e247]:
+        - cell "STCNN vs 标准 CNN" [ref=f263e248]
+        - cell "参数 −50%，准确率相近或更高" [ref=f263e249]
+        - cell "分解本身的效率红利" [ref=f263e250]
+      - row [ref=f263e251]:
+        - cell "双重注意力 vs 无注意力" [ref=f263e252]
+        - cell "+1–2%" [ref=f263e253]
+        - cell "近乎白拿的性能（参数极少）" [ref=f263e254]
+      - row [ref=f263e255]:
+        - cell "STCNN-S（~20K）vs M 档" [ref=f263e256]
+        - cell "参数 −50%，准确率 −1–2%" [ref=f263e257]
+        - cell "预算最紧时的选择" [ref=f263e258]
+      - row [ref=f263e259]:
+        - cell "STCNN-L（~80K）vs 200K DS-CNN" [ref=f263e260]
+        - cell "35 类上接近" [ref=f263e261]
+        - cell "大词表下效率优势保持" [ref=f263e262]
+  - generic [ref=f263e263]:
+    - generic [ref=f263e264]: 读表要点
+    - listitem [ref=f263e265]: ◈ 10/12/35 三档词表全部评测——35 类准确率自然低于 12 类（类别越多越难），但参数效率优势不随词表规模消失——方法不挑任务规模。
+    - listitem [ref=f263e266]: ◈ 注意力的成本要分两面看：参数上几乎免费（2·C²/r），但全局池化 + FC 在推理时引入额外延迟——「免费」只对参数量成立，不对延迟成立。
+    - listitem [ref=f263e267]: ◈ 所有结果限于 GSC v2 干净近讲——噪声与远场未验证，从基准到真实部署之间没有桥。
+  - heading "§04 贡献" [level=2] [ref=f263e268]:
+    - generic [ref=f263e269]: §04
+    - text: 贡献
+  - generic [ref=f263e270]: 四点：从架构到泛化
+  - generic [ref=f263e271]:
+    - generic [ref=f263e272]:
+      - generic [ref=f263e273]: "1"
+      - paragraph [ref=f263e274]: 面向时间的可分离卷积架构：2D 卷积分解为一维时间卷积 + 逐点卷积，极低参数量下高效建模时间模式——充分利用语音信号的时序特性。
+    - generic [ref=f263e275]:
+      - generic [ref=f263e276]: "2"
+      - paragraph [ref=f263e277]: 双重注意力集成：通道注意力增强判别特征、时间注意力聚焦关键时段——两个正交维度互补协同，不显著增加参数的情况下显著提升准确率。
+    - generic [ref=f263e278]:
+      - generic [ref=f263e279]: "3"
+      - paragraph [ref=f263e280]: 卓越的参数效率：约 4 万参数在 GSC 上约 95% 准确率，相似参数量下优于标准 DS-CNN。
+    - generic [ref=f263e281]:
+      - generic [ref=f263e282]: "4"
+      - paragraph [ref=f263e283]: 跨词表规模泛化：10 类、12 类、35 类任务上均表现良好——方法不绑定特定任务规模。
+  - heading "§05 局限与判断" [level=2] [ref=f263e284]:
+    - generic [ref=f263e285]: §05
+    - text: 局限与判断
+  - generic [ref=f263e286]: 非流式 · 仅 GSC · 未叠压缩 · 缺 Transformer 对照
+  - generic [ref=f263e287]:
+    - img [ref=f263e288]:
+      - generic [ref=f263e290]: 边界与延伸
+      - generic [ref=f263e292]: 技术边界
+      - generic [ref=f263e293]: · 流式未探索：当前配置处理固定长度片段，未适配流式/因果推理——
+      - generic [ref=f263e294]: 时间卷积改因果 + 注意力改增量式是 obvious 但未做的下一步
+      - generic [ref=f263e295]: · 注意力的推理开销：参数极少，但全局池化 + FC 在推理时引入
+      - generic [ref=f263e296]: 额外延迟——注意力「免费」只对参数量成立，不对延迟成立
+      - generic [ref=f263e297]: · 仅 GSC 评估：噪声与远场性能未验证——干净近讲基准到真实
+      - generic [ref=f263e298]: 部署之间没有桥
+      - generic [ref=f263e299]: · 卷积核大小（3/5）对时间建模的影响分析不深——核长与时序
+      - generic [ref=f263e300]: 模式长度（音节数）的关系没有系统消融
+      - generic [ref=f263e302]: 实验边界 + 延伸
+      - generic [ref=f263e303]: · 未与量化/剪枝/蒸馏等压缩技术结合——结构效率与数值效率
+      - generic [ref=f263e304]: 是两个正交维度，只做了一个
+      - generic [ref=f263e305]: · 缺同期高效 Transformer（KWT 等）对比——「注意力路线」与
+      - generic [ref=f263e306]: 「卷积路线」在 20–80K 档位的优劣无从判断
+      - generic [ref=f263e307]: · 数字多为约值表述，精确表与方差未在笔记中保留
+      - generic [ref=f263e308]: 延伸：因果时间卷积实现流式 KWS；蒸馏进一步压缩；多样化
+      - generic [ref=f263e309]: 声学条件验证；核大小 × 音节长度的系统消融；与量化的叠加
+      - generic [ref=f263e310]: （两维压缩正交）
+      - generic [ref=f263e311]: 可迁移判断：当特征前端已经把频率信息编码成通道（MFCC/Mel），卷积层的增量学习重点就该压到时间轴——「向任务结构对齐算子」比均匀堆 2D 卷积更省；两把注意力拧两个正交维度，互补不重复
+    - generic [ref=f263e312]: 图4 · 边界与延伸：左技术边界（流式未探索、注意力延迟、仅 GSC、核大小分析浅），右实验边界（未叠量化/剪枝、缺 KWT 对照）+ 延伸方向。
+  - generic [ref=f263e313]:
+    - generic [ref=f263e314]: 可迁移判断
+    - paragraph [ref=f263e315]: ↳ 算子向任务结构对齐：特征前端已经把频率信息编码成通道时，卷积层的增量学习就该压到时间轴——「按任务的信息分布分配参数预算」比均匀堆 2D 卷积更省。这条对任何结构化输入（时序、图、多模态）都成立。
+    - paragraph [ref=f263e316]: ↳ 两把注意力拧两个正交维度：通道（听什么特征）与时间（听哪个时刻）不重叠——注意力模块设计先问「拧的维度正交吗」，正交才可能叠加增益，重叠只会重复浪费。
+    - paragraph [ref=f263e317]: ↳ 注意力「免费」要对指标说清：SE 式瓶颈让参数近乎为零，但池化与 FC 的延迟真实存在——报告效率时要分别对参数量与延迟讲，别用「参数极少」掩盖「推理变慢」。
+    - paragraph [ref=f263e318]: ↳ 结构效率与数值效率是正交的两维：本文只做了结构维（分解+注意力）；量化/剪枝/蒸馏是数值维——两维叠加（结构压缩 × int8）往往还有乘法空间，单维做到头不是终点。
+  - generic [ref=f263e319]:
+    - link "arXiv 2109.00260 ↗" [ref=f263e320] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2109.00260
+    - link "← 返回总目录" [ref=f263e321] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f263e322]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值（原文有精确表）· 2021 №2 · 187+/305
