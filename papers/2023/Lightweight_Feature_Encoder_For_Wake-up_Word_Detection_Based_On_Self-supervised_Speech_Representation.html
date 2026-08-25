@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LiteFEW · 蒸馏 wav2vec 2.0 进 64k 编码器 · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2023/Lightweight_Feature_Encoder_For_Wake-up_Word_Detection_Based_On_Self-supervised_Speech_Representation.md">深读笔记</a>
+    <a href="/papers/2023/Lightweight_Feature_Encoder_For_Wake-up_Word_Detection_Based_On_Self-supervised_Speech_Representation.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2303.07592" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2023 №19</p>
+  <h1>把 94M 的 wav2vec 2.0 蒸进 64k 波形编码器（0.07% 参数），<br>五种 WWD 架构即插即用全部涨点——教师来自 SSL，绕开「WWD 数据撑不起大教师」的死结</h1>
+  <p class="sub">LiteFEW: Lightweight Feature Encoder for Wake-up Word Detection Based on Self-supervised Speech Representation</p>
+  <p class="meta"><b>作者</b>：Hyungjun Lim、Younggwan Kim 等（LG AI Research，首尔；含 Honglak Lee）· arXiv 2303.07592（2023-03）</p>
+  <p class="meta"><b>数据</b>：Hey Snips（约 11k 正样本 / 96h 负样本 / 约 1800 说话人）· <b>工作点</b>：0.2 次误报/小时 下的 FRR</p>
+  <div class="chips">
+    <span class="chip">SSL 表征 → 端侧常驻 WWD（首次）</span><span class="chip">自编码器降维蒸馏桥</span><span class="chip">砍 Transformer 只留 CNN 编码器</span>
+    <span class="chip">64k 参数平均 RI 超 20%</span><span class="chip">FeaK+ResK 并用 RI 50.1%</span><span class="chip">头无关：五种架构即插即用</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>要填的缝</b>：表征质量最好的 wav2vec 2.0（94M）端侧用不起，端侧用得起的 40 维 Fbank 表征有天花板——直接微调 wav2vec 2.0 的 C 表征 FRR 低至 1.29%，但 94M 在低资源场景「完全不现实」。另一层死结：<b>WWD 数据有目的导向性</b>（为特定唤醒词专门采集、天然稀缺），「先训大教师再蒸小学生」的标准蒸馏路线在域内根本撑不起教师——本文教师来自 SSL 无监督预训练，<b>不需要任何 WWD 标注</b>，从根上绕开。</li>
+      <li><b>两个裁剪决策</b>：① <b>砍栈</b>——transformer 承担绝大部分计算、且其语言学上下文对只需端点判别的 WWD 是冗余；表 2 回收验证：潜表征 Z（4.2M）FRR 2.17%，用 1/22 参数拿到与 C（94M，1.29%）同量级收益。② <b>通道打折</b>——参数量 P ∝ K×L×C²（通道平方级主导），引 MobileNets 宽度乘子 α 把 512 压到 α×512；7 层 / 步长 / 核宽全照抄教师编码器——帧数 T 相同，逐帧回归才有良定义对齐。</li>
+      <li><b>最核心的一步棋：自编码器降维桥</b>。宽度乘子让学生通道 C_S &lt; 教师通道 C_T，逐帧 MSE 蒸馏损失（‖Z_T−Z_S‖²）在形状不同的张量间<b>根本无法计算</b>。解法：冻结教师上架一个自编码器，把 Z_T 压到同维的 Z_R（重建损失保证信息不丢），学生向 Z_R 回归，两个损失联合优化。数学意义：在教师表征空间找 <b>C_S 维信息充分子空间</b>——比硬截断（无信息保证）、PCA（只保线性子空间）更强，且压缩目标朝学生易学方向自适应。推理时桥全部丢弃，<b>端侧零额外开销</b>。</li>
+      <li><b>主结果（表 1）</b>：同一架构换前端，11 组对照全部涨点——RI 从 15.7% 到 63.7%，多数超 20%：DilatedConv4 6.44→4.39（RI 31.8%）、TC-ResNet8 5.80→3.90（32.8%）、MatchboxNet-6x2x64 4.19→3.10（26.0%）。更狠的对照：<b>DilatedConv4+LiteFEW（118k）4.39% 优于规模翻四倍的 DilatedConv24（241k）5.39%</b>——参数花在特征前端比花在分类头更划算，手工特征管线下堆深堆宽已到边际收益递减区（规模翻倍至多 12.4% 相对改善）。</li>
+      <li><b>缩放曲线（表 2）</b>：17k（α=1/16）4.95%（+8.2%）→ 64k（α=1/8）3.78%（+29.9%）→ 264k（α=1/4）2.86%（+46.9%）→ 教师 Z 4.2M 2.17% → 教师 C 94M 1.29%。即使在 wav2vec 2.0 的约 0.01%（17k）仍有正收益——可压缩空间远未耗尽；LARGE 与教师 Z 只差 0.69 点（参数少 16 倍）。</li>
+      <li><b>蒸什么的消融（表 3）</b>：不蒸馏从头训 8.49%（<b>比 Fbank 还差 57.5%</b>，波形前端在小数据上学不动——蒸不蒸是生死线）；仅响应级 ResK 4.90%；仅特征级 FeaK（主线）3.78%；<b>并用 2.69%（RI 50.1%，超单独收益之和 2.10 → 有协同</b>）。特征级优于响应级的原因：监督直接落在编码器输出；ResK 要穿过整个 WWD 头，且回传时前端是冻结的。</li>
+      <li><b>训练协议的解耦逻辑</b>：两阶段各有冻结对象——蒸馏步冻教师（稳定目标防漂移），微调步冻 LiteFEW（11k 正样本的小数据不足以全参微调，否则等于用小数据覆盖大数据先验）。下游用 focal loss 对症帧级严重正负不平衡（端点前后 n=41 帧标 1），因果窗口 150 帧面向流式。蒸馏只需 5 epoch——表征回归收敛远快于任务训练。</li>
+      <li><b>边界</b>：只报参数量不报 FLOPS/延迟/内存（波形前端第一层步长仅 5、核宽 10，乘加未必与参数同比例缩水）；单工作点 0.2 FA/h 无 DET 曲线；单数据集单唤醒词；无噪声/远场/口音实验（部署域与预训练分布的落差未知）；DS-ResNet 两行基线异常弱（14%+）抬高平均 RI；λ=0.5、n=41、focal γ 等超参单点无敏感性分析；未与 DistilHuBERT/FitHuBERT 等同类 SSL 压缩对比。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">三条堵死的老路，逼出一条新的</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>① 堆小架构已到边际收益递减区</b>：DilatedConv / TC-ResNet / DS-ResNet / TENet / MatchboxNet 一路把模型做小，但「与大模型的差距难以避免，且模型越小越严重」。自证：DilatedConv4（53k）6.44% → 规模翻倍 DilatedConv12（128k）5.64%，相对改善至多 12.4%；翻四倍 DilatedConv24（241k）5.39% 仍差于 DilatedConv4+LiteFEW（118k）4.39%。瓶颈不在分类头，在特征前端。<b>② 标准蒸馏缺教师</b>：WWD 数据目的导向、天然稀缺，撑不起大教师训练。<b>③ 直接搬 SSL 不可行</b>：94M 端侧用不起；已有 SSL 压缩工作（Shrinking Bigfoot / DistilHuBERT / FitHuBERT）压的都是含 transformer 栈的完整模型、面向通用场景，没人为端侧常驻 WWD 的算力预算做任务适配裁剪。还有一颗藏在实验里的雷：波形输入的小模型在小数据上<b>学不动</b>（从头训 8.49%，比 Fbank 还差）——知识注入是生死线。
+  </div>
+
+  <div class="formula">
+    工作点固定：FRR @ 0.2 false alarms/hour（全部实验统一）
+    <div class="why">产品逻辑：误唤醒反复打扰用户，代价远高于偶尔漏听——先钉死误报预算再比漏拒，单独报 FRR 可以靠放宽误报把数字做好看。0.2 次/小时是贴近实用的严格档位。</div>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">先问任务用得上模型的哪部分，再决定压哪部分</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 950">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker>
+<marker id="aro" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#d97a2b"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="950.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="18" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段三方训练协议 + 砍栈裁剪（图 1 复绘）</text>
+<line x1="36.0" y1="60.0" x2="340.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="26.0" y="84.0" width="424.0" height="520.0" rx="12" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="46.0" y="112.0" font-size="14.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">阶段一 · 蒸馏步（教师冻结 ❄）</text>
+<rect x="46.0" y="130.0" width="384.0" height="118.0" rx="10" fill="#eef1f5" stroke="#d9dee6" stroke-width="1"/>
+<text x="66.0" y="154.0" font-size="13" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">wav2vec 2.0 教师（94M，全程冻结）</text>
+<text x="66.0" y="178.0" font-size="12" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">原始波形 X → [CNN 特征编码器] → Z_T</text>
+<text x="66.0" y="198.0" font-size="12" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">[Transformer 栈]（C_T，被砍——见下方论证）</text>
+<rect x="66.0" y="206.0" width="130.0" height="26.0" rx="6" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="131.0" y="223.0" font-size="11.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">砍栈 ✂</text>
+<text x="240.0" y="223.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">WWD 只需端点判别，不需要语言学上下文</text>
+<rect x="46.0" y="272.0" width="384.0" height="108.0" rx="10" fill="#fdf1e4" stroke="#f0dfc9" stroke-width="1"/>
+<text x="66.0" y="296.0" font-size="13" fill="#d97a2b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">自编码器桥（训练侧专属，推理时丢弃）</text>
+<text x="66.0" y="320.0" font-size="12" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">编码器：Z_T (C_T×T) → Z_R (C_S×T)   解码器：Z_R → Ẑ_T</text>
+<text x="66.0" y="344.0" font-size="12" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">重建损失 L_Recon = ‖Z_T − Ẑ_T‖² 保证压缩不丢信息</text>
+<text x="66.0" y="366.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 在教师表征空间找 C_S 维「信息充分子空间」，非线性 + 与学生联合进化</text>
+<rect x="46.0" y="404.0" width="384.0" height="96.0" rx="10" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="66.0" y="428.0" font-size="13" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">学生 LiteFEW（64k，可训练 🔥）</text>
+<text x="66.0" y="452.0" font-size="12" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">原始波形 → 7 层卷积，通道 α×512（α=1/8）</text>
+<text x="66.0" y="474.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">结构照抄教师 CNN 编码器（层数/步长/核宽不变 → 帧数 T 相同，</text>
+<text x="66.0" y="491.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">逐帧回归才有良定义对齐），只在通道维打折</text>
+<line x1="238.0" y1="248.0" x2="238.0" y2="270.0" stroke="#8a93a5" stroke-width="1.8" marker-end="url(#ar)"/>
+<text x="250.0" y="262.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Z_T</text>
+<line x1="238.0" y1="380.0" x2="238.0" y2="402.0" stroke="#d97a2b" stroke-width="2" marker-end="url(#aro)"/>
+<text x="250.0" y="394.0" font-size="11" fill="#d97a2b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Z_R（同维蒸馏目标）</text>
+<rect x="46.0" y="522.0" width="384.0" height="66.0" rx="10" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="238.0" y="545.0" font-size="12.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">联合多任务优化（式 5）</text>
+<text x="238.0" y="566.0" font-size="13" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">L = λ·L_Recon + (1−λ)·L_Distill，λ=0.5</text>
+<text x="238.0" y="584.0" font-size="11.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">L_Distill = ‖Z_R − Z_S‖²（式 4，同维可解）</text>
+<rect x="470.0" y="84.0" width="424.0" height="300.0" rx="12" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="490.0" y="112.0" font-size="14.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">阶段二 · 微调步（LiteFEW 冻结 ❄）</text>
+<rect x="490.0" y="130.0" width="384.0" height="74.0" rx="10" fill="#eef1f5" stroke="#d9dee6" stroke-width="1"/>
+<text x="510.0" y="154.0" font-size="13" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LiteFEW（冻结 ❄——保住蒸来的通用表征）</text>
+<text x="510.0" y="178.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">小数据（11k 正样本）不足以全参微调，</text>
+<text x="510.0" y="195.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">否则等于用小数据覆盖大数据先验</text>
+<line x1="682.0" y1="204.0" x2="682.0" y2="226.0" stroke="#8a93a5" stroke-width="1.8" marker-end="url(#ar)"/>
+<rect x="490.0" y="230.0" width="384.0" height="74.0" rx="10" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="510.0" y="254.0" font-size="13" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">WWD 模型（可训练 🔥，五种架构即插即用）</text>
+<text x="510.0" y="278.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">端点前后 n=41 帧标 1，其余标 0（能量 VAD 定端点）</text>
+<text x="510.0" y="296.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">因果窗口 150 帧（只看当前帧之前 → 流式低延迟）</text>
+<rect x="490.0" y="318.0" width="384.0" height="50.0" rx="10" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="338.0" font-size="12.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">focal loss（式 6）：−(1−p_t)^γ·log p_t</text>
+<text x="682.0" y="357.0" font-size="11.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级严重正负不平衡的对症选择（γ 未报告）</text>
+<rect x="470.0" y="404.0" width="424.0" height="200.0" rx="12" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="490.0" y="432.0" font-size="14.5" fill="#d97a2b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">推理时（端侧）</text>
+<rect x="490.0" y="448.0" width="250.0" height="56.0" rx="10" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="615.0" y="472.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LiteFEW (64k)</text>
+<text x="615.0" y="492.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">原始波形 → 表征</text>
+<line x1="740.0" y1="476.0" x2="778.0" y2="476.0" stroke="#8a93a5" stroke-width="1.6" marker-end="url(#ar)"/>
+<rect x="782.0" y="448.0" width="96.0" height="56.0" rx="10" fill="#eef1f5" stroke="#d9dee6" stroke-width="1"/>
+<text x="830.0" y="472.0" font-size="13" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">WWD 头</text>
+<text x="830.0" y="492.0" font-size="11.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">二分类</text>
+<text x="490.0" y="532.0" font-size="12.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">教师 94M + 自编码器 → 全部丢弃</text>
+<text x="490.0" y="554.0" font-size="12" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">复杂度只留训练侧，端侧零额外开销</text>
+<text x="490.0" y="578.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系统总参数 = WWD 头 + 64k（表 1 的 #P 是总量）</text>
+<text x="490.0" y="596.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「64k」指编码器本体，非系统总量</text>
+<rect x="26.0" y="624.0" width="424.0" height="116.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="46.0" y="648.0" font-size="13" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">解的第一颗钉子：跨维蒸馏的形状不匹配</text>
+<text x="46.0" y="672.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">朴素蒸馏 L=‖Z_T−Z_S‖²（式 2）：Z_T 是 C_T×T，Z_S 是 C_S×T</text>
+<text x="46.0" y="690.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">宽度乘子 α<1 → C_S < C_T → 形状不同 → 式 2 不可计算</text>
+<text x="46.0" y="712.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">解法：对齐负担转移给训练侧桥梁（AE），不牺牲压缩比</text>
+<text x="46.0" y="731.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">硬截断通道无信息保持保证；PCA 只保线性子空间；AE 非线性且自适应</text>
+<rect x="470.0" y="624.0" width="424.0" height="116.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="490.0" y="648.0" font-size="13" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">砍栈假设的数据回收（表 2）</text>
+<text x="490.0" y="672.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">上下文表征 C：94M 参数 → FRR 1.29%（全文最好，wav2kws 已证）</text>
+<text x="490.0" y="690.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">潜表征 Z：4.2M 参数 → FRR 2.17%——1/22 参数拿到同量级收益</text>
+<text x="490.0" y="712.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">LiteFEW-LARGE 264k → 2.86%，与教师 Z 只差 0.69 点</text>
+<text x="490.0" y="731.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「先任务适配假设、再实验回收验证」的设计节奏</text>
+<rect x="26.0" y="764.0" width="868.0" height="74.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="46.0" y="790.0" font-size="13.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量缩放（式 1）：P ∝ K × L × C² —— 通道 C 平方级主导</text>
+<text x="46.0" y="812.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">一层卷积参数 ≈ 核宽×输入通道×输出通道，输入输出都在 C 附近 → 引 MobileNets 宽度乘子 α，</text>
+<text x="46.0" y="829.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">512 → α×512。步长 [5,2,2,2,2,2,2]、核宽 [10,3,3,3,3,2,2]、7 层——全部照抄教师编码器</text>
+<rect x="26.0" y="856.0" width="868.0" height="72.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="46.0" y="882.0" font-size="13" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么「不蒸不行」：表 3 的反面证据</text>
+<text x="46.0" y="904.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">LiteFEW 结构不蒸馏、从头训练 → FRR 8.49%，比 Fbank 基线 5.39% 还差 57.5%（相对改善为负）。可学习波形前端</text>
+<text x="46.0" y="921.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">在小数据上学不动 → 知识注入在这条路线上是生死线，不是锦上添花。教师来自 SSL 无监督预训练，不需要任何 WWD 标注</text>
+</svg>
+    <p class="cap"><b>图 1 复绘</b>：两阶段三方协议——阶段一蒸馏步（冻结 wav2vec 2.0 教师 → 自编码器桥把 Z_T 压到同维 Z_R → 学生 LiteFEW 向 Z_R 回归，重建+蒸馏联合优化）；阶段二微调步（冻结 LiteFEW、只训 WWD 头 + focal loss）；推理时教师与桥全部丢弃、端侧只剩 64k 编码器 + WWD 头。下方：跨维形状不匹配的钉子与解法、砍栈假设的数据回收、参数缩放公式、从头训的反面证据。</p>
+  </div>
+
+  <div class="formula">
+    L = λ·L<sub>Recon</sub> + (1−λ)·L<sub>Distill</sub>（式 5，λ=0.5）&nbsp;·&nbsp; L<sub>Recon</sub> = ‖Z_T − Ẑ_T‖²（式 3）&nbsp;·&nbsp; L<sub>Distill</sub> = ‖Z_R − Z_S‖²（式 4）
+    <div class="why">两阶段三方协议的全部数学：自编码器把不可解的跨维回归分解成「压缩（重建损失保证信息不丢）+ 匹配（同维回归）」两个可解子问题。两个目标高度相关 → 放进多任务框架联合优化——压缩器与学生共同进化，避免「重建最优但学生学不动」的退化压缩。蒸馏步 5 epoch、Adam、lr 0.001 指数衰减 0.95；微调步 50 epoch、SGDR（T0=2, Tmult=2）。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与消融</p>
+  <h2 class="sec">收益来自前端，且与头无关</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 560">
+<rect x="0.0" y="0.0" width="880.0" height="560.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">同一架构换前端：Fbank → LiteFEW 的 FRR 变化（Table 1 · 0.2 FA/h）</text>
+<line x1="36.0" y1="56.0" x2="520.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="640.0" y="30.0" width="12.0" height="12.0" rx="3" fill="#8a93a5"/>
+<text x="658.0" y="41.0" font-size="12" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Fbank 基线</text>
+<rect x="640.0" y="50.0" width="12.0" height="12.0" rx="3" fill="#0e8a66"/>
+<text x="658.0" y="61.0" font-size="12" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">+LiteFEW (64k)</text>
+<line x1="210.0" y1="82.0" x2="210.0" y2="504.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="226.9" y1="82.0" x2="226.9" y2="504.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="226.9" y="520.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3%</text>
+<line x1="328.5" y1="82.0" x2="328.5" y2="504.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="328.5" y="520.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">6%</text>
+<line x1="430.0" y1="82.0" x2="430.0" y2="504.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="430.0" y="520.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">9%</text>
+<line x1="531.5" y1="82.0" x2="531.5" y2="504.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="531.5" y="520.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">12%</text>
+<line x1="633.1" y1="82.0" x2="633.1" y2="504.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="633.1" y="520.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">15%</text>
+<text x="198.0" y="102.0" font-size="12.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">DilatedConv4</text>
+<line x1="343.4" y1="98.0" x2="274.0" y2="98.0" stroke="#cfe9de" stroke-width="7"/>
+<circle cx="343.4" cy="98.0" r="6" fill="#8a93a5"/>
+<circle cx="274.0" cy="98.0" r="6" fill="#0e8a66"/>
+<text x="333.4" y="90.0" font-size="10.5" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">6.44</text>
+<text x="284.0" y="90.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4.39</text>
+<rect x="672.0" y="87.0" width="92.0" height="22.0" rx="11" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="718.0" y="102.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RI +32%</text>
+<text x="778.0" y="102.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">53k→118k</text>
+<text x="198.0" y="140.0" font-size="12.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">DilatedConv12</text>
+<line x1="316.3" y1="136.0" x2="261.8" y2="136.0" stroke="#cfe9de" stroke-width="7"/>
+<circle cx="316.3" cy="136.0" r="6" fill="#8a93a5"/>
+<circle cx="261.8" cy="136.0" r="6" fill="#0e8a66"/>
+<text x="306.3" y="128.0" font-size="10.5" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">5.64</text>
+<text x="271.8" y="128.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4.03</text>
+<rect x="672.0" y="125.0" width="92.0" height="22.0" rx="11" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="718.0" y="140.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RI +28%</text>
+<text x="778.0" y="140.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">128k→193k</text>
+<text x="198.0" y="178.0" font-size="12.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">DilatedConv24</text>
+<line x1="307.8" y1="174.0" x2="253.3" y2="174.0" stroke="#cfe9de" stroke-width="7"/>
+<circle cx="307.8" cy="174.0" r="6" fill="#8a93a5"/>
+<circle cx="253.3" cy="174.0" r="6" fill="#0e8a66"/>
+<text x="297.8" y="166.0" font-size="10.5" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">5.39</text>
+<text x="263.3" y="166.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.78</text>
+<rect x="672.0" y="163.0" width="92.0" height="22.0" rx="11" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="718.0" y="178.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RI +30%</text>
+<text x="778.0" y="178.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">241k→306k</text>
+<text x="198.0" y="216.0" font-size="12.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">TC-ResNet8-1.0</text>
+<line x1="321.7" y1="212.0" x2="257.4" y2="212.0" stroke="#cfe9de" stroke-width="7"/>
+<circle cx="321.7" cy="212.0" r="6" fill="#8a93a5"/>
+<circle cx="257.4" cy="212.0" r="6" fill="#0e8a66"/>
+<text x="311.7" y="204.0" font-size="10.5" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">5.80</text>
+<text x="267.4" y="204.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.90</text>
+<rect x="672.0" y="201.0" width="92.0" height="22.0" rx="11" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="718.0" y="216.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RI +33%</text>
+<text x="778.0" y="216.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">65k→130k</text>
+<text x="198.0" y="254.0" font-size="12.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">TC-ResNet14-1.5</text>
+<line x1="276.7" y1="250.0" x2="245.2" y2="250.0" stroke="#cfe9de" stroke-width="7"/>
+<circle cx="276.7" cy="250.0" r="6" fill="#8a93a5"/>
+<circle cx="245.2" cy="250.0" r="6" fill="#0e8a66"/>
+<text x="266.7" y="242.0" font-size="10.5" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">4.47</text>
+<text x="255.2" y="242.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.54</text>
+<rect x="672.0" y="239.0" width="92.0" height="22.0" rx="11" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="718.0" y="254.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RI +21%</text>
+<text x="778.0" y="254.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">302k→366k</text>
+<text x="198.0" y="292.0" font-size="12.5" fill="#c0392b" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-ResNet10</text>
+<line x1="605.0" y1="288.0" x2="324.4" y2="288.0" stroke="#f0c9c2" stroke-width="7"/>
+<circle cx="605.0" cy="288.0" r="6" fill="#8a93a5"/>
+<circle cx="324.4" cy="288.0" r="6" fill="#0e8a66"/>
+<text x="595.0" y="280.0" font-size="10.5" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">14.17</text>
+<text x="334.4" y="280.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5.88</text>
+<rect x="672.0" y="277.0" width="92.0" height="22.0" rx="11" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="718.0" y="292.0" font-size="12" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RI +58%</text>
+<text x="778.0" y="292.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">10k→74k</text>
+<text x="198.0" y="330.0" font-size="12.5" fill="#c0392b" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-ResNet14</text>
+<line x1="594.2" y1="326.0" x2="295.6" y2="326.0" stroke="#f0c9c2" stroke-width="7"/>
+<circle cx="594.2" cy="326.0" r="6" fill="#8a93a5"/>
+<circle cx="295.6" cy="326.0" r="6" fill="#0e8a66"/>
+<text x="584.2" y="318.0" font-size="10.5" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">13.85</text>
+<text x="305.6" y="318.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5.03</text>
+<rect x="672.0" y="315.0" width="92.0" height="22.0" rx="11" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="718.0" y="330.0" font-size="12" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RI +64%</text>
+<text x="778.0" y="330.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">15k→79k</text>
+<text x="198.0" y="368.0" font-size="12.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">TENet6</text>
+<line x1="346.1" y1="364.0" x2="288.9" y2="364.0" stroke="#cfe9de" stroke-width="7"/>
+<circle cx="346.1" cy="364.0" r="6" fill="#8a93a5"/>
+<circle cx="288.9" cy="364.0" r="6" fill="#0e8a66"/>
+<text x="336.1" y="356.0" font-size="10.5" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">6.52</text>
+<text x="298.9" y="356.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4.83</text>
+<rect x="672.0" y="353.0" width="92.0" height="22.0" rx="11" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="718.0" y="368.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RI +26%</text>
+<text x="778.0" y="368.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">54k→120k</text>
+<text x="198.0" y="406.0" font-size="12.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">TENet12</text>
+<line x1="316.3" y1="402.0" x2="274.0" y2="402.0" stroke="#cfe9de" stroke-width="7"/>
+<circle cx="316.3" cy="402.0" r="6" fill="#8a93a5"/>
+<circle cx="274.0" cy="402.0" r="6" fill="#0e8a66"/>
+<text x="306.3" y="394.0" font-size="10.5" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">5.64</text>
+<text x="284.0" y="394.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4.39</text>
+<rect x="672.0" y="391.0" width="92.0" height="22.0" rx="11" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="718.0" y="406.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RI +22%</text>
+<text x="778.0" y="406.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">100k→166k</text>
+<text x="198.0" y="444.0" font-size="12.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">MatchboxNet-3x2x64</text>
+<line x1="265.8" y1="440.0" x2="243.8" y2="440.0" stroke="#cfe9de" stroke-width="7"/>
+<circle cx="265.8" cy="440.0" r="6" fill="#8a93a5"/>
+<circle cx="243.8" cy="440.0" r="6" fill="#0e8a66"/>
+<text x="255.8" y="432.0" font-size="10.5" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">4.15</text>
+<text x="253.8" y="432.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.50</text>
+<rect x="672.0" y="429.0" width="92.0" height="22.0" rx="11" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="718.0" y="444.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RI +16%</text>
+<text x="778.0" y="444.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">86k→153k</text>
+<text x="198.0" y="482.0" font-size="12.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">MatchboxNet-6x2x64</text>
+<line x1="267.2" y1="478.0" x2="230.3" y2="478.0" stroke="#cfe9de" stroke-width="7"/>
+<circle cx="267.2" cy="478.0" r="6" fill="#8a93a5"/>
+<circle cx="230.3" cy="478.0" r="6" fill="#0e8a66"/>
+<text x="257.2" y="470.0" font-size="10.5" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">4.19</text>
+<text x="240.3" y="470.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.10</text>
+<rect x="672.0" y="467.0" width="92.0" height="22.0" rx="11" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="718.0" y="482.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RI +26%</text>
+<text x="778.0" y="482.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">130k→197k</text>
+<text x="36.0" y="546.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">RI = 相对改善 (FRR_Fbank − FRR_LiteFEW)/FRR_Fbank。五种架构全部显著提升，多数超 20% —— 收益来自特征前端，不是某种头的特例。</text>
+<text x="36.0" y="566.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">† DS-ResNet 两行：Fbank 基线异常弱（14%+，远劣于其他架构），其最高 RI 参考意义有限、且抬高了「平均 RI 超 20%」——论文未解释基线为何孱弱。</text>
+<text x="36.0" y="586.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">与堆规模对比：DilatedConv4+LiteFEW（118k）4.39% < DilatedConv24（241k）5.39% —— 参数花在前端比花在分类头更划算；规模翻倍至多 12.4% 相对改善。</text>
+</svg>
+    <p class="cap"><b>Table 1 复绘</b>：主对比（哑铃图，0.2 FA/h 工作点 FRR）。同一架构换前端 Fbank → LiteFEW，11 组对照全部涨点、RI 15.7%–63.7%。带 † 的 DS-ResNet 两行基线异常弱（14%+），其最高 RI 参考意义有限。最强对照：DilatedConv4+LiteFEW（118k）4.39% 优于翻四倍规模的 DilatedConv24（241k）5.39%——瓶颈在特征前端不在分类头。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">压缩比 vs FRR 完整曲线（Table 2 · WWD 头固定 DilatedConv24）</text>
+<line x1="36.0" y1="56.0" x2="440.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="96.0" y1="92.0" x2="96.0" y2="342.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="96.0" y1="342.0" x2="796.0" y2="342.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="92.0" y1="332.0" x2="796.0" y2="332.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="86.0" y="336.0" font-size="11.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">1%</text>
+<line x1="92.0" y1="282.0" x2="796.0" y2="282.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="86.0" y="286.0" font-size="11.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">2%</text>
+<line x1="92.0" y1="232.0" x2="796.0" y2="232.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="86.0" y="236.0" font-size="11.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">3%</text>
+<line x1="92.0" y1="182.0" x2="796.0" y2="182.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="86.0" y="186.0" font-size="11.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">4%</text>
+<line x1="92.0" y1="132.0" x2="796.0" y2="132.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="86.0" y="136.0" font-size="11.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">5%</text>
+<line x1="96.0" y1="342.0" x2="96.0" y2="347.0" stroke="#c9c9c0" stroke-width="1"/>
+<text x="96.0" y="362.0" font-size="11.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10k</text>
+<line x1="271.0" y1="342.0" x2="271.0" y2="347.0" stroke="#c9c9c0" stroke-width="1"/>
+<text x="271.0" y="362.0" font-size="11.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">100k</text>
+<line x1="446.0" y1="342.0" x2="446.0" y2="347.0" stroke="#c9c9c0" stroke-width="1"/>
+<text x="446.0" y="362.0" font-size="11.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1M</text>
+<line x1="796.0" y1="342.0" x2="796.0" y2="347.0" stroke="#c9c9c0" stroke-width="1"/>
+<text x="796.0" y="362.0" font-size="11.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">100M</text>
+<text x="446.0" y="386.0" font-size="12" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量（log 刻度）</text>
+<line x1="136.3" y1="134.5" x2="237.1" y2="193.0" stroke="#0e8a66" stroke-width="2.2"/>
+<line x1="237.1" y1="193.0" x2="344.8" y2="239.0" stroke="#0e8a66" stroke-width="2.2"/>
+<line x1="344.8" y1="239.0" x2="555.1" y2="273.5" stroke="#0e8a66" stroke-width="2.2"/>
+<line x1="203.2" y1="112.5" x2="136.3" y2="134.5" stroke="#c9c9c0" stroke-width="1.4" stroke-dasharray="4 3"/>
+<line x1="555.1" y1="273.5" x2="791.3" y2="317.5" stroke="#33507a" stroke-width="1.8" stroke-dasharray="5 4"/>
+<line x1="196.2" y1="105.5" x2="210.2" y2="119.5" stroke="#8a93a5" stroke-width="3"/>
+<line x1="196.2" y1="119.5" x2="210.2" y2="105.5" stroke="#8a93a5" stroke-width="3"/>
+<text x="217.2" y="122.5" font-size="11.5" fill="#8a93a5" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Fbank 基线</text>
+<text x="217.2" y="136.5" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FRR 5.39</text>
+<circle cx="136.3" cy="134.5" r="7" fill="#9fc8b8" stroke="#ffffff" stroke-width="2"/>
+<text x="136.3" y="100.5" font-size="11.5" fill="#9fc8b8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SMALL</text>
+<text x="136.3" y="114.5" font-size="11.5" fill="#9fc8b8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">17k · α=1/16</text>
+<text x="136.3" y="128.5" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FRR 4.95</text>
+<circle cx="237.1" cy="193.0" r="9" fill="#0e8a66" stroke="#ffffff" stroke-width="2"/>
+<circle cx="237.1" cy="193.0" r="3.5" fill="#ffffff"/>
+<text x="237.1" y="223.0" font-size="11.5" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LiteFEW</text>
+<text x="237.1" y="237.0" font-size="11.5" fill="#0e8a66" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">64k · α=1/8</text>
+<text x="237.1" y="251.0" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FRR 3.78</text>
+<circle cx="344.8" cy="239.0" r="7" fill="#0b6e52" stroke="#ffffff" stroke-width="2"/>
+<text x="344.8" y="205.0" font-size="11.5" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LARGE</text>
+<text x="344.8" y="219.0" font-size="11.5" fill="#0b6e52" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">264k · α=1/4</text>
+<text x="344.8" y="233.0" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FRR 2.86</text>
+<circle cx="555.1" cy="273.5" r="7" fill="#33507a" stroke="#ffffff" stroke-width="2"/>
+<text x="555.1" y="239.5" font-size="11.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">教师 Z</text>
+<text x="555.1" y="253.5" font-size="11.5" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4.2M</text>
+<text x="555.1" y="267.5" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FRR 2.17</text>
+<line x1="784.3" y1="310.5" x2="798.3" y2="324.5" stroke="#1c2430" stroke-width="3"/>
+<line x1="784.3" y1="324.5" x2="798.3" y2="310.5" stroke="#1c2430" stroke-width="3"/>
+<text x="791.3" y="347.5" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">教师 C</text>
+<text x="791.3" y="361.5" font-size="11.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">94M</text>
+<text x="791.3" y="375.5" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FRR 1.29</text>
+<text x="96.0" y="400.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">三个读数：① 17k（wav2vec 2.0 的 ~0.01%）仍有 +8.2% 正收益，可压缩空间未耗尽；② LARGE 264k 与教师 Z 只差 0.69 点，参数少 16 倍；</text>
+<text x="96.0" y="418.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">③ C 最强（1.29%）但 94M 端侧不可用——上下文表征确有额外价值，只是代价不成比例。距 Fbank 5.39%：64k 档 RI 29.9%、LARGE 档 46.9%。</text>
+</svg>
+    <p class="cap"><b>Table 2 复绘</b>：压缩比 vs FRR 完整曲线（log 参数轴）。蒸馏家族（绿实线）17k→64k→264k→教师 Z 规模收益递增；虚线为 Fbank 基线与教师内部 Z→C 对照。三个读数：17k 仍 +8.2% 正收益；LARGE 与教师 Z 只差 0.69 点（参数少 16 倍）；C 最强但 94M 端侧不可用——本文存在的理由。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 420">
+<rect x="0.0" y="0.0" width="880.0" height="420.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">蒸什么：蒸馏知识类型消融（Table 3 · 图 2）</text>
+<line x1="36.0" y1="56.0" x2="250.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="90.0" y1="88.0" x2="90.0" y2="342.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="90.0" y1="342.0" x2="570.0" y2="342.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="90.0" y1="88.0" x2="90.0" y2="342.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="90.0" y="360.0" font-size="11.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0%</text>
+<line x1="191.1" y1="88.0" x2="191.1" y2="342.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="191.1" y="360.0" font-size="11.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2%</text>
+<line x1="292.1" y1="88.0" x2="292.1" y2="342.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="292.1" y="360.0" font-size="11.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4%</text>
+<line x1="393.2" y1="88.0" x2="393.2" y2="342.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="393.2" y="360.0" font-size="11.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">6%</text>
+<line x1="494.2" y1="88.0" x2="494.2" y2="342.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="494.2" y="360.0" font-size="11.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">8%</text>
+<line x1="90.0" y1="200.2" x2="570.0" y2="200.2" stroke="#8a93a5" stroke-width="1.6" stroke-dasharray="6 4"/>
+<text x="566.0" y="193.2" font-size="11.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">Fbank 基线 5.39%</text>
+<rect x="113.0" y="118.6" width="74.0" height="223.4" rx="5" fill="#c0392b"/>
+<text x="150.0" y="110.6" font-size="13" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">8.49%</text>
+<text x="150.0" y="380.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">不蒸馏（从头训）</text>
+<rect x="108.0" y="390.0" width="84.0" height="22.0" rx="11" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="150.0" y="405.0" font-size="12" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RI -57.5%</text>
+<rect x="233.0" y="213.1" width="74.0" height="128.9" rx="5" fill="#c9d8e8"/>
+<text x="270.0" y="205.1" font-size="13" fill="#c9d8e8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4.90%</text>
+<text x="270.0" y="380.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">仅响应级 ResK</text>
+<rect x="228.0" y="390.0" width="84.0" height="22.0" rx="11" fill="#0a6b4e" stroke="#cfe9de" stroke-width="1"/>
+<text x="270.0" y="405.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RI +9.1%</text>
+<rect x="353.0" y="242.5" width="74.0" height="99.5" rx="5" fill="#0e8a66"/>
+<text x="390.0" y="234.5" font-size="13" fill="#0e8a66" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.78%</text>
+<text x="390.0" y="380.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">仅特征级 FeaK（主线）</text>
+<rect x="348.0" y="390.0" width="84.0" height="22.0" rx="11" fill="#0a6b4e" stroke="#cfe9de" stroke-width="1"/>
+<text x="390.0" y="405.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RI +29.9%</text>
+<rect x="473.0" y="271.2" width="74.0" height="70.8" rx="5" fill="#0b6e52"/>
+<text x="510.0" y="263.2" font-size="13" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2.69%</text>
+<text x="510.0" y="380.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FeaK + ResK 并用</text>
+<rect x="468.0" y="390.0" width="84.0" height="22.0" rx="11" fill="#0a6b4e" stroke="#cfe9de" stroke-width="1"/>
+<text x="510.0" y="405.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RI +50.1%</text>
+<rect x="620.0" y="92.0" width="236.0" height="250.0" rx="10" fill="#fafaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="738.0" y="118.0" font-size="13.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">协同效应验证</text>
+<rect x="720.0" y="144.0" width="27.2" height="24.0" rx="4" fill="#c9d8e8"/>
+<text x="714.0" y="161.0" font-size="11" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">ResK 单独</text>
+<text x="751.2" y="161.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.49</text>
+<rect x="720.0" y="190.0" width="89.4" height="24.0" rx="4" fill="#c9d8e8"/>
+<text x="714.0" y="207.0" font-size="11" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">FeaK 单独</text>
+<text x="813.4" y="207.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">1.61</text>
+<rect x="720.0" y="236.0" width="116.7" height="24.0" rx="4" fill="#b9c4b0"/>
+<text x="714.0" y="253.0" font-size="11" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">合计（若可加）</text>
+<text x="840.7" y="253.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">2.10</text>
+<rect x="720.0" y="282.0" width="150.0" height="24.0" rx="4" fill="#0b6e52"/>
+<text x="714.0" y="299.0" font-size="11" fill="#47536a" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">实际并用</text>
+<text x="874.0" y="299.0" font-size="11.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2.70</text>
+<text x="738.0" y="332.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">并用收益 2.70 > 单独之和 2.10</text>
+<text x="90.0" y="402.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读法：不蒸馏 8.49% 比 Fbank 还差——蒸不蒸是生死线；特征级显著优于响应级（监督直接落在编码器输出，ResK 要穿过整个 WWD 头且回传时前端冻结）；并用有协同。</text>
+</svg>
+    <p class="cap"><b>Table 3 / 图 2 复绘</b>：蒸馏知识类型消融。不蒸馏从头训 8.49% 比 Fbank 基线（灰虚线 5.39%）还差——蒸不蒸是生死线；特征级 FeaK 3.78% 显著优于响应级 ResK 4.90%（监督直接落在编码器输出）；并用 2.69%。右板：并用收益 2.70 点 &gt; 单独之和 2.10 点——两种知识携带互补信息，有协同效应。</p>
+  </div>
+
+  <div class="card">
+    <b>参数口径提示</b>：表 1 中 LiteFEW 列的 #P 是<b>系统总量</b>（WWD 头 + 64k 编码器：53k+64k≈118k、241k+64k≈306k，各行均可对上）；摘要说的「64k」指编码器本体。另记录一处原文瑕疵：正文说 ResK 对应图 2 的 (b)(c)，而按图注 (b) 响应级、(c) 特征级、(d) 并用——ResK 应在 (b)(d)，疑为笔误。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">五条贡献</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>首次把 SSL 表征做成实时 WWD 可用形态</b>——把 wav2vec 2.0 的价值从服务端下游延伸到端侧常驻场景。</div>
+    <div class="c"><span class="n">2</span><b>自编码器降维 + 特征级蒸馏组合</b>——解跨维蒸馏形状不匹配：让「宽度乘子压缩」与「逐帧表征回归」两个互斥诉求同时成立，推理侧零开销。</div>
+    <div class="c"><span class="n">3</span><b>与 WWD 头完全解耦</b>——五种主流架构即插即用且全部显著受益（RI 15.7%–63.7%），证明收益来源是前端而非特定头。</div>
+    <div class="c"><span class="n">4</span><b>极限压缩定量验证</b>——64k（原模型 0.07%）平均 RI 超 20%；17k（约 0.01%）仍有 8.2% 正收益。</div>
+    <div class="c" style="grid-column:1/-1;background:#fdf1e4;border-color:#f0dfc9"><span class="n" style="background:#d97a2b">★</span><b>「蒸什么」的直接证据</b>——特征级显著优于响应级、并用有协同（50.1%），为后续小模型蒸馏提供知识类型选择的实证；教师来自 SSL 无监督预训练、零 WWD 标注，是教师来源上的本质差异。</div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">端侧可行性论证缺最后一块</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>参数量 ≠ 计算量</b>：只报 #P，无 FLOPS / 每帧延迟 / 实测内存。波形前端要在样本级卷积（第一层步长仅 5、核宽 10），64k 参数能否真常驻目标硬件缺算力背书。</li>
+        <li><b>单工作点</b>：只在 0.2 FA/h 一个点评估，无 DET/ROC 曲线——其他误报预算下相对关系是否保持未知。</li>
+        <li><b>强依赖教师 + 域落差空白</b>：前端价值几乎全部来自蒸来的知识，但噪声、远场、口音、语种切换下的迁移效果无任何实验——面向真实产品的关键空白。</li>
+        <li><b>与教师仍有差距</b>：LARGE 2.86% vs Z 2.17% vs C 1.29%；微调步冻结编码器换防过拟合，封死了任务侧进一步适配——明确权衡，非免费午餐。</li>
+        <li><b>超参单点</b>：λ=0.5、n=41、α 三档、focal γ 未报告取值；无敏感性分析。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>单数据集</b>：全部结论建立在 Hey Snips 一个数据集、单一唤醒词、约 1800 说话人上，无跨数据集/跨唤醒词泛化。</li>
+        <li><b>DS-ResNet 两行可疑</b>：Fbank 基线异常弱（14.17%/13.85%），贡献全文最高 RI（58.5%/63.7%），抬高了「平均超 20%」的整体表述——论文未解释基线孱弱原因（推测该架构面向短命令词场景、流式端点二分类水土不服，系笔记推断）。</li>
+        <li><b>缺关键对照</b>：未与 DistilHuBERT / FitHuBERT 横向比；未与「外部大数据 WWD 大教师」替代来源比；AE 降维 vs 线性投影/PCA 无对照——降维桥必要性只有间接证据。</li>
+        <li><b>无方差与显著性</b>：疑似单次运行；Fbank 基线是否同等力度调参未说明。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>自然的延伸方向</b>：把 FeaK+ResK 并用从消融升级为默认配方；微调阶段部分解冻或加适配器层（试探抹平与教师 Z 的 0.69 点）；换更新的 SSL 教师（HuBERT / WavLM）或先域适配再蒸馏（覆盖噪声远场）；叠加量化与剪枝推进到 MCU 级并补 FLOPS 与真机延迟；最有商业价值的落点——<b>自定义唤醒词</b>场景（数据更稀缺，SSL 教师的泛化性理论上最有利，也是「通用表征可迁移」命题的试金石）；补完整误报-漏拒权衡曲线与流式首帧响应延迟。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2023/Lightweight_Feature_Encoder_For_Wake-up_Word_Detection_Based_On_Self-supervised_Speech_Representation.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2023/Lightweight_Feature_Encoder_For_Wake-up_Word_Detection_Based_On_Self-supervised_Speech_Representation.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2303.07592" target="_blank">arXiv · 2303.07592</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（表 1–3、图 1–2、式 1–7）。错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
