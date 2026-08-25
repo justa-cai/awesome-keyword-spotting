@@ -1,0 +1,258 @@
+- generic [ref=f314e2]:
+  - generic [ref=f314e3]: 论文精读 · 可视化版 · 2021 №28 · 2021 收官
+  - heading "新唤醒词的数据不出设备， 还能跨设备认出彼此是同一个词——传印象不传数据" [level=1] [ref=f314e4]: 新唤醒词的数据不出设备，还能跨设备认出彼此是同一个词——传印象不传数据
+  - generic [ref=f314e5]:
+    - generic [ref=f314e6]: Zero-Shot Federated Learning · 爱立信
+    - generic [ref=f314e7]: Interspeech 2021 · arXiv 2106.10019
+    - generic [ref=f314e8]: 匿名数据印象（DI）+ CSM + k-medoids
+    - generic [ref=f314e9]: 全局更新 +3.4~4.3% · 树莓派 2 推理 11ms
+  - generic [ref=f314e10]: 一句话：联邦学习保护隐私（只传模型更新不传数据），但用户设备会随时冒出新类别（自定义唤醒词、新声事件）——服务器看不到原始数据，无法判断 A 设备和 B 设备的新类是不是同一类。本文的解法：各用户从自己模型的末层权重反向合成「匿名数据印象」（CSM 相似矩阵 → Dirichlet 采样 softmax → 反向优化生成特征），只上传印象；服务器对印象做 k-medoids 聚类——相同新类自然聚拢（即使标签名不同），聚拢的印象并入公共数据集共享。三重异构（标签/模型/数据）+ 新类动态出现的场景下，全局更新仍稳定比本地高 3.4–4.3 个点；树莓派 2 上推理仅 11ms。
+  - generic [ref=f314e11]:
+    - generic [ref=f314e12]: TL;DR
+    - listitem [ref=f314e13]: ◈ FL 的盲区：传统联邦学习假设所有客户端类别集合固定——实际用户会随时添加自定义唤醒词/命令词。核心难题：隐私约束下服务器无法比对原始数据，「A 设备的新类」和「B 设备的新类」是同一类还是两类？标签可能报也可能不报。
+    - listitem [ref=f314e14]: ◈ 核心创新——匿名数据印象（DI）三步生成：① 从末层 FC 权重算类别相似性矩阵 CSM（权重向量余弦——相似的类权重相似）；② 按 CSM 从 Dirichlet 分布采样 softmax（相似类的采样集中在彼此上）；③ 反向优化 x* = argmin CE(y, M(x))——从随机输入迭代，把「类别印象」烙进合成特征。全程不碰原始数据。
+    - listitem [ref=f314e15]: ◈ 认亲机制：同标签用户的 DI 取平均 → 全部 DI 做 k-medoids 无监督聚类——相同新类（即使各用户叫的名字不同）自然聚成一族，不同新类明显分离；聚类中心的印象并入公共数据集，新标签进全局标签集。
+    - listitem [ref=f314e16]: ◈ 知识传递的第三种交换物：不传数据（隐私）、不传参数（模型异构时不兼容）——传「从权重提炼的类别印象」：隐私与效用之间最轻的交换物，且天然绕过模型架构差异。
+    - listitem [ref=f314e17]: ◈ 两种场景：不报标签 → 退回传统 FL（α 加权本地模型 + 标签级加权全局平均）；报标签 → 走 DI 机制。三重异构全处理：标签（非 IID）、模型（不同用户不同 CNN 架构甚至中途换架构/激活函数）、数据（跨迭代漂移）。
+    - listitem [ref=f314e18]: ◈ 结果（约值）：场景一（3 用户 · 10 迭代 · GKWS）91.0→94.4（+3.4）；场景二（10 用户 · 30 迭代 · 三重异构 + 新类）GKWS 92.5→96.5（+4.0）· US8K 78.2→82.5（+4.3）——全局聚合全线高于本地。
+    - listitem [ref=f314e19]: ◈ 树莓派 2 实测（900MHz 四核 A7 · 1GB RAM）：训练 1.2s/epoch、推理 11ms——IoT 级设备可实际部署的轻量程度。
+    - listitem [ref=f314e20]: ◈ 边界：DI 保真度（合成特征未必覆盖原始分布）；公共数据集假设（实际难保证）；聚类数需已知；最大 10 用户 30 迭代（离真实百万级差数量级）；无基线对比、无安全性分析、通信开销未析。
+  - heading "§01 问题：隐私约束下的新类别认亲" [level=2] [ref=f314e21]:
+    - generic [ref=f314e22]: §01
+    - text: 问题：隐私约束下的新类别认亲
+  - generic [ref=f314e23]: FL 的固定类别假设 + 三重异构
+  - generic [ref=f314e24]:
+    - generic [ref=f314e25]:
+      - heading "新类别动态出现" [level=3] [ref=f314e26]
+      - paragraph [ref=f314e27]: 个性化 KWS 的核心需求是用户自定义唤醒词——每个设备都会冒出全局模型没见过的类。FL 的隐私约束让服务器无法比对原始数据：「两个设备的新词是不是同一个词」这个问题在传统框架里无解。
+    - generic [ref=f314e28]:
+      - heading "三重异构叠加" [level=3] [ref=f314e29]
+      - paragraph [ref=f314e30]: 标签异构（非 IID 标签分布）、模型异构（不同用户不同架构——甚至同一用户中途换架构和激活函数）、数据异构（跨迭代分布漂移）。多数 FL 研究只处理其中一重，本文三重同时上。
+    - generic [ref=f314e31]:
+      - heading "两种标签场景的现实性" [level=3] [ref=f314e32]
+      - paragraph [ref=f314e33]: 用户报标签（a）与不报（b）都要覆盖——实际用户大概率懒得命名新类别；不报时靠聚类完全无监督地区分，是框架更难的分支。
+    - generic [ref=f314e34]:
+      - heading "与同系列的坐标" [level=3] [ref=f314e35]
+      - paragraph [ref=f314e36]: "SFL on MCU（2022 #35）解决「训练算力不够」的联邦；本文解决「类别动态出现」的联邦——同是 FL 在端侧落地的两块拼图；DI 机制与文本锚点（№23）、KeySEM 嵌入（№22）同属「用什么当类别的代表」这条线索，这里代表物必须从本地模型权重里反向提炼。"
+  - generic [ref=f314e37]:
+    - img [ref=f314e38]:
+      - generic [ref=f314e40]: 零样本联邦学习：新唤醒词的数据不出设备，还能跨设备认出彼此
+      - generic [ref=f314e41]: ① 联邦学习的盲区：新类别动态出现 + 三重异构
+      - generic [ref=f314e43]: FL 用「共享模型更新而非数据」保护隐私——但用户设备会随时冒出全新类别（自定义唤醒词、新声事件），服务器和其他用户都看不到原始数据
+      - generic [ref=f314e44]: 核心问题：不碰原始数据，全局模型怎么识别「A 设备的新类」和「B 设备的新类」是不是同一类？标签可能报告也可能不报告
+      - generic [ref=f314e46]: 新类别零样本识别
+      - generic [ref=f314e47]: 用户 A 设备出现新类（如自定义词「小爱」）、用户 B 设备也出现一个新类——同一类还是两类？隐私约束下服务器
+      - generic [ref=f314e48]: 无法比对原始数据，传统 FL 假设类别集合固定——完全没这条路
+      - generic [ref=f314e50]: 两种标签场景
+      - generic [ref=f314e51]: (a) 用户报告新类标签名——可按标签聚合；(b) 不报告——要完全无监督地区分不同新类。
+      - generic [ref=f314e52]: （实际用户大概率懒得报）
+      - generic [ref=f314e54]: 三重统计异构
+      - generic [ref=f314e55]: 标签异构（非 IID 标签分布）· 模型异构（不同用户不同架构甚至中途换架构/激活函数）· 数据异构（跨迭代分布漂移）——同时出现
+      - generic [ref=f314e56]: ② 核心创新：匿名数据印象（DI）——传印象不传数据不传参数
+      - generic [ref=f314e58]: DI 三步生成（从模型权重反向合成）
+      - generic [ref=f314e59]: ① 类别相似性矩阵 CSM
+      - generic [ref=f314e60]: C(i,j) = wᵢ·wⱼ / (‖wᵢ‖·‖wⱼ‖)（末层 FC 权重的余弦）
+      - generic [ref=f314e61]: —— 相似的类有相似的权重向量
+      - generic [ref=f314e62]: ② Dirichlet 采样 softmax 值
+      - generic [ref=f314e63]: Softmax ~ Dir(K, C·ε)——相似类的采样集中在彼此上
+      - generic [ref=f314e64]: ③ 反向优化合成特征
+      - generic [ref=f314e65]: x* = argmin_x L_CE(yᵏᵢ, M(x))——从随机输入迭代
+      - generic [ref=f314e66]: 最小化 CE，把「类别印象」烙进合成特征
+      - generic [ref=f314e68]: 新类识别与聚合
+      - generic [ref=f314e69]: 1. 各用户为自己的新类生成 DI（不碰原始数据）
+      - generic [ref=f314e70]: 2. 同标签用户的 DI 取平均
+      - generic [ref=f314e71]: Xᵢ = Σ Xᵢᵐ（同标签用户集合 MS_k）
+      - generic [ref=f314e72]: 3. k-medoids 无监督聚类（聚类数 = 新类数）
+      - generic [ref=f314e73]: —— 相同新类（即使标签名不同）自然聚成一类；
+      - generic [ref=f314e74]: 不同新类明显分离
+      - generic [ref=f314e75]: 4. 聚类中心 DI 并入公共数据集 D₀；新标签加入全局标签集
+      - generic [ref=f314e76]: → 传递的是「类别印象」，不是数据也不是参数
+      - generic [ref=f314e77]: ③ 三步联邦循环 + 两种场景
+      - generic [ref=f314e79]: Step 1 Build：各用户用私有本地数据在当前迭代创建模型 · Step 2 本地更新 · Step 3 全局更新（服务器汇总）
+      - generic [ref=f314e80]: 场景一（不报标签）：退回传统 FL——α 加权新旧模型（α = len(D_local)/len(D₀)）；全局更新按标签级加权平均（唯一标签 γ=1/M，重叠标签 γ ∝ 各模型该标签的测试准确率）
+      - generic [ref=f314e81]: 场景二（报标签）：走 DI 机制（上图）——新类的知识以匿名印象进入公共集，所有人共享
+      - generic [ref=f314e82]: 异构模拟：标签异构（每用户每标签随机 200–300 帧 GKWS / 40–50 帧 US8K）· 模型异构（2/3 层 CNN · 3 层 DS-CNN · 甚至中途换架构与激活函数）· 数据异构（跨迭代漂移）
+      - generic [ref=f314e84]: +3.4~4.3%
+      - generic [ref=f314e85]: 全局 vs 本地更新的提升（GKWS/US8K）
+      - generic [ref=f314e86]: 96.5%
+      - generic [ref=f314e87]: GKWS 全局准确率（异构场景）
+      - generic [ref=f314e88]: 10 用户·30 迭代
+      - generic [ref=f314e89]: 最大实验规模
+      - generic [ref=f314e90]: 11ms
+      - generic [ref=f314e91]: 推理时间（树莓派 2）
+      - generic [ref=f314e92]: 1.2s
+      - generic [ref=f314e93]: 每 epoch 训练（树莓派 2）
+      - generic [ref=f314e94]: 爱立信全球 AI 加速器 + 爱立信研究院 · Interspeech 2021 · arXiv 2106.10019；GKWS = GSC 10 词 + US8K = UrbanSound8K 10 类城市声；数字为约值
+    - generic [ref=f314e95]: 图1 · 机制全景：上半是新类别问题与三重异构，中段是 DI 三步生成与新类识别聚合、三步联邦循环与两种场景，底部是关键数字。
+  - heading "§02 方法：从权重反向烙出印象" [level=2] [ref=f314e96]:
+    - generic [ref=f314e97]: §02
+    - text: 方法：从权重反向烙出印象
+  - generic [ref=f314e98]: CSM · Dirichlet 采样 · 反向优化 · 聚类认亲
+  - generic [ref=f314e99]:
+    - generic [ref=f314e100]: "CSM: C(i,j) = wᵢ·wⱼ / (‖wᵢ‖·‖wⱼ‖) # 末层 FC 权重余弦 采样: Softmax ~ Dir(K, C·ε) # 相似类采样集中在彼此 合成: x* = argmin_x L_CE(yᵏᵢ, M(x)) # 反向优化烙印象 聚合: Xᵢ = Σ_{m∈MS_k} Xᵢᵐ → k-medoids 聚类 # 聚类数 = 新类数 共享: D_new = D₀ ∪ Xᵢ · 新标签入全局标签集"
+    - generic [ref=f314e101]: 人话：模型已经「认识」它训过的每个类——这份认知就藏在末层权重里。CSM 读出「类像谁」，Dirichlet 把相似性变成目标分布，反向优化把这个分布烙进一段合成特征——这段特征就是新类的「画像」，可比对、可聚类、可共享，且不暴露任何原始样本。
+  - generic [ref=f314e102]:
+    - generic [ref=f314e103]:
+      - heading "为什么 DI 能绕过模型异构" [level=3] [ref=f314e104]
+      - paragraph [ref=f314e105]: 不同用户模型架构不同时，参数无法直接平均（模型异构的老大难）——但 DI 是「特征空间的样本」，与哪个模型产生无关；聚类在特征空间做，天然架构无关。这是「传印象」优于「传参数」的结构性理由。
+    - generic [ref=f314e106]:
+      - heading "CSM 的副产品" [level=3] [ref=f314e107]
+      - paragraph [ref=f314e108]: GKWS 的 CSM 矩阵显示 yes↔no 权重相似度高（声学重叠）——相似矩阵不仅服务 DI 生成，还暴露模型的误分类模式：哪些词容易混一目了然，为针对性优化提供线索。
+  - generic [ref=f314e109]:
+    - img [ref=f314e110]:
+      - generic [ref=f314e112]: 机制解剖：DI 怎么从权重里「烙」出来 · 聚类怎么认亲
+      - generic [ref=f314e113]: DI 的生成流水线
+      - generic [ref=f314e115]: 末层 FC 权重 → CSM 余弦相似
+      - generic [ref=f314e117]: w_yes
+      - generic [ref=f314e119]: w_no
+      - generic [ref=f314e121]: w_stop
+      - generic [ref=f314e138]: CSM：对角自相似 · yes↔no 高（声学重叠）
+      - generic [ref=f314e139]: Dir(K, C·ε) 采样 softmax → x* = argmin CE(y, M(x))
+      - generic [ref=f314e140]: ——类别印象被烙进合成特征；每类重复执行
+      - generic [ref=f314e141]: k-medoids 认亲 + 实验设定
+      - generic [ref=f314e143]: 相同新类聚成一族（示意）
+      - generic [ref=f314e168]: 用户 A 的「小爱」与用户 B 的未命名类 →
+      - generic [ref=f314e169]: 同一族 = 同一新类；聚类数 = 新类数（需已知）
+      - generic [ref=f314e171]: 实验：GKWS 初始 8 词 ×300 帧，迭代 4/8 引入 Stop / Go
+      - generic [ref=f314e172]: 左：从末层权重的余弦结构读到「类像谁」，用 Dirichlet 采样把相似性变成目标分布，再反向优化合成特征。右：DI 特征空间里相同新类自然聚拢——这就是「不碰数据认出新类」的全部机制
+    - generic [ref=f314e173]: 图2 · 机制解剖：左是 DI 的生成流水线（权重向量 → CSM 矩阵 → Dirichlet+反向优化），右是 k-medoids 认亲的图景（相同新类聚成一族）与实验设定。
+  - heading "§03 实验：全局聚合稳定赚 3–4 个点" [level=2] [ref=f314e174]:
+    - generic [ref=f314e175]: §03
+    - text: 实验：全局聚合稳定赚 3–4 个点
+  - generic [ref=f314e176]: 两场景两数据集 · 树莓派实测
+  - generic [ref=f314e177]:
+    - img [ref=f314e178]:
+      - generic [ref=f314e180]: 主结果：全局聚合稳定赚 3–4 个点
+      - generic [ref=f314e181]: 本地 vs 全局更新（准确率 %）
+      - generic [ref=f314e182]: "70"
+      - generic [ref=f314e184]: "75"
+      - generic [ref=f314e186]: "80"
+      - generic [ref=f314e187]: "85"
+      - generic [ref=f314e189]: "90"
+      - generic [ref=f314e191]: "95"
+      - generic [ref=f314e192]: "100"
+      - generic [ref=f314e193]: 场景一 3 用户
+      - generic [ref=f314e196]: "+3.5"
+      - generic [ref=f314e201]: 场景二 10 用户异构
+      - generic [ref=f314e204]: "+4.0"
+      - generic [ref=f314e205]: 场景二 异构
+      - generic [ref=f314e208]: "+4.3"
+      - generic [ref=f314e209]: 每组首柱对 = 本地（浅）vs 全局（深）——全局聚合全线更高
+      - generic [ref=f314e210]: 读数：
+      - generic [ref=f314e211]: · 场景一（3 用户 · 10 迭代 · GKWS）：91.0 → 94.4（+3.4）
+      - generic [ref=f314e212]: "· 场景二（10 用户 · 30 迭代 · 三重异构 + 新类）:"
+      - generic [ref=f314e213]: GKWS 92.5 → 96.5（+4.0）· US8K 78.2 → 82.5（+4.3）
+      - generic [ref=f314e214]: · k-medoids：不同新类 PCA 明显分离 · 相同类自然聚拢
+      - generic [ref=f314e215]: · CSM 副产品：暴露误分类模式（yes↔no 声学重叠）
+      - generic [ref=f314e216]: 树莓派 2 实测
+      - generic [ref=f314e218]: 硬件：900MHz 四核 A7 · 1GB RAM
+      - generic [ref=f314e219]: 训练/epoch
+      - generic [ref=f314e221]: 1.2 s
+      - generic [ref=f314e222]: 推理
+      - generic [ref=f314e224]: 11 ms
+      - generic [ref=f314e225]: IoT 级设备可实际部署的轻量程度
+      - generic [ref=f314e227]: 证据边界
+      - generic [ref=f314e228]: · 最大 10 用户 30 迭代——离真实 FL（百万用户千轮）
+      - generic [ref=f314e229]: 差数量级
+      - generic [ref=f314e230]: · 无基线对比（增量 FL/元学习 FL 都没比）
+      - generic [ref=f314e231]: · 无安全性分析（投毒/后门/DI 被利用）
+      - generic [ref=f314e232]: · 通信开销未析（传输 DI + 权重的带宽）
+      - generic [ref=f314e233]: · DI 保真度、ε 敏感性、聚类数已知假设
+      - generic [ref=f314e234]: 注：数字为论文报告值（约值转写）；GKWS = Google Speech Commands 10 词（14400Hz · MFCC · 20 窗 × 50ms）；US8K = UrbanSound8K 10 类
+    - generic [ref=f314e235]: 图3 · 主结果：左是两场景的本地 vs 全局更新对比（每对柱 = 一个用户或一个场景），右是树莓派 2 的实测性能与六条证据边界。
+  - table [ref=f314e236]:
+    - rowgroup [ref=f314e237]:
+      - row [ref=f314e238]:
+        - columnheader "场景" [ref=f314e239]
+        - columnheader "本地更新" [ref=f314e240]
+        - columnheader "全局更新" [ref=f314e241]
+        - columnheader "提升" [ref=f314e242]
+      - row [ref=f314e243]:
+        - cell "场景一 GKWS（3 用户 · 10 迭代）" [ref=f314e244]
+        - cell "91.0%" [ref=f314e245]
+        - cell "94.4%" [ref=f314e246]
+        - cell "+3.4" [ref=f314e247]
+      - row [ref=f314e248]:
+        - cell "场景一 US8K" [ref=f314e249]
+        - cell "76.5%" [ref=f314e250]
+        - cell "80.0%" [ref=f314e251]
+        - cell "+3.5" [ref=f314e252]
+      - row [ref=f314e253]:
+        - cell "场景二 GKWS（10 用户 · 30 迭代 · 三重异构 + 新类）" [ref=f314e254]
+        - cell "92.5%" [ref=f314e255]
+        - cell "96.5%" [ref=f314e256]
+        - cell "+4.0" [ref=f314e257]
+      - row [ref=f314e258]:
+        - cell "场景二 US8K" [ref=f314e259]
+        - cell "78.2%" [ref=f314e260]
+        - cell "82.5%" [ref=f314e261]
+        - cell "+4.3" [ref=f314e262]
+      - row [ref=f314e263]:
+        - cell "树莓派 2" [ref=f314e264]
+        - cell "训练 1.2s/epoch · 推理 11ms" [ref=f314e265]
+  - generic [ref=f314e266]:
+    - generic [ref=f314e267]: 读表要点
+    - listitem [ref=f314e268]: ◈ 值得注意的反直觉：异构场景的增益（+4.0/+4.3）反而比干净场景（+3.4）更大——异构越严重，本地模型越片面，全局聚合的互补价值越高。FL 的价值随异构性增长，这与直觉相符但需要数据背书。
+    - listitem [ref=f314e269]: ◈ k-medoids 的验证方式：PCA 降维可视化——不同新类明显分离、相同新类自然聚拢、聚类数与新类数精确对应。这是「不碰数据认出新类」机制的直接证据。
+    - listitem [ref=f314e270]: ◈ 证据边界：无基线（增量 FL/元学习 FL）、无安全性（投毒/后门/DI 注入）、通信开销未析、10 用户 30 迭代远小于真实规模——「+4%」的绝对意义有限，机制可行性才是本文的真正贡献。
+  - heading "§04 贡献" [level=2] [ref=f314e271]:
+    - generic [ref=f314e272]: §04
+    - text: 贡献
+  - generic [ref=f314e273]: 五点：从零样本机制到边缘验证
+  - generic [ref=f314e274]:
+    - generic [ref=f314e275]:
+      - generic [ref=f314e276]: "1"
+      - paragraph [ref=f314e277]: 零样本联邦学习框架（音频首个）：匿名数据印象机制在不接触原始数据的前提下实现跨设备新类识别与知识共享——补上 FL「新类别动态出现」这个长期被忽视的缺口。
+    - generic [ref=f314e278]:
+      - generic [ref=f314e279]: "2"
+      - paragraph [ref=f314e280]: 双重场景覆盖：报标签走 DI 机制、不报标签退回传统 FL——适应不同部署场景的灵活性。
+    - generic [ref=f314e281]:
+      - generic [ref=f314e282]: "3"
+      - paragraph [ref=f314e283]: 无监督新类区分：k-medoids 在印象上聚类——多个用户用不同名字称呼同一新类也能正确映射。
+    - generic [ref=f314e284]:
+      - generic [ref=f314e285]: "4"
+      - paragraph [ref=f314e286]: 三重统计异构全处理：标签异构 + 模型异构（不同架构甚至中途切换）+ 数据异构同时存在。
+    - generic [ref=f314e287]:
+      - generic [ref=f314e288]: "5"
+      - paragraph [ref=f314e289]: 边缘设备验证：树莓派 2 完整实验（训练 1.2s/epoch · 推理 11ms）——IoT 实际可行的轻量程度。
+  - heading "§05 局限与判断" [level=2] [ref=f314e290]:
+    - generic [ref=f314e291]: §05
+    - text: 局限与判断
+  - generic [ref=f314e292]: DI 保真度 · 公共集假设 · 规模与安全
+  - generic [ref=f314e293]:
+    - img [ref=f314e294]:
+      - generic [ref=f314e296]: 边界与延伸
+      - generic [ref=f314e298]: 技术边界
+      - generic [ref=f314e299]: · DI 保真度：从权重反向合成的特征未必覆盖原始分布——
+      - generic [ref=f314e300]: 声学变化大的类（环境声事件）代表性可能不足
+      - generic [ref=f314e301]: · 公共数据集假设：所有用户与服务器共享 D₀——实际部署
+      - generic [ref=f314e302]: 难保证，D₀ 的质量与规模直接影响性能
+      - generic [ref=f314e303]: · Dirichlet ε 敏感：浓度参数选择影响 DI 质量——无敏感性分析
+      - generic [ref=f314e304]: · 聚类数已知：k-medoids 要预设新类数——缺自动估计机制
+      - generic [ref=f314e305]: · 模型异构有限：全是 CNN 变体——CNN vs RNN vs Transformer
+      - generic [ref=f314e306]: 的根本架构差异未验证
+      - generic [ref=f314e308]: 实验边界 + 延伸
+      - generic [ref=f314e309]: · 规模有限：10 用户 30 迭代 vs 真实百万级用户
+      - generic [ref=f314e310]: · 无基线对比（增量 FL / 元学习 FL）
+      - generic [ref=f314e311]: · 无安全性分析（投毒/后门/DI 注入）
+      - generic [ref=f314e312]: · 通信开销未析（IoT 带宽敏感）
+      - generic [ref=f314e313]: 延伸：对比学习（SimCLR/MoCo）提升 DI 质量；
+      - generic [ref=f314e314]: DBSCAN/HDBSCAN 自动定聚类数；差分隐私（DP-SGD）
+      - generic [ref=f314e315]: 加形式化保证；TensorFlow Federated/PySyft 大规模验证；
+      - generic [ref=f314e316]: 多模态扩展
+      - generic [ref=f314e317]: 对 KWS 的启发：个性化自定义唤醒词的联邦部署——
+      - generic [ref=f314e318]: 传「类别印象」而非数据/参数，是知识传递的新范式
+      - generic [ref=f314e319]: 可迁移判断：联邦场景下的新类别知识共享可以「传印象」——从本地模型权重反向合成类别表征再聚类认亲；数据、参数、印象三选一里，印象是隐私与效用之间最轻的交换物
+    - generic [ref=f314e320]: 图4 · 边界与延伸：左技术边界（DI 保真度、公共集依赖、ε 敏感、聚类数已知、模型异构有限），右实验边界（规模、无基线、无安全、通信未析）+ 延伸方向。
+  - generic [ref=f314e321]:
+    - generic [ref=f314e322]: 可迁移判断
+    - paragraph [ref=f314e323]: ↳ 数据、参数、印象是知识传递的三种交换物：数据最重（隐私风险最高）、参数中等（模型异构时不兼容）、印象最轻（架构无关且只含类别级信息）——分布式系统选交换物时，先问「最小充分信息单元是什么」，往往不是参数。
+    - paragraph [ref=f314e324]: ↳ 模型权重本身就是类别的画像：末层权重的几何结构（余弦相似）承载了「类像谁」的全部信息——无需原始数据即可提炼。任何「隐私约束下共享类别知识」的场景（联邦聚类、跨机构标签对齐）都可借用这个反向合成思路。
+    - paragraph [ref=f314e325]: ↳ 异构越重，联邦越赚：+3.4%（干净）vs +4.0–4.3%（三重异构）——本地模型越片面，全局互补价值越高。评估 FL 方案要在异构设定下测，干净设定的增益会低估联邦的真实价值。
+    - paragraph [ref=f314e326]: ↳ 边缘可行性要真机实测：树莓派 2 的 11ms 推理是「IoT 可部署」的证据——纸面轻量与真机可跑之间隔着内存/算力/功耗的三重检验（与 Apple 流式 TF 的立场一致）。
+  - generic [ref=f314e327]:
+    - link "arXiv 2106.10019 ↗" [ref=f314e328] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2106.10019
+    - link "← 返回总目录" [ref=f314e329] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f314e330]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为论文报告值（约值转写）· 2021 №28 · 213+/305 · 2021 年 28 篇完成
