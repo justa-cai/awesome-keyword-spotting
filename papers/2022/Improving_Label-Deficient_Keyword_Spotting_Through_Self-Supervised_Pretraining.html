@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data2Vec-KWS：自监督预训练改进标签稀缺的关键词检测</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 16px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  table.tb { width: 100%; border-collapse: collapse; margin: 18px 0; background: var(--card);
+    border-radius: 12px; overflow: hidden; font-size: 13.8px; }
+  table.tb th { background: var(--acc-lt); color: var(--acc-dk); font-weight: 700;
+    padding: 10px 12px; text-align: left; }
+  table.tb td { padding: 9px 12px; border-top: 1px solid var(--line); color: var(--ink2); }
+  table.tb td b { color: var(--ink); }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №21</div>
+  <h1 class="hero">两成标注追平全标注：<br>SSL 红利第一次落到<span class="g"> 5M 级小模型</span></h1>
+  <div class="chips">
+    <span class="chip">Data2Vec-KWS · ICASSP 2023 SASB Workshop</span>
+    <span class="chip">奥尔堡大学</span>
+    <span class="chip">非对比式自监督预训练</span>
+    <span class="chip">KWT 0.6–5.4M · GSC V2</span>
+  </div>
+  <div class="meta">通用 SSL 的算力门槛把最需要省标注的 KWS 小模型挡在门外——本文用单块 T40 + 10 小时证明：80% 无标注预训练 + 20% 标注微调 ≈ 100% 标注训练。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>错位</b>：KWS 小模型常驻端侧、标注贵（唤醒词位置/边界/有无都要人工判定，换词表就重采）；而现有 SSL 主攻通用大模型（数亿参数、数周 GPU）——红利与需求刚好错开。蒸馏路线也没解决：先训大教师本身就走不通。</li>
+      <li><b>基座</b>：KWT（GSC 上的 SOTA transformer）三档 0.6M/2.4M/5.4M；小改动——均值池化替代 CLS token（语音 1 秒里关键词可在任意位置，均值对位置不敏感、每个时间步都接受梯度）。</li>
+      <li><b>Data2Vec 机制</b>：教师 = 学生的 EMA 影子（解决自举悖论）；学生看 65% 掩码输入，回归教师对完整输入顶部 K 层隐藏状态的均值（MSE）；非对比式无需负样本——小模型容量有限，把大量负例推开的约束可能过度消耗容量。</li>
+      <li><b>公平性</b>：监督基线也用 SpecAugment——SSL 增益不能归因于增强差异。</li>
+      <li><b>主结果</b>：三档模型 SC 预训练 +8.22/+9.23/+11.16 个绝对点；无预训练时最大的 KWT-3 反而最差（84.11% < 85.84%）——16,969 条标注约束不住 5.4M 参数，预训练把「模型容量」从负债变回资产。</li>
+      <li><b>最有说服力的对比</b>：SC 预训练 + 20% 标注 ≈ 100% 标注纯监督（KWT-2 95.07 vs 94.98，KWT-3 95.27 vs 90.79）——五分之四的标注工作量可被无标注数据抵消。</li>
+      <li><b>跨域几乎免费</b>：Librispeech 有声书 vs 命令词域的预训练差异仅 0.32–0.52 点——低资源语言可借任意同语言无标注音频（有声书/播客）绕开死循环。</li>
+      <li><b>冻结惨败</b>：冻结预训练权重只训分类头只有 0.43–0.50——回归目标塑造的表征是为重建服务的中间量，不保证类别线性可分；必须全参数微调。</li>
+      <li><b>叠加收益</b>：100% 标注 + LS 预训练全部破 97%，三档模型几乎拉平（差 0.03 点）——数据充足时预训练依然加分。</li>
+      <li><b>成本</b>：单块 T40，最大模型预训练约 10h、微调约 1h——比大模型 SSL 路线低一个数量级；代码开源。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：SSL 的门槛与 KWS 的需求错开</h2>
+  <div class="h2sub">小模型 + 标签稀缺 + KWS 的三者交集此前无人系统实证</div>
+  <p class="lead">KWS 在语音助手架构里是「小系统常驻唤醒 + 大 ASR 按需启动」的守门人——模型要小要省电，准确率却不能降。深度 KWS 的标注成本尤其难摊薄：通用 ASR 可以半自动粗转写再人工校对，KWS 要对每个唤醒词的出现位置、边界、有无做精确判定，负样本（非唤醒词/静音/噪声）也要覆盖充分——商业唤醒词还是定制词表，每换一个产品名就得重采，标注成本反复发生。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>大模型 SSL 的双重不可行</h4>
+      <p>算力上：多数团队没有几周 GPU 预算花在一个唤醒词模型上；产品上：KWS 只要单一任务极致轻量，与「一个模型打多个下游」（SUPERB 范式）的方向相悖。</p>
+    </div>
+    <div class="card bad">
+      <h4>小模型做 SSL 的历史疑虑</h4>
+      <p>学界默认小模型容量不足、自监督代理任务容易过拟合——图像域已有反证（对比式 SSL 直接训 2.5–11M 小模型成功），但语音域、非对比式的答案此前空白。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：Data2Vec 落到 KWT 上</h2>
+  <div class="h2sub">范式可行性的严格验证，而非新算法</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 960">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="960.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Data2Vec-KWS：SSL 的红利，第一次落到 5M 级小模型头上</text>
+<line x1="36.0" y1="60.0" x2="580.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 错位：最需要省标注的 KWS 小模型，反而没吃到 SSL 红利</text>
+<rect x="36.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三条老路的死角</text>
+<text x="52.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">通用大模型 SSL（wav2vec2.0/WavLM）：数亿参数、多块高端</text>
+<text x="52.0" y="154.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  GPU、数周训练——预训练本身的成本就挡住大多数应用方</text>
+<text x="52.0" y="167.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">知识蒸馏：先训大教师再蒸小模型——算力成本只是被推迟</text>
+<text x="52.0" y="179.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">小模型做 SSL 的历史疑虑：容量不足会过拟合代理任务？</text>
+<text x="52.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （图像域有反证 [11]，语音域非对比式仍无答案）</text>
+<rect x="474.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">本文的成本主张</text>
+<text x="490.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">模型 ≤5.4M；全部实验在 10 核 CPU + 40GB 内存 +</text>
+<text x="490.0" y="154.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  单块 T40（16GB）虚拟机上完成</text>
+<text x="490.0" y="167.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">最大模型预训练约 10 小时、微调约 1 小时</text>
+<text x="490.0" y="179.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——比大模型 SSL 路线低一个数量级；高校实验室可复现</text>
+<text x="490.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">代码开源（GitHub: HolgerBovbjerg/data2vec-KWS）</text>
+<text x="36.0" y="216.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 基座：KWT + 一个小改动（均值池化替代 CLS token）</text>
+<rect x="36.0" y="232.0" width="128.0" height="104.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="100.0" y="256.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MFCC 40 维</text>
+<text x="100.0" y="276.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">30ms 窗/10ms 移</text>
+<text x="100.0" y="302.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">SSL 收益不依赖花哨前端</text>
+<line x1="164.0" y1="284.0" x2="176.0" y2="284.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="216.0" y="232.0" width="128.0" height="104.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="280.0" y="256.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">线性投影</text>
+<text x="280.0" y="276.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">→ transformer 输入维</text>
+<text x="280.0" y="302.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（对应 ViT patch emb</text>
+<text x="280.0" y="315.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">edding）</text>
+<line x1="344.0" y1="284.0" x2="356.0" y2="284.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="396.0" y="232.0" width="128.0" height="104.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="460.0" y="256.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">12× transformer 块</text>
+<text x="460.0" y="276.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWT-1: 0.6M</text>
+<text x="460.0" y="302.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWT-2: 2.4M · KWT</text>
+<text x="460.0" y="315.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">-3: 5.4M</text>
+<line x1="524.0" y1="284.0" x2="536.0" y2="284.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="576.0" y="232.0" width="128.0" height="104.0" rx="10" fill="#fffaf4" stroke="#d5e8df" stroke-width="1"/>
+<text x="640.0" y="256.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">均值池化 ★</text>
+<text x="640.0" y="276.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">各时间步编码均值</text>
+<text x="640.0" y="302.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">替代 CLS token（两种条件</text>
+<text x="640.0" y="315.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">下都更好）</text>
+<line x1="704.0" y1="284.0" x2="716.0" y2="284.0" stroke="#8a93a5" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="756.0" y="232.0" width="128.0" height="104.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="820.0" y="256.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MLP 分类头</text>
+<text x="820.0" y="276.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">输出 35 类后验</text>
+<text x="820.0" y="302.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">预训练时换成线性回归头</text>
+<text x="460.0" y="350.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么均值池化在语音上更优：ViT 图像块无天然读序需要 CLS 聚合；语音 1 秒里关键词可在任意位置——均值对位置不敏感，</text>
+<text x="460.0" y="364.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每个时间步都接受分类头梯度（训练信号更密）；CLS 只在一个位置受监督，小模型小数据下更难训好</text>
+<text x="36.0" y="380.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ Data2Vec：非对比式、自蒸馏——学生从残缺预测教师的完整表示</text>
+<rect x="36.0" y="394.0" width="414.0" height="150.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="418.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三件事</text>
+<text x="52.0" y="438.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">① 教师 = 同架构副本，权重是学生的 EMA——解决自举悖论</text>
+<text x="52.0" y="449.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （目标若由训练中的模型自生成会漂移/塌缩；EMA 移动慢于</text>
+<text x="52.0" y="460.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  学生，目标既有「更强版本」的质量又相对稳定）</text>
+<text x="52.0" y="471.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② 回归式而非对比式：yt = (1/K) Σ 顶部 K 层归一化隐藏状态</text>
+<text x="52.0" y="482.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （式1，多层平均比单层目标更平滑）；损失 MSE</text>
+<text x="52.0" y="493.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 时域掩码 65%（远高于 BERT 的 15%）——语音帧冗余度高，</text>
+<text x="52.0" y="504.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  低掩码率下任务太容易，学生不被迫学深层结构</text>
+<text x="52.0" y="515.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="526.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">无需负样本——小模型容量有限，对比学习「把大量负例推</text>
+<text x="52.0" y="537.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">开」的约束可能过度消耗容量</text>
+<rect x="474.0" y="394.0" width="414.0" height="150.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="490.0" y="418.0" font-size="12" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练配方与公平性</text>
+<text x="490.0" y="438.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">监督基线：CE + SpecAugment + 140 epoch + AdamW(1e-3)</text>
+<text x="490.0" y="449.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  + 10 epoch 线性预热 + 余弦退火</text>
+<text x="490.0" y="460.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">预训练：MSE + Adam(0.5e-3) + 1-cycle + 200 epoch +</text>
+<text x="490.0" y="471.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  EMA 退火 1000 步；超参大多沿袭原版 Data2Vec</text>
+<text x="490.0" y="482.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="493.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">公平性关键：监督基线也用 SpecAugment——SSL 增益不能</text>
+<text x="490.0" y="504.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">被归因于数据增强差异</text>
+<text x="490.0" y="515.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="526.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「换头」衔接：预训练时分类头 → 线性回归头（预测教师隐</text>
+<text x="490.0" y="537.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">藏态）；微调时换回分类头全参数更新——预训练学的是编码</text>
+<text x="490.0" y="548.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">器内部表征，与下游分类解耦</text>
+<rect x="36.0" y="560.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="586.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+8~11</text>
+<text x="130.0" y="606.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">绝对准确率提升（三档全成立）</text>
+<text x="298.0" y="586.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">20% ≈ 100%</text>
+<text x="298.0" y="606.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">标注微调追平全量标注训练</text>
+<text x="466.0" y="586.0" font-size="14" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.3~0.5</text>
+<text x="466.0" y="606.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">跨域预训练的收益损失（点）</text>
+<text x="634.0" y="586.0" font-size="14" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">10h</text>
+<text x="634.0" y="606.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">最大模型预训练（单块 T40）</text>
+<text x="802.0" y="586.0" font-size="14" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.43</text>
+<text x="802.0" y="606.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">冻结特征提取的惨败值（KWT-1）</text>
+<text x="36.0" y="644.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据：GSC V2 105,829 条 35 词——80% 切走当无标注预训练集（18.8h），只留 20%（4.7h / 16,969 条）做标注；总数据量不变，精确模拟「数据很多但标注预算只够两成」</text>
+</svg>
+    <p class="cap"><b>图1 · 机制全景</b>：SSL 红利与 KWS 需求的错位 + 本文成本主张（单块 T40 / 10h）；KWT 基座与均值池化改动；Data2Vec 三件事（EMA 教师 / 回归式目标 / 65% 掩码）与训练配方的公平性设计。</p>
+  </div>
+  </div>
+  <div class="formula">
+    <div class="f">y_t = (1/K) Σ(l=L−K+1..L) ĥ_l^t　；　学生(mini MSE)：预测掩码输入的教师隐藏态；教师 = EMA(学生)</div>
+    <div class="why"><b>人话</b>：教师对<b>完整</b>输入算出的顶部 K 层隐藏态（归一化后取平均）是回归目标；学生对<b>65% 掩码</b>的输入做同样的事——「从残缺信息预测教师对完整输入的内部表示」。为什么顶部多层平均：单层目标容易让模型只模仿某一层的表征偏好，多层平均更平滑；为什么掩码 65% 远高于 BERT 的 15%：语音帧冗余度高，低掩码率下任务太容易。</div>
+  </div>
+  <p class="sub"><b>协议设计本身是贡献</b>：把 GSC V2 训练集随机切走 80%（18.8h）当无标注预训练集，只留 20%（4.7h / 16,969 条）做标注——<b>总数据量不变</b>，精确模拟「数据很多但标注预算只够两成」，使对比在信息总量上公平。另用 Librispeech 100h 干净集做跨域预训练对照。</p>
+
+  <h2><span class="no">§03</span>实验：四个子问题的完整闭环</h2>
+  <div class="h2sub">小模型能否获益 / 80+20 能否追平 100 / 跨域是否有效 / 冻结是否可行</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 450">
+<rect x="0.0" y="0.0" width="880.0" height="450.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（Table 2 · 只用 20% 标注）+ 反直觉的基线</text>
+<line x1="36.0" y1="56.0" x2="520.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="86.0" y1="313.3" x2="710.0" y2="313.3" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="317.3" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">82</text>
+<line x1="86.0" y1="260.0" x2="710.0" y2="260.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="264.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">86</text>
+<line x1="86.0" y1="206.7" x2="710.0" y2="206.7" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="210.7" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="86.0" y1="153.3" x2="710.0" y2="153.3" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="157.3" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">94</text>
+<line x1="86.0" y1="100.0" x2="710.0" y2="100.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="104.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">98</text>
+<rect x="150.0" y="263.7" width="54.0" height="76.3" rx="4" fill="#e8b8b0"/>
+<rect x="212.0" y="154.1" width="54.0" height="185.9" rx="4" fill="#0b6e52"/>
+<rect x="274.0" y="149.9" width="54.0" height="190.1" rx="4" fill="#9fc8b8"/>
+<text x="177.0" y="257.7" font-size="9" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">85.72</text>
+<text x="239.0" y="148.1" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">93.94</text>
+<text x="301.0" y="143.9" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">94.26</text>
+<text x="220.0" y="358.0" font-size="10" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWT-1（0.6M）</text>
+<rect x="136.0" y="120.1" width="190.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="231.0" y="135.1" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SC 预训练 +8.22 点</text>
+<rect x="340.0" y="262.1" width="54.0" height="77.9" rx="4" fill="#e8b8b0"/>
+<rect x="402.0" y="139.1" width="54.0" height="200.9" rx="4" fill="#0b6e52"/>
+<rect x="464.0" y="146.0" width="54.0" height="194.0" rx="4" fill="#9fc8b8"/>
+<text x="367.0" y="256.1" font-size="9" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">85.84</text>
+<text x="429.0" y="133.1" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">95.07</text>
+<text x="491.0" y="140.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">94.55</text>
+<text x="410.0" y="358.0" font-size="10" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWT-2（2.4M）</text>
+<rect x="326.0" y="105.1" width="190.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="421.0" y="120.1" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SC 预训练 +9.23 点</text>
+<rect x="530.0" y="285.2" width="54.0" height="54.8" rx="4" fill="#e8b8b0"/>
+<rect x="592.0" y="136.4" width="54.0" height="203.6" rx="4" fill="#0b6e52"/>
+<rect x="654.0" y="143.2" width="54.0" height="196.8" rx="4" fill="#9fc8b8"/>
+<text x="557.0" y="279.2" font-size="9" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">84.11</text>
+<text x="619.0" y="130.4" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">95.27</text>
+<text x="681.0" y="137.2" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">94.76</text>
+<text x="600.0" y="358.0" font-size="10" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWT-3（5.4M）</text>
+<rect x="516.0" y="102.4" width="190.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="611.0" y="117.4" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SC 预训练 +11.16 点</text>
+<rect x="490.0" y="106.0" width="12.0" height="12.0" rx="3" fill="#e8b8b0"/>
+<text x="506.0" y="116.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">无预训练基线</text>
+<rect x="490.0" y="124.0" width="12.0" height="12.0" rx="3" fill="#0b6e52"/>
+<text x="506.0" y="134.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SC 预训练（同域 18.8h）</text>
+<rect x="490.0" y="142.0" width="12.0" height="12.0" rx="3" fill="#9fc8b8"/>
+<text x="506.0" y="152.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">LS 预训练（跨域 100h）</text>
+<text x="36.0" y="418.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">两个读数：① 无预训练时最大的 KWT-3（84.11%）反而最差——16,969 条标注约束不住 5.4M 参数，过拟合；预训练把「模型容量」从负债变回资产（KWT-3 预训练后最佳）</text>
+<text x="36.0" y="436.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② 跨域几乎不损失：LS（朗读有声书）与 SC（命令词）差异仅 0.32–0.52 点——低资源语言可直接借有声书/播客等任意无标注音频预训练</text>
+</svg>
+    <p class="cap"><b>图2 · 主结果（Table 2 · 只用 20% 标注）</b>：三档模型基线 vs SC/LS 预训练 +8~11 点；无预训练时最大模型反而最差（过拟合）；跨域预训练几乎不损失收益（0.32–0.52 点）。</p>
+  </div>
+  </div>
+  <table class="tb">
+    <tr><th>模型</th><th>参数量</th><th>基线（20% 标注）</th><th>SC 预训练</th><th>LS 预训练</th></tr>
+    <tr><td>KWT-1</td><td>0.6M</td><td>85.72</td><td><b>93.94</b>（+8.22）</td><td><b>94.26</b></td></tr>
+    <tr><td>KWT-2</td><td>2.4M</td><td>85.84</td><td><b>95.07</b>（+9.23）</td><td>94.55</td></tr>
+    <tr><td>KWT-3</td><td>5.4M</td><td>84.11</td><td><b>95.27</b>（+11.16）</td><td>94.76</td></tr>
+  </table>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 460">
+<rect x="0.0" y="0.0" width="880.0" height="460.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">最有说服力的一组（Table 3）：20% 标注 + 预训练 ≈ 100% 标注</text>
+<line x1="36.0" y1="56.0" x2="600.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="86.0" y1="341.9" x2="710.0" y2="341.9" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="345.9" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">40</text>
+<line x1="86.0" y1="281.5" x2="710.0" y2="281.5" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="285.5" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">55</text>
+<line x1="86.0" y1="221.0" x2="710.0" y2="221.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="225.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">70</text>
+<line x1="86.0" y1="160.5" x2="710.0" y2="160.5" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="164.5" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">85</text>
+<line x1="86.0" y1="100.0" x2="710.0" y2="100.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="80.0" y="104.0" font-size="10" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">100</text>
+<rect x="114.0" y="157.6" width="34.0" height="192.4" rx="3" fill="#e8b8b0" opacity="0.8"/>
+<text x="131.0" y="152.6" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">85.72</text>
+<rect x="152.0" y="157.1" width="34.0" height="192.9" rx="3" fill="#e8b8b0" opacity="0.8"/>
+<text x="169.0" y="152.1" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">85.84</text>
+<rect x="190.0" y="164.1" width="34.0" height="185.9" rx="3" fill="#e8b8b0" opacity="1"/>
+<text x="207.0" y="159.1" font-size="7.5" fill="#e8b8b0" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">84.11</text>
+<text x="152.0" y="366.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">随机初始化 + 20</text>
+<text x="152.0" y="377.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">% 标注</text>
+<rect x="236.0" y="124.4" width="34.0" height="225.6" rx="3" fill="#0b6e52" opacity="0.8"/>
+<text x="253.0" y="119.4" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">93.94</text>
+<rect x="274.0" y="119.9" width="34.0" height="230.1" rx="3" fill="#0b6e52" opacity="0.8"/>
+<text x="291.0" y="114.9" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">95.07</text>
+<rect x="312.0" y="119.1" width="34.0" height="230.9" rx="3" fill="#0b6e52" opacity="1"/>
+<text x="329.0" y="114.1" font-size="7.5" fill="#0b6e52" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">95.27</text>
+<text x="274.0" y="366.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">SC 预训练 + 2</text>
+<text x="274.0" y="377.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0% 标注 ★</text>
+<rect x="358.0" y="330.2" width="34.0" height="19.8" rx="3" fill="#c0392b" opacity="0.8"/>
+<text x="375.0" y="325.2" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">42.9</text>
+<rect x="396.0" y="302.7" width="34.0" height="47.3" rx="3" fill="#c0392b" opacity="0.8"/>
+<text x="413.0" y="297.7" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">49.7</text>
+<rect x="434.0" y="303.2" width="34.0" height="46.8" rx="3" fill="#c0392b" opacity="1"/>
+<text x="451.0" y="298.2" font-size="7.5" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">49.6</text>
+<text x="396.0" y="366.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">冻结预训练权重（SC</text>
+<text x="396.0" y="377.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">-FE）</text>
+<rect x="480.0" y="114.6" width="34.0" height="235.4" rx="3" fill="#c9d8e8" opacity="0.8"/>
+<text x="497.0" y="109.6" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">96.38</text>
+<rect x="518.0" y="120.2" width="34.0" height="229.8" rx="3" fill="#c9d8e8" opacity="0.8"/>
+<text x="535.0" y="115.2" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">94.98</text>
+<rect x="556.0" y="137.1" width="34.0" height="212.9" rx="3" fill="#c9d8e8" opacity="1"/>
+<text x="573.0" y="132.1" font-size="7.5" fill="#c9d8e8" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">90.79</text>
+<text x="518.0" y="366.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">100% 标注纯监督</text>
+<rect x="602.0" y="111.6" width="34.0" height="238.4" rx="3" fill="#5aa886" opacity="0.8"/>
+<text x="619.0" y="106.6" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">97.13</text>
+<rect x="640.0" y="111.5" width="34.0" height="238.5" rx="3" fill="#5aa886" opacity="0.8"/>
+<text x="657.0" y="106.5" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">97.16</text>
+<rect x="678.0" y="111.5" width="34.0" height="238.5" rx="3" fill="#5aa886" opacity="1"/>
+<text x="695.0" y="106.5" font-size="7.5" fill="#5aa886" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">97.16</text>
+<text x="640.0" y="366.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">100% 标注 + </text>
+<text x="640.0" y="377.0" font-size="7.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">LS 预训练</text>
+<text x="190.0" y="392.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="312.0" y="392.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="434.0" y="392.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<rect x="228.0" y="87.1" width="112.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="284.0" y="102.1" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">★ 20% 追平 100%</text>
+<text x="400.0" y="86.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每组三柱 = KWT-1 / KWT-2 / KWT-3 · 测试准确率（%）</text>
+<text x="36.0" y="428.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：① 冻结特征提取惨败（0.43–0.50）——回归目标塑造的表征是为重建服务的中间量，不保证类别线性可分；小模型每维参数被任务压满，必须全参数微调</text>
+<text x="36.0" y="446.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② KWT-3 全量标注也只有 90.79%——5 倍标注没治好大模型的过拟合，预训练治好了；③ 叠加全量标注再 +LS 预训练全部破 97%，三档模型几乎拉平（差 0.03 点）</text>
+</svg>
+    <p class="cap"><b>图3 · Table 3 消融</b>：五个条件的完整对比——冻结惨败（0.43–0.50）；SC 预训练 + 20% 标注追平甚至超过 100% 标注（KWT-3 上高 4.48 点）；叠加全量标注再破 97%。</p>
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">成本账 + 边界：确立可行性，也划出清晰的坑</text>
+<line x1="36.0" y1="56.0" x2="460.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="92.0" width="400.0" height="168.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="256.0" y="114.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练成本对比（定性 + 本文实测）</text>
+<rect x="70.0" y="130.0" width="372.0" height="34.0" rx="6" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="82.0" y="145.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">大模型 SSL（wav2vec2.0/WavLM）</text>
+<text x="82.0" y="158.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数亿参数 · 多块高端 GPU · 数周</text>
+<rect x="70.0" y="172.0" width="372.0" height="34.0" rx="6" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="82.0" y="187.0" font-size="9.5" fill="#d97a2b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">先训大模型再蒸馏</text>
+<text x="82.0" y="200.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">成本被推迟到「第一次训练」</text>
+<rect x="70.0" y="214.0" width="372.0" height="34.0" rx="6" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="82.0" y="229.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">本文：Data2Vec-KWS ★</text>
+<text x="82.0" y="242.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">单块 T40 · 预训练 10h + 微调 1h</text>
+<text x="256.0" y="244.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">低一个数量级的资源索取——高校实验室可复现</text>
+<rect x="520.0" y="92.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="114.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界</text>
+<text x="536.0" y="134.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 表征不可线性探测：冻结部署形态不兼容——每个新唤醒</text>
+<text x="536.0" y="147.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  词都得全模型微调，预训练复用价值限于初始化层</text>
+<text x="536.0" y="161.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="174.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未触及流式：KWT 全局自注意力天然非流式，搬到常驻唤醒</text>
+<text x="536.0" y="188.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  还有架构级工作量（后验处理细节论文也未展开）</text>
+<text x="536.0" y="201.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="215.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无效率指标：延迟/FLOPs/内存/实时率全无——transformer</text>
+<text x="536.0" y="228.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  注意力算子在 MCU 上未必比卷积友好</text>
+<text x="536.0" y="242.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="255.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 超参沿袭大模型配方：65% 掩码率系为大模型设定，小模型</text>
+<text x="536.0" y="269.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  的掩码率/EMA/目标层数 K 无专门消融（可能有免费空间）</text>
+<text x="536.0" y="282.5" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="296.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 单次运行无方差：SC vs LS 的 0.3–0.5 点差可能在随机波动内；</text>
+<text x="536.0" y="309.5" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 单一数据集：GSC 干净近讲，无噪声混响远场；只用准确率，</text>
+<text x="536.0" y="323.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  无误触发/漏唤醒工作点；无其他 SSL 方法横向对照</text>
+<rect x="36.0" y="276.0" width="400.0" height="116.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="298.0" font-size="11" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">给后续工作的空间与结论一样清晰</text>
+<text x="52.0" y="318.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 用最小实验复杂度回答了一个高价值问题</text>
+<text x="52.0" y="331.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 价值在「确立可行性 + 划出边界」，非终极方案</text>
+<text x="52.0" y="344.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 引申：扫「无标注数据换标注数据」的兑换曲线；</text>
+<text x="52.0" y="357.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  adapter 部分冻结规避全参微调；与量化剪枝正交叠加</text>
+<text x="52.0" y="370.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——「预训练省标注、压缩省推理」打通端侧链路</text>
+</svg>
+    <p class="cap"><b>图4 · 成本账与边界</b>：三条路线的训练成本对比；表征不可线性探测、非流式、无效率指标、超参沿袭大模型配方、单次运行无方差等边界。</p>
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：五条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>首次系统证明非对比式 SSL 对小型 KWS 模型有效</b>：三档 0.6–5.4M 全部 +8.22~11.18 点，推翻「SSL 只属于大模型」在 KWS 域的隐含假设。</p></div>
+    <div class="row"><div class="n">2</div><p><b>量化了 SSL 对标注预算的替代能力</b>：80% 无标注 + 20% 标注追平甚至超过 100% 标注。</p></div>
+    <div class="row"><div class="n">3</div><p><b>证明了预训练数据的域无关性</b>：跨域差异仅 0.32–0.52 点——低资源语言可借任意同语言无标注音频。</p></div>
+    <div class="row"><div class="n">4</div><p><b>划定了方法边界</b>：冻结特征提取惨败（0.43–0.50）——小模型 SSL 表征必须全参数微调，不能当通用特征器。</p></div>
+    <div class="row"><div class="n">5</div><p><b>方法学副产品</b>：可复用的标签稀缺实验协议（80/20 切分 + 跨域对照）、开源实现、均值池化替代 CLS token 的分类头改进。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">确立可行性，也划出清晰的坑</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>表征不可线性探测</h4>
+      <p>冻结部署形态不兼容——每个新唤醒词都得全模型微调，预训练的复用价值被限制在初始化层面；与 adapter/线性探针等轻量适配路线暂不兼容。</p>
+    </div>
+    <div class="card bad">
+      <h4>未触及流式与部署</h4>
+      <p>KWT 全局自注意力天然非流式，搬到常驻唤醒还有架构级工作量；后验处理（平滑窗/判决门限/因果性）论文未展开；无延迟/FLOPs/内存/实时率指标——transformer 注意力在 MCU 上未必比卷积友好。</p>
+    </div>
+    <div class="card bad">
+      <h4>超参沿袭大模型配方</h4>
+      <p>65% 掩码率、EMA 衰减、目标层数 K 都沿用原版 Data2Vec（K 的取值未报告）——小模型可能有自己的甜点，留有免费性能空间未挖。</p>
+    </div>
+    <div class="card bad">
+      <h4>统计与覆盖缺口</h4>
+      <p>单次运行无方差——SC vs LS 的 0.3–0.5 点差可能在随机波动内；单一数据集（GSC 干净近讲）无噪声混响远场；只用准确率无误触发/漏唤醒工作点；无其他 SSL 方法同协议对照；预训练数据规模只试 18.8h 一档。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>SSL 的收益不是大模型专属——亚百万级参数只要配上合适的代理任务同样能消化；「容量不足做不了 SSL」是未被检验的默认假设。</li>
+      <li>预训练的正则化价值在小数据下最显形：它能把「模型容量」从负债变回资产（最大模型无预训练最差、有预训练最佳）。</li>
+      <li>回归式 SSL（预测隐藏态）塑造的表征不保证线性可分——想要即插即用特征器选对比式路线，想要微调收益回归式更省容量。</li>
+      <li>跨域预训练几乎免费：目标域无标注数据不是必需品——公开的任意同语言音频就能兑现大部分收益。</li>
+      <li>评价标签稀缺方法要用「等总数据量」协议（80 无标注 + 20 标注 vs 100 标注），否则增益可能来自数据量而非方法。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2210.01703" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="Improving_Label-Deficient_Keyword_Spotting_Through_Self-Supervised_Pretraining.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
