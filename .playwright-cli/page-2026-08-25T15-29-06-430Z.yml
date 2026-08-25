@@ -1,0 +1,282 @@
+- generic [ref=f283e2]:
+  - generic [ref=f283e3]: 论文精读 · 可视化版 · 2021 №12
+  - heading "原始波形直接进网络： Xception 搬进音频，统计显著超过人类标注员" [level=1] [ref=f283e4]: 原始波形直接进网络：Xception 搬进音频，统计显著超过人类标注员
+  - generic [ref=f283e5]:
+    - generic [ref=f283e6]: Xception-1d · 瓦伦西亚大学 IDAL
+    - generic [ref=f283e7]: ESANN 2021 · arXiv 2110.07498 · 开源
+    - generic [ref=f283e8]: 原始波形 16000 点 · 无 MFCC · Instance Norm
+    - generic [ref=f283e9]: GSC v2 35 词 95.85%（人类 94.15 · p=0.015）
+  - generic [ref=f283e10]: 一句话：把 CV 大获成功的 Xception（深度可分离卷积）做 1D 适配，1 秒 16kHz 原始波形直接进网络——Entry 流五级下采样把 16000 点压到 256 帧，Middle 流在不降维的空间学抽象，分类流用 Dropout 0.75 压住 65K 参数 FC。配五件套随机增强（×5 扩增）与 Instance Norm（逐样本归一化适配音频幅度差异），GSC v2 的 35 词与 20 命令任务上统计显著超过 4 人人类标注基线（p=0.015 / 0.027）。
+  - generic [ref=f283e11]:
+    - generic [ref=f283e12]: TL;DR
+    - listitem [ref=f283e13]: ◈ 研究问题一句话：CV 的成功架构（Xception）经合理的 2D→1D 维度适配，能否直接从原始波形做端到端 KWS，并超越基线乃至人类？答案是可以——而且「超人类」有 t 检验背书。
+    - listitem [ref=f283e14]: ◈ 三模块架构：Entry 流（5 块，通道 32→728，时间 16000→256，步长 4/2/2/2/2，核 9→3）负责压缩；Middle 流（8 块 × 3 层 DS 卷积，维度不变）学高层次抽象；分类流（1024/1536/2048 → 展平 → Dropout 0.75 → FC）出结果。
+    - listitem [ref=f283e15]: ◈ 两个关键选型：深度可分离卷积（空间与通道解耦，计算量仅标准卷积的 1/(N·S)）与 Instance Norm 替代 BatchNorm——不同录音的幅度/能量分布差异大，逐样本归一化先抹平「这段录音多响」，判别只看时频结构。
+    - listitem [ref=f283e16]: ◈ 五件套增强 ×5：重采样（时长+音高同变）、饱和、时间偏移、白噪声、音高偏移——五种变换同时以随机参数/强度施加，高变异样本追加进数据集。
+    - listitem [ref=f283e17]: ◈ 人类基线：4 名标注员标约 1000 条命令，Student t 检验（α=0.05）——首次在 GSC 上建立人类参照，让「超过人类」成为统计声明而非口号。
+    - listitem [ref=f283e18]: ◈ 结果（v2）：35 词 95.85%（人类 94.15，p=0.015 显著超）、20 命令 95.96%（p=0.027 显著超）、10 命令 97.54%（与人类无显著差）、left-right 99.25%（略输 99.40）——任务越难优势越大。
+    - listitem [ref=f283e19]: ◈ 误差带极窄（±0.03~0.16，5 个随机初始化）——结果的稳定性本身就是可信度证据。
+    - listitem [ref=f283e20]: ◈ 有趣的辅助任务效应：left/right 在 35 词多类任务里的逐类性能高于 left-right 二分类任务——更大词表作为「更难的辅助任务」反哺特征提取（观察性发现，无因果验证）。
+    - listitem [ref=f283e21]: ◈ 边界：无流式（固定 1 秒整段输入）；原始波形的 Entry 流计算是明账（省了特征提取、付了入口计算）；TinyML 声称无实测；ESANN 5 页无消融。
+  - heading "§01 问题：CV 架构能否直接进音频" [level=2] [ref=f283e22]:
+    - generic [ref=f283e23]: §01
+    - text: 问题：CV 架构能否直接进音频
+  - generic [ref=f283e24]: 四类现有方法的局限 + 端到端的诱惑
+  - generic [ref=f283e25]:
+    - generic [ref=f283e26]:
+      - heading "四类方法的短板" [level=3] [ref=f283e27]
+      - paragraph [ref=f283e28]: RNN+双向注意力精度高但计算大、不适合资源受限设备；门控卷积 LSTM 结构复杂；标准 CNN 效率好但复杂任务准确率不足；迁移学习要额外预训练数据、灵活性差——各有各的痛。
+    - generic [ref=f283e29]:
+      - heading "手工特征的信息损失" [level=3] [ref=f283e30]
+      - paragraph [ref=f283e31]: MFCC 等手工特征是先验的强假设——它们保留了设计者认为重要的信息，也可能丢掉了判别需要的信息。原始波形端到端让网络自己决定听什么，避免这层损失。
+    - generic [ref=f283e32]:
+      - heading "维度适配的赌注" [level=3] [ref=f283e33]
+      - paragraph [ref=f283e34]: Xception 在 CV 的成功说明「深度可分离卷积 + 极简堆叠」是强归纳偏置——2D 改 1D（时间维卷积）后这个偏置是否仍成立，正是本文要验证的核心假设。
+    - generic [ref=f283e35]:
+      - heading "端到端的代价要认清" [level=3] [ref=f283e36]
+      - paragraph [ref=f283e37]: 原始波形 16000 点 vs MFCC 的低维输入——省了特征提取的计算，付了 Entry 流把 16000 点压下来的计算。这笔账本文没算（无延迟实测），是端到端路线的通用暗坑。
+  - generic [ref=f283e38]:
+    - img [ref=f283e39]:
+      - generic [ref=f283e41]: Xception-1d：原始波形直接进网络，35 词任务统计显著超过人类标注员
+      - generic [ref=f283e42]: ① 研究问题：CV 的成功架构能不能直接搬进音频
+      - generic [ref=f283e44]: 现有方法的局限
+      - generic [ref=f283e45]: RNN+双向注意力精度高但计算大；门控卷积 LSTM 结构复杂；标准 CNN 效率好但
+      - generic [ref=f283e46]: 复杂任务准确率不足；迁移学习要额外预训练数据、灵活性差
+      - generic [ref=f283e48]: 端到端的诱惑
+      - generic [ref=f283e49]: 跳过 MFCC 等手工特征——1 秒 16kHz 原始波形（16000 采样点）直接进网络，
+      - generic [ref=f283e50]: 避免手工特征设计可能引入的信息损失
+      - generic [ref=f283e52]: 核心赌注
+      - generic [ref=f283e53]: Xception（深度可分离卷积）在 CV 大获成功——合理的维度适配（2D→1D）后
+      - generic [ref=f283e54]: 能否在多个任务难度上超越基线乃至人类标注水平？
+      - generic [ref=f283e55]: ② 三模块架构：Entry 压缩 → Middle 提抽象 → 分类头
+      - generic [ref=f283e57]: Entry 流（5 块）
+      - generic [ref=f283e58]: 原始波形 → 紧凑表示
+      - generic [ref=f283e59]: 通道 32→64→128→256→728
+      - generic [ref=f283e60]: 时间 16000→256（步长 4/2/2/2/2）
+      - generic [ref=f283e61]: 核 9→3 逐步缩小
+      - generic [ref=f283e63]: Middle 流（8 块）
+      - generic [ref=f283e64]: 学高层次抽象表示
+      - generic [ref=f283e65]: 每块 3 层深度可分离卷积
+      - generic [ref=f283e66]: 通道保持 728 · 时间保持 256
+      - generic [ref=f283e67]: 步长 1（不再降维）
+      - generic [ref=f283e69]: 分类流（3 层）
+      - generic [ref=f283e70]: DS 卷积 1024/1536/2048
+      - generic [ref=f283e71]: → 展平 → Dropout 0.75
+      - generic [ref=f283e72]: → 全连接输出
+      - generic [ref=f283e73]: FC 约 65K 参数
+      - generic [ref=f283e75]: 两个关键选型
+      - generic [ref=f283e76]: 深度可分离卷积：空间卷积与通道混合解耦——
+      - generic [ref=f283e77]: 计算量仅为标准卷积的 1/(N·S)
+      - generic [ref=f283e78]: Instance Norm 替代 BatchNorm：不同录音的幅度/能量
+      - generic [ref=f283e79]: 分布差异大，逐样本归一化比逐批统计更贴合音频
+      - generic [ref=f283e80]: 正则化：Dropout 0.75（防 FC 65K 参数过拟合）+
+      - generic [ref=f283e81]: 全局 L2 权重衰减 λ=1e-3
+      - generic [ref=f283e83]: 五件套数据增强（×5 扩增）
+      - generic [ref=f283e84]: 重采样（拉伸时长同时改音高）· 饱和（随机幅度放大）
+      - generic [ref=f283e85]: 时间偏移 · 白噪声叠加 · 音高偏移
+      - generic [ref=f283e86]: 五种变换同时以随机参数/强度施加于每条音频——
+      - generic [ref=f283e87]: 高变异性的增强样本，追加到原始数据集
+      - generic [ref=f283e88]: 训练：Adam 1e-4（4 轮无改善减半）· batch 32 · 50 轮
+      - generic [ref=f283e89]: 每个任务训 5 个随机初始化，报均值±标准差
+      - generic [ref=f283e90]: ③ 四档任务难度 × 两版数据集 × 人类基线
+      - generic [ref=f283e92]: GSC v1（64,721 条 · 30 词）与 v2（105,829 条 · 35 词）；四档任务：35 词全分类（最难）· 20 命令+unknown · 10 命令+unknown · left-right 二分（最易）
+      - generic [ref=f283e93]: 人类基线：4 名标注员标约 1000 条命令——首次在 GSC 上建立人类水平参照；Student t 检验（α=0.05）验证模型与人类差异的统计显著性
+      - generic [ref=f283e95]: 95.85%
+      - generic [ref=f283e96]: 35 词（人类 94.15 · p=0.015）
+      - generic [ref=f283e97]: 95.96%
+      - generic [ref=f283e98]: 20 命令（人类 94.56 · p=0.027）
+      - generic [ref=f283e99]: 97.54%
+      - generic [ref=f283e100]: 10 命令（与人类无显著差）
+      - generic [ref=f283e101]: 99.25%
+      - generic [ref=f283e102]: left-right（次优 99.40）
+      - generic [ref=f283e103]: ×5
+      - generic [ref=f283e104]: 数据增强扩增倍数
+      - generic [ref=f283e105]: 瓦伦西亚大学 IDAL · ESANN 2021 · arXiv 2110.07498 · 开源 github.com/ivallesp/Xception1d；以上为 GSC v2 数字（v1 类似：35w/20c 亦显著超人类）
+    - generic [ref=f283e106]: 图1 · 机制全景：上半是研究问题，中段是三模块架构与两个关键选型、五件套增强，底部是四档任务设计与关键数字。
+  - heading "§02 方法：压缩、抽象、判别三段式" [level=2] [ref=f283e107]:
+    - generic [ref=f283e108]: §02
+    - text: 方法：压缩、抽象、判别三段式
+  - generic [ref=f283e109]: Entry 大步长下采样 · Middle 不降维提抽象 · Dropout 压 FC
+  - generic [ref=f283e110]:
+    - generic [ref=f283e111]: "Entry: 5 块 · 通道 32→64→128→256→728 · 时间 16000→256（步长 4/2/2/2/2）· 核 9→3 Middle: 8 块 · 每块 3 层深度可分离卷积 · 通道 728 · 时间 256（步长 1） 分类: DS 卷积 1024→1536→2048 → 展平 → Dropout(0.75) → FC（约 65K 参数） 正则: L2 权重衰减 λ=1e-3 · Dropout 0.75（专防 FC 过拟合） 增强: 重采样 + 饱和 + 时间偏移 + 白噪声 + 音高偏移（随机参数同时施加，×5 扩增）"
+    - generic [ref=f283e112]: 人话：先把 16000 个采样点用大步长快速压到 256 帧（Entry 是计算大头），再在不降维的空间里反复提抽象（Middle 的 8 块都步长 1），最后 2048 维特征展平接 FC——65K 参数的 FC 靠 75% Dropout 压过拟合。五种增强同时上、参数随机，一条音频变五条高变异样本。
+  - generic [ref=f283e113]:
+    - generic [ref=f283e114]:
+      - heading "Instance Norm 的适配逻辑" [level=3] [ref=f283e115]
+      - paragraph [ref=f283e116]: 音频幅度/能量因麦克风距离、增益、信道而异——BatchNorm 的逐批统计被跨样本差异污染。Instance Norm 逐样本归一化：把「这段录音自身多响」先抹平，判别只依赖时频结构——对幅度敏感的任务是通用偏好。
+    - generic [ref=f283e117]:
+      - heading "人类基线的协议" [level=3] [ref=f283e118]
+      - paragraph [ref=f283e119]: 4 名标注员 × 约 1000 条命令 → 人类水平（35 词 94.15±1.03%）→ Student t 检验（α=0.05）判定差异显著性。模型 5 个随机初始化报均值±标准差——两边的方差都有交代，「超过人类」才是统计声明。
+  - generic [ref=f283e120]:
+    - img [ref=f283e121]:
+      - generic [ref=f283e123]: 机制解剖：16000 个采样点怎么变成 35 个类别
+      - generic [ref=f283e124]: 维度流：时间塌缩 × 通道扩张
+      - generic [ref=f283e126]: 原始波形
+      - generic [ref=f283e155]: 16000 点
+      - generic [ref=f283e157]: Entry 流（5 块）
+      - generic [ref=f283e158]: 时间 16000→256
+      - generic [ref=f283e159]: 通道 32→728 · 核 9→3
+      - generic [ref=f283e161]: Middle 流（8 块）
+      - generic [ref=f283e162]: 时间/通道均不变 · 学抽象
+      - generic [ref=f283e164]: 分类流（3 层 DS）
+      - generic [ref=f283e165]: 1024→1536→2048
+      - generic [ref=f283e166]: 展平 → Dropout 0.75 → FC
+      - generic [ref=f283e167]: 压缩路径（示意）
+      - generic [ref=f283e169]: 16K 点
+      - generic [ref=f283e173]: 256 点
+      - generic [ref=f283e174]: 步长 4/2/2/2/2 的五级下采样把 16000 点压到 256 帧——
+      - generic [ref=f283e175]: 之后 Middle 流不再动分辨率，专注学抽象特征
+      - generic [ref=f283e176]: Instance Norm 与人类基线
+      - generic [ref=f283e178]: 为什么用 Instance Norm 替代 BatchNorm
+      - generic [ref=f283e179]: · 音频的幅度/能量分布因录音条件而异（麦克风距离/增益/
+      - generic [ref=f283e180]: 信道）——逐批统计（BN）被跨样本差异污染
+      - generic [ref=f283e181]: · Instance Norm 对每个样本独立归一化：把「这段录音自身
+      - generic [ref=f283e182]: 的响度」先抹平，判别只看时频结构本身
+      - generic [ref=f283e183]: · 同思路见后续风格迁移/语音前端——逐样本归一化对幅度
+      - generic [ref=f283e184]: 敏感任务是通用偏好
+      - generic [ref=f283e186]: 人类基线怎么做（首次在 GSC 上）
+      - generic [ref=f283e187]: · 4 名标注员 × 约 1000 条命令——人类水平=94.15%（35 词）
+      - generic [ref=f283e188]: · Student t 检验（α=0.05）判定「超过人类」是否显著
+      - generic [ref=f283e189]: 方法论价值：把「模型好坏」锚定在人类参照上——比单纯
+      - generic [ref=f283e190]: 刷百分比更有说服力；此后 KWS 论文多了可对齐的锚点
+      - generic [ref=f283e191]: 左：Entry 流用大步长先把 16000 点压到 256 帧（计算大头），Middle 流在不降维的空间里学抽象，分类流用 Dropout 0.75 压住 65K 参数 FC 的过拟合。右：逐样本归一化适配音频幅度差异；人类基线给「超过人类」提供统计证据
+    - generic [ref=f283e192]: 图2 · 机制解剖：左是 16000 点到 35 类的维度流（波形 → Entry 压缩 → Middle 抽象 → 分类流），右是 Instance Norm 的适配逻辑与人类基线的协议设计。
+  - heading "§03 实验：越难的任务，优势越大" [level=2] [ref=f283e193]:
+    - generic [ref=f283e194]: §03
+    - text: 实验：越难的任务，优势越大
+  - generic [ref=f283e195]: GSC v1/v2 × 四档难度 × 人类对照
+  - generic [ref=f283e196]:
+    - img [ref=f283e197]:
+      - generic [ref=f283e199]: 主结果（GSC v2）：最难的两档统计显著超过人类
+      - generic [ref=f283e200]: 四档任务 × 三方对比（%）
+      - generic [ref=f283e201]: "92"
+      - generic [ref=f283e202]: "94"
+      - generic [ref=f283e203]: "96"
+      - generic [ref=f283e204]: "98"
+      - generic [ref=f283e205]: "100"
+      - generic [ref=f283e209]: 35 词
+      - generic [ref=f283e210]: p=0.015 显著超人类
+      - generic [ref=f283e214]: 20 命令
+      - generic [ref=f283e215]: p=0.027 显著超人类
+      - generic [ref=f283e219]: 10 命令
+      - generic [ref=f283e220]: 与人类无显著差
+      - generic [ref=f283e224]: left-right
+      - generic [ref=f283e225]: 略低于最优 <0.5%
+      - generic [ref=f283e227]: Xception-1d
+      - generic [ref=f283e229]: 人类
+      - generic [ref=f283e231]: 最强基线
+      - generic [ref=f283e232]: 读数：
+      - generic [ref=f283e233]: · 任务越难（词表越大），相对人类与基线的优势越明显
+      - generic [ref=f283e234]: · 误差带极窄（±0.03~0.16）：5 个随机初始化的稳定性证据
+      - generic [ref=f283e235]: · left-right 最易任务上略输 Andrade 99.40——最简单任务
+      - generic [ref=f283e236]: 大家都到天花板，架构差异不再重要
+      - generic [ref=f283e237]: · v1 结果同构：35w/20c 亦显著超人类（p<0.05）
+      - generic [ref=f283e238]: 逐类分析与辅助任务效应
+      - generic [ref=f283e240]: 易混淆词对（35 词任务）
+      - generic [ref=f283e241]: · three ↔ tree · follow ↔ four · bed ↔ bird
+      - generic [ref=f283e242]: 大部分类别的精度/召回在 90–100% 之间
+      - generic [ref=f283e243]: 混淆集中在声学上真正相近的词对——模型错误有
+      - generic [ref=f283e244]: 声学道理，不是随机噪声
+      - generic [ref=f283e246]: 有趣的辅助任务效应
+      - generic [ref=f283e247]: 「left/right」在 35 词多类任务里的逐类性能
+      - generic [ref=f283e248]: 反而高于 left-right 二分类任务中的表现
+      - generic [ref=f283e249]: 解读：更大的词汇量 = 更难的辅助任务 ——
+      - generic [ref=f283e250]: 迫使特征提取器学出更判别的表示，反哺主任务
+      - generic [ref=f283e251]: 与多任务学习的思路相通（后续方向：VAD/说话人
+      - generic [ref=f283e252]: 识别作辅助任务提升 KWS）
+      - generic [ref=f283e253]: 引用注意：此为观察性发现，无控制变量的因果验证
+      - generic [ref=f283e254]: 注：数字为论文报告值（V2 · 均值±标准差来自 5 个随机初始化）；基线行取各任务最强对手（Andrade et al. 为主）；原文见 arXiv 2110.07498
+    - generic [ref=f283e255]: 图3 · 主结果：左是四档任务的三方对比（Xception-1d / 人类 / 最强基线）与显著性标注，右是易混淆词对与「辅助任务反哺主任务」的有趣发现。
+  - table [ref=f283e256]:
+    - rowgroup [ref=f283e257]:
+      - row [ref=f283e258]:
+        - columnheader "任务（GSC v2）" [ref=f283e259]
+        - columnheader "Xception-1d" [ref=f283e260]
+        - columnheader "人类" [ref=f283e261]
+        - columnheader "最强基线" [ref=f283e262]
+        - columnheader "显著性" [ref=f283e263]
+      - row [ref=f283e264]:
+        - cell "35 词（最难）" [ref=f283e265]
+        - cell "95.85±0.16" [ref=f283e266]
+        - cell "94.15±1.03" [ref=f283e267]
+        - cell "93.90" [ref=f283e268]
+        - cell "p=0.015 显著超人类" [ref=f283e269]
+      - row [ref=f283e270]:
+        - cell "20 命令" [ref=f283e271]
+        - cell "95.96±0.16" [ref=f283e272]
+        - cell "94.56±0.98" [ref=f283e273]
+        - cell "94.50" [ref=f283e274]
+        - cell "p=0.027 显著超人类" [ref=f283e275]
+      - row [ref=f283e276]:
+        - cell "10 命令" [ref=f283e277]
+        - cell "97.54±0.08" [ref=f283e278]
+        - cell "97.22±0.85" [ref=f283e279]
+        - cell "96.90" [ref=f283e280]
+        - cell "与人类无显著差" [ref=f283e281]
+      - row [ref=f283e282]:
+        - cell "left-right（最易）" [ref=f283e283]
+        - cell "99.25±0.07" [ref=f283e284]
+        - cell "99.54±0.16" [ref=f283e285]
+        - cell "99.40" [ref=f283e286]
+        - cell "略低于最优 <0.5%" [ref=f283e287]
+  - generic [ref=f283e288]:
+    - generic [ref=f283e289]: 读表要点
+    - listitem [ref=f283e290]: ◈ 规律的形状：任务越难（词表越大），相对人类与基线的优势越明显；最易的 left-right 大家都到天花板，架构差异不再重要——这个梯度本身说明优势来自表示能力而非偶然。
+    - listitem [ref=f283e291]: ◈ 逐类分析：混淆集中在声学真正相近的词对（three↔tree、follow↔four、bed↔bird）——错误有声学道理，不是随机噪声。
+    - listitem [ref=f283e292]: ◈ 辅助任务效应：left/right 在 35 词任务里的逐类性能高于二分类任务——更大词表作为更难的辅助任务迫使特征更判别（观察性发现，与多任务学习思路相通）。
+    - listitem [ref=f283e293]: ◈ v1 结果同构（35w/20c 亦 p<0.05 超人类）——结论对数据集版本稳健。
+  - heading "§04 贡献" [level=2] [ref=f283e294]:
+    - generic [ref=f283e295]: §04
+    - text: 贡献
+  - generic [ref=f283e296]: 四点：从架构迁移到评测范式
+  - generic [ref=f283e297]:
+    - generic [ref=f283e298]:
+      - generic [ref=f283e299]: "1"
+      - paragraph [ref=f283e300]: Xception-1d 架构：Xception 的一维适配首次用于端到端 KWS——DS 卷积 + Instance Norm 组合，无手工特征下超越人类标注水平；证明 CV 成功设计可迁移到语音。
+    - generic [ref=f283e301]:
+      - generic [ref=f283e302]: "2"
+      - paragraph [ref=f283e303]: 五件套增强方法论：多变换同时施加 + 参数随机化的组合策略，×5 扩增有效提升泛化——简单但有效，可直接抄。
+    - generic [ref=f283e304]:
+      - generic [ref=f283e305]: "3"
+      - paragraph [ref=f283e306]: 人类性能基线：首次在 GSC 上建立人类水平参照 + t 检验协议——给「超过 X」类声明提供了证据格式。
+    - generic [ref=f283e307]:
+      - generic [ref=f283e308]: "4"
+      - paragraph [ref=f283e309]: 开源可复现：完整代码仓库（ivallesp/Xception1d），促进基准比较与方法复现。
+  - heading "§05 局限与判断" [level=2] [ref=f283e310]:
+    - generic [ref=f283e311]: §05
+    - text: 局限与判断
+  - generic [ref=f283e312]: 无流式 · 无实测 · 无消融
+  - generic [ref=f283e313]:
+    - img [ref=f283e314]:
+      - generic [ref=f283e316]: 边界与延伸
+      - generic [ref=f283e318]: 技术边界
+      - generic [ref=f283e319]: · 流式缺失：整段 1 秒输入，无增量推理——语音助手的音频
+      - generic [ref=f283e320]: 是连续流到达的，需要因果卷积 + 累积推理的适配
+      - generic [ref=f283e321]: · 词汇量仅 35 词：数百关键词的扩展性未验证
+      - generic [ref=f283e322]: · 固定输入长度：更短/更长的命令要对齐或截断
+      - generic [ref=f283e323]: · 端到端的计算代价：原始波形 16000 点（vs MFCC 的低维），
+      - generic [ref=f283e324]: Entry 流的计算量是明账——省了特征提取、付了入口计算
+      - generic [ref=f283e326]: 实验边界 + 延伸
+      - generic [ref=f283e327]: · 缺同期端到端对比（SincNet / wav2vec 2.0 微调）
+      - generic [ref=f283e328]: · TinyML 声称无实测：延迟/内存/能耗未测
+      - generic [ref=f283e329]: · ESANN 5 页篇幅：消融研究缺失
+      - generic [ref=f283e330]: · 无模型大小-准确率权衡分析（如减 Middle 块数）
+      - generic [ref=f283e331]: 延伸：流式适配（因果卷积 + 累积推理）；更大词表验证；
+      - generic [ref=f283e332]: 量化/剪枝/蒸馏上边缘；DS 卷积 + 注意力结合；多任务
+      - generic [ref=f283e333]: （VAD/说话人识别作辅助）
+      - generic [ref=f283e334]: 可迁移判断：CV 成功架构经维度适配可直接进音频——先试「迁移+适配」再谈「重新设计」；人类基线 + 显著性检验应成为「超过 X」类声明的标配证据格式
+    - generic [ref=f283e335]: 图4 · 边界与延伸：左技术边界（无流式、词汇量 35、固定长度、原始波形的入口计算代价），右实验边界（缺 SincNet/wav2vec 对比、TinyML 无实测、5 页无消融）+ 延伸方向。
+  - generic [ref=f283e336]:
+    - generic [ref=f283e337]: 可迁移判断
+    - paragraph [ref=f283e338]: ↳ 先试「迁移 + 适配」，再谈「重新设计」：Xception 的 2D→1D 适配直接拿到超人类结果——领域问题常常不需要新架构，需要的是把成熟架构的归纳偏置正确搬到自己的数据结构上。
+    - paragraph [ref=f283e339]: ↳ 人类基线 + 显著性检验应成为标配：与其说「达到 95.9%」，不如说「显著超过人类标注员（p=0.015）」——锚点明确、可检验；建一次人类基线，整个后续文献都有了参照系。
+    - paragraph [ref=f283e340]: ↳ 逐样本归一化适配幅度差异：音频的响度不是判别信息而是录音条件的产物——Instance Norm 把这层变化在入口抹平，比让模型学会「忽略响度」更直接。
+    - paragraph [ref=f283e341]: ↳ 端到端不是免费的：跳过特征提取省了流水线，但原始波形的入口计算是明账——评估端到端方案必须把 Entry 流的代价与特征提取的代价放在同一张账单上比。
+  - generic [ref=f283e342]:
+    - link "arXiv 2110.07498 ↗" [ref=f283e343] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2110.07498
+    - link "官方实现 ↗" [ref=f283e344] [cursor=pointer]:
+      - /url: https://github.com/ivallesp/Xception1d
+    - link "← 返回总目录" [ref=f283e345] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f283e346]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为论文报告值（均值±标准差，5 次初始化）· 2021 №12 · 197+/305
