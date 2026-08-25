@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>I2CR：类间-类内对比正则化的噪声鲁棒关键词检测</title>
+<style>
+  :root {
+    --ink: #1c2430; --ink2: #47536a; --ink3: #8a93a5;
+    --paper: #f6f6f2; --card: #ffffff; --line: #e6e6df;
+    --acc: #0e8a66; --acc-dk: #0a6b4e; --acc-lt: #e6f4ee;
+    --warn: #c0392b; --orange: #d97a2b; --blue: #33507a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 28px 72px; }
+  .kicker { font-size: 13px; letter-spacing: .18em; color: var(--acc);
+    font-weight: 700; margin-bottom: 14px; }
+  h1.hero { font-size: 40px; line-height: 1.28; font-weight: 800; letter-spacing: .01em; }
+  h1.hero .g { color: var(--acc-dk); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink2); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; }
+  .meta { font-size: 13.5px; color: var(--ink3); margin-bottom: 30px; }
+  h2 { font-size: 25px; font-weight: 800; margin: 54px 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .no { font-size: 14px; color: #fff; background: var(--acc); border-radius: 8px;
+    padding: 2px 10px; letter-spacing: .08em; flex: none; }
+  .h2sub { font-size: 14px; color: var(--ink3); margin-bottom: 18px; padding-left: 52px; }
+  p.lead { font-size: 16.5px; color: var(--ink); margin: 14px 0; }
+  p.sub { font-size: 15px; color: var(--ink2); margin: 12px 0; }
+  .fig { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 14px 8px; margin: 22px 0 8px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  p.cap { font-size: 13px; color: var(--ink3); padding: 10px 8px 10px; }
+  p.cap b { color: var(--ink2); }
+  .tldr { background: linear-gradient(135deg, #e9f6f0 0%, #f4faf7 100%);
+    border: 1px solid #cfe9de; border-radius: 16px; padding: 24px 28px; margin-top: 26px; }
+  .tldr h3 { font-size: 17px; color: var(--acc-dk); margin-bottom: 12px; }
+  .tldr li { font-size: 14.5px; color: var(--ink2); margin: 7px 0 7px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .tldr li::before { content: "▸"; position: absolute; left: 0; color: var(--acc); font-weight: 700; }
+  .tldr li b { color: var(--ink); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h4 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { font-size: 13.8px; color: var(--ink2); }
+  .card.bad { border-color: #f0d9d4; background: #fdf8f7; }
+  .card.bad h4 { color: var(--warn); }
+  .formula { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--acc);
+    border-radius: 12px; padding: 18px 24px; margin: 18px 0; }
+  .formula .f { font-family: "SF Mono", Consolas, "Noto Sans SC", monospace;
+    font-size: 15px; color: var(--ink); font-weight: 600; }
+  .formula .why { font-size: 13.8px; color: var(--ink2); margin-top: 8px; }
+  .formula .why b { color: var(--acc-dk); }
+  table.tb { width: 100%; border-collapse: collapse; margin: 18px 0; background: var(--card);
+    border-radius: 12px; overflow: hidden; font-size: 13.8px; }
+  table.tb th { background: var(--acc-lt); color: var(--acc-dk); font-weight: 700;
+    padding: 10px 12px; text-align: left; }
+  table.tb td { padding: 9px 12px; border-top: 1px solid var(--line); color: var(--ink2); }
+  table.tb td b { color: var(--ink); }
+  .contrib { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+  .contrib .row { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; align-items: flex-start; }
+  .contrib .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--acc);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; margin-top: 3px; }
+  .contrib p { font-size: 14.2px; color: var(--ink2); }
+  .contrib p b { color: var(--ink); }
+  .lim { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0; }
+  .lim .card h4 { font-size: 14.5px; color: var(--warn); }
+  .judge { background: #fdf6ec; border: 1px solid #eadfc8; border-radius: 14px;
+    padding: 22px 26px; margin: 26px 0; }
+  .judge h4 { font-size: 15.5px; color: #8a5a1a; margin-bottom: 10px; }
+  .judge li { font-size: 14.2px; color: var(--ink2); margin: 8px 0 8px 4px; padding-left: 20px;
+    list-style: none; position: relative; }
+  .judge li::before { content: "↳"; position: absolute; left: 0; color: var(--orange); font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-size: 13.5px; font-weight: 600; color: #fff; background: var(--acc);
+    border-radius: 999px; padding: 8px 20px; text-decoration: none; }
+  .pill.ghost { background: none; color: var(--ink2); border: 1.5px solid var(--line); }
+  .back { display: inline-block; margin-bottom: 26px; font-size: 13.5px; color: var(--acc);
+    text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← 返回论文列表</a>
+  <div class="kicker">论文精读 · 可视化版 · 2022 №19</div>
+  <h1 class="hero">不改架构、不加推理开销：<br>把噪声从嵌入里<span class="g">挤出去</span></h1>
+  <div class="chips">
+    <span class="chip">I2CR · arXiv 2209.06360</span>
+    <span class="chip">阿里巴巴新加坡 × 南洋理工 × 西安交大</span>
+    <span class="chip">监督对比正则（SupCon 变体）</span>
+    <span class="chip">GSC V2 + FSD50K · 三骨干验证</span>
+  </div>
+  <div class="meta">CE 只要求「可分类」不要求「表示里不含噪声」——网络可以靠背噪声条件降损失。I2CR 用批内标签免费构造「同类不同说话人」正对，把对比约束从实例判别升级成类别判别。</div>
+
+  <div class="tldr">
+    <h3>一分钟版本</h3>
+    <ul>
+      <li><b>靶心</b>：KWS 常驻监听，用户不挑环境说话；端侧小模型没有容量「记住」各种噪声条件——多条件训练学到的是「见过这几种噪声后如何补救」，对训练范围外的噪声/SNR 必然劣化。</li>
+      <li><b>缺口</b>：两阶段对比预训练（SPIRAL/Wav2vec-switch）需要大规模无标注语料——本文没有；CLAR 的正对只有同一样本的两个增广视图且只验证干净设定。</li>
+      <li><b>方法</b>：L = L_CE + α·L_I2CR——标准监督分类器加一个对比正则项，推理时正则完全消失，模型结构与基线一字不差。</li>
+      <li><b>双来源正对</b>：intra-view（同一样本加不同噪声→噪声不变性）+ inter-view（同类不同说话人的不同样本→两个录音唯一的公共因子就是词本身）。只用 intra 的问题：两个视图共享说话人等无关因子，模型可以靠实例内不变量走捷径。</li>
+      <li><b>α 课程热身</b>：首 epoch α=0（纯 CE 热身）→ 线性增长 → 截断 0.5——从零训练早期表示近乎随机，「最大化两个随机向量相似度」非平凡；CE 先把表示整理到大致可分的流形上，对比约束再做几何精修。</li>
+      <li><b>四种增广每个视图全做</b>：FSD50K 噪声（traffic/metro/car，SNR −10~30dB）+ SpecAugment 掩码 + 时间循环平移 ±100ms + 速度扰动 90–110%——跨视图仍相似只能靠语义内容满足。</li>
+      <li><b>域内结果</b>：三骨干 × 三噪声 × 四档 SNR × 两子集全一致为正，增益随 SNR 降低放大——−10dB 典型 +1.8~+3.9 点；20dB 处收窄到 0~0.3（噪声弱时没有可清理的对象）。</li>
+      <li><b>超范围 SNR</b>：−30dB 全员崩塌（最好 0.411）但 I2CR 显著更好（−30dB 平均 +4%/+2.4%）；最有意思的是 clean 列——从未见过干净音频，I2CR 版全面更好（KWT +2.3）：学到的是更纯的类表示，不是对噪声过拟合。</li>
+      <li><b>域外噪声</b>：GSC 背景噪声上 −10dB 平均 +5.7%/+3.6%，单点最大 +9.5（KWT 10 类 0.482→0.577）——占地最小的模型从正则获利最多。</li>
+      <li><b>边界</b>：表示去噪不是信号增强（语音被淹没时无米下锅）；正对依赖批内标签分布（batch 128 / 35 类 ≈ 每类 3–4 样本）；训练开销随批平方增长未量化；无虚警/漏检工作点指标、无多种子方差。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">§01</span>问题：CE 不约束表示的几何</h2>
+  <div class="h2sub">常规监督学习对潜在表示没有任何额外约束</div>
+  <p class="lead">噪声 KWS 的性能退化，根源是干扰特征（nuisance features）没有被抑制——背景噪声可以在嵌入空间里占据主导地位，把类别信息挤到边角。监督 CE 只要求「可分类」，网络完全可以通过背噪声条件来降训练损失。图像领域的对比正则研究（域泛化、半监督伪标签）已证明「把跨域同类样本在嵌入空间拉近」能带来更好的域泛化——本文把这套思路搬到 KWS 噪声鲁棒性上（据作者所知是第一篇）。</p>
+  <div class="cards">
+    <div class="card bad">
+      <h4>多条件训练的隐含失败模式</h4>
+      <p>高度依赖网络自身去「适应并泛化」到训练时选定的那批信噪比噪声环境——模型占地越小问题越严重：没有容量去记住各种噪声条件，也没有显式机制阻止表示吸收噪声。</p>
+    </div>
+    <div class="card bad">
+      <h4>两阶段预训练的门槛</h4>
+      <p>语音识别社区用对比预训练学噪声鲁棒表示（不同加噪视图对比 + 有标注微调），但需要大规模外部无标注语料——论文明确声明没有外部大数据集可用；自监督对比还有维度坍缩与训练资源问题。</p>
+    </div>
+  </div>
+
+  <h2><span class="no">§02</span>方法：单阶段监督对比正则</h2>
+  <div class="h2sub">正则器与架构解耦——收益来自训练信号而非架构改动</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 960">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="960.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">I2CR：把噪声从嵌入里挤出去——训练期正则，推理零开销</text>
+<line x1="36.0" y1="60.0" x2="600.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 三条老路各自的缺口</text>
+<rect x="36.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多条件训练治标不治本</text>
+<text x="52.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">在各种 SNR 加噪数据上反复训练——但 CE 只要求「可分类」，</text>
+<text x="52.0" y="154.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  不要求「表示里不含噪声」：网络可以靠背噪声条件降损失</text>
+<text x="52.0" y="167.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">学到的是「见过这几种噪声后如何补救」，不是「在表示层</text>
+<text x="52.0" y="179.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  面忽略噪声本身」——对训练范围外的噪声/SNR 必然劣化</text>
+<text x="52.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">端侧小模型没有多余容量记噪声条件，问题更严重</text>
+<rect x="474.0" y="98.0" width="414.0" height="100.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="490.0" y="122.0" font-size="12" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">另两条路的门槛</text>
+<text x="490.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段对比预训练（SPIRAL / Wav2vec-switch）：需要大规模</text>
+<text x="490.0" y="154.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  外部无标注语料——本文明确声明没有，不做考虑；自监督</text>
+<text x="490.0" y="167.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  对比还有维度坍缩和资源开销问题</text>
+<text x="490.0" y="179.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">CLAR：自监督对比 + CE 用于 KWS，但正对只有同一样本的</text>
+<text x="490.0" y="192.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  两个增广视图，且只在干净设定下验证</text>
+<text x="36.0" y="218.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 框架与双来源正样本：L = L_CE + α·L_I2CR</text>
+<rect x="36.0" y="232.0" width="400.0" height="168.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="256.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么只用 intra-view 不够</text>
+<text x="52.0" y="276.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">intra-view：同一样本加不同噪声的两个视图</text>
+<text x="52.0" y="288.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  → 负责噪声不变性</text>
+<text x="52.0" y="300.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="312.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">问题：两个视图共享若干不利因子（典型如说话人风格），</text>
+<text x="52.0" y="324.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  对比学习无法区分「什么该不变」——说话人风格这类与</text>
+<text x="52.0" y="336.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  类别无关的属性被一并编码进嵌入，引入无关偏置；模型</text>
+<text x="52.0" y="348.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  可以靠「实例内不变量」走捷径，类间分离不彻底</text>
+<text x="52.0" y="360.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="372.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">inter-view：同类不同说话人的不同样本——两个不同录音</text>
+<text x="52.0" y="384.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  之间唯一的公共因子就是词本身，逼着模型把类信息作为</text>
+<text x="52.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  聚拢依据（标签免费可得，minibatch 内按标签组对）</text>
+<rect x="474.0" y="232.0" width="414.0" height="168.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="490.0" y="256.0" font-size="12" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">α 课程热身 + 增广管线</text>
+<text x="490.0" y="276.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">首 epoch α=0（纯 CE 热身）→ 线性增长（epoch/总）</text>
+<text x="490.0" y="288.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  → 截断 0.5。为什么：从零训练早期表示近乎随机向量，</text>
+<text x="490.0" y="300.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「最大化两个随机向量相似度」此时非平凡；CE 先把表示</text>
+<text x="490.0" y="312.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  整理到大致可分的流形上，对比约束再做几何精修</text>
+<text x="490.0" y="324.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="336.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">四种增广每个视图全做：</text>
+<text x="490.0" y="348.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声增广：FSD50K（traffic/metro/car），SNR −10~30dB</text>
+<text x="490.0" y="360.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SpecAugment 掩码（时 2×25 帧 / 频 2×7 通道）</text>
+<text x="490.0" y="372.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 时间循环平移 ±100ms · 速度扰动 90–110%</text>
+<text x="490.0" y="384.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 跨视图仍相似只能靠语义内容满足</text>
+<text x="460.0" y="414.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">骨干无关性验证：EfficientNet-B0 / ResNet-18（最大，基线最强）/ KWT-1（占地最小，低 SNR 最弱）——覆盖卷积与 transformer 两族、三档容量；输入 98×64 log-Mel；推理时正则消失，模型与基线一字不差</text>
+<rect x="36.0" y="428.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="454.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+9.5</text>
+<text x="130.0" y="474.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">域外噪声最大单点（KWT 10 类 −10dB）</text>
+<text x="298.0" y="454.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+5.7</text>
+<text x="298.0" y="474.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">域外噪声平均增益（10 类 −10dB）</text>
+<text x="466.0" y="454.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+2.3</text>
+<text x="466.0" y="474.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">clean 提升（KWT，从未见过干净音频）</text>
+<text x="634.0" y="454.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.977</text>
+<text x="634.0" y="474.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">R18 clean——比肩干净域 SOTA</text>
+<text x="802.0" y="454.0" font-size="14.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3 骨干</text>
+<text x="802.0" y="474.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">×3 噪声 ×4 SNR ×2 子集全一致为正</text>
+<text x="36.0" y="512.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据：GSC V2（105,000 条 35 词；35 类全集 + 10 类子集）；噪声 FSD50K 训练池 905 实例（train 集）/ 测试 487（eval 集）——「域内」评测的噪声实例也没在训练出现过，只有噪声类型见过；域外用 GSC 自带背景噪声</text>
+</svg>
+    <p class="cap"><b>图1 · 机制全景</b>：三条老路的缺口；双来源正样本构造（intra 管噪声不变性 / inter 管去冗余——只用 intra 会走实例内捷径）；α 课程热身与四种增广管线；三骨干容量谱系。</p>
+  </div>
+  </div>
+  <div class="formula">
+    <div class="f">L_I2CR = Σ_i (1/|P(i)|) Σ_p −log [ exp(sim(z_i,z_p)/τ) / Σ_n exp(sim(z_i,z_n)/τ) ]</div>
+    <div class="why"><b>人话（SupCon 形式）</b>：对批内每个锚点，分子是它与某个正样本的余弦相似度，分母是与视界内所有参与对比样本的相似度和——<b>批内把同类拉到最近、其余推远</b>。P(i) 同时包含同类其他样本（inter）和自身增广视图（intra）；1/|P(i)| 防止批内样本多的类主导梯度。为什么抗噪：加噪增广制造「同内容 + 不同噪声实现」的多个视图，要求它们聚拢——模型唯一稳定的解法是把公共因子（关键词）编码进表示、把随噪声变化的因子挤出去。</div>
+  </div>
+  <p class="sub"><b>骨干无关性</b>：EfficientNet-B0 / ResNet-18（最大，基线最强）/ KWT-1（占地最小，低 SNR 最弱）——覆盖卷积与 transformer 两族、大中小三档容量，让「正则收益是否依赖模型容量」可被直接观察。为保证公平，基线与正则版用完全相同的增广与训练配置，全部超参固定不变。</p>
+
+  <h2><span class="no">§03</span>实验：域内 + 超范围 + 域外三重考验</h2>
+  <div class="h2sub">噪声实例级也不泄漏：测试噪声取自 FSD50K eval 集</div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 450">
+<rect x="0.0" y="0.0" width="880.0" height="450.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">域内噪声（Table I/II）：增益随 SNR 降低而放大</text>
+<line x1="36.0" y1="56.0" x2="440.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="330.0" y="94.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−10 dB 准确率（%）· 基线 → I2CR</text>
+<line x1="66.0" y1="314.0" x2="610.0" y2="314.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="318.0" font-size="9.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">75</text>
+<line x1="66.0" y1="264.0" x2="610.0" y2="264.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="268.0" font-size="9.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">80</text>
+<line x1="66.0" y1="214.0" x2="610.0" y2="214.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="218.0" font-size="9.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">85</text>
+<line x1="66.0" y1="164.0" x2="610.0" y2="164.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="168.0" font-size="9.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="66.0" y1="114.0" x2="610.0" y2="114.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="60.0" y="118.0" font-size="9.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">95</text>
+<rect x="100.0" y="224.0" width="62.0" height="140.0" rx="4" fill="#c9d8e8"/>
+<rect x="100.0" y="197.0" width="62.0" height="167.0" rx="4" fill="#0b6e52"/>
+<text x="131.0" y="218.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">84.0</text>
+<text x="131.0" y="191.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">86.7</text>
+<rect x="98.0" y="167.0" width="66.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="131.0" y="182.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+2.7</text>
+<text x="131.0" y="380.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">EffB0 交通</text>
+<text x="131.0" y="392.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">35类</text>
+<rect x="206.0" y="223.0" width="62.0" height="141.0" rx="4" fill="#c9d8e8"/>
+<rect x="206.0" y="202.0" width="62.0" height="162.0" rx="4" fill="#0b6e52"/>
+<text x="237.0" y="217.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">84.1</text>
+<text x="237.0" y="196.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">86.2</text>
+<rect x="204.0" y="172.0" width="66.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="237.0" y="187.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+2.1</text>
+<text x="237.0" y="380.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">R18 车内</text>
+<text x="237.0" y="392.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">35类</text>
+<rect x="312.0" y="257.0" width="62.0" height="107.0" rx="4" fill="#c9d8e8"/>
+<rect x="312.0" y="239.0" width="62.0" height="125.0" rx="4" fill="#0b6e52"/>
+<text x="343.0" y="251.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">80.7</text>
+<text x="343.0" y="233.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">82.5</text>
+<rect x="310.0" y="209.0" width="66.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="343.0" y="224.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1.8</text>
+<text x="343.0" y="380.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWT 地铁</text>
+<text x="343.0" y="392.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">35类</text>
+<rect x="418.0" y="321.0" width="62.0" height="43.0" rx="4" fill="#c9d8e8"/>
+<rect x="418.0" y="282.0" width="62.0" height="82.0" rx="4" fill="#0b6e52"/>
+<text x="449.0" y="315.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">74.3</text>
+<text x="449.0" y="276.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">78.2</text>
+<rect x="416.0" y="252.0" width="66.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="449.0" y="267.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+3.9</text>
+<text x="449.0" y="380.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWT 车内</text>
+<text x="449.0" y="392.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10类</text>
+<rect x="524.0" y="192.0" width="62.0" height="172.0" rx="4" fill="#c9d8e8"/>
+<rect x="524.0" y="160.0" width="62.0" height="204.0" rx="4" fill="#0b6e52"/>
+<text x="555.0" y="186.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">87.2</text>
+<text x="555.0" y="154.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">90.4</text>
+<rect x="522.0" y="130.0" width="66.0" height="22.0" rx="11" fill="#e6f4ee"/>
+<text x="555.0" y="145.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+3.2</text>
+<text x="555.0" y="380.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">R18 车内</text>
+<text x="555.0" y="392.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10类</text>
+<text x="36.0" y="420.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">对照高 SNR：20 dB 处提升多在 0~0.3 点（R18 交通 97.1→97.4）——噪声能量弱时干扰因子本来就少，几何约束没有可清理的对象；方法定位是低信噪比专用增强，KWT 车内 10 类的 +3.9（74.3→78.2）是论文「高达 4% 绝对提升」的出处</text>
+</svg>
+    <p class="cap"><b>图2 · 域内噪声（Table I/II · −10dB）</b>：三骨干 × 三噪声的基线 → I2CR——增益随 SNR 降低放大，20dB 处收窄到 0~0.3 点（噪声弱时没有可清理对象）。</p>
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 460">
+<rect x="0.0" y="0.0" width="880.0" height="460.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">泛化三连：超范围 SNR · 域外噪声 · 干净域对照</text>
+<line x1="36.0" y1="56.0" x2="460.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="92.0" width="260.0" height="300.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="186.0" y="114.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 超出训练 SNR 范围</text>
+<text x="186.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">(Table III · 训练只见过 −10~30dB)</text>
+<rect x="70.0" y="158.0" width="232.0" height="42.0" rx="6" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="82.0" y="175.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">-30 dB 平均增益</text>
+<text x="82.0" y="191.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">10 类 +4% / 35 类 +2.4%</text>
+<rect x="70.0" y="210.0" width="232.0" height="42.0" rx="6" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="82.0" y="227.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−15 dB EffB0 10类</text>
+<text x="82.0" y="243.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.754 → 0.806（+5.2）</text>
+<rect x="70.0" y="262.0" width="232.0" height="42.0" rx="6" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="82.0" y="279.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">clean KWT 10 类 ★</text>
+<text x="82.0" y="295.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.945 → 0.968（+2.3）</text>
+<rect x="70.0" y="314.0" width="232.0" height="42.0" rx="6" fill="#ffffff" stroke="#cfe9de" stroke-width="1"/>
+<text x="82.0" y="331.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−30 dB 最好也只有</text>
+<text x="82.0" y="347.0" font-size="9" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.411（EffB0）——全员崩塌</text>
+<text x="186.0" y="378.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">clean 列最有意思：从未见过干净音频，I2CR 版全面</text>
+<text x="186.0" y="391.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">更好——学到的是更纯的类表示，不是对噪声过拟合</text>
+<rect x="336.0" y="92.0" width="260.0" height="300.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="466.0" y="114.0" font-size="11.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 域外噪声类型</text>
+<text x="466.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">(Table IV · GSC 背景噪声，从未条件化)</text>
+<rect x="350.0" y="158.0" width="232.0" height="42.0" rx="6" fill="#ffffff" stroke="#eadfc8" stroke-width="1"/>
+<text x="362.0" y="175.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−10 dB 平均增益</text>
+<text x="362.0" y="191.0" font-size="9" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">10 类 +5.7% / 35 类 +3.6%</text>
+<rect x="350.0" y="210.0" width="232.0" height="42.0" rx="6" fill="#ffffff" stroke="#eadfc8" stroke-width="1"/>
+<text x="362.0" y="227.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWT 10 类 −10 dB</text>
+<text x="362.0" y="243.0" font-size="9" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.482 → 0.577（+9.5）★</text>
+<rect x="350.0" y="262.0" width="232.0" height="42.0" rx="6" fill="#ffffff" stroke="#eadfc8" stroke-width="1"/>
+<text x="362.0" y="279.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">20 dB 仍有</text>
+<text x="362.0" y="295.0" font-size="9" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">+0.5 ~ +1.3 点</text>
+<rect x="350.0" y="314.0" width="232.0" height="42.0" rx="6" fill="#ffffff" stroke="#eadfc8" stroke-width="1"/>
+<text x="362.0" y="331.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">占地最小的模型</text>
+<text x="362.0" y="347.0" font-size="9" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">从域外正则获利最多</text>
+<text x="466.0" y="378.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">所有模型在未见噪声上都掉点（预料之中），</text>
+<text x="466.0" y="391.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">但 I2CR 一致占优——不针对特定噪声类型优化</text>
+<rect x="616.0" y="92.0" width="230.0" height="300.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="731.0" y="114.0" font-size="11.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ clean 域对照</text>
+<text x="731.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">(Table V · 35 类 clean)</text>
+<rect x="646.0" y="152.0" width="137.5" height="22.0" rx="4" fill="#c9d8e8"/>
+<text x="787.5" y="167.0" font-size="8.5" fill="#c9d8e8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.981</text>
+<text x="640.0" y="167.0" font-size="8.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">AST</text>
+<rect x="646.0" y="188.0" width="87.5" height="22.0" rx="4" fill="#0b6e52"/>
+<text x="737.5" y="203.0" font-size="8.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.977</text>
+<text x="640.0" y="203.0" font-size="8.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 R18 ★</text>
+<rect x="646.0" y="224.0" width="62.5" height="22.0" rx="4" fill="#c9d8e8"/>
+<text x="712.5" y="239.0" font-size="8.5" fill="#c9d8e8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.975</text>
+<text x="640.0" y="239.0" font-size="8.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">Conformer</text>
+<rect x="646.0" y="260.0" width="50.0" height="22.0" rx="4" fill="#5aa886"/>
+<text x="700.0" y="275.0" font-size="8.5" fill="#5aa886" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.974</text>
+<text x="640.0" y="275.0" font-size="8.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 EffB0 ★</text>
+<rect x="646.0" y="296.0" width="50.0" height="22.0" rx="4" fill="#c9d8e8"/>
+<text x="700.0" y="311.0" font-size="8.5" fill="#c9d8e8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.974</text>
+<text x="640.0" y="311.0" font-size="8.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">TDNN</text>
+<rect x="646.0" y="332.0" width="37.5" height="22.0" rx="4" fill="#c9d8e8"/>
+<text x="687.5" y="347.0" font-size="8.5" fill="#c9d8e8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.973</text>
+<text x="640.0" y="347.0" font-size="8.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">Branchformer</text>
+<text x="731.0" y="378.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">对照方法都在干净域训练测试；</text>
+<text x="731.0" y="391.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文从未见过干净域——言下之意：</text>
+<text x="731.0" y="404.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">表示质量高到「没见过干净数据」都不吃亏</text>
+<text x="36.0" y="430.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（Table V 是不对称比较，作者在表注如实声明——只能作为「不掉点」佐证而非超越证据）</text>
+</svg>
+    <p class="cap"><b>图3 · 泛化三连（Table III/IV/V）</b>：超范围 SNR（−30dB 平均 +4%/+2.4%，clean 反而全面更好）；域外噪声（−10dB 平均 +5.7%/+3.6%，单点最大 +9.5）；干净域对照（从未见过干净域仍比肩 SOTA）。</p>
+  </div>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融链（Table I/II 内嵌）+ 表示证据 + 边界</text>
+<line x1="36.0" y1="56.0" x2="460.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="250.0" y="92.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三步消融（−10 dB 准确率）</text>
+<rect x="60.0" y="114.0" width="400.0" height="62.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="72.0" y="132.0" font-size="10" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Base（纯监督）</text>
+<rect x="72.0" y="142.0" width="107.1" height="22.0" rx="4" fill="#e8b8b0"/>
+<text x="185.1" y="157.0" font-size="8.5" fill="#e8b8b0" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">EffB0·交通 84.0</text>
+<rect x="262.0" y="142.0" width="26.8" height="22.0" rx="4" fill="#e8b8b0"/>
+<text x="294.8" y="157.0" font-size="8.5" fill="#e8b8b0" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWT·交通 76.5</text>
+<rect x="60.0" y="188.0" width="400.0" height="62.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="72.0" y="206.0" font-size="10" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">+ Intra 正则（同一样本增广视图）</text>
+<rect x="72.0" y="216.0" width="126.4" height="22.0" rx="4" fill="#9fc8b8"/>
+<text x="204.4" y="231.0" font-size="8.5" fill="#9fc8b8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">EffB0·交通 85.8</text>
+<rect x="262.0" y="216.0" width="56.8" height="22.0" rx="4" fill="#9fc8b8"/>
+<text x="324.8" y="231.0" font-size="8.5" fill="#9fc8b8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWT·交通 79.3</text>
+<rect x="60.0" y="262.0" width="400.0" height="62.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="72.0" y="280.0" font-size="10" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+ Inter 正则 = I2CR ★</text>
+<rect x="72.0" y="290.0" width="136.1" height="22.0" rx="4" fill="#0b6e52"/>
+<text x="214.1" y="305.0" font-size="8.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">EffB0·交通 86.7</text>
+<rect x="262.0" y="290.0" width="69.6" height="22.0" rx="4" fill="#0b6e52"/>
+<text x="337.6" y="305.0" font-size="8.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWT·交通 80.5</text>
+<text x="260.0" y="342.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Intra 本身已有效（视图一致性约束的价值）；加 inter 再进一步</text>
+<text x="260.0" y="357.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（多在 1 点上下，无方差报告时需谨慎解读）</text>
+<rect x="530.0" y="86.0" width="320.0" height="128.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="690.0" y="106.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">表示证据（Fig. 4 t-SNE）</text>
+<text x="546.0" y="128.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWT 在 0dB 噪声 10 类测试集、分类头之前的</text>
+<text x="546.0" y="142.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">瓶颈层表示：I2CR 类簇更突出、边界更清楚、</text>
+<text x="546.0" y="156.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">重叠更少、簇内更集中——「几何约束改变表示</text>
+<text x="546.0" y="170.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">结构」的直接可视化验证</text>
+<text x="546.0" y="192.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 嵌入里的噪声因子被挤出，噪声无法再以连续</text>
+<text x="546.0" y="206.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  漂移的方式撕裂类簇</text>
+<rect x="530.0" y="226.0" width="320.0" height="210.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="690.0" y="246.0" font-size="12" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界</text>
+<text x="546.0" y="266.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 极端 SNR 仍崩塌：−30dB 最好 0.411——正则压</text>
+<text x="546.0" y="279.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  制的是嵌入中的噪声因子，语音在信号层被淹没时</text>
+<text x="546.0" y="292.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  无米下锅（「表示去噪」不是「信号增强」）</text>
+<text x="546.0" y="305.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="546.0" y="318.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 高 SNR 收益趋零（20dB +0~0.3）</text>
+<text x="546.0" y="331.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 正对依赖批内标签分布：batch 128 / 35 类 ≈ 每类</text>
+<text x="546.0" y="344.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  3–4 样本，更大词表更严重（批大小敏感性未做）</text>
+<text x="546.0" y="357.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练开销未量化：批内两两相似度矩阵随批平方增长</text>
+<text x="546.0" y="370.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 不解决容量差距：KWT 绝对精度仍垫底；无虚警/漏检</text>
+<text x="546.0" y="383.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  AUC 工作点指标；无混响远场；无多种子方差</text>
+<text x="36.0" y="448.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：监督信号免费提供「同类不同样本」的正对资源——把对比约束从实例判别升级成类别判别，是单阶段获得噪声不变表示的最便宜路径；从零训练时先 CE 热身再上几何约束</text>
+</svg>
+    <p class="cap"><b>图4 · 消融与边界</b>：Base → Intra → I2CR 三步阶梯（intra 本身已有效，inter 再进一步）；t-SNE 表示证据；「表示去噪 ≠ 信号增强」等五个边界。</p>
+  </div>
+  </div>
+
+  <h2><span class="no">§04</span>贡献：三条</h2>
+  <div class="contrib">
+    <div class="row"><div class="n">1</div><p><b>I2CR 方法</b>：首个用对比学习处理 KWS 噪声鲁棒性的工作——P(i) 构造为「批内同类样本 + 自身增广视图」的并集，配合 α 课程调度使跨样本对比约束在从零训练下稳定可行。</p></div>
+    <div class="row"><div class="n">2</div><p><b>骨干无关的一致收益</b>：三架构 × 三噪声 × 四档 SNR × 两子集全部一致改善——通用训练策略而非特定架构技巧；推理零额外开销、零架构改动。</p></div>
+    <div class="row"><div class="n">3</div><p><b>对未见条件的泛化验证</b>：域外噪声 −10dB 平均 +5.7%/+3.6%；超范围 SNR −30dB 平均 +4%/+2.4%；从未见过干净音频的模型在 clean 上比肩干净域训练的 SOTA（R18 0.977 vs AST 0.981、Conformer 0.975）。</p></div>
+  </div>
+
+  <h2><span class="no">§05</span>局限与边界</h2>
+  <div class="h2sub">「表示去噪」不是「信号增强」</div>
+  <div class="lim">
+    <div class="card bad">
+      <h4>极端 SNR 仍崩塌</h4>
+      <p>−30dB 下最好的 I2CR 模型也只有 0.411，35 类全员低于 0.33——对比正则作用在表示层，语音在信号层被淹没时表示学习无米下锅。</p>
+    </div>
+    <div class="card bad">
+      <h4>高 SNR 收益趋零</h4>
+      <p>20dB 处提升普遍 0~0.3 个点——方法定位本质是低信噪比专用增强，不要指望改善安静环境。</p>
+    </div>
+    <div class="card bad">
+      <h4>正对受批组成制约</h4>
+      <p>inter-view 正对全部来自 minibatch 内同标签样本——batch 128 / 35 类 ≈ 每类 3–4 个样本；更大词表更严重，批大小敏感性未做。</p>
+    </div>
+    <div class="card bad">
+      <h4>开销与统计缺口</h4>
+      <p>批内两两相似度矩阵随批大小平方增长（训练开销未报告）；无多随机种子方差（20dB 的 0.1–0.3 点增益难与噪声区分）；只有分类准确率，无虚警/漏检/AUC 工作点；只有加性噪声无混响远场；参数量 FLOPs 未报告。</p>
+    </div>
+  </div>
+  <div class="judge">
+    <h4>可迁移判断（超出 KWS 也成立）</h4>
+    <ul>
+      <li>监督信号免费提供「同类不同样本」的正对资源——把对比约束从实例判别升级成类别判别，是单阶段获得噪声不变表示的最便宜路径（无需预训练语料）。</li>
+      <li>只用同一样本的增广视图做正对会让模型走「实例内不变量」捷径——两个视图共享的无关因子（说话人等）会被一并编码。</li>
+      <li>从零训练时几何约束要先热身：CE 把表示整理到大致可分的流形上，对比精修才有立足点——首 epoch α=0 + 线性升是最简单的稳定化。</li>
+      <li>检验鲁棒性方法的真正考场是训练分布之外：超范围 SNR、域外噪声类型、甚至反向的 clean 条件——「从未见过干净数据仍不掉点」是表示纯度的最强佐证。</li>
+      <li>训练期正则的收益必须以「推理零改动」为前提来主张——正则器与架构解耦，通用性声明才成立。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a class="pill" href="https://arxiv.org/abs/2209.06360" target="_blank">论文原文 ↗</a>
+    <a class="pill ghost" href="I2CR_Improving_Noise_Robustness_On_Keyword_Spotting_Using_Inter-Intra_Contrastive_Regularization.md">笔记全文 ↗</a>
+    <a class="pill ghost" href="../index.html">返回列表</a>
+  </div>
+</div>
+</body>
+</html>
