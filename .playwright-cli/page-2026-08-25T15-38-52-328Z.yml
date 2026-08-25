@@ -1,0 +1,273 @@
+- generic [ref=f285e2]:
+  - generic [ref=f285e3]: 论文精读 · 可视化版 · 2021 №13 · 系列基石
+  - heading "5 个样本唤醒一门新语言： 多语言预训练把 KWS 的语言壁垒拆掉" [level=1] [ref=f285e4]: 5 个样本唤醒一门新语言：多语言预训练把 KWS 的语言壁垒拆掉
+  - generic [ref=f285e5]:
+    - generic [ref=f285e6]: Few-Shot KWS Any Language · 哈佛 EDGE / Coqui / Google
+    - generic [ref=f285e7]: Interspeech 2021 · arXiv 2104.01454
+    - generic [ref=f285e8]: XLSR-53（53 语 · 300M）+ 原型网络
+    - generic [ref=f285e9]: 未见语言 5-shot 约 70–80%（MFCC 塌到 40–50%）
+  - generic [ref=f285e10]: 一句话：全球 7000+ 种语言，但 KWS 只覆盖少数高资源语。本文用三阶段框架拆语言壁垒：XLSR-53 多语言自监督预训练（53 语约 4 万小时）学语言无关表示 → 冻结骨干只训约 10 万参数的适配层 → 推理时原型匹配（支持集嵌入求均值即原型，换新词零训练）。对训练中完全未见过的语言，5 个样本即达约 70–80% 准确率（随机 20%）——为低资源语言的 KWS 部署开辟了「录 5 条音频就能用」的新路径。
+  - generic [ref=f285e11]:
+    - generic [ref=f285e12]: TL;DR
+    - listitem [ref=f285e13]: ◈ 问题三层：低资源语言收集大规模标注不可能（可能只有几分钟数据）；高资源语言也有自定义唤醒词的 few-shot 需求；对训练中完全未见过的语言（越南语/泰米尔语/加泰罗尼亚语）也要能泛化——不能依赖任何单语言的声学先验。
+    - listitem [ref=f285e14]: ◈ 三阶段框架：多语言预训练（表示）→ 小样本嵌入学习（冻结 XLSR-53 + 1–2 层 FC 适配层，1024→64–128 维，只训 ~10 万参数）→ 推理时原型匹配（支持集均值 = 原型）。
+    - listitem [ref=f285e15]: ◈ XLSR-53 是关键选择：53 种语言联合的对比学习目标迫使表示捕获跨语言共同结构（共振峰/音节/韵律/音素对应）——单语 wav2vec 换语言就分布漂移，XLSR 让未见语言也落在合理区域。消融：比单语高 10–15pp，未见语言差距更大。
+    - listitem [ref=f285e16]: ◈ 原型网络为什么合适：换新词只需 5 次嵌入 + 求平均——零训练成本；新语言新词当天可用。负类处理：所有非目标词聚合为一个「负面原型」承担拒识（开放集 KWS 的必需品）。
+    - listitem [ref=f285e17]: ◈ 训练协议：标准 episode（N-way K-shot 模拟推理场景）+ 9 种语言开放语料（Common Voice 英法德西 + Aishell 中 + 俄波葡土）+ SpecAugment/噪声。
+    - listitem [ref=f285e18]: ◈ 结果（约值）：未见语言 5-shot 70–80%（随机 20%）；已见语言 5-shot 85–95%；MFCC 跨语言塌到 40–50% vs XLSR 75–85%——手工特征没有跨语言泛化性，预训练表示是必需品不是奢侈品。
+    - listitem [ref=f285e19]: ◈ 样本边际收益：1→5 shot 最大（+10~15pp），5→10 +3~5pp，之后递减——「5 个样本」是性价比甜点。语言距离效应：相近语言（加泰罗尼亚）85%+，疏远语言（泰米尔）65–70%——谱系距离决定迁移上限，但都远高于随机。
+    - listitem [ref=f285e20]: ◈ 边界：1–3 shot 比全监督低 15–20pp（商用唤醒尚不满足）；XLSR 3 亿参数无法直接上端侧（蒸馏是必经之路）；声调语言的基频轨迹捕获存疑；单一负面原型难以覆盖开放集多样性。
+  - heading "§01 问题：语言壁垒的三堵墙" [level=2] [ref=f285e21]:
+    - generic [ref=f285e22]: §01
+    - text: 问题：语言壁垒的三堵墙
+  - generic [ref=f285e23]: 跨语言差异 · 数据稀缺 · 零样本迁移
+  - generic [ref=f285e24]:
+    - generic [ref=f285e25]:
+      - heading "跨语言差异巨大" [level=3] [ref=f285e26]
+      - paragraph [ref=f285e27]: 音素集（英语约 44 个 vs 日语约 20 个）、韵律模式（声调 vs 非声调）、声调系统差异巨大——模型必须在这些差异之上找到通用的声学相似性度量，否则每门新语言都要从零学。
+    - generic [ref=f285e28]:
+      - heading "数据极度稀缺" [level=3] [ref=f285e29]
+      - paragraph [ref=f285e30]: 低资源语言可能只有几分钟标注数据——传统监督学习完全不可行。即使高资源语言，用户自定义唤醒词的需求也是 few-shot 场景：5–10 个样本就要适配新词。
+    - generic [ref=f285e31]:
+      - heading "零样本语言迁移" [level=3] [ref=f285e32]
+      - paragraph [ref=f285e33]: 对训练中完全未见过的语言也要泛化——模型不能依赖任何特定语言的声学先验，必须学语言无关的通用语音表示。这是「any language」的全部含义，也是最硬的要求。
+    - generic [ref=f285e34]:
+      - heading "声学相似性混淆" [level=3] [ref=f285e35]
+      - paragraph [ref=f285e36]: 不同语言中声学相似的音素可能导致误检测——yes/yeah、no/know 在嵌入空间天然距离近，小样本设置下混淆更严重。这是所有语言的通病，也是原型方法的固有软肋。
+  - generic [ref=f285e37]:
+    - img [ref=f285e38]:
+      - generic [ref=f285e40]: 任意语言的小样本 KWS：多语言预训练 + 原型匹配，5 个样本唤醒新语言
+      - generic [ref=f285e41]: ① 7000 种语言 vs 少数高资源的现实
+      - generic [ref=f285e43]: 跨语言差异巨大
+      - generic [ref=f285e44]: 音素集（英语约 44 个 vs 日语约 20 个）· 韵律（声调 vs 非声调）· 声调系统——
+      - generic [ref=f285e45]: 模型必须在这些差异之上找到通用的声学相似性度量
+      - generic [ref=f285e47]: 数据极度稀缺
+      - generic [ref=f285e48]: 低资源语言可能只有几分钟标注数据——传统监督学习完全不可行；高资源语言
+      - generic [ref=f285e49]: 也有自定义唤醒词的 few-shot 需求（5–10 个样本适配新词）
+      - generic [ref=f285e51]: 零样本语言迁移
+      - generic [ref=f285e52]: 对训练中完全未见过的语言（越南语/泰米尔语/加泰罗尼亚语）也要能泛化——
+      - generic [ref=f285e53]: 不能依赖任何特定语言的声学先验，必须学语言无关的通用表示
+      - generic [ref=f285e54]: ② 三阶段框架：多语言预训练 → 小样本嵌入学习 → 原型匹配
+      - generic [ref=f285e56]: 多语言预训练
+      - generic [ref=f285e57]: XLSR-53：53 种语言
+      - generic [ref=f285e58]: 约 4 万小时联合预训练
+      - generic [ref=f285e60]: 小样本嵌入学习
+      - generic [ref=f285e61]: 冻结骨干 + 轻量适配层
+      - generic [ref=f285e62]: （1–2 层 FC · 约 10 万参数）
+      - generic [ref=f285e64]: 推理时原型匹配
+      - generic [ref=f285e65]: 支持集均值 = 原型
+      - generic [ref=f285e66]: 查询按距离分类
+      - generic [ref=f285e68]: 预训练模型的选型对比
+      - generic [ref=f285e69]: · wav2vec 2.0 Base（95M）：英语 LibriSpeech 960h——
+      - generic [ref=f285e70]: 英语上优但跨语言迁移受限
+      - generic [ref=f285e71]: · XLSR-53（300M）：53 语言联合——对比学习目标迫使表示
+      - generic [ref=f285e72]: 捕获跨语言共有的声学规律（共振峰/音节/韵律/音素对应）
+      - generic [ref=f285e73]: · VoxPopuli 多语言：作 XLSR 的对比基准
+      - generic [ref=f285e74]: 结论：XLSR 是跨语言 KWS 的关键选择（消融验证）
+      - generic [ref=f285e76]: Episode 训练与数据
+      - generic [ref=f285e77]: · 标准小样本训练：每 episode 随机采 N 类 × K 支持样本 +
+      - generic [ref=f285e78]: 查询样本，模拟推理时的小样本场景
+      - generic [ref=f285e79]: · 9 种语言开放语料训练：Common Voice（英/法/德/西）+
+      - generic [ref=f285e80]: Aishell（中）+ 俄/波兰/葡萄牙/土耳其
+      - generic [ref=f285e81]: · 适配层参数 ~10 万 vs 冻结骨干 3 亿——训练效率高
+      - generic [ref=f285e82]: · SpecAugment + 噪声注入增强鲁棒性
+      - generic [ref=f285e83]: 开源：github.com/harvard-edge/multilingual_kws（完整配方）
+      - generic [ref=f285e84]: ③ 原型网络：最直观有效的度量学习
+      - generic [ref=f285e86]: 支持集：每个目标词 k 给 N_k 个样本 → 嵌入 f_φ（预训练 + 适配层，1024 维 → 64–128 维）
+      - generic [ref=f285e87]: 原型：c_k = (1/N_k)·Σ f_φ(x_i) —— 支持集嵌入的平均，即该词在嵌入空间的典型位置
+      - generic [ref=f285e88]: 分类：查询样本按到各原型的欧氏距离 softmax——p(y=k|x) ∝ exp(−d(f_φ(x), c_k))
+      - generic [ref=f285e89]: 负类处理：所有非目标词样本聚合为一个「负面」原型（KWS 必须能拒识非关键词）
+      - generic [ref=f285e90]: 为什么选原型网络：无需为每个新词训练分类头——换词只要重算几个均值，天然适配 few-shot
+      - generic [ref=f285e92]: 70–80%
+      - generic [ref=f285e93]: 未见语言 5-shot（随机 20%）
+      - generic [ref=f285e94]: +10–15pp
+      - generic [ref=f285e95]: XLSR vs 单语言 wav2vec
+      - generic [ref=f285e96]: 40–50%
+      - generic [ref=f285e97]: MFCC 跨语言（XLSR 75–85%）
+      - generic [ref=f285e98]: 85–95%
+      - generic [ref=f285e99]: 已见语言 5-shot
+      - generic [ref=f285e100]: 64–128
+      - generic [ref=f285e101]: 嵌入维度甜点
+      - generic [ref=f285e102]: 哈佛 + Coqui + Google · Interspeech 2021 · arXiv 2104.01454；9 语训练 + 未见语言（越南/泰米尔/加泰罗尼亚）测试；5-way K-shot 协议；数字为约值
+    - generic [ref=f285e103]: 图1 · 机制全景：上半是三堵墙，中段是三阶段框架、预训练选型对比与 episode 训练，底部是原型网络的机制与关键数字。
+  - heading "§02 方法：表示 + 度量 + 均值" [level=2] [ref=f285e104]:
+    - generic [ref=f285e105]: §02
+    - text: 方法：表示 + 度量 + 均值
+  - generic [ref=f285e106]: XLSR 对比学习 · 冻结骨干轻适配 · 支持集均值
+  - generic [ref=f285e107]:
+    - generic [ref=f285e108]: "嵌入: f_φ(x) = Adapter( XLSR-53(x) ) # 冻结 3 亿骨干 + 1–2 层 FC（~10 万参数） 原型: c_k = (1/N_k) · Σᵢ f_φ(xᵢ) # 支持集嵌入的平均 分类: p(y=k|x) ∝ exp( −d(f_φ(x), c_k) ) # 欧氏距离 softmax（略优于余弦） 负类: 全部非目标词 → 聚合为一个负面原型"
+    - generic [ref=f285e109]: 人话：骨干（不动）负责把音频放进一个「所有语言通用」的坐标系；适配层（要训的全部）负责把坐标系校准到 KWS 任务；新词注册就是在坐标系里标一个点（支持集均值）；识别就是看查询离哪个点近。换语言换词都不碰训练——只有均值计算。
+  - generic [ref=f285e110]:
+    - generic [ref=f285e111]:
+      - heading "适配层的账很划算" [level=3] [ref=f285e112]
+      - paragraph [ref=f285e113]: 3 亿参数冻结 + 10 万参数可训（0.03%）——few-shot 学习只发生在轻量适配层：训练快、显存小、不怕小数据过拟合到大模型。微调骨干末层可再 +2–3%，但计算代价不成比例——默认冻结是对的。
+    - generic [ref=f285e114]:
+      - heading "Episode 训练模拟推理" [level=3] [ref=f285e115]
+      - paragraph [ref=f285e116]: 每个 episode 随机采 N 类 × K 支持样本 + 查询样本——训练时的任务形状与推理时完全一致（「学会怎么用 5 个样本分类」本身被当作技能来训），这是 few-shot 学习的标准范式。
+  - generic [ref=f285e117]:
+    - img [ref=f285e118]:
+      - generic [ref=f285e120]: 机制解剖：多语言预训练买了什么 · 原型匹配怎么工作
+      - generic [ref=f285e121]: XLSR 的对比学习目标
+      - generic [ref=f285e123]: 多语言联合预训练强迫学到：
+      - generic [ref=f285e124]: · 不同语言共有的基本声学特征（发声/清音、
+      - generic [ref=f285e125]: 共振峰结构）
+      - generic [ref=f285e126]: · 与语言无关的声学模式（音节结构、韵律）
+      - generic [ref=f285e127]: · 跨语言的音素对应（各语言里相似的元音/辅音）
+      - generic [ref=f285e128]: 单语言 wav2vec 学的是「英语专属」表示——换语言
+      - generic [ref=f285e129]: 分布漂移；XLSR 把 53 种语言的共同结构烧进权重，
+      - generic [ref=f285e130]: 未见语言也落在同一表示空间的合理区域
+      - generic [ref=f285e132]: 适配层的账
+      - generic [ref=f285e133]: 冻结骨干 3 亿 + 训练适配层 ~10 万（1–2 层 FC，
+      - generic [ref=f285e134]: 1024→64–128 维）——2 层优于 1 层，3 层以上无增益；
+      - generic [ref=f285e135]: 微调骨干末几层再 +2–3%（但要更多计算）
+      - generic [ref=f285e136]: 原型匹配的几何
+      - generic [ref=f285e145]: c₁（词 1 原型）
+      - generic [ref=f285e153]: c₂（词 2 原型）
+      - generic [ref=f285e162]: 负面原型（非目标词聚合）
+      - generic [ref=f285e164]: 查询 x
+      - generic [ref=f285e168]: d₁ 近 → 判词 1
+      - generic [ref=f285e169]: p(y=k|x) ∝ exp(−d(f_φ(x), c_k))
+      - generic [ref=f285e170]: 欧氏距离略优于余弦（消融）
+      - generic [ref=f285e171]: 换新词：5 个样本 → 5 次嵌入 + 求平均——零训练
+      - generic [ref=f285e172]: 左：多语言对比预训练把跨语言共同结构烧进权重——单语表示换语言就漂移。右：支持集均值即原型，查询按欧氏距离 softmax 分类；负类聚合成第三原型承担拒识
+    - generic [ref=f285e173]: 图2 · 机制解剖：左是多语言对比预训练买到的三类通用结构与适配层的账，右是原型匹配的几何（两个词原型 + 负面原型 + 查询的距离判决）。
+  - heading "§03 实验：表示决定迁移" [level=2] [ref=f285e174]:
+    - generic [ref=f285e175]: §03
+    - text: 实验：表示决定迁移
+  - generic [ref=f285e176]: 特征底座对比 · 样本边际收益 · 语言距离
+  - generic [ref=f285e177]:
+    - img [ref=f285e178]:
+      - generic [ref=f285e180]: 主结果（约值）：表示决定迁移，语言距离决定上限
+      - generic [ref=f285e181]: 特征底座对比（未见语言 5-shot）
+      - generic [ref=f285e182]: 随机基线
+      - generic [ref=f285e184]: ~20%
+      - generic [ref=f285e185]: MFCC
+      - generic [ref=f285e187]: ~45%
+      - generic [ref=f285e188]: wav2vec 2.0 单语
+      - generic [ref=f285e190]: ~62%
+      - generic [ref=f285e191]: XLSR-53 ★
+      - generic [ref=f285e193]: ~78%
+      - generic [ref=f285e194]: MFCC 跨语言塌到 40–50%——手工特征没有跨语言泛化性；
+      - generic [ref=f285e195]: XLSR 比单语 wav2vec 高 10–15pp（未见语言差距更大）
+      - generic [ref=f285e196]: 样本数量的边际收益
+      - generic [ref=f285e200]: ~62%
+      - generic [ref=f285e201]: 1-shot
+      - generic [ref=f285e203]: ~76%
+      - generic [ref=f285e204]: 5-shot
+      - generic [ref=f285e206]: ~80%
+      - generic [ref=f285e207]: 10-shot
+      - generic [ref=f285e208]: 1→5 shot 提升最大（+10~15pp）· 5→10 +3~5pp · 之后递减
+      - generic [ref=f285e209]: 语言距离与消融
+      - generic [ref=f285e211]: 语言距离效应（5-shot）
+      - generic [ref=f285e212]: 已见语言（训练过）
+      - generic [ref=f285e214]: 85–95%
+      - generic [ref=f285e215]: 相近语言（加泰罗尼亚）
+      - generic [ref=f285e217]: 85%+
+      - generic [ref=f285e218]: 未见 · 中等距离
+      - generic [ref=f285e220]: ~75%
+      - generic [ref=f285e221]: 疏远（泰米尔 · 达罗毗荼）
+      - generic [ref=f285e223]: 65–70%
+      - generic [ref=f285e224]: 与预训练语言的谱系距离决定迁移上限——但都远高于随机
+      - generic [ref=f285e226]: 其余消融读数
+      - generic [ref=f285e227]: · 预训练越大越好：XLSR-Large 300M > Base 95M
+      - generic [ref=f285e228]: · 嵌入维度 64–128 最佳（32 表达力不足 · 256 无增益）
+      - generic [ref=f285e229]: · 微调骨干末层 +2–3%（代价是训练计算）
+      - generic [ref=f285e230]: · 欧氏距离略优于余弦
+      - generic [ref=f285e231]: 引用提醒：数字为约值，具体语言/设置回对原文
+      - generic [ref=f285e232]: （arXiv 2104.01454）
+      - generic [ref=f285e233]: 注：协议 = 5-way K-shot；未见语言含越南语/泰米尔语/加泰罗尼亚语；每语言 3–5 个常见短词作目标关键词；训练用 9 语开放语料（Common Voice / Aishell 等）
+    - generic [ref=f285e234]: 图3 · 主结果：左是特征底座对比（随机/MFCC/单语 wav2vec/XLSR）与样本数量曲线，右是语言距离效应与其余消融读数。
+  - table [ref=f285e235]:
+    - rowgroup [ref=f285e236]:
+      - row [ref=f285e237]:
+        - columnheader "对比项" [ref=f285e238]
+        - columnheader "结果（约值）" [ref=f285e239]
+        - columnheader "结论" [ref=f285e240]
+      - row [ref=f285e241]:
+        - cell "XLSR vs 单语 wav2vec" [ref=f285e242]
+        - cell "+10–15pp（未见语言更大）" [ref=f285e243]
+        - cell "多语言预训练是跨语言的关键" [ref=f285e244]
+      - row [ref=f285e245]:
+        - cell "XLSR vs MFCC" [ref=f285e246]
+        - cell "75–85% vs 40–50%" [ref=f285e247]
+        - cell "手工特征无跨语言泛化性" [ref=f285e248]
+      - row [ref=f285e249]:
+        - cell "已见 vs 未见语言（5-shot）" [ref=f285e250]
+        - cell "85–95% vs 70–80%" [ref=f285e251]
+        - cell "零样本迁移有代价但可用" [ref=f285e252]
+      - row [ref=f285e253]:
+        - cell "样本数量 1→5→10" [ref=f285e254]
+        - cell "+10~15pp → +3~5pp" [ref=f285e255]
+        - cell "5 个样本是甜点" [ref=f285e256]
+      - row [ref=f285e257]:
+        - cell "相近 vs 疏远语言" [ref=f285e258]
+        - cell "85%+ vs 65–70%" [ref=f285e259]
+        - cell "谱系距离定上限" [ref=f285e260]
+  - generic [ref=f285e261]:
+    - generic [ref=f285e262]: 读表要点
+    - listitem [ref=f285e263]: ◈ 最有分量的对照是 MFCC vs 预训练表示：跨语言场景下手 工特征直接塌掉（40–50%）——声学先验写在特征里的方法换语言就失效；表示学习从数据里学先验，才能迁移。
+    - listitem [ref=f285e264]: ◈ 语言距离效应给出能力地图：与预训练 53 语相近的语言受益最大（加泰罗尼亚 85%+），谱系疏远的泰米尔 65–70%——「any language」的边界由预训练语言的覆盖度决定，扩展覆盖是下一步的杠杆。
+    - listitem [ref=f285e265]: ◈ 其余消融：更大预训练更好（300M > 95M）；嵌入维度 64–128 甜点；欧氏略优于余弦；微调末层 +2–3% 但计算不成比例。
+  - heading "§04 贡献" [level=2] [ref=f285e266]:
+    - generic [ref=f285e267]: §04
+    - text: 贡献
+  - generic [ref=f285e268]: 五点：从范式突破到开源落地
+  - generic [ref=f285e269]:
+    - generic [ref=f285e270]:
+      - generic [ref=f285e271]: "1"
+      - paragraph [ref=f285e272]: 首次实现可跨语言泛化（含未见语言）的小样本 KWS：打破「每种新语言都要大量标注」的传统假设——为低资源语言 KWS 部署开辟新路径。
+    - generic [ref=f285e273]:
+      - generic [ref=f285e274]: "2"
+      - paragraph [ref=f285e275]: 证明多语言自监督表示的关键作用：XLSR 显著优于单语模型与 MFCC——自监督的通用声学表示能跨越语言边界。
+    - generic [ref=f285e276]:
+      - generic [ref=f285e277]: "3"
+      - paragraph [ref=f285e278]: 实用的低资源框架：语言学家或社区工作者录几个关键词发音即可启动 KWS 系统——极大降低新语言门槛。
+    - generic [ref=f285e279]:
+      - generic [ref=f285e280]: "4"
+      - paragraph [ref=f285e281]: 系统性消融：预训练模型/嵌入维度/样本数量/距离度量的影响都有对照——给实践者清晰指导。
+    - generic [ref=f285e282]:
+      - generic [ref=f285e283]: "5"
+      - paragraph [ref=f285e284]: 开源实现（harvard-edge/multilingual_kws）：预训练模型、训练/评估脚本、示例数据齐全——社区可直接扩展到更多语言。
+  - heading "§05 局限与判断" [level=2] [ref=f285e285]:
+    - generic [ref=f285e286]: §05
+    - text: 局限与判断
+  - generic [ref=f285e287]: 精度上限 · 部署体积 · 声调与负类
+  - generic [ref=f285e288]:
+    - img [ref=f285e289]:
+      - generic [ref=f285e291]: 边界与延伸
+      - generic [ref=f285e293]: 技术边界
+      - generic [ref=f285e294]: · 准确率上限：1–3 shot 仍比全监督低 15–20pp——高要求商用
+      - generic [ref=f285e295]: （智能音箱唤醒）尚不满足；few-shot 是「可用」不是「最优」
+      - generic [ref=f285e296]: · 预训练体积：XLSR 约 3 亿参数 vs 端侧 KWS <1M——直接部署
+      - generic [ref=f285e297]: 不现实，蒸馏/压缩是必经之路
+      - generic [ref=f285e298]: · 声学相似混淆：yes/yeah、no/know 在嵌入空间距离近——
+      - generic [ref=f285e299]: 小样本下更严重，所有语言通病
+      - generic [ref=f285e300]: · 声调语言：声调在基频时间轨迹上——XLSR 是否充分捕获
+      - generic [ref=f285e301]: 尚不清楚（中文/越南语/泰语的风险点）
+      - generic [ref=f285e302]: · 负类建模：开放集的非关键词多样性极高，单一负面原型
+      - generic [ref=f285e303]: 难以覆盖全部变体
+      - generic [ref=f285e305]: 实验边界 + 延伸
+      - generic [ref=f285e306]: · 极端低资源（方言/濒危语言）评估有限——与预训练语言
+      - generic [ref=f285e307]: 差异可能更大
+      - generic [ref=f285e308]: · 未探索压缩后的跨语言性能保持（部署关键）
+      - generic [ref=f285e309]: · 无噪声/远场鲁棒性评估
+      - generic [ref=f285e310]: · 未与文本/音素跨语言方法对比（如 IPA 桥接）
+      - generic [ref=f285e311]: 延伸：蒸馏到小 footprint 上边缘；IPA 音标作跨语言桥梁
+      - generic [ref=f285e312]: （文本与音频嵌入对齐）；在线增量适配（用得越多越准）；
+      - generic [ref=f285e313]: 预训练语言组合的选择策略
+      - generic [ref=f285e314]: 可迁移判断：自监督多语言预训练为打破 KWS 的语言壁垒提供根本性方案——「通用 KWS（一个模型服务所有语言）」从愿景变成工程问题；这项工作对语音技术的公平可及性有直接意义
+    - generic [ref=f285e315]: 图4 · 边界与延伸：左技术边界（few-shot 精度上限、3 亿参数体积、声学混淆、声调语言、单一负面原型），右实验边界（极端低资源、压缩保持、噪声远场、无文本方法对比）+ 延伸方向。
+  - generic [ref=f285e316]:
+    - generic [ref=f285e317]: 可迁移判断
+    - paragraph [ref=f285e318]: ↳ 表示决定迁移上限：跨域任务的表现上限由表示的「域覆盖度」决定——单语表示换语言就漂移、手工特征直接塌掉。凡是要迁移的下游任务，先问表示是在多大的域上学出来的。
+    - paragraph [ref=f285e319]: ↳ 冻结大骨干 + 轻适配是 few-shot 的黄金结构：可训参数压到 0.03%——小数据不会把大模型带偏，训练成本也不成问题。「大而冻 + 小而训」值得作为默认起点。
+    - paragraph [ref=f285e320]: ↳ 均值是最被低估的分类器：原型网络的全部推理就是求平均比距离——零训练换新类。凡是「新类别只有几个样本」的场景（新词/新说话人/新事件），先试原型再谈微调。
+    - paragraph [ref=f285e321]: ↳ 通用 KWS 从愿景变成工程问题：「一个模型服务所有语言」的剩余障碍是明确的：压缩到端侧、声调覆盖、负类建模、语言覆盖扩展——每一条都有工程路径，不再是科学问题。
+  - generic [ref=f285e322]:
+    - link "arXiv 2104.01454 ↗" [ref=f285e323] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2104.01454
+    - link "官方实现 ↗" [ref=f285e324] [cursor=pointer]:
+      - /url: https://github.com/harvard-edge/multilingual_kws
+    - link "← 返回总目录" [ref=f285e325] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f285e326]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值 · 2021 №13 · 198+/305
