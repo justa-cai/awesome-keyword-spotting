@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KWS 网络的噪声行为分析 · 论文精读可视化</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;}
+.wrap{max-width:980px;margin:0 auto;padding:56px 28px 80px;}
+.kicker{font-size:13px;letter-spacing:.22em;color:var(--acc);font-weight:700;margin-bottom:14px;text-transform:uppercase;}
+h1.hero{font-size:40px;line-height:1.32;font-weight:800;letter-spacing:.01em;margin-bottom:18px;}
+h1.hero .g{color:var(--acc);}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+.chip{font-size:12.5px;padding:4px 13px;border:1px solid var(--line);border-radius:999px;color:var(--ink2);background:#fffdf8;}
+.chip.acc{background:var(--lt);border-color:#bfe5d6;color:var(--dk);}
+.meta{border-left:3px solid var(--acc);background:#fffdf8;padding:12px 18px;font-size:13.5px;color:var(--ink2);margin-bottom:40px;border-radius:0 8px 8px 0;}
+.meta b{color:var(--ink);}
+h2{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:800;margin:56px 0 6px;}
+h2 .no{flex:none;font-size:12px;font-weight:800;color:#fff;background:var(--ink);padding:3px 10px;border-radius:999px;letter-spacing:.08em;}
+.h2sub{font-size:13.5px;color:var(--ink3);margin:0 0 18px 46px;}
+.tldr{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-bottom:8px;}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--dk);letter-spacing:.12em;margin-bottom:10px;}
+.tldr li{list-style:none;font-size:14.5px;color:var(--ink2);padding-left:20px;position:relative;margin-bottom:7px;}
+.tldr li:before{content:"◈";position:absolute;left:0;color:var(--acc);font-size:12px;top:2px;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.card{background:#fffdf8;border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
+.card h3{font-size:15.5px;font-weight:700;margin-bottom:8px;}
+.card p{font-size:13.5px;color:var(--ink2);}
+.card.acc{background:var(--lt);border-color:#bfe5d6;}
+.card.acc h3{color:var(--dk);}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4;}
+.card.bad h3{color:var(--warn);}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--lt);color:var(--dk);margin-bottom:8px;}
+.fig{margin:26px 0;}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:14px;}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:10px;line-height:1.7;}
+.cap b{color:var(--ink2);}
+.formula{background:#fffdf8;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 12px 12px 0;padding:16px 20px;margin:16px 0;}
+.formula .f{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:15px;color:var(--ink);background:#f2f4ef;padding:10px 14px;border-radius:8px;margin-bottom:10px;overflow-x:auto;white-space:pre;}
+.formula .why{font-size:13.5px;color:var(--ink2);}
+.formula .why b{color:var(--dk);}
+table.tb{width:100%;border-collapse:collapse;background:#fffdf8;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:18px 0;font-size:13.5px;}
+table.tb th{background:var(--ink);color:#fff;padding:10px 14px;text-align:left;font-weight:700;font-size:13px;}
+table.tb td{padding:10px 14px;border-top:1px solid var(--line);color:var(--ink2);}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:700;}
+.contrib{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:18px 0;}
+.contrib .row{display:flex;gap:16px;padding:12px 0;border-bottom:1px dashed var(--line);}
+.contrib .row:last-child{border-bottom:none;}
+.contrib .n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.contrib .row p{font-size:14px;color:var(--ink2);}
+.contrib .row p b{color:var(--ink);}
+.lim{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.judge{background:#fffaf4;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:18px 0;}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.12em;margin-bottom:10px;}
+.judge p{font-size:14px;color:var(--ink2);margin-bottom:8px;}
+.judge p b{color:var(--ink);}
+.foot{margin-top:64px;padding-top:28px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.pill{display:inline-block;font-size:13px;font-weight:700;color:var(--dk);background:var(--lt);border:1px solid #bfe5d6;border-radius:999px;padding:7px 18px;text-decoration:none;}
+.pill.ghost{background:transparent;color:var(--ink2);border-color:var(--line);}
+.foot-note{font-size:12px;color:var(--ink3);margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2021 №7</div>
+<h1 class="hero">不提新方法，先做体检：<br>KWS 网络在噪声下<span class="g">到底怎么死的</span></h1>
+<div class="chips">
+<span class="chip acc">噪声行为系统分析 · IIT / 图宾根 / 亚琛工大</span>
+<span class="chip">arXiv 2109.07930 · 分析型基准研究</span>
+<span class="chip">5 类噪声 × 4 档 SNR × CNN/RNN × 3 种训练</span>
+<span class="chip">babble 最毒（10dB 掉 15–30%）· CNN 全线比 RNN 耐噪</span>
+</div>
+<div class="meta">
+<b>一句话</b>：大量噪声鲁棒 KWS 论文在提新方法，却没人系统回答过四个基础问题：不同噪声危害一样吗？CNN 和 RNN 谁耐噪？多条件训练能救多少？噪声下模型内部发生了什么？本文做全因子体检：babble（人声嘈杂）破坏性最大——频谱与语音完全重叠，10dB 下所有架构掉 15–30%；CNN 在所有 SNR 下都比 RNN 耐噪（局部性是天赋）；多条件训练在 ≥0dB 恢复 5–15%、−5dB 无力回天；t-SNE 显示 babble 造成的类别分布漂移最严重。
+</div>
+
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<li>研究定位：分析型论文，不提新架构——价值在可复现的基准（GSC v2 + DEMAND/MUSAN 标准噪声库）与给社区的设计指南。四个问题：噪声类型差异？架构差异？训练策略作用？内部行为变化？</li>
+<li><b>噪声危害由「像不像语音」决定，不由响度决定</b>：babble（多说话人嘈杂）的频谱与目标语音高度重叠——模型无法分离，10dB 下所有架构掉 15–30%；白噪声反而轻得多（平铺全频带，与共振峰重叠比例低）。</li>
+<li>危害排序（10dB 降幅）：babble −15~30% &gt; 音乐 −5~15% &gt; 环境噪声（风/雨/空调）−3~10% &gt; 白噪声。噪声测试矩阵要按<b>频谱重叠度</b>排优先级，不是所有 dB 等价。</li>
+<li><b>CNN 全线比 RNN 耐噪</b>：10dB 下 CNN −5~10% vs RNN −10~15%；0dB 下 −15~25% vs −20~35%。机理：CNN 的判别靠局部时频模式（噪声中相对稳定）+ 平移不变性；RNN 的判别依赖跨帧状态——单帧噪声的误差在状态里<b>时间累积</b>，污染沿序列传播。</li>
+<li>SNR 刻度尺：20dB 只掉 1–3%（轻度噪声不必过度焦虑）；10dB 架构分化开始；0dB 全面重伤；<b>−5dB 几乎所有架构降到接近随机</b>——多条件训练也救不回来。</li>
+<li><b>多条件训练应作为标准做法</b>：≥0dB 恢复 5–15%（几乎所有噪声类型一致有效）；SpecAugment 与多条件互补（频域遮蔽 ≠ 加噪），两者结合最佳——性价比最高的配置。</li>
+<li>t-SNE 内部证据：噪声下类别分布显著漂移、边界变糊——babble 的漂移最严重；多条件训练后的模型在噪声下保持更好的类别分离。中间层可视化是<b>诊断鲁棒性的廉价工具</b>。</li>
+<li>边界：仅 GSC 孤立词（非流式）；未覆盖回声/混响/非线性失真；未探索语音增强前端；噪声注入是线性叠加（真实交互更复杂）。</li>
+</div>
+
+<h2><span class="no">§01</span>问题：四个没人系统回答的基础问题</h2>
+<div class="h2sub">方法论文很多，行为认知很少</div>
+<div class="cards">
+<div class="card bad">
+<h3>问题一：噪声类型等价吗</h3>
+<p>人声嘈杂、交通噪声、音乐噪声——大家都笼统地说「噪声鲁棒」，但这些类型造成的下降是同等的吗？答案差得极远：babble 与白噪声是天壤之别——这直接影响测试矩阵的设计。</p>
+</div>
+<div class="card bad">
+<h3>问题二：架构有系统差异吗</h3>
+<p>CNN 和 RNN 在噪声下的鲁棒性是否存在系统性差异？这是工程选型最关心的问题之一——选骨干时「谁的噪声行为更可预测」比「谁干净准确率高半个点」更实际。</p>
+</div>
+<div class="card">
+<h3>问题三：训练策略的边界</h3>
+<p>多条件训练与噪声增强到底能缓解多少？在哪些 SNR 下有效、哪些条件下失效？「加噪训练」不是万能药——它有自己的适用区间和上限。</p>
+</div>
+<div class="card">
+<h3>问题四：黑箱里发生了什么</h3>
+<p>准确率掉了个数字，但模型内部发生了什么？类别分布怎样漂移、决策边界怎样变形——内部视角能把「掉点」解释成「机理」，让下一代方法设计有的放矢。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="16" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">不提新方法，只做体检：KWS 网络在噪声下的行为系统分析</text>
+<line x1="36.0" y1="60.0" x2="660.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 四个没人系统回答过的问题</text>
+<rect x="36.0" y="98.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="128.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声类型差异</text>
+<text x="200.0" y="119.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">人声嘈杂、交通噪声、音乐噪声——不同类型是否造成同等程度的性能下降？</text>
+<text x="200.0" y="137.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（后来发现差得极远：babble 与白噪声是天壤之别）</text>
+<rect x="36.0" y="156.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="186.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">架构与鲁棒性</text>
+<text x="200.0" y="177.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN 和 RNN 在噪声鲁棒性上是否存在系统性差异？（工程选型最关心的一个问题）</text>
+<rect x="36.0" y="214.0" width="848.0" height="50.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="244.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练策略作用</text>
+<text x="200.0" y="235.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">多条件训练与噪声增强到底能缓解多少？在哪些条件下失效？</text>
+<rect x="36.0" y="272.0" width="848.0" height="50.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="302.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">内部行为变化</text>
+<text x="200.0" y="293.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声输入时模型的内部表示与决策边界如何变化？（黑箱打开看看）</text>
+<text x="36.0" y="348.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 实验矩阵：噪声类型 × SNR × 架构 × 训练策略的全因子体检</text>
+<rect x="36.0" y="364.0" width="416.0" height="200.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="244.0" y="386.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">控制变量四件套</text>
+<text x="52.0" y="408.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声类型（5 类）：</text>
+<text x="52.0" y="422.2" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 环境（风/雨/空调）· 交通（汽车/火车/飞机）</text>
+<text x="52.0" y="436.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 音乐（背景音乐）· 人声嘈杂（babble 多说话人）</text>
+<text x="52.0" y="450.6" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 白噪声/粉红噪声（合成）</text>
+<text x="52.0" y="464.8" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="479.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SNR 级别：20dB 轻微 · 10dB 中等 · 0dB 强 · −5dB 极强</text>
+<text x="52.0" y="493.2" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（测试时按指定 SNR 把噪声叠到干净测试语音上）</text>
+<text x="52.0" y="507.4" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="521.6" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">架构：CNN 系（标准/DS-CNN/深宽变体）· RNN 系</text>
+<text x="52.0" y="535.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（LSTM/GRU）· 混合 CNN+RNN</text>
+<text x="52.0" y="550.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练：干净训练 vs 多条件训练 vs SpecAugment 增强</text>
+<rect x="468.0" y="364.0" width="416.0" height="200.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="676.0" y="386.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">分析方法四件套</text>
+<text x="484.0" y="408.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 准确率 vs SNR 曲线：不同架构/噪声类型下</text>
+<text x="484.0" y="421.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  性能随噪声强度的完整轨迹</text>
+<text x="484.0" y="435.6" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 混淆矩阵分析：噪声下的分类错误模式</text>
+<text x="484.0" y="449.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （哪些词对开始互相混淆）</text>
+<text x="484.0" y="463.2" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· t-SNE 可视化：中间层特征分布的变化——</text>
+<text x="484.0" y="477.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  类别间边界怎样被噪声推糊</text>
+<text x="484.0" y="490.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 决策边界分析：噪声如何改变分类边界</text>
+<text x="484.0" y="504.6" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="518.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据：GSC v2（12 类与 35 类）+ DEMAND/MUSAN</text>
+<text x="484.0" y="532.2" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标准噪声库——结论可复现、可对齐</text>
+<text x="484.0" y="546.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="559.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">定位：分析性研究（不提新架构），价值在基准与设计指南</text>
+<text x="36.0" y="588.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 四个答案的预告</text>
+<rect x="36.0" y="604.0" width="420.0" height="76.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="50.0" y="623.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">babble 最毒</text>
+<text x="50.0" y="641.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">人声嘈杂对 KWS 最具破坏性——频谱特性与目标语音高度重叠，模型无法分离；</text>
+<text x="50.0" y="656.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">即使 10dB 下所有架构都掉 15–30%。白噪声反而没那么毒（频谱重叠少）</text>
+<rect x="464.0" y="604.0" width="420.0" height="76.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="478.0" y="623.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN 比 RNN 耐噪</text>
+<text x="478.0" y="641.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">所有 SNR 下 CNN 系的降幅都小于 RNN 系——局部特征提取 + 平移不变性</text>
+<text x="478.0" y="656.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">在噪声中更稳定；RNN 的序列建模受噪声的时间累积效应拖累</text>
+<rect x="36.0" y="688.0" width="420.0" height="76.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="50.0" y="707.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多条件训练是标配</text>
+<text x="50.0" y="725.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0dB 及以上恢复 5–15%；−5dB 下改善有限（仍远低于干净）——</text>
+<text x="50.0" y="740.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SpecAugment 与多条件互补，两者结合最佳</text>
+<rect x="464.0" y="688.0" width="420.0" height="76.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="478.0" y="707.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">t-SNE 的证据</text>
+<text x="478.0" y="725.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声让类别分布显著漂移、边界模糊；babble 造成的漂移最严重；</text>
+<text x="478.0" y="740.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">多条件训练后的模型在噪声下保持更好的类别分离</text>
+<rect x="36.0" y="772.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="798.0" font-size="13" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−15–30%</text>
+<text x="130.0" y="818.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">babble @10dB 的准确率降幅</text>
+<text x="298.0" y="798.0" font-size="13" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−5–10%</text>
+<text x="298.0" y="818.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN @10dB（RNN −10–15%）</text>
+<text x="466.0" y="798.0" font-size="13" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−15–25%</text>
+<text x="466.0" y="818.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN @0dB（RNN −20–35%）</text>
+<text x="634.0" y="798.0" font-size="13" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+5–15%</text>
+<text x="634.0" y="818.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">多条件训练 @≥0dB 的恢复</text>
+<text x="802.0" y="798.0" font-size="13" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">≈随机</text>
+<text x="802.0" y="818.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">所有架构 @−5dB</text>
+<text x="36.0" y="856.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">IIT · 图宾根大学 · 亚琛工业大学 · arXiv 2109.07930；截至 2021 年对 KWS 噪声行为最全面的分析之一；表中数字为约值（跨架构/噪声的具体组合有差异）</text>
+</svg>
+<div class="cap"><b>图1 · 机制全景</b>：上半是四个研究问题，中段是全因子实验矩阵（控制变量四件套）与分析方法四件套，底部是四个答案的预告与关键数字。</div>
+</div>
+
+<h2><span class="no">§02</span>分析框架：全因子矩阵 + 四种透视</h2>
+<div class="h2sub">控制变量做扎实，结论才可信</div>
+
+<div class="formula">
+<div class="f">实验矩阵 = { 环境/交通/音乐/babble/白噪声 } × { 20, 10, 0, −5 dB }
+           × { CNN 系, RNN 系, 混合 } × { 干净训练, 多条件训练, SpecAugment }
+分析方法 = 准确率-SNR 曲线 · 混淆矩阵 · t-SNE 中间层可视化 · 决策边界分析</div>
+<div class="why"><b>人话</b>：噪声在测试时按指定 SNR 叠加到干净测试语音上（加性模型）；训练策略是「模型见没见过噪声」的变量。四个分析视角从外（曲线）到内（t-SNE）——外部告诉你掉了多少，内部告诉你为什么掉。</div>
+</div>
+
+<div class="cards">
+<div class="card acc">
+<h3>为什么 babble 最毒：频谱重叠</h3>
+<p>判别关键词靠的是共振峰带的时频模式——babble 的能量恰好铺满同一区域，判别特征被「同类信号」淹没；白噪声平铺全频带，落在共振峰里的比例反而低。危害 = 与语音频谱的重叠度。</p>
+</div>
+<div class="card acc">
+<h3>为什么 CNN 耐噪：局部性天赋</h3>
+<p>CNN 的局部核只看邻域——噪声扰动被局部化，未受污染的区域仍能供出局部模式；平移不变性又让特征对扰动位置不敏感。RNN 的状态则是单帧误差的累积器：噪声一旦进入，污染沿时间轴传播到整个序列的判决。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：为什么 babble 最毒，为什么 CNN 更耐噪</text>
+<line x1="36.0" y1="56.0" x2="590.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声危害 = 与语音的频谱重叠度</text>
+<rect x="48.0" y="92.0" width="350.0" height="170.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="223.0" y="108.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">语音能量带（共振峰区）</text>
+<rect x="108.0" y="116.0" width="60.0" height="40.0" rx="3" fill="#9fc8b8" opacity="0.75"/>
+<rect x="188.0" y="116.0" width="45.0" height="40.0" rx="3" fill="#9fc8b8" opacity="0.75"/>
+<rect x="248.0" y="116.0" width="70.0" height="40.0" rx="3" fill="#9fc8b8" opacity="0.75"/>
+<text x="223.0" y="178.0" font-size="8.3" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">babble：能量与语音带完全重叠</text>
+<rect x="93.0" y="200.0" width="14.0" height="16.0" rx="2" fill="#e8b8b0" opacity="0.85"/>
+<rect x="120.0" y="189.3" width="14.0" height="26.7" rx="2" fill="#e8b8b0" opacity="0.85"/>
+<rect x="147.0" y="190.3" width="14.0" height="25.7" rx="2" fill="#e8b8b0" opacity="0.85"/>
+<rect x="174.0" y="201.9" width="14.0" height="14.1" rx="2" fill="#e8b8b0" opacity="0.85"/>
+<rect x="201.0" y="211.4" width="14.0" height="4.6" rx="2" fill="#e8b8b0" opacity="0.85"/>
+<rect x="228.0" y="208.5" width="14.0" height="7.5" rx="2" fill="#e8b8b0" opacity="0.85"/>
+<rect x="255.0" y="196.3" width="14.0" height="19.7" rx="2" fill="#e8b8b0" opacity="0.85"/>
+<rect x="282.0" y="188.1" width="14.0" height="27.9" rx="2" fill="#e8b8b0" opacity="0.85"/>
+<rect x="309.0" y="193.0" width="14.0" height="23.0" rx="2" fill="#e8b8b0" opacity="0.85"/>
+<rect x="336.0" y="205.5" width="14.0" height="10.5" rx="2" fill="#e8b8b0" opacity="0.85"/>
+<text x="223.0" y="226.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">模型无法分离——判别特征被同类信号淹没</text>
+<text x="223.0" y="246.0" font-size="8.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">白噪声：能量平铺全频带，与共振峰重叠比例低</text>
+<rect x="93.0" y="252.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="120.0" y="252.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="147.0" y="252.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="174.0" y="252.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="201.0" y="252.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="228.0" y="252.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="255.0" y="252.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="282.0" y="252.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="309.0" y="252.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="336.0" y="252.0" width="14.0" height="10.0" rx="2" fill="#c9d8e8"/>
+<rect x="48.0" y="274.0" width="350.0" height="68.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="62.0" y="292.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">危害排序（10dB 下降幅）：babble −15~30% &gt; 音乐 −5~15% &gt;</text>
+<text x="62.0" y="304.2" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">环境（风/雨/空调）−3~10% &gt; 白噪声（重叠少反而轻）</text>
+<text x="62.0" y="316.4" font-size="8.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="62.0" y="328.6" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">启示：噪声测试要按「与语音的相似度」排优先级——不是所有 dB 都等价</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN vs RNN：局部性是降噪天赋</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="450.0" y="116.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN：局部特征 + 平移不变</text>
+<rect x="460.0" y="126.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="482.0" y="126.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="504.0" y="126.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="526.0" y="126.0" width="18.0" height="16.0" rx="2" fill="#9fc8b8"/>
+<rect x="548.0" y="126.0" width="18.0" height="16.0" rx="2" fill="#9fc8b8"/>
+<rect x="570.0" y="126.0" width="18.0" height="16.0" rx="2" fill="#9fc8b8"/>
+<rect x="592.0" y="126.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="614.0" y="126.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="636.0" y="126.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="658.0" y="126.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="460.0" y="146.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="482.0" y="146.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="504.0" y="146.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="526.0" y="146.0" width="18.0" height="16.0" rx="2" fill="#9fc8b8"/>
+<rect x="548.0" y="146.0" width="18.0" height="16.0" rx="2" fill="#9fc8b8"/>
+<rect x="570.0" y="146.0" width="18.0" height="16.0" rx="2" fill="#9fc8b8"/>
+<rect x="592.0" y="146.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="614.0" y="146.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="636.0" y="146.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="658.0" y="146.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="460.0" y="166.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="482.0" y="166.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="504.0" y="166.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="526.0" y="166.0" width="18.0" height="16.0" rx="2" fill="#9fc8b8"/>
+<rect x="548.0" y="166.0" width="18.0" height="16.0" rx="2" fill="#9fc8b8"/>
+<rect x="570.0" y="166.0" width="18.0" height="16.0" rx="2" fill="#9fc8b8"/>
+<rect x="592.0" y="166.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="614.0" y="166.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="636.0" y="166.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="658.0" y="166.0" width="18.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="522.0" y="122.0" width="68.0" height="66.0" rx="5" fill="none" stroke="#0b6e52" stroke-width="1.5"/>
+<text x="556.0" y="204.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">局部核只看邻域——噪声扰动被局部化</text>
+<text x="450.0" y="226.0" font-size="9.3" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RNN：序列建模 + 时间累积</text>
+<rect x="460.0" y="238.0" width="34.0" height="20.0" rx="4" fill="#c9d8e8"/>
+<line x1="494.0" y1="248.0" x2="506.00" y2="248.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="506.0" y="238.0" width="34.0" height="20.0" rx="4" fill="#c9d8e8"/>
+<line x1="540.0" y1="248.0" x2="552.00" y2="248.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="552.0" y="238.0" width="34.0" height="20.0" rx="4" fill="#c9d8e8"/>
+<line x1="586.0" y1="248.0" x2="598.00" y2="248.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="598.0" y="238.0" width="34.0" height="20.0" rx="4" fill="#e8b8b0"/>
+<line x1="632.0" y1="248.0" x2="644.00" y2="248.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="644.0" y="238.0" width="34.0" height="20.0" rx="4" fill="#e8b8b0"/>
+<line x1="678.0" y1="248.0" x2="690.00" y2="248.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="690.0" y="238.0" width="34.0" height="20.0" rx="4" fill="#e8b8b0"/>
+<line x1="724.0" y1="248.0" x2="736.00" y2="248.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="736.0" y="238.0" width="34.0" height="20.0" rx="4" fill="#e8b8b0"/>
+<line x1="770.0" y1="248.0" x2="782.00" y2="248.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="782.0" y="238.0" width="34.0" height="20.0" rx="4" fill="#e8b8b0"/>
+<text x="620.0" y="276.0" font-size="8" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声进入状态后被逐步累积放大——污染沿时间轴传播</text>
+<text x="450.0" y="292.0" font-size="7.9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 所有 SNR 下 CNN 系降幅 &lt; RNN 系（10dB：−5~10% vs −10~15%；</text>
+<text x="450.0" y="300.3" font-size="7.9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   0dB：−15~25% vs −20~35%）</text>
+<text x="450.0" y="308.6" font-size="7.9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="316.9" font-size="7.9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 机理：CNN 的判别靠局部时频模式（在噪声中相对稳）；RNN 的判别</text>
+<text x="450.0" y="325.2" font-size="7.9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   依赖跨帧状态——单帧噪声的误差会在状态里累积</text>
+<text x="450.0" y="333.5" font-size="7.9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="341.8" font-size="7.9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 选型建议：噪声敏感的应用优先 CNN 系骨干（分析给出的工程指南）</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：噪声的危害不取决于响度而取决于「像不像语音」——babble 的频谱与共振峰带完全重叠，判别特征被同类信号淹没。右：CNN 的局部性让噪声扰动被局部化，RNN 的状态把单帧噪声累积成序列级污染</text>
+</svg>
+<div class="cap"><b>图2 · 机制解剖</b>：左是「危害 = 频谱重叠度」的图景（babble 与共振峰带完全重叠 vs 白噪声平铺）与危害排序，右是 CNN 局部化 vs RNN 时间累积的对比机理。</div>
+</div>
+
+<h2><span class="no">§03</span>结果：完整的 SNR 刻度尺</h2>
+<div class="h2sub">从「不用焦虑」到「救不回来」的四个区间</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（约值）：准确率随 SNR 的完整轨迹与恢复手段</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率 vs SNR（示意轨迹 · 跨架构均值口径）</text>
+<line x1="92.0" y1="262.0" x2="456.00" y2="262.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="88.0" y="265.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">25</text>
+<line x1="92.0" y1="212.0" x2="456.00" y2="212.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="88.0" y="215.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">50</text>
+<line x1="92.0" y1="162.0" x2="456.00" y2="162.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="88.0" y="165.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">75</text>
+<line x1="92.0" y1="112.0" x2="456.00" y2="112.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="88.0" y="115.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">100</text>
+<text x="96.0" y="326.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">20 dB</text>
+<text x="232.0" y="326.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10 dB</text>
+<text x="368.0" y="326.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">0 dB</text>
+<text x="436.0" y="326.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">-5 dB</text>
+<text x="256.0" y="340.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">SNR →（越右噪声越强）</text>
+<circle cx="96.0" cy="122.0" r="3.5" fill="#c9d8e8"/>
+<circle cx="232.0" cy="138.0" r="3.5" fill="#c9d8e8"/>
+<circle cx="368.0" cy="162.0" r="3.5" fill="#c9d8e8"/>
+<circle cx="436.0" cy="242.0" r="3.5" fill="#c9d8e8"/>
+<line x1="96.0" y1="122.0" x2="232.00" y2="138.00" stroke="#c9d8e8" stroke-width="1.8"/>
+<line x1="232.0" y1="138.0" x2="368.00" y2="162.00" stroke="#c9d8e8" stroke-width="1.8"/>
+<line x1="368.0" y1="162.0" x2="436.00" y2="242.00" stroke="#c9d8e8" stroke-width="1.8"/>
+<text x="102.0" y="116.0" font-size="8" fill="#c9d8e8" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN · 干净训练</text>
+<circle cx="96.0" cy="124.0" r="3.5" fill="#e8b8b0"/>
+<circle cx="232.0" cy="148.0" r="3.5" fill="#e8b8b0"/>
+<circle cx="368.0" cy="182.0" r="3.5" fill="#e8b8b0"/>
+<circle cx="436.0" cy="252.0" r="3.5" fill="#e8b8b0"/>
+<line x1="96.0" y1="124.0" x2="232.00" y2="148.00" stroke="#e8b8b0" stroke-width="1.8"/>
+<line x1="232.0" y1="148.0" x2="368.00" y2="182.00" stroke="#e8b8b0" stroke-width="1.8"/>
+<line x1="368.0" y1="182.0" x2="436.00" y2="252.00" stroke="#e8b8b0" stroke-width="1.8"/>
+<text x="102.0" y="118.0" font-size="8" fill="#e8b8b0" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">RNN · 干净训练</text>
+<circle cx="96.0" cy="122.0" r="3.5" fill="#0b6e52"/>
+<circle cx="232.0" cy="128.0" r="3.5" fill="#0b6e52"/>
+<circle cx="368.0" cy="142.0" r="3.5" fill="#0b6e52"/>
+<circle cx="436.0" cy="222.0" r="3.5" fill="#0b6e52"/>
+<line x1="96.0" y1="122.0" x2="232.00" y2="128.00" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="232.0" y1="128.0" x2="368.00" y2="142.00" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="368.0" y1="142.0" x2="436.00" y2="222.00" stroke="#0b6e52" stroke-width="1.8"/>
+<text x="102.0" y="116.0" font-size="8" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN · 多条件训练</text>
+<line x1="368.0" y1="112.0" x2="368.00" y2="312.00" stroke="#8a93a5" stroke-width="1" stroke-dasharray="3,3"/>
+<text x="372.0" y="122.0" font-size="7.8" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0dB：多条件恢复最明显的区间</text>
+<rect x="56.0" y="344.0" width="400.0" height="74.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="70.0" y="362.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 20dB：所有架构只掉 1–3%，接近干净——不必过度焦虑轻度噪声</text>
+<text x="70.0" y="375.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 10dB 开始分化：CNN −5~10% · RNN −10~15%</text>
+<text x="70.0" y="388.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 0dB 全面重伤：CNN −15~25% · RNN −20~35%</text>
+<text x="70.0" y="401.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· −5dB：几乎所有架构降到接近随机——多条件也救不回来（改善有限）</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">恢复手段与内部证据</text>
+<rect x="500.0" y="92.0" width="324.0" height="140.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="112.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多条件训练的收益区间</text>
+<text x="514.0" y="130.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· ≥0dB：恢复 5–15%（几乎所有噪声类型一致有效）</text>
+<text x="514.0" y="143.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· −5dB：改善有限，仍远低于干净——强度上限摆在那</text>
+<text x="514.0" y="157.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SpecAugment 与多条件互补：频域遮蔽 ≠ 加噪，</text>
+<text x="514.0" y="170.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   两者结合效果最佳（推荐的标配组合）</text>
+<rect x="500.0" y="240.0" width="324.0" height="178.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="514.0" y="260.0" font-size="9" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">t-SNE：把黑箱打开看的证据</text>
+<rect x="530.0" y="276.0" width="130.0" height="92.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<circle cx="602.2" cy="322.0" r="3" fill="#0b6e52"/>
+<circle cx="600.9" cy="323.3" r="3" fill="#0b6e52"/>
+<circle cx="601.7" cy="325.5" r="3" fill="#0b6e52"/>
+<circle cx="597.9" cy="325.1" r="3" fill="#0b6e52"/>
+<circle cx="596.4" cy="326.9" r="3" fill="#0b6e52"/>
+<circle cx="593.7" cy="326.4" r="3" fill="#0b6e52"/>
+<circle cx="592.1" cy="325.1" r="3" fill="#0b6e52"/>
+<circle cx="590.9" cy="326.2" r="3" fill="#33507a"/>
+<circle cx="590.6" cy="324.2" r="3" fill="#33507a"/>
+<circle cx="587.7" cy="323.6" r="3" fill="#33507a"/>
+<circle cx="589.1" cy="322.0" r="3" fill="#33507a"/>
+<circle cx="589.4" cy="320.7" r="3" fill="#33507a"/>
+<circle cx="589.2" cy="319.0" r="3" fill="#33507a"/>
+<circle cx="590.2" cy="316.9" r="3" fill="#33507a"/>
+<circle cx="592.0" cy="318.7" r="3" fill="#c0392b"/>
+<circle cx="593.9" cy="318.0" r="3" fill="#c0392b"/>
+<circle cx="596.6" cy="316.8" r="3" fill="#c0392b"/>
+<circle cx="600.3" cy="316.6" r="3" fill="#c0392b"/>
+<circle cx="601.6" cy="318.8" r="3" fill="#c0392b"/>
+<circle cx="602.1" cy="320.5" r="3" fill="#c0392b"/>
+<circle cx="605.5" cy="322.1" r="3" fill="#c0392b"/>
+<text x="595.0" y="382.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">干净训练 @噪声</text>
+<rect x="680.0" y="276.0" width="130.0" height="92.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<circle cx="768.4" cy="322.0" r="3" fill="#0b6e52"/>
+<circle cx="779.2" cy="329.6" r="3" fill="#0b6e52"/>
+<circle cx="761.5" cy="330.5" r="3" fill="#0b6e52"/>
+<circle cx="760.8" cy="338.8" r="3" fill="#0b6e52"/>
+<circle cx="748.6" cy="334.5" r="3" fill="#0b6e52"/>
+<circle cx="740.8" cy="336.2" r="3" fill="#0b6e52"/>
+<circle cx="726.3" cy="341.4" r="3" fill="#0b6e52"/>
+<circle cx="733.3" cy="334.1" r="3" fill="#33507a"/>
+<circle cx="721.3" cy="333.9" r="3" fill="#33507a"/>
+<circle cx="719.1" cy="327.6" r="3" fill="#33507a"/>
+<circle cx="717.6" cy="321.9" r="3" fill="#33507a"/>
+<circle cx="718.7" cy="316.0" r="3" fill="#33507a"/>
+<circle cx="727.7" cy="313.0" r="3" fill="#33507a"/>
+<circle cx="728.3" cy="304.0" r="3" fill="#33507a"/>
+<circle cx="734.7" cy="310.9" r="3" fill="#c0392b"/>
+<circle cx="741.2" cy="307.9" r="3" fill="#c0392b"/>
+<circle cx="748.7" cy="310.2" r="3" fill="#c0392b"/>
+<circle cx="757.3" cy="309.4" r="3" fill="#c0392b"/>
+<circle cx="765.6" cy="311.8" r="3" fill="#c0392b"/>
+<circle cx="778.4" cy="315.0" r="3" fill="#c0392b"/>
+<circle cx="771.1" cy="322.3" r="3" fill="#c0392b"/>
+<text x="745.0" y="382.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">多条件训练 @噪声</text>
+<text x="514.0" y="392.0" font-size="7.9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声下类别分布显著漂移、边界变糊；babble 的漂移最严重</text>
+<text x="514.0" y="397.2" font-size="7.9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多条件训练后的模型在噪声下保持更好的类别分离——</text>
+<text x="514.0" y="402.4" font-size="7.9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   上图示意：同样加噪，右边的簇还分得开</text>
+<text x="514.0" y="407.6" font-size="7.9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="514.0" y="412.8" font-size="7.9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">方法论价值：t-SNE 给「准确率掉了」补上了「为什么掉」</text>
+<text x="514.0" y="418.0" font-size="7.9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">的内部视角——中间层可视化是诊断鲁棒性的廉价工具</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：数字为笔记记录的约值（跨架构/噪声类型组合有差异，原文见 arXiv 2109.07930）；曲线为示意轨迹，趋势与论文结论一致</text>
+</svg>
+<div class="cap"><b>图3 · 主结果</b>：左是三种配置（CNN/RNN 干净训练 + CNN 多条件）的准确率-SNR 示意轨迹与区间读数，右是多条件训练的收益区间和 t-SNE 的内部证据（干净训练 vs 多条件在噪声下的类别分离）。</div>
+</div>
+<table class="tb">
+<tr><th>SNR 区间</th><th>CNN 降幅（约）</th><th>RNN 降幅（约）</th><th>一句话</th></tr>
+<tr><td>20dB（轻微）</td><td>−1~3%</td><td>−1~3%</td><td>接近干净，不必过度焦虑</td></tr>
+<tr><td>10dB（中等）</td><td>−5~10%</td><td>−10~15%</td><td>架构分化开始</td></tr>
+<tr class="hl"><td>0dB（强）</td><td>−15~25%</td><td>−20~35%</td><td>全面重伤，多条件恢复最明显区间</td></tr>
+<tr><td>−5dB（极强）</td><td colspan="2">几乎所有架构 ≈ 随机</td><td>多条件也救不回来</td></tr>
+</table>
+<div class="tldr" style="margin-top:14px;">
+<div class="tt">读表要点</div>
+<li>多条件训练的收益区间在 <b>≥0dB</b>（+5–15%）——这不是「训练技巧」而是「标准做法」；但 −5dB 下改善有限，强度上限摆在那里：超出训练分布太远的噪声谁也补不了。</li>
+<li>SpecAugment 与多条件<b>互补</b>：频域遮蔽模拟的是信息缺失、加噪模拟的是能量污染——两种退化模式正交，组合用效果最佳。</li>
+<li>t-SNE 的方法论价值：给「准确率掉了」补上「为什么掉」的内部视角——中间层可视化成本极低，值得进每个鲁棒性评测的标准流程。</li>
+<li>引用提醒：数字为跨架构均值的约值口径，具体架构 × 噪声组合有差异；曲线为示意轨迹（趋势与结论一致）。</li>
+</div>
+
+<h2><span class="no">§04</span>贡献</h2>
+<div class="h2sub">四点：从基准到选型指南</div>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>最全面的噪声行为分析</b>（截至 2021）：多架构 × 多噪声类型 × 多 SNR 的系统覆盖——社区可复现、可对齐的实验基准。</p></div>
+<div class="row"><div class="n">2</div><p><b>识别最具破坏性的噪声类型</b>：babble 因频谱与语音高度重叠而最毒——纠正「白噪声最伤」的直觉误判。</p></div>
+<div class="row"><div class="n">3</div><p><b>架构-鲁棒性关系的实证</b>：CNN 比 RNN 耐噪（局部特征 + 平移不变性 vs 时间累积效应）——噪声敏感应用的选型依据。</p></div>
+<div class="row"><div class="n">4</div><p><b>多条件训练收益的量化</b>：几乎所有噪声类型和 SNR 下一致提升——验证其作为标准 KWS 训练策略的有效性。</p></div>
+</div>
+
+<h2><span class="no">§05</span>局限与判断</h2>
+<div class="h2sub">孤立词 · 线性叠加 · 无前端 · 无混响</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">分析边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 仅 GSC 孤立词数据集：与连续音频流的真实 KWS 场景有差距</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （流式场景的噪声行为可能不同）</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 不提新架构：分析性研究——读完知道「怎么办」，但工具要自己去搭</text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声类型仍有限：没覆盖回声、混响、非线性失真——真实远场的</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  主要退化源缺席</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未探索前端处理：语音增强前端、自适应噪声消除等工程手段</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  的作用不在分析范围内</text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声注入是加性叠加：真实噪声与语音的交互（如混响卷积）</text>
+<text x="72.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  比线性叠加复杂</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实践指南 + 延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">给工程师的四条指南：</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声鲁棒性测试重点测 babble（最毒且最常见）</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多条件训练应作为 KWS 训练的标准做法</text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声敏感应用优先 CNN 系骨干</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SpecAugment + 多条件组合是性价比最高的配置</text>
+<text x="536.0" y="197.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸方向：</text>
+<text x="536.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 补混响/回声/非线性失真的同类分析</text>
+<text x="536.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 语音增强前端与模型端鲁棒性的联合评估</text>
+<text x="536.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 流式连续音频下的噪声行为复验</text>
+<text x="536.0" y="265.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 把 t-SNE 诊断法推广为鲁棒性评测的标准环节</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：噪声的危害由「与语音的相似度」决定而非响度——测试矩阵要按频谱重叠度排优先级；分析型论文不提新方法，但给出的基准与选型指南对社区的长期价值不亚于一篇方法论文</text>
+</svg>
+<div class="cap"><b>图4 · 边界与延伸</b>：左分析边界（仅 GSC 孤立词、不提新方法、无混响/回声/非线性失真、无前端处理、线性叠加假设），右给工程师的四条指南 + 延伸方向。</div>
+</div>
+<div class="judge">
+<div class="jt">可迁移判断</div>
+<p>↳ <b>噪声的危害由相似度决定而非响度</b>：与语音频谱重叠越高越毒——设计测试矩阵时按重叠度排优先级，babble 永远排第一；只测白噪声的鲁棒性报告等于没测。</p>
+<p>↳ <b>局部性是免费的降噪天赋</b>：噪声在局部核里被局部化、在循环状态里被累积——需要噪声鲁棒的场景里，架构的归纳偏置本身就是第一道防线。</p>
+<p>↳ <b>训练分布覆盖到哪，恢复就到哪</b>：多条件训练在 ≥0dB 恢复 5–15%、在 −5dB 无力——增强的收益以「训练时见过类似的退化」为前提，超出分布的强度没有免费午餐。</p>
+<p>↳ <b>分析型论文的长期价值不亚于方法论文</b>：不提新方法，但给出的基准、选型指南和诊断方法（t-SNE 进评测流程）会被后续所有工作引用——社区需要的不仅仅是新架构，还有对现有系统的系统认知。</p>
+</div>
+
+<div class="foot">
+<a class="pill" href="https://arxiv.org/abs/2109.07930">arXiv 2109.07930 ↗</a>
+<a class="pill ghost" href="../index.html">← 返回总目录</a>
+</div>
+<div class="foot-note">笔记与可视化页基于 arXiv 版整理 · 表中数字为约值（跨架构/噪声组合有差异）· 2021 №7 · 192+/305</div>
+</div>
+</body>
+</html>

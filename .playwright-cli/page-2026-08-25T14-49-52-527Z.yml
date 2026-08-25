@@ -1,0 +1,265 @@
+- generic [ref=f273e2]:
+  - generic [ref=f273e3]: 论文精读 · 可视化版 · 2021 №7
+  - heading "不提新方法，先做体检： KWS 网络在噪声下到底怎么死的" [level=1] [ref=f273e4]: 不提新方法，先做体检：KWS 网络在噪声下到底怎么死的
+  - generic [ref=f273e5]:
+    - generic [ref=f273e6]: 噪声行为系统分析 · IIT / 图宾根 / 亚琛工大
+    - generic [ref=f273e7]: arXiv 2109.07930 · 分析型基准研究
+    - generic [ref=f273e8]: 5 类噪声 × 4 档 SNR × CNN/RNN × 3 种训练
+    - generic [ref=f273e9]: babble 最毒（10dB 掉 15–30%）· CNN 全线比 RNN 耐噪
+  - generic [ref=f273e10]: 一句话：大量噪声鲁棒 KWS 论文在提新方法，却没人系统回答过四个基础问题：不同噪声危害一样吗？CNN 和 RNN 谁耐噪？多条件训练能救多少？噪声下模型内部发生了什么？本文做全因子体检：babble（人声嘈杂）破坏性最大——频谱与语音完全重叠，10dB 下所有架构掉 15–30%；CNN 在所有 SNR 下都比 RNN 耐噪（局部性是天赋）；多条件训练在 ≥0dB 恢复 5–15%、−5dB 无力回天；t-SNE 显示 babble 造成的类别分布漂移最严重。
+  - generic [ref=f273e11]:
+    - generic [ref=f273e12]: TL;DR
+    - listitem [ref=f273e13]: ◈ 研究定位：分析型论文，不提新架构——价值在可复现的基准（GSC v2 + DEMAND/MUSAN 标准噪声库）与给社区的设计指南。四个问题：噪声类型差异？架构差异？训练策略作用？内部行为变化？
+    - listitem [ref=f273e14]: ◈ 噪声危害由「像不像语音」决定，不由响度决定：babble（多说话人嘈杂）的频谱与目标语音高度重叠——模型无法分离，10dB 下所有架构掉 15–30%；白噪声反而轻得多（平铺全频带，与共振峰重叠比例低）。
+    - listitem [ref=f273e15]: ◈ 危害排序（10dB 降幅）：babble −15~30% > 音乐 −5~15% > 环境噪声（风/雨/空调）−3~10% > 白噪声。噪声测试矩阵要按频谱重叠度排优先级，不是所有 dB 等价。
+    - listitem [ref=f273e16]: ◈ CNN 全线比 RNN 耐噪：10dB 下 CNN −5~10% vs RNN −10~15%；0dB 下 −15~25% vs −20~35%。机理：CNN 的判别靠局部时频模式（噪声中相对稳定）+ 平移不变性；RNN 的判别依赖跨帧状态——单帧噪声的误差在状态里时间累积，污染沿序列传播。
+    - listitem [ref=f273e17]: ◈ SNR 刻度尺：20dB 只掉 1–3%（轻度噪声不必过度焦虑）；10dB 架构分化开始；0dB 全面重伤；−5dB 几乎所有架构降到接近随机——多条件训练也救不回来。
+    - listitem [ref=f273e18]: ◈ 多条件训练应作为标准做法：≥0dB 恢复 5–15%（几乎所有噪声类型一致有效）；SpecAugment 与多条件互补（频域遮蔽 ≠ 加噪），两者结合最佳——性价比最高的配置。
+    - listitem [ref=f273e19]: ◈ t-SNE 内部证据：噪声下类别分布显著漂移、边界变糊——babble 的漂移最严重；多条件训练后的模型在噪声下保持更好的类别分离。中间层可视化是诊断鲁棒性的廉价工具。
+    - listitem [ref=f273e20]: ◈ 边界：仅 GSC 孤立词（非流式）；未覆盖回声/混响/非线性失真；未探索语音增强前端；噪声注入是线性叠加（真实交互更复杂）。
+  - heading "§01 问题：四个没人系统回答的基础问题" [level=2] [ref=f273e21]:
+    - generic [ref=f273e22]: §01
+    - text: 问题：四个没人系统回答的基础问题
+  - generic [ref=f273e23]: 方法论文很多，行为认知很少
+  - generic [ref=f273e24]:
+    - generic [ref=f273e25]:
+      - heading "问题一：噪声类型等价吗" [level=3] [ref=f273e26]
+      - paragraph [ref=f273e27]: 人声嘈杂、交通噪声、音乐噪声——大家都笼统地说「噪声鲁棒」，但这些类型造成的下降是同等的吗？答案差得极远：babble 与白噪声是天壤之别——这直接影响测试矩阵的设计。
+    - generic [ref=f273e28]:
+      - heading "问题二：架构有系统差异吗" [level=3] [ref=f273e29]
+      - paragraph [ref=f273e30]: CNN 和 RNN 在噪声下的鲁棒性是否存在系统性差异？这是工程选型最关心的问题之一——选骨干时「谁的噪声行为更可预测」比「谁干净准确率高半个点」更实际。
+    - generic [ref=f273e31]:
+      - heading "问题三：训练策略的边界" [level=3] [ref=f273e32]
+      - paragraph [ref=f273e33]: 多条件训练与噪声增强到底能缓解多少？在哪些 SNR 下有效、哪些条件下失效？「加噪训练」不是万能药——它有自己的适用区间和上限。
+    - generic [ref=f273e34]:
+      - heading "问题四：黑箱里发生了什么" [level=3] [ref=f273e35]
+      - paragraph [ref=f273e36]: 准确率掉了个数字，但模型内部发生了什么？类别分布怎样漂移、决策边界怎样变形——内部视角能把「掉点」解释成「机理」，让下一代方法设计有的放矢。
+  - generic [ref=f273e37]:
+    - img [ref=f273e38]:
+      - generic [ref=f273e40]: 不提新方法，只做体检：KWS 网络在噪声下的行为系统分析
+      - generic [ref=f273e41]: ① 四个没人系统回答过的问题
+      - generic [ref=f273e43]: 噪声类型差异
+      - generic [ref=f273e44]: 人声嘈杂、交通噪声、音乐噪声——不同类型是否造成同等程度的性能下降？
+      - generic [ref=f273e45]: （后来发现差得极远：babble 与白噪声是天壤之别）
+      - generic [ref=f273e47]: 架构与鲁棒性
+      - generic [ref=f273e48]: CNN 和 RNN 在噪声鲁棒性上是否存在系统性差异？（工程选型最关心的一个问题）
+      - generic [ref=f273e50]: 训练策略作用
+      - generic [ref=f273e51]: 多条件训练与噪声增强到底能缓解多少？在哪些条件下失效？
+      - generic [ref=f273e53]: 内部行为变化
+      - generic [ref=f273e54]: 噪声输入时模型的内部表示与决策边界如何变化？（黑箱打开看看）
+      - generic [ref=f273e55]: ② 实验矩阵：噪声类型 × SNR × 架构 × 训练策略的全因子体检
+      - generic [ref=f273e57]: 控制变量四件套
+      - generic [ref=f273e58]: 噪声类型（5 类）：
+      - generic [ref=f273e59]: · 环境（风/雨/空调）· 交通（汽车/火车/飞机）
+      - generic [ref=f273e60]: · 音乐（背景音乐）· 人声嘈杂（babble 多说话人）
+      - generic [ref=f273e61]: · 白噪声/粉红噪声（合成）
+      - generic [ref=f273e62]: SNR 级别：20dB 轻微 · 10dB 中等 · 0dB 强 · −5dB 极强
+      - generic [ref=f273e63]: （测试时按指定 SNR 把噪声叠到干净测试语音上）
+      - generic [ref=f273e64]: 架构：CNN 系（标准/DS-CNN/深宽变体）· RNN 系
+      - generic [ref=f273e65]: （LSTM/GRU）· 混合 CNN+RNN
+      - generic [ref=f273e66]: 训练：干净训练 vs 多条件训练 vs SpecAugment 增强
+      - generic [ref=f273e68]: 分析方法四件套
+      - generic [ref=f273e69]: · 准确率 vs SNR 曲线：不同架构/噪声类型下
+      - generic [ref=f273e70]: 性能随噪声强度的完整轨迹
+      - generic [ref=f273e71]: · 混淆矩阵分析：噪声下的分类错误模式
+      - generic [ref=f273e72]: （哪些词对开始互相混淆）
+      - generic [ref=f273e73]: · t-SNE 可视化：中间层特征分布的变化——
+      - generic [ref=f273e74]: 类别间边界怎样被噪声推糊
+      - generic [ref=f273e75]: · 决策边界分析：噪声如何改变分类边界
+      - generic [ref=f273e76]: 数据：GSC v2（12 类与 35 类）+ DEMAND/MUSAN
+      - generic [ref=f273e77]: 标准噪声库——结论可复现、可对齐
+      - generic [ref=f273e78]: 定位：分析性研究（不提新架构），价值在基准与设计指南
+      - generic [ref=f273e79]: ③ 四个答案的预告
+      - generic [ref=f273e81]: babble 最毒
+      - generic [ref=f273e82]: 人声嘈杂对 KWS 最具破坏性——频谱特性与目标语音高度重叠，模型无法分离；
+      - generic [ref=f273e83]: 即使 10dB 下所有架构都掉 15–30%。白噪声反而没那么毒（频谱重叠少）
+      - generic [ref=f273e85]: CNN 比 RNN 耐噪
+      - generic [ref=f273e86]: 所有 SNR 下 CNN 系的降幅都小于 RNN 系——局部特征提取 + 平移不变性
+      - generic [ref=f273e87]: 在噪声中更稳定；RNN 的序列建模受噪声的时间累积效应拖累
+      - generic [ref=f273e89]: 多条件训练是标配
+      - generic [ref=f273e90]: 0dB 及以上恢复 5–15%；−5dB 下改善有限（仍远低于干净）——
+      - generic [ref=f273e91]: SpecAugment 与多条件互补，两者结合最佳
+      - generic [ref=f273e93]: t-SNE 的证据
+      - generic [ref=f273e94]: 噪声让类别分布显著漂移、边界模糊；babble 造成的漂移最严重；
+      - generic [ref=f273e95]: 多条件训练后的模型在噪声下保持更好的类别分离
+      - generic [ref=f273e97]: −15–30%
+      - generic [ref=f273e98]: babble @10dB 的准确率降幅
+      - generic [ref=f273e99]: −5–10%
+      - generic [ref=f273e100]: CNN @10dB（RNN −10–15%）
+      - generic [ref=f273e101]: −15–25%
+      - generic [ref=f273e102]: CNN @0dB（RNN −20–35%）
+      - generic [ref=f273e103]: +5–15%
+      - generic [ref=f273e104]: 多条件训练 @≥0dB 的恢复
+      - generic [ref=f273e105]: ≈随机
+      - generic [ref=f273e106]: 所有架构 @−5dB
+      - generic [ref=f273e107]: IIT · 图宾根大学 · 亚琛工业大学 · arXiv 2109.07930；截至 2021 年对 KWS 噪声行为最全面的分析之一；表中数字为约值（跨架构/噪声的具体组合有差异）
+    - generic [ref=f273e108]: 图1 · 机制全景：上半是四个研究问题，中段是全因子实验矩阵（控制变量四件套）与分析方法四件套，底部是四个答案的预告与关键数字。
+  - heading "§02 分析框架：全因子矩阵 + 四种透视" [level=2] [ref=f273e109]:
+    - generic [ref=f273e110]: §02
+    - text: 分析框架：全因子矩阵 + 四种透视
+  - generic [ref=f273e111]: 控制变量做扎实，结论才可信
+  - generic [ref=f273e112]:
+    - generic [ref=f273e113]: "实验矩阵 = { 环境/交通/音乐/babble/白噪声 } × { 20, 10, 0, −5 dB } × { CNN 系, RNN 系, 混合 } × { 干净训练, 多条件训练, SpecAugment } 分析方法 = 准确率-SNR 曲线 · 混淆矩阵 · t-SNE 中间层可视化 · 决策边界分析"
+    - generic [ref=f273e114]: 人话：噪声在测试时按指定 SNR 叠加到干净测试语音上（加性模型）；训练策略是「模型见没见过噪声」的变量。四个分析视角从外（曲线）到内（t-SNE）——外部告诉你掉了多少，内部告诉你为什么掉。
+  - generic [ref=f273e115]:
+    - generic [ref=f273e116]:
+      - heading "为什么 babble 最毒：频谱重叠" [level=3] [ref=f273e117]
+      - paragraph [ref=f273e118]: 判别关键词靠的是共振峰带的时频模式——babble 的能量恰好铺满同一区域，判别特征被「同类信号」淹没；白噪声平铺全频带，落在共振峰里的比例反而低。危害 = 与语音频谱的重叠度。
+    - generic [ref=f273e119]:
+      - heading "为什么 CNN 耐噪：局部性天赋" [level=3] [ref=f273e120]
+      - paragraph [ref=f273e121]: CNN 的局部核只看邻域——噪声扰动被局部化，未受污染的区域仍能供出局部模式；平移不变性又让特征对扰动位置不敏感。RNN 的状态则是单帧误差的累积器：噪声一旦进入，污染沿时间轴传播到整个序列的判决。
+  - generic [ref=f273e122]:
+    - img [ref=f273e123]:
+      - generic [ref=f273e125]: 机制解剖：为什么 babble 最毒，为什么 CNN 更耐噪
+      - generic [ref=f273e126]: 噪声危害 = 与语音的频谱重叠度
+      - generic [ref=f273e128]: 语音能量带（共振峰区）
+      - generic [ref=f273e132]: babble：能量与语音带完全重叠
+      - generic [ref=f273e143]: 模型无法分离——判别特征被同类信号淹没
+      - generic [ref=f273e144]: 白噪声：能量平铺全频带，与共振峰重叠比例低
+      - generic [ref=f273e156]: 危害排序（10dB 下降幅）：babble −15~30% > 音乐 −5~15% >
+      - generic [ref=f273e157]: 环境（风/雨/空调）−3~10% > 白噪声（重叠少反而轻）
+      - generic [ref=f273e158]: 启示：噪声测试要按「与语音的相似度」排优先级——不是所有 dB 都等价
+      - generic [ref=f273e159]: CNN vs RNN：局部性是降噪天赋
+      - generic [ref=f273e161]: CNN：局部特征 + 平移不变
+      - generic [ref=f273e193]: 局部核只看邻域——噪声扰动被局部化
+      - generic [ref=f273e194]: RNN：序列建模 + 时间累积
+      - generic [ref=f273e203]: 噪声进入状态后被逐步累积放大——污染沿时间轴传播
+      - generic [ref=f273e204]: · 所有 SNR 下 CNN 系降幅 < RNN 系（10dB：−5~10% vs −10~15%；
+      - generic [ref=f273e205]: 0dB：−15~25% vs −20~35%）
+      - generic [ref=f273e206]: · 机理：CNN 的判别靠局部时频模式（在噪声中相对稳）；RNN 的判别
+      - generic [ref=f273e207]: 依赖跨帧状态——单帧噪声的误差会在状态里累积
+      - generic [ref=f273e208]: · 选型建议：噪声敏感的应用优先 CNN 系骨干（分析给出的工程指南）
+      - generic [ref=f273e209]: 左：噪声的危害不取决于响度而取决于「像不像语音」——babble 的频谱与共振峰带完全重叠，判别特征被同类信号淹没。右：CNN 的局部性让噪声扰动被局部化，RNN 的状态把单帧噪声累积成序列级污染
+    - generic [ref=f273e210]: 图2 · 机制解剖：左是「危害 = 频谱重叠度」的图景（babble 与共振峰带完全重叠 vs 白噪声平铺）与危害排序，右是 CNN 局部化 vs RNN 时间累积的对比机理。
+  - heading "§03 结果：完整的 SNR 刻度尺" [level=2] [ref=f273e211]:
+    - generic [ref=f273e212]: §03
+    - text: 结果：完整的 SNR 刻度尺
+  - generic [ref=f273e213]: 从「不用焦虑」到「救不回来」的四个区间
+  - generic [ref=f273e214]:
+    - img [ref=f273e215]:
+      - generic [ref=f273e217]: 主结果（约值）：准确率随 SNR 的完整轨迹与恢复手段
+      - generic [ref=f273e218]: 准确率 vs SNR（示意轨迹 · 跨架构均值口径）
+      - generic [ref=f273e219]: "25"
+      - generic [ref=f273e220]: "50"
+      - generic [ref=f273e221]: "75"
+      - generic [ref=f273e222]: "100"
+      - generic [ref=f273e223]: 20 dB
+      - generic [ref=f273e224]: 10 dB
+      - generic [ref=f273e225]: 0 dB
+      - generic [ref=f273e226]: "-5 dB"
+      - generic [ref=f273e227]: SNR →（越右噪声越强）
+      - generic [ref=f273e235]: CNN · 干净训练
+      - generic [ref=f273e243]: RNN · 干净训练
+      - generic [ref=f273e251]: CNN · 多条件训练
+      - generic [ref=f273e252]: 0dB：多条件恢复最明显的区间
+      - generic [ref=f273e254]: · 20dB：所有架构只掉 1–3%，接近干净——不必过度焦虑轻度噪声
+      - generic [ref=f273e255]: · 10dB 开始分化：CNN −5~10% · RNN −10~15%
+      - generic [ref=f273e256]: · 0dB 全面重伤：CNN −15~25% · RNN −20~35%
+      - generic [ref=f273e257]: · −5dB：几乎所有架构降到接近随机——多条件也救不回来（改善有限）
+      - generic [ref=f273e258]: 恢复手段与内部证据
+      - generic [ref=f273e260]: 多条件训练的收益区间
+      - generic [ref=f273e261]: · ≥0dB：恢复 5–15%（几乎所有噪声类型一致有效）
+      - generic [ref=f273e262]: · −5dB：改善有限，仍远低于干净——强度上限摆在那
+      - generic [ref=f273e263]: · SpecAugment 与多条件互补：频域遮蔽 ≠ 加噪，
+      - generic [ref=f273e264]: 两者结合效果最佳（推荐的标配组合）
+      - generic [ref=f273e266]: t-SNE：把黑箱打开看的证据
+      - generic [ref=f273e289]: 干净训练 @噪声
+      - generic [ref=f273e312]: 多条件训练 @噪声
+      - generic [ref=f273e313]: · 噪声下类别分布显著漂移、边界变糊；babble 的漂移最严重
+      - generic [ref=f273e314]: · 多条件训练后的模型在噪声下保持更好的类别分离——
+      - generic [ref=f273e315]: 上图示意：同样加噪，右边的簇还分得开
+      - generic [ref=f273e316]: 方法论价值：t-SNE 给「准确率掉了」补上了「为什么掉」
+      - generic [ref=f273e317]: 的内部视角——中间层可视化是诊断鲁棒性的廉价工具
+      - generic [ref=f273e318]: 注：数字为笔记记录的约值（跨架构/噪声类型组合有差异，原文见 arXiv 2109.07930）；曲线为示意轨迹，趋势与论文结论一致
+    - generic [ref=f273e319]: 图3 · 主结果：左是三种配置（CNN/RNN 干净训练 + CNN 多条件）的准确率-SNR 示意轨迹与区间读数，右是多条件训练的收益区间和 t-SNE 的内部证据（干净训练 vs 多条件在噪声下的类别分离）。
+  - table [ref=f273e320]:
+    - rowgroup [ref=f273e321]:
+      - row [ref=f273e322]:
+        - columnheader "SNR 区间" [ref=f273e323]
+        - columnheader "CNN 降幅（约）" [ref=f273e324]
+        - columnheader "RNN 降幅（约）" [ref=f273e325]
+        - columnheader "一句话" [ref=f273e326]
+      - row [ref=f273e327]:
+        - cell "20dB（轻微）" [ref=f273e328]
+        - cell "−1~3%" [ref=f273e329]
+        - cell "−1~3%" [ref=f273e330]
+        - cell "接近干净，不必过度焦虑" [ref=f273e331]
+      - row [ref=f273e332]:
+        - cell "10dB（中等）" [ref=f273e333]
+        - cell "−5~10%" [ref=f273e334]
+        - cell "−10~15%" [ref=f273e335]
+        - cell "架构分化开始" [ref=f273e336]
+      - row [ref=f273e337]:
+        - cell "0dB（强）" [ref=f273e338]
+        - cell "−15~25%" [ref=f273e339]
+        - cell "−20~35%" [ref=f273e340]
+        - cell "全面重伤，多条件恢复最明显区间" [ref=f273e341]
+      - row [ref=f273e342]:
+        - cell "−5dB（极强）" [ref=f273e343]
+        - cell "几乎所有架构 ≈ 随机" [ref=f273e344]
+        - cell "多条件也救不回来" [ref=f273e345]
+  - generic [ref=f273e346]:
+    - generic [ref=f273e347]: 读表要点
+    - listitem [ref=f273e348]: ◈ 多条件训练的收益区间在 ≥0dB（+5–15%）——这不是「训练技巧」而是「标准做法」；但 −5dB 下改善有限，强度上限摆在那里：超出训练分布太远的噪声谁也补不了。
+    - listitem [ref=f273e349]: ◈ SpecAugment 与多条件互补：频域遮蔽模拟的是信息缺失、加噪模拟的是能量污染——两种退化模式正交，组合用效果最佳。
+    - listitem [ref=f273e350]: ◈ t-SNE 的方法论价值：给「准确率掉了」补上「为什么掉」的内部视角——中间层可视化成本极低，值得进每个鲁棒性评测的标准流程。
+    - listitem [ref=f273e351]: ◈ 引用提醒：数字为跨架构均值的约值口径，具体架构 × 噪声组合有差异；曲线为示意轨迹（趋势与结论一致）。
+  - heading "§04 贡献" [level=2] [ref=f273e352]:
+    - generic [ref=f273e353]: §04
+    - text: 贡献
+  - generic [ref=f273e354]: 四点：从基准到选型指南
+  - generic [ref=f273e355]:
+    - generic [ref=f273e356]:
+      - generic [ref=f273e357]: "1"
+      - paragraph [ref=f273e358]: 最全面的噪声行为分析（截至 2021）：多架构 × 多噪声类型 × 多 SNR 的系统覆盖——社区可复现、可对齐的实验基准。
+    - generic [ref=f273e359]:
+      - generic [ref=f273e360]: "2"
+      - paragraph [ref=f273e361]: 识别最具破坏性的噪声类型：babble 因频谱与语音高度重叠而最毒——纠正「白噪声最伤」的直觉误判。
+    - generic [ref=f273e362]:
+      - generic [ref=f273e363]: "3"
+      - paragraph [ref=f273e364]: 架构-鲁棒性关系的实证：CNN 比 RNN 耐噪（局部特征 + 平移不变性 vs 时间累积效应）——噪声敏感应用的选型依据。
+    - generic [ref=f273e365]:
+      - generic [ref=f273e366]: "4"
+      - paragraph [ref=f273e367]: 多条件训练收益的量化：几乎所有噪声类型和 SNR 下一致提升——验证其作为标准 KWS 训练策略的有效性。
+  - heading "§05 局限与判断" [level=2] [ref=f273e368]:
+    - generic [ref=f273e369]: §05
+    - text: 局限与判断
+  - generic [ref=f273e370]: 孤立词 · 线性叠加 · 无前端 · 无混响
+  - generic [ref=f273e371]:
+    - img [ref=f273e372]:
+      - generic [ref=f273e374]: 边界与延伸
+      - generic [ref=f273e376]: 分析边界
+      - generic [ref=f273e377]: · 仅 GSC 孤立词数据集：与连续音频流的真实 KWS 场景有差距
+      - generic [ref=f273e378]: （流式场景的噪声行为可能不同）
+      - generic [ref=f273e379]: · 不提新架构：分析性研究——读完知道「怎么办」，但工具要自己去搭
+      - generic [ref=f273e380]: · 噪声类型仍有限：没覆盖回声、混响、非线性失真——真实远场的
+      - generic [ref=f273e381]: 主要退化源缺席
+      - generic [ref=f273e382]: · 未探索前端处理：语音增强前端、自适应噪声消除等工程手段
+      - generic [ref=f273e383]: 的作用不在分析范围内
+      - generic [ref=f273e384]: · 噪声注入是加性叠加：真实噪声与语音的交互（如混响卷积）
+      - generic [ref=f273e385]: 比线性叠加复杂
+      - generic [ref=f273e387]: 实践指南 + 延伸
+      - generic [ref=f273e388]: 给工程师的四条指南：
+      - generic [ref=f273e389]: · 噪声鲁棒性测试重点测 babble（最毒且最常见）
+      - generic [ref=f273e390]: · 多条件训练应作为 KWS 训练的标准做法
+      - generic [ref=f273e391]: · 噪声敏感应用优先 CNN 系骨干
+      - generic [ref=f273e392]: · SpecAugment + 多条件组合是性价比最高的配置
+      - generic [ref=f273e393]: 延伸方向：
+      - generic [ref=f273e394]: · 补混响/回声/非线性失真的同类分析
+      - generic [ref=f273e395]: · 语音增强前端与模型端鲁棒性的联合评估
+      - generic [ref=f273e396]: · 流式连续音频下的噪声行为复验
+      - generic [ref=f273e397]: · 把 t-SNE 诊断法推广为鲁棒性评测的标准环节
+      - generic [ref=f273e398]: 可迁移判断：噪声的危害由「与语音的相似度」决定而非响度——测试矩阵要按频谱重叠度排优先级；分析型论文不提新方法，但给出的基准与选型指南对社区的长期价值不亚于一篇方法论文
+    - generic [ref=f273e399]: 图4 · 边界与延伸：左分析边界（仅 GSC 孤立词、不提新方法、无混响/回声/非线性失真、无前端处理、线性叠加假设），右给工程师的四条指南 + 延伸方向。
+  - generic [ref=f273e400]:
+    - generic [ref=f273e401]: 可迁移判断
+    - paragraph [ref=f273e402]: ↳ 噪声的危害由相似度决定而非响度：与语音频谱重叠越高越毒——设计测试矩阵时按重叠度排优先级，babble 永远排第一；只测白噪声的鲁棒性报告等于没测。
+    - paragraph [ref=f273e403]: ↳ 局部性是免费的降噪天赋：噪声在局部核里被局部化、在循环状态里被累积——需要噪声鲁棒的场景里，架构的归纳偏置本身就是第一道防线。
+    - paragraph [ref=f273e404]: ↳ 训练分布覆盖到哪，恢复就到哪：多条件训练在 ≥0dB 恢复 5–15%、在 −5dB 无力——增强的收益以「训练时见过类似的退化」为前提，超出分布的强度没有免费午餐。
+    - paragraph [ref=f273e405]: ↳ 分析型论文的长期价值不亚于方法论文：不提新方法，但给出的基准、选型指南和诊断方法（t-SNE 进评测流程）会被后续所有工作引用——社区需要的不仅仅是新架构，还有对现有系统的系统认知。
+  - generic [ref=f273e406]:
+    - link "arXiv 2109.07930 ↗" [ref=f273e407] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2109.07930
+    - link "← 返回总目录" [ref=f273e408] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f273e409]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为约值（跨架构/噪声组合有差异）· 2021 №7 · 192+/305
