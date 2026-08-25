@@ -1,0 +1,281 @@
+- generic [ref=f249e2]:
+  - generic [ref=f249e3]: 论文精读 · 可视化版 · 2022 №37
+  - heading "138M 的 VGG 搬进 KWS？ 先用贝叶斯搜出目标要的形状，再剪掉方向重复的滤波器" [level=1] [ref=f249e4]: 138M 的 VGG 搬进 KWS？先用贝叶斯搜出目标要的形状，再剪掉方向重复的滤波器
+  - generic [ref=f249e5]:
+    - generic [ref=f249e6]: TASCNet · NAS + 剪枝两段式
+    - generic [ref=f249e7]: arXiv 2205.05967 · Multimedia Systems
+    - generic [ref=f249e8]: 高斯过程 + EI 采集 · 20–50 次评估
+    - generic [ref=f249e9]: CalTech-101 参数 −60% 精度 +0.5%
+  - generic [ref=f249e10]: 一句话：把 ImageNet 预训练 CNN 迁移到 KWS（频谱图当图像）时，深层带着源任务的过度参数化一起来。TASCNet 两段式瘦身：先用贝叶斯优化只搜深层配置（浅层通用特征冻结），再用「训练全程方向一致」的余弦相似度剪掉冗余滤波器——CalTech-101 上剪掉 60% 参数精度反升 0.5%，KWS 上参数 −40%、FLOPs −30%、精度掉不到 1%。
+  - generic [ref=f249e11]:
+    - generic [ref=f249e12]: TL;DR
+    - listitem [ref=f249e13]: ◈ 迁移学习的过度参数化：VGG-16 约 138M 参数 vs GSC 仅约 65K 样本——容量够记住训练集（过拟合）；ImageNet 深层学的「区分 120 种狗」的能力对 KWS 完全无用。
+    - listitem [ref=f249e14]: ◈ 频谱图 ≠ 图像：两轴物理意义不同（时间 vs 频率，不是两个空间轴）、像素是能量非颜色、共振峰轨迹的局部统计与物体边缘截然不同——域鸿沟是本文一切讨论的前提，也是它最大的未解问题。
+    - listitem [ref=f249e15]: ◈ 阶段一 NAS 只搜深层：浅层（边缘/纹理通用特征）冻结，对最后 D 个卷积块 + FC 搜滤波器数候选——增量搜索让空间从数千配置缩到数十个，且不浪费预训练知识。
+    - listitem [ref=f249e16]: ◈ 贝叶斯优化省评估：GP + Matern 5/2 核 + Expected Improvement，20–50 次评估逼近最优（网格搜索 4^D=1024 次完整训练）。
+    - listitem [ref=f249e17]: ◈ 阶段二剪枝换判据：不看幅度看方向——余弦相似度持续 >0.9 的滤波器对提取的特征几乎相同，删范数小的那个才是真冗余；多 checkpoint 一致性防「偶然相似」误判。
+    - listitem [ref=f249e18]: ◈ 消融给出主次：NAS 独贡献 −30~40% 参数（大头），剪枝再补 −10~20%；仅剪枝不 NAS 时剪 30% 掉 2% 精度——架构适配比权值剪枝更重要。
+    - listitem [ref=f249e19]: ◈ KWS 侧证据链薄：没有 GSC 标准基准、没有 DS-CNN/TC-ResNet/KWT 对照——本文的 KWS 数字更像通用性演示，引用前须知边界。
+  - heading "§01 问题：预训练模型带着行李迁移" [level=2] [ref=f249e20]:
+    - generic [ref=f249e21]: §01
+    - text: 问题：预训练模型带着行李迁移
+  - generic [ref=f249e22]: 三条老路的不足 + 一个被忽略的域鸿沟
+  - generic [ref=f249e23]:
+    - generic [ref=f249e24]:
+      - heading "直接微调：全量行李照收" [level=3] [ref=f249e25]
+      - paragraph [ref=f249e26]: 标准迁移学习微调所有层，保留源任务的过度参数化。小数据集上过拟合、推理低效。深层学的是 ImageNet 的精细视觉区分能力——对 KWS 是纯负担。
+    - generic [ref=f249e27]:
+      - heading "通用剪枝：不问目标任务" [level=3] [ref=f249e28]
+      - paragraph [ref=f249e29]: 幅度剪枝删「权值小」的滤波器，但小幅度 ≠ 不重要——被删的滤波器可能恰好检测关键词的关键频谱特征（如高频辅音的宽带噪声模式），只是当前初始化下数值较小。
+    - generic [ref=f249e30]:
+      - heading "从头 NAS：贵且浪费" [level=3] [ref=f249e31]
+      - paragraph [ref=f249e32]: DARTS 约 1.5 GPU 天、ENAS 约 0.5 GPU 天，且从随机初始化搜起——预训练模型已学到的通用特征被白白丢掉。网格搜索在 D=5 维 × 每维 4 候选就要 1024 次评估。
+    - generic [ref=f249e33]:
+      - heading "域鸿沟：三层错配" [level=3] [ref=f249e34]
+      - paragraph [ref=f249e35]: 频谱图两轴异质（时间/频率 vs 空间/空间）、值域非负（能量 vs 颜色）、局部模式统计不同（共振峰轨迹 vs 物体边缘）。ImageNet 预训练的空间不变性先验未必适用——这是「频谱图当图像」路线的原罪。
+  - generic [ref=f249e36]:
+    - img [ref=f249e37]:
+      - generic [ref=f249e39]: TASCNet：预训练架构不必照单全收——目标感知搜索 + 余弦剪枝两段式瘦身
+      - generic [ref=f249e40]: ① 迁移学习的过度参数化：预训练模型带着源任务的行李迁移
+      - generic [ref=f249e42]: KWS 常见做法：把梅尔频谱图当「图像」，用 ImageNet 预训练的 VGG-16（约 138M 参数）/ ResNet-50（约 25M）做特征提取器再微调
+      - generic [ref=f249e43]: 但频谱图 ≠ 自然图像：两轴物理意义不同（时间 vs 频率，非两个空间轴）· 像素值是能量（非负）非颜色 · 共振峰轨迹的局部统计与物体边缘截然不同
+      - generic [ref=f249e45]: 直接微调低效
+      - generic [ref=f249e46]: 保留源任务全部过度参数化（VGG 138M vs GSC 仅约 65K 样本），
+      - generic [ref=f249e47]: 容量足够记住训练集 → 过拟合；推理效率低；ImageNet 深层学的「区分
+      - generic [ref=f249e48]: 120 种狗」这类精细视觉能力对 KWS 完全无用
+      - generic [ref=f249e50]: 通用剪枝错配
+      - generic [ref=f249e51]: 幅度/FPGM/HRank 用通用冗余度量，不管目标任务需求——被移除的
+      - generic [ref=f249e52]: 「小权值」滤波器可能恰好在检测关键词的关键频谱特征（如高频辅音的
+      - generic [ref=f249e53]: 宽带噪声模式），只是当前初始化下数值较小
+      - generic [ref=f249e55]: 从头 NAS 太贵
+      - generic [ref=f249e56]: DARTS 约 1.5 GPU 天、ENAS 约 0.5 GPU 天，且从随机初始化搜起——
+      - generic [ref=f249e57]: 浪费了预训练模型已学到的通用特征；D 维 × 每维 4 个候选的网格搜索
+      - generic [ref=f249e58]: 要 4^D 次评估（D=5 即 1024 次完整训练）
+      - generic [ref=f249e59]: ② 两段式流水线：先定形状（NAS），再去冗余（剪枝）
+      - generic [ref=f249e61]: 阶段一 · 目标感知架构搜索（贝叶斯优化）
+      - generic [ref=f249e62]: 只搜深层：浅层（边缘/纹理等通用特征）冻结不动，
+      - generic [ref=f249e63]: 对最后 D 个卷积块 + FC 定义 h_i ∈ 滤波器数候选
+      - generic [ref=f249e64]: "（如 VGG 末块 ∈ {64,128,256,512}）"
+      - generic [ref=f249e65]: 高斯过程代理模型 + Matern 5/2 核建模「配置→性能」
+      - generic [ref=f249e66]: Expected Improvement 采集函数平衡探索/利用
+      - generic [ref=f249e67]: 每个候选：改层 → 目标数据快速微调 5–10 epoch →
+      - generic [ref=f249e68]: 验证精度作反馈 → 更新 GP 后验 → 迭代聚焦
+      - generic [ref=f249e69]: 20–50 次评估内收敛（网格搜索 4^D=1024 次）
+      - generic [ref=f249e71]: 阶段二 · 余弦相似度滤波器剪枝
+      - generic [ref=f249e72]: 动机：架构定了，微调后仍可能残留功能相似的滤波器——
+      - generic [ref=f249e73]: 数量上「被允许」但功能上冗余
+      - generic [ref=f249e74]: 每 T 个 epoch 算全部滤波器对的余弦相似度：
+      - generic [ref=f249e75]: cos(Wᵢ,Wⱼ) = Wᵢ·Wⱼ / (‖Wᵢ‖·‖Wⱼ‖)
+      - generic [ref=f249e76]: 多个 checkpoint 持续 > θ(0.9) 的对 → 标记冗余
+      - generic [ref=f249e77]: （多检查点一致性，防「偶然相似」误判）
+      - generic [ref=f249e78]: 冗余对中移除 ‖W‖ 较小者（保留「强」的那个）
+      - generic [ref=f249e79]: 准确率掉超 δ(1%) 即停 → recovery 微调恢复
+      - generic [ref=f249e80]: ③ 分工与协同：NAS 管宏观形状，剪枝管微观冗余
+      - generic [ref=f249e82]: 两阶段互补：NAS 解决「架构适配」（每层多少参数合适）——增量搜索只在预训练模型上调深层，搜索空间从数千配置缩到数十个，同时保住浅层通用特征；剪枝解决「冗余消除」（哪些参数重复）
+      - generic [ref=f249e83]: 幅度 vs 方向：幅度剪枝删 ‖W‖ 小的滤波器，但小幅度 ≠ 不重要——权值小也可能提取关键稀疏特征；余弦衡量的是「方向」，方向相似的滤波器提取的特征几乎相同（无论幅度），删一个才是真冗余
+      - generic [ref=f249e84]: 消融证据：仅剪枝（跳过 NAS）在原始 VGG 上剪 30% 参数准确率掉约 2%；NAS+剪枝剪 40% 几乎无损——架构适配是比权值剪枝更重要的优化维度
+      - generic [ref=f249e86]: 20–50
+      - generic [ref=f249e87]: BO 评估次数（网格 1024）
+      - generic [ref=f249e88]: 60% / 45%
+      - generic [ref=f249e89]: CalTech-101 参数/FLOPs 减
+      - generic [ref=f249e90]: +0.5%
+      - generic [ref=f249e91]: 准确率反超直接微调
+      - generic [ref=f249e92]: 40% / 30%
+      - generic [ref=f249e93]: KWS 参数/FLOPs 减（精度<1%）
+      - generic [ref=f249e94]: "0.9"
+      - generic [ref=f249e95]: 余弦冗余阈值 θ
+      - generic [ref=f249e96]: 验证域：图像分类（CalTech-101/256 · Stanford Dogs 120 种狗）+ KWS（梅尔谱 40 频率 × 约 100 时间帧当图像，VGG-16/ResNet-50 迁移）；Multimedia Systems Journal 接收
+    - generic [ref=f249e97]: 图1 · 机制全景：上半是三条老路的不足（微调低效 / 通用剪枝错配 / 从头 NAS 太贵），中段是两段式流水线（贝叶斯架构搜索 + 余弦剪枝），下半是两阶段分工与关键数字。
+  - heading "§02 方法：先定形状，再去冗余" [level=2] [ref=f249e98]:
+    - generic [ref=f249e99]: §02
+    - text: 方法：先定形状，再去冗余
+  - generic [ref=f249e100]: GP 代理 + EI 采集 · 单位球面上的方向判据
+  - generic [ref=f249e101]:
+    - generic [ref=f249e102]: "搜索空间: H = {h₁, h₂, …, h_D} （最后 D 个深层的滤波器数，如 h ∈ {64,128,256,512}） 代理模型: f(h) ~ GP(m(h), k(h,h')) （Matern 5/2 核） 采集函数: α_EI(h) = E[ max(f(h) − f(h⁺), 0) ]"
+    - generic [ref=f249e103]: 人话：每个候选配置都要「改层+微调 5–10 epoch」才知道好坏——一次评估很贵。GP 把每次评估的信息存下来（哪里好、哪里不确定），EI 在「预测值高（利用）」和「不确定性大（探索）」之间权衡着挑下一个试点，几十次就收敛。
+  - generic [ref=f249e104]:
+    - generic [ref=f249e105]: "cos(Wᵢ, Wⱼ) = Wᵢ · Wⱼ / (‖Wᵢ‖₂ · ‖Wⱼ‖₂) 冗余判据: cos(Wᵢ, Wⱼ) > θ(0.9) 在多个训练 checkpoint 持续成立 处理: 移除冗余对中 ‖W‖ 较小者 → 精度掉超 δ(1%) 停 → recovery 微调"
+    - generic [ref=f249e106]: 人话：余弦衡量的是滤波器的「方向」。方向几乎相同的两个滤波器，提取的特征几乎一样（无论幅度谁大谁小）——删掉一个小的，是真正的冗余消除。只看幅度的剪枝会把「权值小但检测关键稀疏特征」的滤波器误杀。多 checkpoint 一致性是防误判的保险：碰巧某个时刻相似不算数，要全程相似才算冗余。
+  - generic [ref=f249e107]:
+    - generic [ref=f249e108]:
+      - heading "为什么两段而不是一段" [level=3] [ref=f249e109]
+      - paragraph [ref=f249e110]: NAS 是宏观优化（每层多大尺寸合适），剪枝是微观优化（哪些具体参数重复）——顺序不能反。消融证据：直接在原始 VGG 上剪 30% 参数掉 2% 精度；NAS 先把深层砍 50–75% 再剪，40% 削减几乎无损。在过度参数化的架构里找冗余，本身就是事倍功半。
+    - generic [ref=f249e111]:
+      - heading "KWS 读法" [level=3] [ref=f249e112]
+      - paragraph [ref=f249e113]: 梅尔频谱图 40 频率通道 × 约 100 时间帧当图像输入，VGG-16/ResNet-50 做特征提取器。TASCNet 自动把深层砍到目标要的规模——参数 −约 40%、FLOPs −约 30%、精度掉 <1%。省下的不只是参数：小数据集上减参还起了正则化作用。
+  - generic [ref=f249e114]:
+    - img [ref=f249e115]:
+      - generic [ref=f249e117]: 机制解剖：贝叶斯优化怎么省评估 · 余弦剪枝删的是什么
+      - generic [ref=f249e118]: 贝叶斯优化的搜索循环
+      - generic [ref=f249e120]: ① 候选配置 h（深层滤波器数组合）
+      - generic [ref=f249e121]: 随机初始化几个点起步
+      - generic [ref=f249e123]: ② 改层 → 快速微调 5–10 epoch
+      - generic [ref=f249e124]: 验证精度 y 作为真实评估（贵）
+      - generic [ref=f249e126]: ③ GP 后验更新：f(h)~GP(m,k)
+      - generic [ref=f249e127]: Matern 5/2 核，给未试配置均值+不确定性
+      - generic [ref=f249e129]: ④ EI 采集函数选下一个点
+      - generic [ref=f249e130]: α=E[max(f(h)−f(h⁺),0)]：预测值高（利用）
+      - generic [ref=f249e132]: 或不确定性大（探索）都值得试
+      - generic [ref=f249e133]: 循环 ②–④，20–50 次内收敛
+      - generic [ref=f249e135]: 为什么省：随机搜索不利用历史；网格搜索 4^D 爆炸
+      - generic [ref=f249e136]: GP 把每次昂贵评估的信息留下来——「哪里好、哪里不确定」
+      - generic [ref=f249e137]: 都被建模，下一个试点在最值得的地方。代价：GP 后验 O(N³)
+      - generic [ref=f249e138]: （N=评估次数），维度高时收敛变慢
+      - generic [ref=f249e139]: 余弦剪枝的几何：删方向，不删幅度
+      - generic [ref=f249e144]: Wᵢ
+      - generic [ref=f249e145]: Wⱼ
+      - generic [ref=f249e146]: 夹角小
+      - generic [ref=f249e147]: cos≈1
+      - generic [ref=f249e149]: Wk（方向不同）
+      - generic [ref=f249e150]: 幅度再小也不删
+      - generic [ref=f249e151]: 单位球面上看方向：余弦 = 夹角
+      - generic [ref=f249e152]: · Wᵢ Wⱼ 方向几乎相同 → 提取特征
+      - generic [ref=f249e153]: 几乎一样，删掉范数小的那个是
+      - generic [ref=f249e154]: 真冗余消除（幅度大小无关）
+      - generic [ref=f249e155]: · 幅度剪枝的盲区：权值小 ≠ 不重要，
+      - generic [ref=f249e156]: 小范数滤波器可能是关键稀疏特征
+      - generic [ref=f249e157]: 检测器（如高频辅音瞬态）
+      - generic [ref=f249e158]: · 多 checkpoint 一致性：只有全程
+      - generic [ref=f249e159]: 持续 cos>θ 才标记，防偶然相似
+      - generic [ref=f249e161]: 剪枝节奏（带刹车）
+      - generic [ref=f249e162]: 每 T 个 epoch 全量算一遍滤波器对 → 移除冗余对中 ‖W‖ 小者 →
+      - generic [ref=f249e163]: 全程监控验证精度，掉超 δ=1% 立即停 → recovery 微调恢复损失
+      - generic [ref=f249e164]: KWS 读法：VGG-16 在频谱图上迁移，TASCNet 自动把深层滤波器砍到
+      - generic [ref=f249e165]: 目标要的规模——参数 −40% / FLOPs −30%，精度掉不到 1%
+      - generic [ref=f249e166]: 左：贝叶斯优化把「每次微调都很贵」的现实装进搜索循环——用 GP 记住历史、用 EI 决定下一步，几十次评估逼近最优。右：剪枝判据从「数值大小」换成「方向重复」，且要全程一致才算数
+    - generic [ref=f249e167]: 图2 · 机制解剖：左是贝叶斯优化的搜索循环（GP 记历史、EI 挑下一个试点、20–50 次收敛的省法），右是余弦剪枝的几何（单位球面上看方向，删方向重复不删幅度小，多 checkpoint 一致才算数）。
+  - heading "§03 实验：剪掉六成，精度反升" [level=2] [ref=f249e168]:
+    - generic [ref=f249e169]: §03
+    - text: 实验：剪掉六成，精度反升
+  - generic [ref=f249e170]: 图像域主战场 · KWS 通用性演示
+  - generic [ref=f249e171]:
+    - img [ref=f249e172]:
+      - generic [ref=f249e174]: 主结果与消融：剪掉六成参数，精度反升
+      - generic [ref=f249e175]: CalTech-101 · VGG-16 迁移（约值）
+      - generic [ref=f249e176]: "93.5"
+      - generic [ref=f249e177]: "94.5"
+      - generic [ref=f249e178]: "95.5"
+      - generic [ref=f249e179]: "96.0"
+      - generic [ref=f249e181]: "95.0"
+      - generic [ref=f249e182]: 直接微调
+      - generic [ref=f249e183]: 基线
+      - generic [ref=f249e184]: —
+      - generic [ref=f249e186]: "94.2"
+      - generic [ref=f249e187]: 幅度剪枝 50
+      - generic [ref=f249e188]: "%"
+      - generic [ref=f249e189]: 参数 −50%
+      - generic [ref=f249e190]: FLOPs −40%
+      - generic [ref=f249e192]: "95.5"
+      - generic [ref=f249e193]: TASCNet
+      - generic [ref=f249e194]: ★
+      - generic [ref=f249e195]: 参数 −60%
+      - generic [ref=f249e196]: FLOPs −45%
+      - generic [ref=f249e197]: 准确率（%）· 同一预训练 VGG-16
+      - generic [ref=f249e198]: 准确率反升 +0.5% 的解释：减参起到正则化作用，防住了小数据集过拟合
+      - generic [ref=f249e199]: Stanford Dogs（120 种狗 · 2 万张）：+0.3–0.5% 精度同时参数 −约 40%
+      - generic [ref=f249e201]: KWS：参数 −约 40% · FLOPs −约 30% · 精度掉 < 1%
+      - generic [ref=f249e202]: （VGG-16 频谱图迁移 · 论文未用 GSC 标准基准，具体数据集未说明）
+      - generic [ref=f249e203]: 未与 DS-CNN / TC-ResNet / KWT 等专用 KWS 架构对比
+      - generic [ref=f249e204]: 消融：两段各自的贡献
+      - generic [ref=f249e206]: 参数削减的来源拆解（约值）
+      - generic [ref=f249e209]: NAS 阶段 −30~40%
+      - generic [ref=f249e210]: 剪枝 −10~20%
+      - generic [ref=f249e211]: · NAS 找到的配置：深层滤波器砍 50–75%，浅层不动
+      - generic [ref=f249e212]: ——验证了「预训练深层过度参数化」假设
+      - generic [ref=f249e213]: · 剪枝补刀：主要移除 NAS 未触及的中层冗余
+      - generic [ref=f249e214]: · 同压缩率下，余弦准则比幅度剪枝准确率高约 0.5–1%
+      - generic [ref=f249e215]: → 大头在 NAS：架构适配比权值剪枝更重要
+      - generic [ref=f249e217]: 两阶段必要性的对照
+      - generic [ref=f249e218]: 仅剪枝（跳过 NAS）：原始 VGG-16 上剪 30% 参数
+      - generic [ref=f249e219]: → 准确率掉约 2%
+      - generic [ref=f249e220]: NAS + 剪枝：剪 40% 参数 → 几乎无损
+      - generic [ref=f249e221]: 结论串起来：先让每层「尺寸对」，再谈「删谁」——
+      - generic [ref=f249e222]: 顺序反了就是在过度参数化的架构里找冗余
+      - generic [ref=f249e223]: 评估指标：准确率% · 可训练参数量 M · FLOPs G · 压缩比
+      - generic [ref=f249e224]: 图像域三个数据集 + KWS 一个设定；未报方差/多种子
+      - generic [ref=f249e225]: 注：数字为笔记记录的约值（论文原表见 arXiv 2205.05967）；KWS 侧实验深度明显浅于图像侧——没有标准基准、没有专用架构对照，这是引用本文 KWS 数字前必须知道的边界
+    - generic [ref=f249e226]: 图3 · 主结果与消融：左是 CalTech-101 三方对比（基线 / 幅度剪枝 / TASCNet）与 KWS 结果卡，右是消融拆解（NAS 是大头、剪枝补刀、两阶段必要性对照）。
+  - table [ref=f249e227]:
+    - rowgroup [ref=f249e228]:
+      - row [ref=f249e229]:
+        - columnheader "方法（CalTech-101 · VGG-16）" [ref=f249e230]
+        - columnheader "准确率" [ref=f249e231]
+        - columnheader "参数减少" [ref=f249e232]
+        - columnheader "FLOPs 减少" [ref=f249e233]
+      - row [ref=f249e234]:
+        - cell "直接微调 VGG-16" [ref=f249e235]
+        - cell "~95.0%" [ref=f249e236]
+        - cell "0%" [ref=f249e237]
+        - cell "0%" [ref=f249e238]
+      - row [ref=f249e239]:
+        - cell "幅度剪枝 50%" [ref=f249e240]
+        - cell "~94.2%" [ref=f249e241]
+        - cell "50%" [ref=f249e242]
+        - cell "40%" [ref=f249e243]
+      - row [ref=f249e244]:
+        - cell "TASCNet ★" [ref=f249e245]
+        - cell "~95.5%" [ref=f249e246]
+        - cell "60%" [ref=f249e247]
+        - cell "45%" [ref=f249e248]
+  - generic [ref=f249e249]:
+    - generic [ref=f249e250]: 读表要点
+    - listitem [ref=f249e251]: ◈ 准确率反升 +0.5% 的解释：减参起到正则化作用，防住了小数据集过拟合——压缩和精度不是零和的。
+    - listitem [ref=f249e252]: ◈ Stanford Dogs（120 种狗 · 约 2 万张）：+0.3–0.5% 精度同时参数 −约 40%——「狗品种精细分类」恰是 ImageNet 深层强项，这个域上砍深层仍无损，假设的验证比 CalTech 更硬。
+    - listitem [ref=f249e253]: ◈ 消融主次：NAS 独贡献 −30~40%（深层滤波器砍 50–75%、浅层不动——直接验证「预训练深层过度参数化」假设）；剪枝补 −10~20%（主要清 NAS 未触及的中层）；同压缩率下余弦准则比幅度剪枝高约 0.5–1%。
+    - listitem [ref=f249e254]: ◈ KWS 侧：参数 −约 40% / FLOPs −约 30% / 精度 <1%——但未用 GSC 标准基准、未与 DS-CNN/TC-ResNet/KWT 对照、具体数据集论文未说明。
+  - heading "§04 贡献" [level=2] [ref=f249e255]:
+    - generic [ref=f249e256]: §04
+    - text: 贡献
+  - generic [ref=f249e257]: 四点：统一框架到跨域验证
+  - generic [ref=f249e258]:
+    - generic [ref=f249e259]:
+      - generic [ref=f249e260]: "1"
+      - paragraph [ref=f249e261]: 首次把 NAS 和剪枝统一进一个自动化流程做高效知识迁移：NAS 阶段解决「架构适配」（每层多少参数），剪枝阶段解决「冗余消除」（哪些参数重复）——宏观与微观互补。
+    - generic [ref=f249e262]:
+      - generic [ref=f249e263]: "2"
+      - paragraph [ref=f249e264]: 目标感知的增量搜索：不在随机初始化上从头搜完整架构，而是在预训练模型上只调深层——搜索空间从数千缩到数十，浅层通用特征原样保留。
+    - generic [ref=f249e265]:
+      - generic [ref=f249e266]: "3"
+      - paragraph [ref=f249e267]: 基于训练全程的余弦相似度剪枝准则：比单次快照的幅度剪枝鲁棒，多 checkpoint 一致性检查避免偶然相似导致的误剪。
+    - generic [ref=f249e268]:
+      - generic [ref=f249e269]: "4"
+      - paragraph [ref=f249e270]: 跨域验证：图像分类（CalTech-101/256、Stanford Dogs）+ KWS 两类任务上验证通用性——方法不依赖特定数据域的统计特性。
+  - heading "§05 局限与判断" [level=2] [ref=f249e271]:
+    - generic [ref=f249e272]: §05
+    - text: 局限与判断
+  - generic [ref=f249e273]: 串行成本 · 窄搜索空间 · 域鸿沟未解
+  - generic [ref=f249e274]:
+    - img [ref=f249e275]:
+      - generic [ref=f249e277]: 边界与延伸
+      - generic [ref=f249e279]: 技术边界
+      - generic [ref=f249e280]: · 串行两阶段的耗时账：BO 要评 20–50 个配置、每个 5–10 epoch
+      - generic [ref=f249e281]: 快速微调 → 总计 100–500 个微调 epoch，比单阶段方法贵
+      - generic [ref=f249e282]: · 搜索空间只覆盖滤波器数量：卷积核大小 / 网络深度 / 跳连模式
+      - generic [ref=f249e283]: 都没搜——而 KWS 可能受益于更大的时间维卷积核
+      - generic [ref=f249e284]: · ImageNet 域鸿沟原样存在：自然图像的 1/f 谱等统计先验对频谱图
+      - generic [ref=f249e285]: 不成立；浅层「通用特征」（边缘检测）在频谱图上的意义不同
+      - generic [ref=f249e286]: · GP 的 O(N³) 后验更新：要搜所有层时维度上升，评估数随之膨胀
+      - generic [ref=f249e288]: 实验边界 + 延伸
+      - generic [ref=f249e289]: · KWS 评估不深：频谱图+图像 CNN 的简单方案，未与 DS-CNN/
+      - generic [ref=f249e290]: TC-ResNet/KWT 等专用架构对垒；未在 GSC 标准基准报详细结果
+      - generic [ref=f249e291]: · 「频谱图当图像」的根本域错配未讨论充分：预训练学到的空间
+      - generic [ref=f249e292]: 不变性未必适用于两轴异质的频谱图
+      - generic [ref=f249e293]: · 图像侧是主战场：KWS 更像通用性演示——引用其 KWS 数字
+      - generic [ref=f249e294]: 时要意识到证据链薄
+      - generic [ref=f249e295]: 延伸：可微 NAS 一体化（同时搜架构与剪枝掩码）；换音频专用预训练
+      - generic [ref=f249e296]: （PANNs / AST on AudioSet）；任务感知搜索空间（KWS 先验：大时间
+      - generic [ref=f249e297]: 核 · 少频率滤波器）
+      - generic [ref=f249e298]: 可迁移判断：预训练模型的架构不一定适合目标任务——迁移时做目标感知的架构适配，而不是盲目端到端微调；这条对任何跨域迁移（图像→音频、文本→语音）都成立
+    - generic [ref=f249e299]: 图4 · 边界与延伸：左技术边界（串行两阶段的微调账、只搜滤波器数、ImageNet 域鸿沟原样存在、GP 的 O(N³)），右实验边界（KWS 评估不深、频谱图当图像的原罪）+ 延伸方向。
+  - generic [ref=f249e300]:
+    - generic [ref=f249e301]: 可迁移判断
+    - paragraph [ref=f249e302]: ↳ 预训练模型的架构不是免费的：迁移时做目标感知的架构适配，而不是盲目端到端微调——本文最有价值的洞察，对任何跨域迁移（图像→音频、文本→语音）都成立。
+    - paragraph [ref=f249e303]: ↳ 先让尺寸对，再谈删谁：在过度参数化的架构里找冗余是事倍功半——架构适配（宏观）比权值剪枝（微观）是更重要的优化维度，消融里 30~40% vs 10~20% 的贡献差就是证据。
+    - paragraph [ref=f249e304]: ↳ 冗余的判据是方向重复不是数值大小：小幅度滤波器可能恰恰是关键稀疏特征的检测器；多 checkpoint 的一致性检查是把「碰巧相似」和「真冗余」分开的保险。
+    - paragraph [ref=f249e305]: ↳ 减参可以是正则化：小数据集上压缩与精度不是零和——CalTech-101 上剪 60% 反升 0.5%，过拟合的模型有时只是太大了。
+  - generic [ref=f249e306]:
+    - link "arXiv 2205.05967 ↗" [ref=f249e307] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2205.05967
+    - link "← 返回总目录" [ref=f249e308] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f249e309]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值，KWS 侧未用标准基准 · 2022 №37 · 180+/305
