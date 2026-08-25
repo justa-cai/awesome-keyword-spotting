@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial=1">
+<title>AB/BA 分析 · 隐私约束下的 KWS 召回估计 · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2022/AB_BA_Analysis_A_Framework_for_Estimating_Keyword_Spotting_Recall_Improvement_While_Maintaining_Audio_Privacy.md">深读笔记</a>
+    <a href="/papers/2022/AB_BA_Analysis_A_Framework_for_Estimating_Keyword_Spotting_Recall_Improvement_While_Maintaining_Audio_Privacy.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2204.08474" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2022 №2</p>
+  <h1>隐私法规让 KWS 只上传「接受」的音频——召回率的分母（真实关键词总数）永远拿不到。Amazon 从医学交叉设计借来一招：<br>两个模型互相解码对方的接受数据，未知的分母在比值中恰好消去</h1>
+  <p class="sub">AB/BA Analysis: A Framework for Estimating Keyword Spotting Recall Improvement While Maintaining Audio Privacy</p>
+  <p class="meta"><b>作者</b>：Raphael Petegrosso、Vasistakrishna Baderdinni、Thibaud Senechal、Benjamin L. Bullough（Amazon）· NAACL 2022 Industry Track</p>
+  <p class="meta"><b>验证</b>：仿真（可控真值）+ Alexa 真实生产（约 300K 客户端、数百万查询）· <b>成果</b>：100 万查询下 rRecall 精度 ±2.5%</p>
+  <div class="chips">
+    <span class="chip">评估框架（非模型训练）</span><span class="chip">医学交叉设计迁移</span><span class="chip">交叉解码消去未知分母</span>
+    <span class="chip">半监督：软标签替代人工</span><span class="chip">无参数化分布假设</span><span class="chip">可推广到垃圾邮件/欺诈/审核</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>隐私约束怎么锁死评估</b>：GDPR/CCPA 时代 KWS 仅在检测到潜在关键词时才短暂收集上传——<b>只保留「接受」样本</b>，所有被拒绝的音频（大量真阴性 + 全部假阴性）在设备端即被丢弃。→ 既拿不到 FPR 的分母（完整负样本集）也拿不到召回率的分母（完整正样本集）——<b>传统混淆矩阵无法构建</b>。而召回率恰恰是用户体验的关键指标。</li>
+      <li><b>三条老路各有盲区</b>：① 标准 A/B 测试——可统计两组误报数但被拒音频拿不到 → 只能测相对误报变化、<b>召回率完全盲区</b>；② 离线数据集——实验室条件（安静/近场/标准发音）vs 生产（远场/多说话人/口音/儿童老人），<b>离线与线上召回率相关性可低至 0.3–0.5</b>；③ 生产数据人工标注——隐私最小化原则直接违反 + 每样本约 30 秒审听成本 + 远场噪声下标注者一致性有限。工业界有各种 ad-hoc 方法但缺一个有理论保证的统计框架。</li>
+      <li><b>灵感：医学交叉设计（crossover）</b>——每位患者依次接受两种治疗，比较同一患者的不同反应消除个体差异。迁移到 KWS：两模型「<b>交叉解码</b>」对方的接受数据，通过同一音频在两模型下的不同判断推断相对性能。关键假设：随机化分组 → 两组统计同质（相同关键词出现率/说话人分布/声学环境）——数百万查询时由大数定律保证。</li>
+      <li><b>四步流程</b>：① 在线收集——流量 50:50 随机分组各用自己的模型，只上传被自己接受的音频；② <b>交叉解码（核心创新）</b>——模型 B 离线解码 A 的接受数据（得 N++/N+- 四格计数）、A 解码 B 的；③ rRecall = [A 接受中 B 也接受比例] ÷ [B 接受中 A 也接受比例]——<b>未知的真实关键词总数在比值中恰好消去</b>，只依赖可观测的交叉计数（一致估计量，样本→∞ 收敛真值）；④ rFPR = 在线接受率比 ÷ rRecall——假阳性极稀（0.1% 级）保证近似高精度、方差 ∝ 1/N。</li>
+      <li><b>半监督两方案</b>：① 分层采样——优先标注两模型<b>判断不一致</b>的样本（决策边界交叉区、方差贡献最大）——只标 5–10% 高信息样本：标注量减约 80%、精度与全量相当、相同预算下标准误差降约 50%；② <b>机器软标签</b>——独立模型 C（非 A 非 B）生成 p_C(y|x) 当地面真相代理：连续概率比硬标签保留更多置信度信息、消除人工需求、<b>分析速度数天 → 数小时</b>。门槛低：模型 C 准确率 &gt; 85% 即可，对 C 的具体选择不敏感。</li>
+      <li><b>仿真验证</b>：合成 KWS 输出（可控真实召回率/FPR/样本量/出现率）——估计与真值 RMSE &lt; 0.02；置信区间宽度以 O(1/√N) 递减与理论一致。交叉解码两方向相关 &gt; 0.95（随机化假设有效的实证）。</li>
+      <li><b>生产验证</b>：Alexa 真实环境约 300K 独立客户端、数百万查询——<b>100 万查询下 rRecall 95% CI 宽度 ≈ 0.05（±2.5%）足以支持产品决策</b>。软标签一致性：117 名参与者标 11,908 样本、Cohen's Kappa &gt; 0.85；半监督相对误差增加 &lt; 5% 但标注减 80%。</li>
+      <li><b>边界</b>：双模型并行部署工程复杂度（服务端双模型 + 交叉解码管线 + 流量路由——无 A/B 基础设施团队门槛高）；<b>只提供相对指标</b>（无法回答「当前系统召回率是多少」）；随机化假设敏感（分配系统性偏差未讨论检测校正）；交叉解码是离线批处理 → 分析时延；非 50:50 流量比例的鲁棒性未讨论；模型 C 选择标准粗糙（85% 一条线）；两模型置信度阈值差异影响「接受」定义。</li>
+      <li><b>可推广洞察</b>：「交叉解码绕过不可观测性」适用于一切隐私/数据访问约束下的检测评估——<b>垃圾邮件检测</b>（拿不到被过滤器拒绝的邮件）、<b>欺诈检测</b>（拿不到被规则拒绝的交易）、<b>内容审核</b>（拿不到被系统删除的内容）——对整个 AI 安全领域有启发价值。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">「只能看到被检测到的样本」约束</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    目标：仅有「接受」数据可用时、无需对底层数据分布做参数化假设、统计严谨地估计 rRecall 与 rFPR 的完整框架——真实生产环境可部署可扩展、置信区间足够紧凑以支持产品决策。注意论文不涉及模型训练：A/B 是已训好的 KWS 模型，框架只在部署与评估阶段起作用。
+  </div>
+
+  <div class="formula">
+    rRecall = [N(A→B)++ / (N(A→B)++ + N(A→B)+−)] ÷ [N(B→A)++ / (N(B→A)++ + N(B→A)+−)]；rFPR = (N_B^acc/N_B) ÷ (N_A^acc/N_A) × 1/rRecall
+    <div class="why">分子近似 P(B 接受 | A 接受, 关键词) 的函数、分母近似 P(A 接受 | B 接受, 关键词) 的函数——两者的比值消去未知的真实关键词总数。rFPR 的直觉：在线接受率同时受召回与误报影响，召回比已知时误报比从接受率比中解出；假阳性稀疏性（0.1% 级）保证近似高精度。指标选相对而非绝对：隐私约束下绝对召回率不可算 + 产品决策关心的恰是「新比旧好多少」。</div>
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">把不可观测的召回率转化为可观测的交叉计数</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 940">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker>
+<marker id="aro" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#d97a2b"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="940.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="18" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AB/BA 框架：交叉解码绕过不可观测性</text>
+<line x1="36.0" y1="60.0" x2="320.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 隐私约束怎么锁死评估能力</text>
+<rect x="36.0" y="98.0" width="848.0" height="78.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="120.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· GDPR/CCPA 时代：KWS 仅在检测到潜在关键词时才短暂收集上传——只保留「接受」样本</text>
+<text x="52.0" y="135.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 所有被拒绝的音频（含大量真阴性 + 全部假阴性）在设备端即被丢弃</text>
+<text x="52.0" y="150.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· → 无法获得 FPR 的分母（完整负样本集）也无法获得召回率的分母（完整正样本集）</text>
+<text x="52.0" y="165.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· → 传统完整混淆矩阵无法构建——这就是「只能看到被检测到的样本」的约束</text>
+<text x="36.0" y="190.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 灵感：医学交叉设计（crossover）——两模型交叉解码对方的接受数据</text>
+<rect x="36.0" y="204.0" width="848.0" height="196.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<rect x="52.0" y="220.0" width="190.0" height="80.0" rx="9" fill="#eef1f5" stroke="#d9dee6" stroke-width="1"/>
+<text x="147.0" y="242.0" font-size="11.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">步骤一：在线收集</text>
+<text x="147.0" y="260.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">流量 50:50 随机分组</text>
+<text x="147.0" y="276.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">组A 用基线模型A·组B 用候选B</text>
+<text x="147.0" y="292.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">各只上传被自己接受的音频</text>
+<rect x="266.0" y="220.0" width="200.0" height="80.0" rx="9" fill="#fdf1e4" stroke="#f0dfc9" stroke-width="1"/>
+<text x="366.0" y="242.0" font-size="11.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">步骤二：交叉解码 ★</text>
+<text x="366.0" y="260.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">模型B 离线解码 A 的接受数据</text>
+<text x="366.0" y="276.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">模型A 离线解码 B 的接受数据</text>
+<text x="366.0" y="292.0" font-size="9.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">得到四格交叉计数 N++/N+-</text>
+<rect x="490.0" y="220.0" width="190.0" height="80.0" rx="9" fill="#e3ecf6" stroke="#cfdce9" stroke-width="1"/>
+<text x="585.0" y="242.0" font-size="11.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">步骤三：rRecall</text>
+<text x="585.0" y="262.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">分子 = A 接受中 B 也接受比例</text>
+<text x="585.0" y="277.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">分母 = B 接受中 A 也接受比例</text>
+<text x="585.0" y="293.0" font-size="9" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">未知的关键词总数被消去</text>
+<rect x="704.0" y="220.0" width="166.0" height="80.0" rx="9" fill="#cfe9de" stroke="#a8d5c2" stroke-width="1"/>
+<text x="787.0" y="242.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">步骤四：rFPR</text>
+<text x="787.0" y="262.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">在线接受率比 ÷ rRecall</text>
+<text x="787.0" y="278.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">假阳性稀疏假设下</text>
+<text x="787.0" y="293.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">高精度解出</text>
+<line x1="242.0" y1="260.0" x2="264.0" y2="260.0" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#ar)"/>
+<line x1="466.0" y1="260.0" x2="488.0" y2="260.0" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#ar)"/>
+<line x1="680.0" y1="260.0" x2="702.0" y2="260.0" stroke="#8a93a5" stroke-width="1.4" marker-end="url(#ar)"/>
+<rect x="52.0" y="312.0" width="818.0" height="62.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="461.0" y="334.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">关键假设：随机化分组 → 两组统计同质（相同关键词出现率/说话人分布/声学环境）</text>
+<text x="461.0" y="354.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">样本量足够大（数百万次查询）时由大数定律保证；估计量是一致估计（样本→∞ 收敛真值）</text>
+<rect x="36.0" y="420.0" width="848.0" height="100.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="446.0" font-size="13" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">核心公式与人话</text>
+<text x="52.0" y="472.0" font-size="12" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">rRecall = [ N(A→B)++ / (N(A→B)++ + N(A→B)+−) ] ÷ [ N(B→A)++ / (N(B→A)++ + N(B→A)+−) ]</text>
+<text x="52.0" y="494.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">rFPR = (N_B^accept / N_B) ÷ (N_A^accept / N_A) × 1/rRecall —— 在线接受率同时受召回与误报影响；</text>
+<text x="52.0" y="512.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">召回比已知时误报比可从接受率比解出；假阳性极稀（0.1% 级）保证近似高精度、方差 ∝ 1/N</text>
+<text x="36.0" y="542.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 半监督 AB/BA：两种地面真相的替代方案</text>
+<rect x="36.0" y="556.0" width="414.0" height="152.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="580.0" font-size="12" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方案一：分层采样标注</text>
+<text x="52.0" y="602.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">优先标注两模型判断不一致的样本（A 接受 B 拒绝 /</text>
+<text x="52.0" y="615.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  A 拒绝 B 接受）——位于决策边界交叉区，</text>
+<text x="52.0" y="628.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  对估计量方差贡献最大（信息量最高）</text>
+<text x="52.0" y="641.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="654.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">只标 5–10% 高信息样本：</text>
+<text x="52.0" y="667.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  · 标注量减约 80%，精度与全量标注相当</text>
+<text x="52.0" y="680.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  · 相同标注预算下标准误差降约 50%</text>
+<text x="52.0" y="693.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="706.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">背景：Amazon 每样本约 30 秒人工审听——</text>
+<text x="52.0" y="719.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  大规模审听直接违反隐私最小化原则</text>
+<rect x="474.0" y="556.0" width="414.0" height="152.0" rx="10" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="490.0" y="580.0" font-size="12" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方案二：机器软标签 ★</text>
+<text x="490.0" y="598.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">独立模型 C（非 A 非 B）对所有交叉解码样本生成软标签</text>
+<text x="490.0" y="610.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  p_C(y|x) 当地面真相代理</text>
+<text x="490.0" y="622.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="634.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">软标签的连续性（0–1 概率）比硬标签（0/1）保留更多</text>
+<text x="490.0" y="646.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  置信度信息；消除人工标注需求</text>
+<text x="490.0" y="658.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="670.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">分析速度提升一个数量级：数天 → 数小时</text>
+<text x="490.0" y="682.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="694.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">门槛很低：只要模型 C 准确率 &gt; 85%，估计质量对 C 的</text>
+<text x="490.0" y="706.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  具体选择不敏感（消融验证）</text>
+<text x="490.0" y="718.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="490.0" y="730.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">一致性验证：117 名参与者标 11,908 样本，</text>
+<text x="490.0" y="742.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  Cohen’s Kappa &gt; 0.85</text>
+</svg>
+    <p class="cap"><b>框架复绘</b>：隐私约束怎么锁死评估；四步流程（在线收集 → 交叉解码（核心创新）→ rRecall 估计 → rFPR 估计）与随机化同质假设；核心公式与人话（未知分母在比值中消去）；半监督两方案（分层采样标注 / 机器软标签——准确率 &gt; 85% 即可用、分析速度数天→数小时）。</p>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与消融</p>
+  <h2 class="sec">仿真（真值已知）+ 生产（数亿设备量级）</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 420">
+<rect x="0.0" y="0.0" width="880.0" height="420.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三条老路各有盲区，AB/BA 逐个击破</text>
+<line x1="36.0" y1="56.0" x2="260.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="36.0" y="74.0" width="270.0" height="260.0" rx="10" fill="#f2f3f0" stroke="#e6e6df" stroke-width="1"/>
+<text x="50.0" y="98.0" font-size="12.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标准 A/B 测试</text>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可统计两组误报数量（接受的非关键词）</text>
+<text x="50.0" y="144.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">但被拒绝音频拿不到 → 漏检数量无法统计</text>
+<text x="50.0" y="166.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 只能测相对误报率变化，召回率完全盲区</text>
+<text x="50.0" y="188.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"> </text>
+<text x="50.0" y="210.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AB/BA：交叉解码把不可观测的召回率转化</text>
+<text x="50.0" y="232.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  为可观测的交叉计数</text>
+<rect x="324.0" y="74.0" width="270.0" height="260.0" rx="10" fill="#f2f3f0" stroke="#e6e6df" stroke-width="1"/>
+<text x="338.0" y="98.0" font-size="12.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">离线数据集</text>
+<text x="338.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">实验室条件（安静/近场/标准发音）vs 生产</text>
+<text x="338.0" y="144.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （远场噪声/多说话人/口音/儿童老人）</text>
+<text x="338.0" y="166.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">离线与线上召回率相关性可低至 0.3–0.5</text>
+<text x="338.0" y="188.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"> </text>
+<text x="338.0" y="210.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AB/BA：真实生产数据，分布与部署完全一致</text>
+<text x="338.0" y="232.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——不存在分布偏移</text>
+<rect x="612.0" y="74.0" width="270.0" height="260.0" rx="10" fill="#f2f3f0" stroke="#e6e6df" stroke-width="1"/>
+<text x="626.0" y="98.0" font-size="12.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">生产数据人工标注</text>
+<text x="626.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">隐私最小化：暴露的用户音频应尽可能少——</text>
+<text x="626.0" y="144.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  大规模审听直接违反；每样本 ~30 秒成本极高；</text>
+<text x="626.0" y="166.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">远场噪声下标注者一致性也有限</text>
+<text x="626.0" y="188.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"> </text>
+<text x="626.0" y="210.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AB/BA：只暴露两模型判断不一致的音频（5–10%）</text>
+<text x="626.0" y="232.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  + 软标签可完全消除人工</text>
+<text x="36.0" y="368.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">与参数化方法的差异：AB/BA 不假设底层数据分布的任何参数形式（正态/泊松等）——只依赖随机化保证的统计同质性</text>
+<text x="36.0" y="388.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不涉及模型训练——A/B 是已训好的 KWS 模型，框架只在部署与评估阶段起作用</text>
+</svg>
+    <p class="cap"><b>三条老路的盲区复绘</b>：标准 A/B 测试（召回率完全盲区）、离线数据集（分布偏移——相关性低至 0.3–0.5）、生产数据全量标注（违反隐私最小化 + 每样本 30 秒成本）——AB/BA 逐个击破；与参数化方法的差异（不做任何分布假设，只依赖随机化同质性）。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">仿真与生产验证</text>
+<line x1="36.0" y1="56.0" x2="140.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="88.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">仿真：估计 vs 真值（真实值已知）</text>
+<text x="60.0" y="112.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 合成 KWS 输出模拟 AB/BA 场景，可控参数：</text>
+<text x="60.0" y="128.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  真实召回率/FPR/样本量/关键词出现率</text>
+<text x="60.0" y="144.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 估计与真值高度一致：RMSE &lt; 0.02</text>
+<text x="60.0" y="160.0" font-size="10.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="60.0" y="176.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 置信区间宽度以 O(1/√N) 递减（与理论一致）</text>
+<text x="60.0" y="192.0" font-size="10.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="60.0" y="208.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 生产部署：约 300K 独立客户端、数百万查询</text>
+<text x="60.0" y="224.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  · 100 万查询下 rRecall 95% CI 宽度 ≈ 0.05</text>
+<text x="60.0" y="240.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  · 即估计精度约 ±2.5%——足以支持产品决策</text>
+<text x="60.0" y="256.0" font-size="10.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="60.0" y="272.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 交叉解码两方向高度一致（相关 &gt; 0.95）</text>
+<text x="60.0" y="288.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——验证随机化假设有效</text>
+<text x="660.0" y="88.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">置信区间随样本量收窄（示意形态，O(1/√N) 有据）</text>
+<rect x="560.0" y="93.8" width="10.0" height="145.5" rx="3" fill="#0e8a66"/>
+<rect x="578.0" y="93.8" width="10.0" height="145.5" rx="3" fill="#0e8a66"/>
+<line x1="560.0" y1="166.5" x2="588.0" y2="166.5" stroke="#0e8a66" stroke-width="1.5"/>
+<text x="574.0" y="85.8" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">±10.0%</text>
+<text x="574.0" y="312.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1M</text>
+<rect x="632.0" y="186.5" width="10.0" height="83.6" rx="3" fill="#0e8a66"/>
+<rect x="650.0" y="186.5" width="10.0" height="83.6" rx="3" fill="#0e8a66"/>
+<line x1="632.0" y1="228.4" x2="660.0" y2="228.4" stroke="#0e8a66" stroke-width="1.5"/>
+<text x="646.0" y="178.5" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">±5.8%</text>
+<text x="646.0" y="312.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3M</text>
+<rect x="704.0" y="243.3" width="10.0" height="45.8" rx="3" fill="#0e8a66"/>
+<rect x="722.0" y="243.3" width="10.0" height="45.8" rx="3" fill="#0e8a66"/>
+<line x1="704.0" y1="266.2" x2="732.0" y2="266.2" stroke="#0e8a66" stroke-width="1.5"/>
+<text x="718.0" y="235.3" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">±3.1%</text>
+<text x="718.0" y="312.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10M</text>
+<rect x="776.0" y="290.2" width="10.0" height="14.5" rx="3" fill="#0e8a66"/>
+<rect x="794.0" y="290.2" width="10.0" height="14.5" rx="3" fill="#0e8a66"/>
+<line x1="776.0" y1="297.5" x2="804.0" y2="297.5" stroke="#0e8a66" stroke-width="1.5"/>
+<text x="790.0" y="282.2" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">±1.0%</text>
+<text x="790.0" y="312.0" font-size="9.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">100M</text>
+<text x="520.0" y="332.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">查询次数 →</text>
+<text x="36.0" y="400.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键读数：100 万次查询即可拿到 ±2.5% 的 rRecall 精度；半监督（软标签）相对误差增加 &lt; 5% 但标注量减 80%、速度数天→数小时</text>
+<text x="36.0" y="418.0" font-size="11" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">极限场景：关键词出现率 &lt; 0.01% 时方差增大（正样本极少）——建议延长收集周期积累正样本</text>
+</svg>
+    <p class="cap"><b>实验验证复绘（右板 CI 收窄为示意形态，O(1/√N) 与具体数值有据）</b>：左——仿真（真值已知：RMSE &lt; 0.02、两方向相关 &gt; 0.95 验证随机化假设）与生产（300K 客户端、100 万查询下 ±2.5% 精度）；右——置信区间随样本量按 O(1/√N) 收窄。极限场景：关键词出现率 &lt; 0.01% 时方差增大。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">能测什么 vs 不能测什么 + 边界</text>
+<line x1="36.0" y1="56.0" x2="220.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="250.0" y="88.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三种评估方式的能力矩阵</text>
+<rect x="60.0" y="108.0" width="380.0" height="46.0" rx="8" fill="#f2f3f0" stroke="#e6e6df" stroke-width="1"/>
+<text x="74.0" y="136.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标准 A/B</text>
+<text x="220.0" y="130.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">rFPR ✓</text>
+<text x="220.0" y="146.0" font-size="10" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">rRecall ✗</text>
+<rect x="60.0" y="164.0" width="380.0" height="46.0" rx="8" fill="#f2f3f0" stroke="#e6e6df" stroke-width="1"/>
+<text x="74.0" y="192.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">离线数据集</text>
+<text x="220.0" y="186.0" font-size="10" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">rFPR ✗（偏移）</text>
+<text x="220.0" y="202.0" font-size="10" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">rRecall ✗（相关 0.3–0.5）</text>
+<rect x="60.0" y="220.0" width="380.0" height="46.0" rx="8" fill="#f2f3f0" stroke="#e6e6df" stroke-width="1"/>
+<text x="74.0" y="248.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">全量人工标注</text>
+<text x="220.0" y="242.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">rFPR ✓</text>
+<text x="220.0" y="258.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">rRecall ✓（违反隐私）</text>
+<rect x="60.0" y="276.0" width="380.0" height="46.0" rx="8" fill="#e6f4ee" stroke="#e6e6df" stroke-width="1"/>
+<text x="74.0" y="304.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AB/BA ★</text>
+<text x="220.0" y="298.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">rFPR ✓</text>
+<text x="220.0" y="314.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">rRecall ✓（隐私友好）</text>
+<text x="212.0" y="102.0" font-size="9" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">误报率</text>
+<text x="212.0" y="100.0" font-size="1" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<rect x="500.0" y="84.0" width="340.0" height="280.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="670.0" y="106.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界</text>
+<text x="514.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 双模型并行部署的工程复杂度：服务端同时</text>
+<text x="514.0" y="145.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  加载两模型 + 交叉解码批处理管线 + 流量</text>
+<text x="514.0" y="160.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  分割路由——无 A/B 基础设施的团队门槛高</text>
+<text x="514.0" y="175.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 只提供相对指标：无法回答「当前系统召回率</text>
+<text x="514.0" y="190.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  是多少」——绝对值仍需其他方法</text>
+<text x="514.0" y="205.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 随机化假设敏感：分配系统性偏差（设备/地域/</text>
+<text x="514.0" y="220.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  时间段）会带来估计偏差——检测与校正未讨论</text>
+<text x="514.0" y="235.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 交叉解码是离线批处理 → 分析时延（快速迭代</text>
+<text x="514.0" y="250.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  场景影响决策速度）</text>
+<text x="514.0" y="265.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未讨论流量比例非 50:50（如 90:10）的鲁棒性</text>
+<text x="514.0" y="280.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 模型 C 选择标准只验证了「准确率 &gt; 85%」</text>
+<text x="514.0" y="295.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  粗则——架构/训练数据/校准策略未系统探索</text>
+<text x="514.0" y="310.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 两模型置信度阈值差异会影响「接受」定义</text>
+<text x="36.0" y="400.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可推广洞察：「交叉解码绕过不可观测性」适用于一切隐私/数据访问约束下的检测评估——垃圾邮件（拿不到被拒邮件）、欺诈检测</text>
+<text x="36.0" y="418.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（拿不到被拒交易）、内容审核（拿不到被删内容）——对整个 AI 安全领域有启发价值</text>
+</svg>
+    <p class="cap"><b>能力矩阵 + 边界复绘</b>：左——三种评估方式 vs AB/BA 的能力矩阵（只有 AB/BA 同时提供 rFPR ✓ 与 rRecall ✓ 且隐私友好）；右——七条边界（工程复杂度、只提供相对指标、随机化假设敏感、离线批处理时延等）；底部——「交叉解码绕过不可观测性」的跨领域可推广性。</p>
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">四条贡献</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>首个隐私约束下的召回率估计框架</b>——仅有「接受」数据时无需参数化假设即可估计相对召回率比；一致估计量的理论证明为可靠性提供数学保证——对语音识别、说话人识别等同样适用。</div>
+    <div class="c"><span class="n">2</span><b>低方差 FPR 估计的理论推导</b>——假阳性稀疏假设下方差与样本量成反比：适度样本量即可获得足够紧凑的置信区间支持产品决策。</div>
+    <div class="c"><span class="n">3</span><b>半监督工程创新</b>——软标签 + 分层采样：人力成本降 80–90%、分析速度数天→数小时，同时保持与全监督相当的精度。</div>
+    <div class="c" style="background:#fdf1e4;border-color:#f0dfc9"><span class="n" style="background:#d97a2b">★</span><b>生产级验证</b>——Alexa 真实环境（数亿设备、数千万日活）成功应用于 KWS 模型迭代评估：隐私约束下的 KWS 评估从 ad-hoc 实践走向系统化方法论。</div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">相对指标 + 工程门槛</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>双模型并行部署复杂度</b>：服务端同时加载两模型参数 + 交叉解码离线批处理管线 + 流量分割路由基础设施——无大规模 A/B 基础设施的团队门槛较高。</li>
+        <li><b>只提供相对指标</b>：无法给出任一模型的绝对召回率或绝对 FPR——「当前系统召回率是多少」仍需其他方法。</li>
+        <li><b>随机化假设敏感</b>：分配机制系统性偏差（设备类型/地域/时间段分布不均）→ 估计偏差——如何检测与校正论文未充分讨论。</li>
+        <li><b>交叉解码时延</b>：离线批处理——快速迭代场景可能影响决策速度。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>流量比例鲁棒性未讨论</b>：非 50:50（如 90:10）时估计量方差如何变化未知。</li>
+        <li><b>模型 C 选择标准不系统</b>：只验证「准确率 &gt; 85%」粗则——架构、训练数据、校准策略对软标签质量的影响未系统探索。</li>
+        <li><b>阈值差异未考虑</b>：两模型置信度阈值不同可能导致「接受」定义不同——影响交叉解码结果的解释。</li>
+        <li><b>关键词出现率极低时方差增大</b>（&lt; 0.01% 时正样本极少）——建议延长收集周期（操作性建议而非机制解法）。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>自然的延伸方向</b>：多模型比较（两两扩展为 N-way 交叉设计构建完整性能排序）；<b>在线 AB/BA</b>（流式交叉解码——分析时延从小时级缩到分钟级）；因果推断视角（DAG 明确建模随机化/混淆变量/因果效应——处理分层随机化等非完全随机场景）；<b>差分隐私增强</b>（为估计结果提供形式化隐私保证而非仅依赖数据最小化原则）；跨领域推广（垃圾邮件/欺诈检测/内容审核）。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2022/AB_BA_Analysis_A_Framework_for_Estimating_Keyword_Spotting_Recall_Improvement_While_Maintaining_Audio_Privacy.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2022/AB_BA_Analysis_A_Framework_for_Estimating_Keyword_Spotting_Recall_Improvement_While_Maintaining_Audio_Privacy.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2204.08474" target="_blank">arXiv · 2204.08474</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记。置信区间收窄图为示意形态（O(1/√N) 与具体数值有据）。错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
