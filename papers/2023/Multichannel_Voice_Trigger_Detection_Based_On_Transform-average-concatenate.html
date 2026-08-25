@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apple 多通道语音触发 · 改进 TAC · 论文精读可视化</title>
+<style>
+  :root { --ink:#1c2430; --ink-2:#47536a; --ink-3:#8a93a5; --accent:#0e8a66; --accent-soft:#e6f4ee;
+    --warn:#c0392b; --orange:#d97a2b; --paper:#f6f6f2; --card:#fff; --line:#e6e6df; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.75 -apple-system,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .topbar { position:sticky; top:0; z-index:10; background:rgba(246,246,242,.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:980px; margin:0 auto; padding:10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .topbar .site { font-weight:700; color:var(--ink); }
+  .topbar .links { margin-left:auto; display:flex; gap:16px; font-size:14px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; margin:0 0 6px; }
+  .hero h1 { font-size:29px; line-height:1.35; margin:6px 0 4px; }
+  .hero .sub { font-size:15px; color:var(--ink-2); margin:0 0 14px; }
+  .meta { font-size:14px; color:var(--ink-2); margin:10px 0; } .meta b { color:var(--ink); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+  .chip { background:var(--accent-soft); color:#0a6b4e; border-radius:13px; padding:2px 12px; font-size:13px; }
+  .tldr { background:linear-gradient(135deg,#0e8a66,#0b6e52); color:#fff; border-radius:14px; padding:20px 26px; margin:26px 0 8px; }
+  .tldr h2 { margin:0 0 8px; font-size:16px; letter-spacing:.06em; } .tldr li { margin:4px 0; }
+  section { margin-top:56px; }
+  h2.sec { font-size:24px; margin:0 0 4px; }
+  .sec-line { width:44px; height:4px; background:var(--accent); border-radius:2px; margin:10px 0 18px; }
+  h3 { font-size:18px; margin:26px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin:16px 0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 12px; margin:18px 0; }
+  .fig svg { width:100%; height:auto; display:block; }
+  .fig .cap { font-size:13.5px; color:var(--ink-3); margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; }
+  .fig .cap b { color:var(--ink-2); }
+  .formula { background:#f9faf7; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:12px 20px; margin:14px 0;
+    font-family:Georgia,"Times New Roman",serif; font-size:17px; }
+  .formula .why { font-size:14px; color:var(--ink-2); margin-top:6px; font-family:-apple-system,"Noto Sans SC",sans-serif; }
+  .contrib { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .contrib{grid-template-columns:1fr;} }
+  .contrib .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .contrib .n { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-size:14px; font-weight:700; margin-right:8px; }
+  .lim { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .lim{grid-template-columns:1fr;} }
+  .lim .col { background:#fbfaf6; border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .lim h4 { margin:0 0 8px; font-size:15px; color:var(--warn); }
+  .lim ul { margin:0; padding-left:18px; } .lim li { margin:6px 0; font-size:14.5px; color:var(--ink-2); }
+  footer { margin-top:60px; border-top:1px solid var(--line); padding-top:18px; font-size:13.5px; color:var(--ink-3); }
+  .pill-btns { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  .pill { border:1.5px solid var(--accent); color:var(--accent); border-radius:18px; padding:5px 16px; font-size:14px; font-weight:600; }
+  .pill:hover { background:var(--accent-soft); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<nav class="topbar"><div class="in">
+  <span class="site">← <a href="/">Awesome Keyword Spotting 论文库</a></span>
+  <span class="links">
+    <a href="/papers/2023/Multichannel_Voice_Trigger_Detection_Based_On_Transform-average-concatenate.md">深读笔记</a>
+    <a href="/papers/2023/Multichannel_Voice_Trigger_Detection_Based_On_Transform-average-concatenate.pdf">PDF 原稿</a>
+    <a href="https://arxiv.org/abs/2309.16036" target="_blank">arXiv</a>
+  </span>
+</div></nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">论文精读 · 可视化版 · 2023 №23</p>
+  <h1>通道选择丢掉的 3 路信号里可能藏着被前端压掉的目标语音——Apple 让二阶模型看全部 4 路，<br>再用「注入选中通道」打破置换不变性，把人声干扰下的 58.5% 恶化救回持平</h1>
+  <p class="sub">Multichannel Voice Trigger Detection Based on Transform-Average-Concatenate</p>
+  <p class="meta"><b>作者</b>：Takuya Higuchi、Masood Delfarah、Stephen Shum（Apple）；Avamarie Brueggeman（UT Dallas，工作在 Apple 期间完成）</p>
+  <p class="meta"><b>发表</b>：arXiv 2309.16036（2023-09，v2 2024-02）· 230 万条内部训练语料 · 100 人 1300 条评测正样本 · 2000 小时负样本</p>
+  <div class="chips">
+    <span class="chip">两阶段 VT（Siri/HomePod 谱系）</span><span class="chip">TAC 非线性通道融合</span><span class="chip">注入选中通道破置换不变</span>
+    <span class="chip">平均池化规避算力爆炸</span><span class="chip">工作点 0.01 FA/hr</span><span class="chip">安静条件 FRR 相对降 30%</span>
+  </div>
+
+  <div class="tldr">
+    <h2>一分钟版本</h2>
+    <ul>
+      <li><b>痛点在「多出单进」的接口断层</b>：前端做增强+分离后输出 N 路信号（本文 N=4：1 路增强 + 3 路分离），而后端 VT 声学模型只吃单通道——通道选择是有损硬决策，没选中的整体丢弃。两个失败模式：① 前端把目标语音的一部分错误抑制掉、并在选中通道引入失真——被抑制的部分可能完整保存在<b>被丢弃的通道</b>里（正确答案被扔掉，留下有缺陷的副本）；② 干净环境下增强/分离反而压制目标语音、引入畸变——前端成负资产。</li>
+      <li><b>四个互相牵制的条件</b>：二阶直接吃全部多通道（不丢信息）；融合必须<b>非线性</b>（初步实验：简单特征拼接连单通道基线都没打过——线性融合太弱）但又必须<b>轻量</b>（不能走端到端多通道 ASR 的空间+频谱联合重路线，VT 要端侧跑）；多说话人在场要知道「听谁」（纯置换不变给不了线索）；对通道数和阵列形态不敏感（直接复用现有前端与单通道主干）。</li>
+      <li><b>改动精准地只动二阶</b>：一阶照旧逐通道跑 + 通道选择；二阶从「吃选中那一路」改为「吃全部 N 路 + 选中通道提示」。通道选择从二选一的硬门控<b>降级为一路软提示特征</b>——保留多说话人定位能力，又不再造成信息丢弃。主干是成熟单通道 Transformer（6 块、CTC 音素级），多通道知识只通过前置一个 TAC 块 + 平均池化注入——增量式改造。</li>
+      <li><b>TAC 三步</b>（式 1-4）：逐通道变换 P → 跨通道平均 Q（全局上下文）→ 拼接变换 R（自己 + 全体平均）+ 残差。P/Q/R 全通道共享 + 平均对顺序不敏感 → <b>置换不变</b> → 阵列无关、任意路数直接喂。轻量：只有通道级变换、池化、拼接——这是选 TAC 而不是重型跨通道注意力的直接原因。</li>
+      <li><b>核心一刀：改进 TAC 注入选中通道</b>（式 5-7）。置换不变是双刃剑——平等对待每个通道 = 没有线索知道谁是目标说话人。改进：选中通道也过同一变换 P，然后以<b>第三路拼接分量</b>进入所有通道的 R 变换，自己另有专属降维残差分支 S——<b>有意破坏置换不变性</b>来注入「谁是目标」的先验。这个预判被实验精确验证：噪声（电视人声）条件下 vanilla TAC 从基线 6.75% 恶化到 10.70%（<b>相对恶化 58.5%</b>），带选中通道拉回 7.12% 基本持平。</li>
+      <li><b>算力陷阱的规避</b>：TAC 原文献对每路输出各做自注意力——二次复杂度 × 通道数 = 最贵的计算翻 4 倍。解法简单粗暴：TAC 后加平均池化把 N 路压成 1 路，Transformer 主干计算量与单通道基线完全一样——「多通道建模」与「序列建模」解耦成两个串联模块，各用各的最优解。</li>
+      <li><b>分条件结果（Table 1，0.01 FA/hr 工作点）</b>：安静 4.48→3.12（相对 −30.3%）；中音量播放 5.23→4.55（−13%）；大音量播放 15.32→14.62（−4.6%）；噪声 6.75→7.12（+5.5%，唯一未超基线）；总体 7.74→7.16（−7.5%）。<b>总体数字要克制读</b>：它是「三赢一平输后」的合成结果，真正价值在条件分布——多通道系统性拿下安静和播放场景，靠选中通道机制补齐人声干扰短板。</li>
+      <li><b>机制归因清晰</b>：安静改进最大 = 验证失败模式 2（干净环境前端负资产，多通道让二阶有能力「绕过」前端损伤）；播放音乐中等改进 = 各通道回声残留形态不同，给了模型更丰富的回声线索去区分「音乐里的类似词」和真唤醒词；大音量最难且改进最小 = 逼近机制能力边界。</li>
+      <li><b>训练折衷埋隐患</b>：训练数据非关键词专用，无法执行真正的通道选择（一阶需针对唤醒词训练才能打分）——训练时用<b>增强模块输出充当伪选中通道</b>，推断时用真实通道选择结果——训练/推断分布不一致，论文未评估（可能是噪声条件未反超的部分原因）。</li>
+      <li><b>边界</b>：噪声条件仍未超越基线（软提示打不过硬决策在人声下真的挑对通道的能力——止损未增益）；平均池化是不可逆压缩（通道细粒度信息进 Transformer 前已被压掉）；单层 TAC 可能不够；全部内部数据无法复现；参数报了但延迟/FLOPS/功耗未报；两个关键对照（拼接无效、加大模型无效）只有一句话无数值。</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= 01 问题 ================= -->
+<section id="s1">
+  <p class="kicker">§01 · 问题陈述</p>
+  <h2 class="sec">多出单进的接口断层</h2>
+  <div class="sec-line"></div>
+
+  <div class="card">
+    <b>四类现有路线的不足</b>：① 端到端多通道声学建模（Sainath 远场 ASR 路线）——空间+频谱联合建模，复杂度和算力显著上升，端侧低延迟不可行；更关键的是<b>没有任何机制区分目标和干扰说话人</b>——而 VT 恰是「只认主人」的任务。② 跨通道注意力——同样算力重、同样无目标说话人机制。③ 轻量多通道 KWS（特征拼接 / 注意力加权求和）——线性加权不足以建模通道间非线性（初步实验：拼接连基线都没打过）。④ 基线两阶段系统（Apple HomePod 路线）——即两个失败模式：未选中通道全部丢弃 + 干净环境下前端的负作用。
+  </div>
+</section>
+
+<!-- ================= 02 方法 ================= -->
+<section id="s2">
+  <p class="kicker">§02 · 方法论</p>
+  <h2 class="sec">非对称性换回目标说话人线索</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 980">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker>
+<marker id="aro" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#d97a2b"/></marker>
+<marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0e8a66"/></marker></defs>
+<rect x="0.0" y="0.0" width="920.0" height="980.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="18" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段 VT 框架与改进 TAC（图 2 复绘）</text>
+<line x1="36.0" y1="60.0" x2="300.0" y2="60.0" stroke="#0e8a66" stroke-width="3"/>
+<rect x="26.0" y="82.0" width="420.0" height="130.0" rx="12" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="46.0" y="106.0" font-size="13.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">前端系统（复用，不重训）</text>
+<rect x="46.0" y="118.0" width="160.0" height="40.0" rx="8" fill="#eef1f5" stroke="#d9dee6" stroke-width="1"/>
+<text x="126.0" y="138.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">语音增强模块</text>
+<text x="126.0" y="152.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 1 路增强信号</text>
+<rect x="226.0" y="118.0" width="160.0" height="40.0" rx="8" fill="#eef1f5" stroke="#d9dee6" stroke-width="1"/>
+<text x="306.0" y="138.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">语音分离模块</text>
+<text x="306.0" y="152.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 3 路分离信号</text>
+<text x="46.0" y="184.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">合计 N=4 路：多说话人场景把目标与电视人声拆到不同通道</text>
+<text x="46.0" y="202.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">任务三属性：always-on 低功耗 · 远场混响噪声 · 错误代价不对称</text>
+<rect x="470.0" y="82.0" width="424.0" height="130.0" rx="12" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="490.0" y="106.0" font-size="13" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一阶 VT 模型（不变：5×64 DNN + HMM 解码）</text>
+<text x="490.0" y="128.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 很小，常驻监听每一路流式音频，逐通道独立打分</text>
+<text x="490.0" y="147.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输出 20 类帧级后验（18 唤醒词音素 + 静音 + 其他）</text>
+<text x="490.0" y="166.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 分数超阈值 → 该段送去二阶复核（压低误唤醒）</text>
+<text x="490.0" y="185.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 分级动机：小模型全天候跑，大模型只跑候选段</text>
+<text x="36.0" y="236.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 基线（图 2a）vs ② 提出（图 2b）——只动二阶</text>
+<rect x="36.0" y="252.0" width="400.0" height="118.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="274.0" font-size="12.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">基线：通道选择（通道选择 + 丢弃）</text>
+<rect x="52.0" y="288.0" width="120.0" height="30.0" rx="7" fill="#eef1f5" stroke="#d9dee6" stroke-width="1"/>
+<text x="112.0" y="307.0" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">N=4 路</text>
+<line x1="172.0" y1="303.0" x2="214.0" y2="303.0" stroke="#c0392b" stroke-width="1.8" marker-end="url(#ar)"/>
+<text x="193.0" y="294.0" font-size="10" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">选 1 路</text>
+<rect x="218.0" y="288.0" width="110.0" height="30.0" rx="7" fill="#f2f3f0" stroke="#e6e6df" stroke-width="1"/>
+<text x="273.0" y="307.0" font-size="10.5" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">丢弃 3 路 ✕</text>
+<rect x="338.0" y="288.0" width="84.0" height="30.0" rx="7" fill="#e8ecf2" stroke="#d9dee6" stroke-width="1"/>
+<text x="380.0" y="307.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">二阶 AM</text>
+<text x="52.0" y="332.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 失败模式 1：被抑制的目标语音片段可能完整保存在被丢弃的通道里</text>
+<text x="52.0" y="348.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· ——正确答案被扔掉，留下有缺陷的副本</text>
+<text x="52.0" y="364.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 失败模式 2：干净环境下增强/分离压制目标语音、引入畸变——前端成负资产</text>
+<rect x="474.0" y="252.0" width="420.0" height="118.0" rx="10" fill="#e6f4ee" stroke="#cfe9de" stroke-width="1"/>
+<text x="490.0" y="274.0" font-size="12.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">提出：二阶吃全部 N 路 + 选中通道提示</text>
+<rect x="490.0" y="288.0" width="120.0" height="30.0" rx="7" fill="#eef1f5" stroke="#d9dee6" stroke-width="1"/>
+<text x="550.0" y="307.0" font-size="11" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">N=4 路</text>
+<line x1="610.0" y1="303.0" x2="652.0" y2="303.0" stroke="#0e8a66" stroke-width="1.8" marker-end="url(#arg)"/>
+<rect x="656.0" y="288.0" width="100.0" height="30.0" rx="7" fill="#fdf1e4" stroke="#f0dfc9" stroke-width="1"/>
+<text x="706.0" y="307.0" font-size="10.5" fill="#d97a2b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+选中通道</text>
+<line x1="756.0" y1="303.0" x2="790.0" y2="303.0" stroke="#0e8a66" stroke-width="1.8" marker-end="url(#arg)"/>
+<rect x="794.0" y="288.0" width="88.0" height="30.0" rx="7" fill="#e8ecf2" stroke="#d9dee6" stroke-width="1"/>
+<text x="838.0" y="307.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">二阶 AM</text>
+<text x="490.0" y="332.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 通道选择从「二选一硬门控」降级为「一路软提示特征」</text>
+<text x="490.0" y="348.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 保留多说话人定位能力，又不再造成信息丢弃</text>
+<text x="490.0" y="364.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 跨通道补偿交给数据学：哪路失真用哪路补</text>
+<text x="36.0" y="394.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ TAC 块的数学（式 1-4）与改进（式 5-7）</text>
+<rect x="36.0" y="410.0" width="420.0" height="200.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="52.0" y="434.0" font-size="12.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">vanilla TAC（置换不变）</text>
+<rect x="52.0" y="440.0" width="76.0" height="22.0" rx="6" fill="#e8ecf2"/>
+<text x="90.0" y="455.0" font-size="10.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">式1 变换</text>
+<text x="138.0" y="455.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">h_i = P(z_i)</text>
+<text x="138.0" y="469.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">线性层+PReLU，各通道共享</text>
+<rect x="52.0" y="478.0" width="76.0" height="22.0" rx="6" fill="#e8ecf2"/>
+<text x="90.0" y="493.0" font-size="10.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">式2 平均</text>
+<text x="138.0" y="493.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">h_avg = Q(mean_i h_i)</text>
+<text x="138.0" y="507.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">全局通道上下文</text>
+<rect x="52.0" y="516.0" width="76.0" height="22.0" rx="6" fill="#e8ecf2"/>
+<text x="90.0" y="531.0" font-size="10.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">式3 拼接</text>
+<text x="138.0" y="531.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">ĥ_i = R([h_i ; h_avg])</text>
+<text x="138.0" y="545.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">自己 + 全体平均</text>
+<rect x="52.0" y="554.0" width="76.0" height="22.0" rx="6" fill="#e8ecf2"/>
+<text x="90.0" y="569.0" font-size="10.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">式4 残差</text>
+<text x="138.0" y="569.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">ẑ_i = z_i + ĥ_i</text>
+<text x="52.0" y="602.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">P/Q/R 全通道共享 + 平均对顺序不敏感 → 对通道排列天然不变</text>
+<rect x="474.0" y="410.0" width="420.0" height="200.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="490.0" y="434.0" font-size="12.5" fill="#d97a2b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">改进 TAC：注入选中通道（式 5-7）</text>
+<rect x="490.0" y="444.0" width="50.0" height="22.0" rx="6" fill="#f0dfc9"/>
+<text x="515.0" y="459.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">式5</text>
+<text x="550.0" y="459.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">h_sc = P(z_sc)</text>
+<text x="550.0" y="474.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">选中通道也过同一变换</text>
+<rect x="490.0" y="484.0" width="50.0" height="22.0" rx="6" fill="#f0dfc9"/>
+<text x="515.0" y="499.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">式6</text>
+<text x="550.0" y="499.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">ĥ_i = R([h_i ; h_avg ; h_sc])</text>
+<text x="550.0" y="514.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">三分量拼接——非对称！</text>
+<rect x="490.0" y="524.0" width="50.0" height="22.0" rx="6" fill="#f0dfc9"/>
+<text x="515.0" y="539.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">式7</text>
+<text x="550.0" y="539.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">ẑ_sc = z_sc + S(h_sc)</text>
+<text x="550.0" y="554.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">选中通道专属降维残差分支</text>
+<text x="490.0" y="584.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">有意破坏置换不变性：普通通道走「自己+平均」，选中通道</text>
+<text x="490.0" y="599.0" font-size="10" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">以第三路拼接进入所有通道——注入「谁是目标」的先验</text>
+<text x="36.0" y="632.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">④ 端侧三段解耦：TAC（通道融合）→ 平均池化（通道压缩）→ Transformer（时频）</text>
+<rect x="60.0" y="648.0" width="150.0" height="66.0" rx="9" fill="#f2f3f0" stroke="#e6e6df" stroke-width="1"/>
+<text x="135.0" y="674.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">40 维 log-mel ×4 路</text>
+<text x="135.0" y="690.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（+选中通道）</text>
+<line x1="212.0" y1="681.0" x2="238.0" y2="681.0" stroke="#8a93a5" stroke-width="1.5" marker-end="url(#ar)"/>
+<rect x="242.0" y="648.0" width="150.0" height="66.0" rx="9" fill="#fdf1e4" stroke="#e6e6df" stroke-width="1"/>
+<text x="317.0" y="674.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">改进 TAC 块</text>
+<text x="317.0" y="690.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">非线性融合</text>
+<line x1="394.0" y1="681.0" x2="420.0" y2="681.0" stroke="#8a93a5" stroke-width="1.5" marker-end="url(#ar)"/>
+<rect x="424.0" y="648.0" width="150.0" height="66.0" rx="9" fill="#e3ecf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="499.0" y="674.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">平均池化</text>
+<text x="499.0" y="690.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">N 路 → 1 路</text>
+<line x1="576.0" y1="681.0" x2="602.0" y2="681.0" stroke="#8a93a5" stroke-width="1.5" marker-end="url(#ar)"/>
+<rect x="606.0" y="648.0" width="150.0" height="66.0" rx="9" fill="#e8ecf2" stroke="#e6e6df" stroke-width="1"/>
+<text x="681.0" y="674.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Transformer ×6</text>
+<text x="681.0" y="690.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">256 隐单元 · 4 头</text>
+<line x1="758.0" y1="681.0" x2="784.0" y2="681.0" stroke="#8a93a5" stroke-width="1.5" marker-end="url(#ar)"/>
+<rect x="788.0" y="648.0" width="150.0" height="66.0" rx="9" fill="#f2f3f0" stroke="#e6e6df" stroke-width="1"/>
+<text x="863.0" y="674.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 54 音素</text>
+<text x="863.0" y="690.0" font-size="11" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">VT 分数</text>
+<rect x="36.0" y="728.0" width="848.0" height="52.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="748.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么池化而不是逐通道自注意力：TAC 原文献对每路输出各做自注意力——二次复杂度 × 通道数 N，等于把最贵的计算翻 4 倍。</text>
+<text x="52.0" y="768.0" font-size="11.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">加平均池化后 Transformer 主干计算量与单通道基线完全一样——多通道全部开销集中在前置一个 TAC 块（4.8M → 6.5M）。</text>
+<text x="36.0" y="798.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">⑤ 数据与训练折衷</text>
+<rect x="36.0" y="812.0" width="420.0" height="140.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="834.0" font-size="12.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Apple 内部数据（5.1 节）</text>
+<text x="52.0" y="856.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练：约 230 万条人工转写单通道语音</text>
+<text x="52.0" y="875.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· × 实测 RIR（多房间多位置的六麦克风阵列）仿真混响</text>
+<text x="52.0" y="894.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· + 20% 语料 × 四通道 RIR + 多通道噪声/播放音频增强</text>
+<text x="52.0" y="913.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 评测：100 人 × 智能音箱说唤醒词 = 1300 条正样本（4 条件）</text>
+<text x="52.0" y="932.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· + 2000 小时播客/有声书负样本；训练/测试阵列不匹配</text>
+<rect x="474.0" y="812.0" width="420.0" height="140.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="490.0" y="834.0" font-size="12.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">伪选中通道（训练折衷，埋隐患）</text>
+<text x="490.0" y="856.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练数据不是关键词专用——无法执行真正的通道选择</text>
+<text x="490.0" y="875.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· （一阶模型需针对唤醒词训练才能打分）</text>
+<text x="490.0" y="894.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· → 训练时用增强模块输出充当伪选中通道</text>
+<text x="490.0" y="913.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 推断时用真实通道选择结果——训练/推断分布不一致</text>
+<text x="490.0" y="932.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 论文未评估这个 gap（可能是 noisy 未反超的部分原因）</text>
+</svg>
+    <p class="cap"><b>图 2 复绘</b>：两阶段 VT 框架（前端增强+分离输出 4 路；一阶小模型常驻逐通道打分）；基线（通道选择+丢弃，两个失败模式）vs 提出（二阶吃全部 4 路 + 选中通道软提示）；vanilla TAC 三步数学（式 1–4，置换不变 → 阵列无关）与改进 TAC（式 5–7，第三路拼接 + 专属残差分支，有意破坏置换不变性）；端侧三段解耦（TAC → 平均池化 → Transformer，主干计算量与单通道相同）；Apple 内部数据构成与伪选中通道训练折衷。</p>
+  </div>
+
+  <div class="formula">
+    ĥ<sub>i,t</sub> = R([h<sub>i,t</sub> ; h<sub>t</sub><sup>avg</sup> ; h<sub>sc,t</sub>])（式 6）；ẑ<sub>sc,t</sub> = z<sub>sc,t</sub> + S(h<sub>sc,t</sub>)（式 7）
+    <div class="why">改进 TAC 的全部要点：普通通道的融合向量由「自己 + 平均」构成（式 3），选中通道的信息以第三路拼接分量进入所有通道的变换，同时选中通道自己还有专属的降维残差分支——普通通道和选中通道走不同处理路径。整个块不再置换不变（选中通道位置固定且被区别对待），这种「有意的破坏」恰恰是为了注入「谁是目标」的先验。</div>
+  </div>
+</section>
+
+<!-- ================= 03 实验 ================= -->
+<section id="s3">
+  <p class="kicker">§03 · 实验与消融</p>
+  <h2 class="sec">三系统 × 四条件的完整消融</h2>
+  <div class="sec-line"></div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">分条件 FRR（Table 1 · 工作点 0.01 FA/hr · 越低越好）</text>
+<line x1="36.0" y1="56.0" x2="400.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="150.0" y1="90.0" x2="150.0" y2="376.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="150.0" y1="376.0" x2="840.0" y2="376.0" stroke="#c9c9c0" stroke-width="1.2"/>
+<line x1="146.0" y1="376.0" x2="840.0" y2="376.0" stroke="#eef0ec" stroke-width="1"/>
+<text x="140.0" y="380.0" font-size="11" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">0%</text>
+<line x1="146.0" y1="310.1" x2="840.0" y2="310.1" stroke="#eef0ec" stroke-width="1"/>
+<text x="140.0" y="314.1" font-size="11" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">4%</text>
+<line x1="146.0" y1="244.2" x2="840.0" y2="244.2" stroke="#eef0ec" stroke-width="1"/>
+<text x="140.0" y="248.2" font-size="11" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">8%</text>
+<line x1="146.0" y1="178.4" x2="840.0" y2="178.4" stroke="#eef0ec" stroke-width="1"/>
+<text x="140.0" y="182.4" font-size="11" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">12%</text>
+<line x1="146.0" y1="112.5" x2="840.0" y2="112.5" stroke="#eef0ec" stroke-width="1"/>
+<text x="140.0" y="116.5" font-size="11" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">16%</text>
+<rect x="156.0" y="302.2" width="38.0" height="73.8" rx="4" fill="#8a93a5"/>
+<text x="175.0" y="296.2" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4.48</text>
+<rect x="200.0" y="338.9" width="38.0" height="37.1" rx="4" fill="#c9d8e8"/>
+<text x="219.0" y="332.9" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2.25</text>
+<rect x="244.0" y="324.6" width="38.0" height="51.4" rx="4" fill="#0e8a66"/>
+<text x="263.0" y="318.6" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.12</text>
+<text x="219.0" y="396.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">安静</text>
+<rect x="294.0" y="264.8" width="38.0" height="111.2" rx="4" fill="#8a93a5"/>
+<text x="313.0" y="258.8" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">6.75</text>
+<rect x="338.0" y="199.8" width="38.0" height="176.2" rx="4" fill="#c0392b"/>
+<text x="357.0" y="193.8" font-size="10.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">10.70</text>
+<rect x="382.0" y="258.7" width="38.0" height="117.3" rx="4" fill="#0e8a66"/>
+<text x="401.0" y="252.7" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">7.12</text>
+<text x="357.0" y="396.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声(人声)</text>
+<rect x="432.0" y="289.9" width="38.0" height="86.1" rx="4" fill="#8a93a5"/>
+<text x="451.0" y="283.9" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">5.23</text>
+<rect x="476.0" y="313.7" width="38.0" height="62.3" rx="4" fill="#c9d8e8"/>
+<text x="495.0" y="307.7" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">3.78</text>
+<rect x="520.0" y="301.1" width="38.0" height="74.9" rx="4" fill="#0e8a66"/>
+<text x="539.0" y="295.1" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4.55</text>
+<text x="495.0" y="396.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">中音量播放</text>
+<rect x="570.0" y="123.7" width="38.0" height="252.3" rx="4" fill="#8a93a5"/>
+<text x="589.0" y="117.7" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">15.32</text>
+<rect x="614.0" y="170.8" width="38.0" height="205.2" rx="4" fill="#c9d8e8"/>
+<text x="633.0" y="164.8" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">12.46</text>
+<rect x="658.0" y="135.2" width="38.0" height="240.8" rx="4" fill="#0e8a66"/>
+<text x="677.0" y="129.2" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">14.62</text>
+<text x="633.0" y="396.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">大音量播放</text>
+<rect x="708.0" y="248.5" width="38.0" height="127.5" rx="4" fill="#8a93a5"/>
+<text x="727.0" y="242.5" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">7.74</text>
+<rect x="752.0" y="257.4" width="38.0" height="118.6" rx="4" fill="#c9d8e8"/>
+<text x="771.0" y="251.4" font-size="10.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">7.20</text>
+<rect x="796.0" y="258.1" width="38.0" height="117.9" rx="4" fill="#0e8a66"/>
+<text x="815.0" y="252.1" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">7.16</text>
+<text x="771.0" y="396.0" font-size="11.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">总体</text>
+<line x1="288.0" y1="264.8" x2="426.0" y2="264.8" stroke="#c0392b" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="357.0" y="256.8" font-size="9.5" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">基线 6.75</text>
+<rect x="400.0" y="0.0" width="0.0" height="0.0" rx="0" fill="#fff"/>
+<rect x="400.0" y="0.0" width="0.0" height="0.0" rx="0" fill="#fff"/>
+<rect x="400.0" y="0.0" width="0.0" height="0.0" rx="0" fill="#fff"/>
+<rect x="560.0" y="68.0" width="12.0" height="12.0" rx="3" fill="#8a93a5"/>
+<text x="578.0" y="79.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">基线(通道选择)</text>
+<rect x="668.0" y="68.0" width="12.0" height="12.0" rx="3" fill="#c9d8e8"/>
+<text x="686.0" y="79.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">vanilla TAC</text>
+<rect x="776.0" y="68.0" width="12.0" height="12.0" rx="3" fill="#0e8a66"/>
+<text x="794.0" y="79.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">+选中通道 ★</text>
+<text x="36.0" y="428.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读法：安静近减半（2.25，vanilla 最纯粹）；噪声是唯一翻车场——vanilla TAC 10.70 相对基线恶化 58.5%（红色柱），+选中通道拉回 7.12 基本打平；</text>
+<text x="36.0" y="446.0" font-size="11.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">播放音乐中等改进（多通道学到回声残留线索）；大音量最难、相对改进最小 4.6%（逼近机制边界）。总体 7.74→7.16 = 两赢一平一输的合成。</text>
+</svg>
+    <p class="cap"><b>Table 1 复绘</b>：分条件 FRR（工作点 0.01 FA/hr）。红柱 = vanilla TAC 在噪声条件的翻车（10.70，相对基线恶化 58.5%）；绿柱 = +选中通道。安静近减半、播放音乐中等改进、大音量最难且改进最小（4.6%）、噪声唯一未超基线。总体 7.74→7.16 的 −7.5% 是「三赢一平输」的合成结果。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 430">
+<rect x="0.0" y="0.0" width="880.0" height="430.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+选中通道 vs 基线：分条件相对降幅与机制归因（5.3 节）</text>
+<line x1="36.0" y1="56.0" x2="470.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<line x1="300.0" y1="86.0" x2="300.0" y2="356.0" stroke="#c9c9c0" stroke-width="1.4"/>
+<rect x="300.0" y="110.0" width="155.8" height="22.0" rx="5" fill="#0e8a66"/>
+<text x="306.0" y="126.0" font-size="11.5" fill="#0e8a66" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">-30.3%</text>
+<text x="292.0" y="126.0" font-size="12" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">安静</text>
+<text x="520.0" y="118.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">干净环境前端是负资产；看全部 4 路补偿前端引入的失真（验证</text>
+<text x="520.0" y="132.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">失败模式 2）</text>
+<rect x="300.0" y="174.0" width="67.4" height="22.0" rx="5" fill="#0e8a66"/>
+<text x="306.0" y="190.0" font-size="11.5" fill="#0e8a66" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">-13.1%</text>
+<text x="292.0" y="190.0" font-size="12" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">中音量播放</text>
+<text x="520.0" y="182.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">各通道回声残留形态不同 → 更丰富的回声线索区分「音乐里的类</text>
+<text x="520.0" y="196.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">似词」</text>
+<rect x="300.0" y="238.0" width="23.7" height="22.0" rx="5" fill="#0e8a66"/>
+<text x="306.0" y="254.0" font-size="11.5" fill="#0e8a66" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">-4.6%</text>
+<text x="292.0" y="254.0" font-size="12" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">大音量播放</text>
+<text x="520.0" y="246.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">全部条件最难（基线 15.32）——回声已逼近机制能力边界</text>
+<rect x="271.7" y="302.0" width="28.3" height="22.0" rx="5" fill="#c0392b"/>
+<text x="294.0" y="318.0" font-size="11.5" fill="#c0392b" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+5.5%</text>
+<text x="292.0" y="318.0" font-size="12" fill="#1c2430" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声(人声)</text>
+<text x="520.0" y="310.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">唯一未超基线的条件——选中通道只能止损不能反超（硬决策在人声</text>
+<text x="520.0" y="324.0" font-size="10.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">下真的能挑对）</text>
+<text x="470.0" y="78.0" font-size="10.5" fill="#0e8a66" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">← FRR 相对降低（改善）</text>
+<text x="130.0" y="78.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">相对升高（恶化）→</text>
+<rect x="60.0" y="376.0" width="790.0" height="56.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="76.0" y="398.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">全文最重要的消融发现：vanilla TAC 在噪声条件相对恶化 58.5%（6.75→10.70）——置换不变操作天然不提供「谁是目标」线索，</text>
+<text x="76.0" y="416.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">电视人声被分离到别的通道时模型分不清该信谁。这单独证明了「多通道建模必须带目标说话人机制」，也是改进 TAC 存在的全部理由。</text>
+</svg>
+    <p class="cap"><b>5.3 节复绘</b>：+选中通道 vs 基线的分条件相对降幅（左负=改善）与机制归因——安静验证失败模式 2（干净环境前端负资产）；播放条件来自跨通道回声残留线索；噪声 +5.5% 是唯一恶化。下框：全文最重要的消融发现——vanilla TAC 人声干扰下恶化 58.5%，单独证明「多通道建模必须带目标说话人机制」。</p>
+  </div>
+
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 400">
+<rect x="0.0" y="0.0" width="880.0" height="400.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="17" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">参数开销 + 「收益归因」的证据链（5.2 节 + 初步实验）</text>
+<line x1="36.0" y1="56.0" x2="430.0" y2="56.0" stroke="#0e8a66" stroke-width="3"/>
+<text x="180.0" y="88.0" font-size="12.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量（M）</text>
+<rect x="80.0" y="112.0" width="178.3" height="30.0" rx="5" fill="#8a93a5"/>
+<text x="266.3" y="132.0" font-size="12" fill="#47536a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4.8M</text>
+<text x="70.0" y="132.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">基线（单通道）</text>
+<rect x="80.0" y="168.0" width="226.6" height="30.0" rx="5" fill="#c9d8e8"/>
+<text x="314.6" y="188.0" font-size="12" fill="#47536a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">6.1M</text>
+<text x="70.0" y="188.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+ vanilla TAC</text>
+<rect x="80.0" y="224.0" width="241.4" height="30.0" rx="5" fill="#0e8a66"/>
+<text x="329.4" y="244.0" font-size="12" fill="#47536a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">6.5M</text>
+<text x="70.0" y="244.0" font-size="11.5" fill="#1c2430" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+ 改进 TAC ★</text>
+<text x="80.0" y="304.0" font-size="11" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">改进版只多 1.7M 参数（+35%）——且主干计算量与基线相同</text>
+<rect x="480.0" y="90.0" width="380.0" height="260.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="670.0" y="114.0" font-size="13" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么收益来自多通道信息本身</text>
+<rect x="500.0" y="140.0" width="64.0" height="22.0" rx="6" fill="#e8ecf2"/>
+<text x="532.0" y="156.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">对照 1</text>
+<text x="576.0" y="150.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">单纯加大基线单通道模型 → VT 性能不提升</text>
+<text x="576.0" y="168.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 排除「模型变大」的解释</text>
+<line x1="670.0" y1="180.0" x2="670.0" y2="196.0" stroke="#8a93a5" stroke-width="1.2" marker-end="url(#ar)"/>
+<rect x="500.0" y="208.0" width="64.0" height="22.0" rx="6" fill="#e8ecf2"/>
+<text x="532.0" y="224.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">对照 2</text>
+<text x="576.0" y="218.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">简单特征拼接 [10] → 不敌单通道基线</text>
+<text x="576.0" y="236.0" font-size="10.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 排除「多通道动作本身」——线性融合太弱</text>
+<line x1="670.0" y1="248.0" x2="670.0" y2="264.0" stroke="#8a93a5" stroke-width="1.2" marker-end="url(#ar)"/>
+<rect x="500.0" y="276.0" width="64.0" height="22.0" rx="6" fill="#0e8a66"/>
+<text x="532.0" y="292.0" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">结论</text>
+<text x="576.0" y="286.0" font-size="11" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">非线性通道间建模（TAC）是多通道收益的必要条件</text>
+<text x="576.0" y="304.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 轻量但必须非线性</text>
+<text x="36.0" y="382.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注意：两个关键对照只以「初步实验」一句话带过、无数字表格（论文未报告）——证据链方向清晰但强度打折。</text>
+</svg>
+    <p class="cap"><b>5.2 节 + 初步实验复绘</b>：左——参数量对照（基线 4.8M → 改进 TAC 6.5M，只多 1.7M 且主干计算量不变）；右——「收益归因」证据链：单纯加大模型无效（排除模型变大）+ 简单拼接无效（排除多通道动作本身）→ 非线性通道间建模（TAC）是多通道收益的必要条件。注意两个对照只以初步实验一句话带过、无数字表格。</p>
+  </div>
+
+  <div class="card">
+    <b>指标与配置</b>：FRR @ 0.01 FA/hr（每 100 小时 1 次误唤醒——智能音箱级严苛要求；脱离工作点单报 FRR 无意义）。一阶 5×64 DNN（20 类帧级后验 + HMM 解码）；二阶 6 块 Transformer（4 头、256 隐、1024 FFN、54 音素 + blank、CTC）；输入 40 维 log-mel ± 3 帧上下文；Adam lr 5e-4（10 epoch 后 ×1/4）、28 epoch、32 GPU × batch 128。
+  </div>
+</section>
+
+<!-- ================= 04 贡献 ================= -->
+<section id="s4">
+  <p class="kicker">§04 · 主要贡献</p>
+  <h2 class="sec">五条贡献</h2>
+  <div class="sec-line"></div>
+
+  <div class="contrib">
+    <div class="c"><span class="n">1</span><b>首个把前端多通道增强/分离输出直接喂给 VT 声学模型的完整方案</b>——两阶段框架内只改二阶，TAC 块替代「通道选择+丢弃」接口。</div>
+    <div class="c"><span class="n">2</span><b>定量刻画置换不变建模在 VT 上的结构性缺陷</b>——vanilla TAC 人声干扰下 58.5% 相对恶化，是「多通道建模必须带目标说话人机制」的直接实验证据。</div>
+    <div class="c"><span class="n">3</span><b>改进 TAC 块（式 5-7）</b>——选中通道作非对称输入注入，保轻量的同时恢复目标定位能力，把噪声条件从大幅倒退拉回持平。</div>
+    <div class="c"><span class="n">4</span><b>端侧多通道架构范式</b>——TAC（通道融合）+ 平均池化（通道压缩）+ Transformer（时频）三段解耦：主干计算量与单通道基线相同，多通道增量集中在一个前置块。</div>
+    <div class="c" style="grid-column:1/-1;background:#fdf1e4;border-color:#f0dfc9"><span class="n" style="background:#d97a2b">★</span><b>工程方法论示范</b>——不重训前端、不改一阶、不大改二阶主干，仅前置一个 1.7M 参数融合模块（4.8M→6.5M）拿到多场景收益，并附带阵列无关、通道数灵活的系统属性。</div>
+  </div>
+</section>
+
+<!-- ================= 05 局限 ================= -->
+<section id="s5">
+  <p class="kicker">§05 · 局限与边界</p>
+  <h2 class="sec">止损未增益与不可复现</h2>
+  <div class="sec-line"></div>
+
+  <div class="lim">
+    <div class="col">
+      <h4>技术局限</h4>
+      <ul>
+        <li><b>多说话人仍未反超基线</b>：7.12% vs 6.75%——拼接式注入的利用是软性的；基线硬决策在人声下往往真的能挑对通道。机制只能止损。</li>
+        <li><b>训练/推断选中通道分布不一致</b>：伪选中通道（增强输出）vs 真实通道选择结果——gap 未评估，可能是噪声条件未反超的部分原因。</li>
+        <li><b>平均池化不可逆</b>：通道细粒度信息进 Transformer 前已被压掉，后续层无法再访问——算力与性能的折衷。</li>
+        <li><b>通道间建模深度只有一层</b>：分离文献里 TAC 通常多层重复使用；单层能学到的跨通道补偿可能不够处理复杂多说话人叠加。</li>
+        <li><b>端侧开销未量化</b>：延迟、FLOPS、内存、功耗均未报——四路 log-mel 特征提取翻倍的真实成本无从评估。</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>实验设计不足</h4>
+      <ul>
+        <li><b>全内部数据</b>：230 万条训练语料、真实唤醒词、六麦克风音箱全是苹果私有——无法复现和外部对比；1300 条正样本按四条件细分后每格约三百条，条件间差异可能受样本量影响。</li>
+        <li><b>通道数/阵列只有一种组合</b>：固定四通道——TAC「任意通道数」的设计能力没有实验验证。</li>
+        <li><b>缺关键消融</b>：逐通道自注意力 vs 平均池化无实测对照（只有算力论证）；TAC 块数量、伪选中通道策略、±3 帧上下文交互均未报。</li>
+        <li><b>两个关键论断无数值</b>：「简单拼接不敌基线」「加大模型无用」只以初步实验一句话带过。</li>
+        <li><b>单一唤醒词、单一语言、单一设备形态</b>；未与跨通道注意力方法同台对比（只引用其算力缺陷）。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>自然的延伸方向</b>：更强的目标说话人机制（选中通道从拼接特征升级为门控/偏置调制，或引入说话人向量做个性化 VT——让人声干扰下真正反超而非持平）；可微分/软性通道选择联合训练（消除伪选中通道不一致，甚至一阶与 TAC 共享受表征降常驻成本）；多层 TAC + 可学习通道压缩（替代硬平均池化，算力受限内逼近逐通道注意力表达力）；扩展到一阶模型与 6/8 通道、分布式麦克风（多设备协同监听）；公开基准复现 + 补齐延迟/FLOPS/功耗。
+  </div>
+</section>
+
+<footer>
+  <div class="pill-btns">
+    <a class="pill" href="/papers/2023/Multichannel_Voice_Trigger_Detection_Based_On_Transform-average-concatenate.md">📖 深读笔记</a>
+    <a class="pill" href="/papers/2023/Multichannel_Voice_Trigger_Detection_Based_On_Transform-average-concatenate.pdf">📄 PDF 原稿</a>
+    <a class="pill" href="https://arxiv.org/abs/2309.16036" target="_blank">arXiv · 2309.16036</a>
+    <a class="pill" href="/">← 返回总目录</a>
+  </div>
+  <p>可视化精读页 · 数据与结论均出自论文与深读笔记（表 1、图 1–2、式 1–7）。错误请以 PDF 原稿为准。</p>
+</footer>
+
+</div>
+</body>
+</html>
