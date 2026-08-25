@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Noisy Student-Teacher 鲁棒 KWS · 论文精读可视化</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;}
+.wrap{max-width:980px;margin:0 auto;padding:56px 28px 80px;}
+.kicker{font-size:13px;letter-spacing:.22em;color:var(--acc);font-weight:700;margin-bottom:14px;text-transform:uppercase;}
+h1.hero{font-size:40px;line-height:1.32;font-weight:800;letter-spacing:.01em;margin-bottom:18px;}
+h1.hero .g{color:var(--acc);}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+.chip{font-size:12.5px;padding:4px 13px;border:1px solid var(--line);border-radius:999px;color:var(--ink2);background:#fffdf8;}
+.chip.acc{background:var(--lt);border-color:#bfe5d6;color:var(--dk);}
+.meta{border-left:3px solid var(--acc);background:#fffdf8;padding:12px 18px;font-size:13.5px;color:var(--ink2);margin-bottom:40px;border-radius:0 8px 8px 0;}
+.meta b{color:var(--ink);}
+h2{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:800;margin:56px 0 6px;}
+h2 .no{flex:none;font-size:12px;font-weight:800;color:#fff;background:var(--ink);padding:3px 10px;border-radius:999px;letter-spacing:.08em;}
+.h2sub{font-size:13.5px;color:var(--ink3);margin:0 0 18px 46px;}
+.tldr{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-bottom:8px;}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--dk);letter-spacing:.12em;margin-bottom:10px;}
+.tldr li{list-style:none;font-size:14.5px;color:var(--ink2);padding-left:20px;position:relative;margin-bottom:7px;}
+.tldr li:before{content:"◈";position:absolute;left:0;color:var(--acc);font-size:12px;top:2px;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.card{background:#fffdf8;border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
+.card h3{font-size:15.5px;font-weight:700;margin-bottom:8px;}
+.card p{font-size:13.5px;color:var(--ink2);}
+.card.acc{background:var(--lt);border-color:#bfe5d6;}
+.card.acc h3{color:var(--dk);}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4;}
+.card.bad h3{color:var(--warn);}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--lt);color:var(--dk);margin-bottom:8px;}
+.fig{margin:26px 0;}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:14px;}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:10px;line-height:1.7;}
+.cap b{color:var(--ink2);}
+.formula{background:#fffdf8;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 12px 12px 0;padding:16px 20px;margin:16px 0;}
+.formula .f{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:15px;color:var(--ink);background:#f2f4ef;padding:10px 14px;border-radius:8px;margin-bottom:10px;overflow-x:auto;white-space:pre;}
+.formula .why{font-size:13.5px;color:var(--ink2);}
+.formula .why b{color:var(--dk);}
+table.tb{width:100%;border-collapse:collapse;background:#fffdf8;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:18px 0;font-size:13.5px;}
+table.tb th{background:var(--ink);color:#fff;padding:10px 14px;text-align:left;font-weight:700;font-size:13px;}
+table.tb td{padding:10px 14px;border-top:1px solid var(--line);color:var(--ink2);}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:700;}
+.contrib{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:18px 0;}
+.contrib .row{display:flex;gap:16px;padding:12px 0;border-bottom:1px dashed var(--line);}
+.contrib .row:last-child{border-bottom:none;}
+.contrib .n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.contrib .row p{font-size:14px;color:var(--ink2);}
+.contrib .row p b{color:var(--ink);}
+.lim{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.judge{background:#fffaf4;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:18px 0;}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.12em;margin-bottom:10px;}
+.judge p{font-size:14px;color:var(--ink2);margin-bottom:8px;}
+.judge p b{color:var(--ink);}
+.foot{margin-top:64px;padding-top:28px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.pill{display:inline-block;font-size:13px;font-weight:700;color:var(--dk);background:var(--lt);border:1px solid #bfe5d6;border-radius:999px;padding:7px 18px;text-decoration:none;}
+.pill.ghost{background:transparent;color:var(--ink2);border-color:var(--line);}
+.foot-note{font-size:12px;color:var(--ink3);margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2021 №20</div>
+<h1 class="hero">教师贴标签、学生挨噪声：<br><span class="g">换着来，越换越皮实</span>——Google 的自训练进 KWS</h1>
+<div class="chips">
+<span class="chip acc">Noisy Student Training · Google Research</span>
+<span class="chip">Interspeech 2021 · arXiv 2106.01604 · 已上产品</span>
+<span class="chip">迭代自训练 + 四重噪声注入 + 置信度过滤</span>
+<span class="chip">噪声测试 +5–10% vs 教师 · 10% 标注逼近 100% 基线</span>
+</div>
+<div class="meta">
+<b>一句话</b>：干净数据训练的 KWS 在噪声/远场/口音下掉点严重，而标注噪声数据成本极高。本文把 Google 在 ImageNet 上的 Noisy Student Training 搬进流式 KWS：教师模型给海量未标注音频贴伪标签（置信度过滤），学生在四重噪声（SpecAugment/背景噪声/速度音量时移/Dropout）中用伪标签训练，训完的学生变成新教师再来一轮。噪声测试集比教师高 5–10%，10% 标注 + 大量未标注能逼近 100% 标注的基线——方法已用于 Google 实际产品。
+</div>
+
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<li><b>干净的脆弱</b>：干净训练的模型在噪声、远场、不同说话人/口音下显著掉点——标注噪声数据不可能覆盖所有部署条件；未标注数据 + 激进增强是另一条路（NST 在 ImageNet 已验证，本文跨领域迁移到流式 KWS）。</li>
+<li><b>流式 KWS 的三条特殊约束</b>：时序依赖（增强要考虑时间维，与图像增强参数空间不同）；因果性（全程因果卷积，不能偷看未来）；<b>误报敏感</b>（增强不能以牺牲误报率为代价——增强过头会教出「什么都像唤醒词」的学生）。</li>
+<li><b>自训练循环四步</b>：① 教师在标注数据上训练（标准 CE · 流式因果 CNN）→ ② 教师给未标注数据生成伪标签（软/硬标签 + 置信度阈值过滤）→ ③ 学生在伪标签 + 四重噪声下训练 → ④ 学生变新教师，回到②——典型迭代 2–3 轮。</li>
+<li><b>四重噪声注入</b>：SpecAugment（时间/频率遮蔽）· 背景噪声叠加（噪声库随机）· 音频扰动（速度/音量/时移）· Dropout（模型级正则噪声）——每个样本被扩展成一族变体。</li>
+<li><b>关键洞察</b>：噪声逼学生学出比教师更鲁棒的决策边界（边界被推开留出缓冲带），伪标签保证方向不跑偏——「在更难的条件里学老师给的标准答案」。三个条件缺一不可。</li>
+<li>结果（约值）：噪声测试集 <b>+5–10%</b> vs 教师；第一轮 +3–5%、第二轮再 +1–3%、第三轮递减——逐轮累积；环境/音乐/人声嘈杂全改善，<b>低 SNR 下更显著</b>；误报下降同时召回保持/提升。</li>
+<li><b>标注稀缺场景的杀手锏</b>：10% 标注 + 大量未标注 ≈ 100% 标注基线；50%/25% 标注也能恢复大部分性能——半监督直接把标注预算的价值放大了约 10 倍。</li>
+<li>边界：需要数十到数百倍于标注量的未标注数据（低资源语言难拿）；多轮训练时间是单次的数倍；伪标签在模糊样本上可能引噪；未与 FixMatch/UDA 对比。</li>
+</div>
+
+<h2><span class="no">§01</span>问题：干净训练的脆弱</h2>
+<div class="h2sub">三条流式约束 + 未标注数据的机会</div>
+<div class="cards">
+<div class="card bad">
+<h3>标注噪声数据的天价</h3>
+<p>真实部署的声学条件（各种噪声 × 远场 × 口音 × 说话人）组合爆炸——逐条标注不可能覆盖。而未标注音频几乎免费（数十到数百倍于标注量）—— NST 的全部赌注就压在这份免费数据上。</p>
+</div>
+<div class="card bad">
+<h3>误报敏感约束增强设计</h3>
+<p>图像分类的增强可以激进，KWS 不行——增强过头会把非关键词也变得「像」关键词，教出高误报的学生。增强强度与类型必须配合误报率监控——这是流式 KWS 适配 NST 的核心工程难点。</p>
+</div>
+<div class="card">
+<h3>跨领域迁移的证据</h3>
+<p>NST 在 ImageNet 上的成功依赖「未标注数据分布 ≈ 测试分布」——本文验证了这条假设在音频同样成立：海量未标注音频覆盖的声学多样性，正是鲁棒性缺的那块拼图。</p>
+</div>
+<div class="card">
+<h3>与 SSL 路线的互补</h3>
+<p>同年 SSL 多任务（№19）用未标注数据学通用表示，本文用未标注数据做自训练——两条路线都在榨未标注数据的价值：一个换表示质量，一个换决策边界鲁棒性，可叠加。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Noisy Student：教师贴标签、学生挨噪声——换着来，越换越皮实</text>
+<line x1="36.0" y1="60.0" x2="700.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 干净数据训练的脆弱 + 流式 KWS 的三条特殊约束</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">干净训练 → 噪声/远场/不同说话人口音下性能显著下降；标注噪声数据成本极高且不可能覆盖所有部署条件——需要未标注数据 + 激进增强</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">NST 原型来自 ImageNet（Google 2020）——本文要把它适配到流式 KWS，跨领域迁移本身是贡献之一</text>
+<rect x="36.0" y="152.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="181.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">时序依赖</text>
+<text x="200.0" y="172.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">音频是时序信号——增强策略要考虑时间维（时移/时间遮蔽/速度扰动</text>
+<text x="200.0" y="190.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">与图像增强的参数空间不同）</text>
+<rect x="36.0" y="208.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="237.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">因果性要求</text>
+<text x="200.0" y="228.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">流式 KWS 必须因果（不能用未来信息）——全程用因果卷积,</text>
+<text x="200.0" y="246.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">增强与训练都不能偷看未来</text>
+<rect x="36.0" y="264.0" width="848.0" height="48.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="293.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">误报敏感</text>
+<text x="200.0" y="284.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 对误报的容忍度极低——噪声增强不能以牺牲误报率为代价</text>
+<text x="200.0" y="302.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（增强过头会教出「什么都像唤醒词」的学生）</text>
+<text x="36.0" y="324.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 自训练循环：教师→伪标签→噪声学生→新教师</text>
+<rect x="36.0" y="340.0" width="848.0" height="220.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="56.0" y="364.0" width="160.0" height="56.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="136.0" y="384.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 教师 = 标注数据训练</text>
+<text x="136.0" y="400.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">标准交叉熵 · 流式因果 CNN</text>
+<rect x="256.0" y="364.0" width="170.0" height="56.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="341.0" y="384.0" font-size="9" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 教师生成伪标签</text>
+<text x="341.0" y="400.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">未标注数据 → 软/硬标签 + 置信度过滤</text>
+<rect x="466.0" y="364.0" width="190.0" height="56.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="561.0" y="384.0" font-size="9" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 学生在噪声中训练</text>
+<text x="561.0" y="400.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">伪标签数据 + 四重噪声注入</text>
+<rect x="696.0" y="364.0" width="160.0" height="56.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="776.0" y="384.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">④ 学生 → 新教师</text>
+<text x="776.0" y="400.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">回到 ② 迭代 2–3 轮</text>
+<line x1="216.0" y1="392.0" x2="256.00" y2="392.00" stroke="#8a93a5" stroke-width="1.3"/>
+<line x1="426.0" y1="392.0" x2="466.00" y2="392.00" stroke="#8a93a5" stroke-width="1.3"/>
+<line x1="656.0" y1="392.0" x2="696.00" y2="392.00" stroke="#8a93a5" stroke-width="1.3"/>
+<line x1="776.0" y1="420.0" x2="776.00" y2="454.00" stroke="#0b6e52" stroke-width="1.3" stroke-dasharray="4,3"/>
+<line x1="776.0" y1="454.0" x2="341.00" y2="454.00" stroke="#0b6e52" stroke-width="1.3" stroke-dasharray="4,3"/>
+<line x1="341.0" y1="454.0" x2="341.00" y2="420.00" stroke="#0b6e52" stroke-width="1.3" stroke-dasharray="4,3"/>
+<text x="558.0" y="448.0" font-size="8.3" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">循环：学生变教师再贴标签——鲁棒性逐轮累积</text>
+<text x="56.0" y="480.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四重噪声注入（学生的「磨难」）：</text>
+<text x="56.0" y="498.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SpecAugment：时间遮蔽 + 频率遮蔽（频谱图随机遮段）· 噪声叠加：从噪声库随机选背景噪声</text>
+<text x="56.0" y="512.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 音频扰动：速度 / 音量 / 时移 · Dropout：模型训练的额外正则化噪声</text>
+<text x="56.0" y="526.0" font-size="9" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="56.0" y="540.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键洞察：噪声逼学生学出比教师更鲁棒的决策边界；伪标签保证训练方向不跑偏——「在更难的条件里学老师给的标准答案」</text>
+<rect x="36.0" y="578.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="604.0" font-size="13" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+5–10%</text>
+<text x="130.0" y="624.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声测试集 vs 教师</text>
+<text x="298.0" y="604.0" font-size="13" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+3–5%</text>
+<text x="298.0" y="624.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">第一轮 NST vs 基线</text>
+<text x="466.0" y="604.0" font-size="13" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+1–3%</text>
+<text x="466.0" y="624.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">第二轮增量（第三轮递减）</text>
+<text x="634.0" y="604.0" font-size="13" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">≈100% 基线</text>
+<text x="634.0" y="624.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10% 标注 + 未标注可逼近</text>
+<text x="802.0" y="604.0" font-size="13" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">↓ 误报</text>
+<text x="802.0" y="624.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">同时保持/提升召回</text>
+<text x="36.0" y="662.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Google Research · Interspeech 2021 · arXiv 2106.01604；已应用于 Google 实际产品；标注 = 内部 KWS 数据集，未标注 = 数十到数百倍规模的音频；数字为约值</text>
+</svg>
+<div class="cap"><b>图1 · 机制全景</b>：上半是干净训练的脆弱与三条流式约束，中段是四步自训练循环与四重噪声注入，底部是关键数字。</div>
+</div>
+
+<h2><span class="no">§02</span>方法：自训练的闭环</h2>
+<div class="h2sub">教师→伪标签→噪声学生→新教师</div>
+
+<div class="formula">
+<div class="f">轮 1:  教师 = 标注数据 + 标准交叉熵训练（流式因果 CNN）
+循环:  教师推理未标注数据 → 伪标签（置信度 &gt; 阈值的保留）
+       学生 = 伪标签 + 四重噪声（SpecAugment / 背景噪声 / 速度音量时移 / Dropout）
+       学生 → 新教师 → 重新生成伪标签 → 下一轮（典型 2–3 轮）</div>
+<div class="why"><b>人话</b>：老师在安静教室里出题（伪标签），学生在暴风雨里做题（噪声增强）——做会了的学生比老师更能扛。然后这个更能扛的学生当新老师，出的题更准（它自己在噪声下测过），下一轮学生从更好的起点出发——滚雪球。</div>
+</div>
+
+<div class="cards">
+<div class="card acc">
+<h3>伪标签的置信度过滤</h3>
+<p>教师不确定的样本（低置信度）直接丢弃——这些伪标签大概率是错的，混进来就是噪声标签。过滤是自训练的安全带：宁可用得少，不能用得错。遗留风险：模糊样本（弱音量/高噪声）即使高置信度也可能是系统性错的。</p>
+</div>
+<div class="card acc">
+<h3>为什么迭代会滚雪球</h3>
+<p>学生变教师后，它对噪声样本的伪标签质量比原教师高（自己就在噪声下训过）——下一轮的训练信号更干净；同时新教师的边界更鲁棒，置信度过滤的边界也更准——两个机制相互加强，每轮都有可测量的增量。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：为什么学生挨噪声就能超过老师</text>
+<line x1="36.0" y1="56.0" x2="540.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">决策边界的鲁棒化</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="198.0" y="112.0" font-size="8.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">教师：干净数据的边界</text>
+<line x1="98.0" y1="170.0" x2="278.00" y2="140.00" stroke="#33507a" stroke-width="2"/>
+<circle cx="108" cy="156" r="4" fill="#9fc8b8"/>
+<circle cx="140" cy="151" r="4" fill="#9fc8b8"/>
+<circle cx="172" cy="146" r="4" fill="#9fc8b8"/>
+<circle cx="204" cy="141" r="4" fill="#9fc8b8"/>
+<circle cx="236" cy="136" r="4" fill="#9fc8b8"/>
+<circle cx="124" cy="174" r="4" fill="#e8b8b0"/>
+<circle cx="158" cy="178" r="4" fill="#e8b8b0"/>
+<circle cx="192" cy="182" r="4" fill="#e8b8b0"/>
+<circle cx="226" cy="186" r="4" fill="#e8b8b0"/>
+<text x="198.0" y="212.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">边界贴合干净样本——噪声样本越界即错</text>
+<text x="198.0" y="244.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">学生：噪声数据的边界</text>
+<line x1="92.0" y1="306.0" x2="284.00" y2="264.00" stroke="#0b6e52" stroke-width="2.2"/>
+<line x1="100.0" y1="314.0" x2="276.00" y2="276.00" stroke="#7fb69f" stroke-width="1.4" stroke-dasharray="4,3"/>
+<circle cx="108" cy="290" r="4" fill="#9fc8b8"/>
+<circle cx="116" cy="296" r="2.6" fill="#9fc8b8" opacity="0.5"/>
+<circle cx="140" cy="285" r="4" fill="#9fc8b8"/>
+<circle cx="148" cy="292" r="2.6" fill="#9fc8b8" opacity="0.5"/>
+<circle cx="172" cy="280" r="4" fill="#9fc8b8"/>
+<circle cx="180" cy="288" r="2.6" fill="#9fc8b8" opacity="0.5"/>
+<circle cx="204" cy="275" r="4" fill="#9fc8b8"/>
+<circle cx="212" cy="284" r="2.6" fill="#9fc8b8" opacity="0.5"/>
+<circle cx="236" cy="270" r="4" fill="#9fc8b8"/>
+<circle cx="244" cy="280" r="2.6" fill="#9fc8b8" opacity="0.5"/>
+<circle cx="124" cy="310" r="4" fill="#e8b8b0"/>
+<circle cx="118" cy="318" r="2.6" fill="#e8b8b0" opacity="0.5"/>
+<circle cx="158" cy="314" r="4" fill="#e8b8b0"/>
+<circle cx="152" cy="321" r="2.6" fill="#e8b8b0" opacity="0.5"/>
+<circle cx="192" cy="318" r="4" fill="#e8b8b0"/>
+<circle cx="186" cy="324" r="2.6" fill="#e8b8b0" opacity="0.5"/>
+<circle cx="226" cy="322" r="4" fill="#e8b8b0"/>
+<circle cx="220" cy="327" r="2.6" fill="#e8b8b0" opacity="0.5"/>
+<text x="198.0" y="336.0" font-size="7.8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">边界被噪声推开留出缓冲带——扰动样本不再越界</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三个成功条件</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="448.0" y="106.0" width="384.0" height="70.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="460.0" y="126.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">伪标签保证方向</text>
+<text x="460.0" y="143.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">教师虽只在干净数据上训过，但见过海量未标注音频——伪标签</text>
+<text x="460.0" y="157.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">提供了「正确答案」的锚点，学生不会在噪声中迷失</text>
+<rect x="448.0" y="186.0" width="384.0" height="70.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="460.0" y="206.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声逼出泛化</text>
+<text x="460.0" y="223.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">四重注入让每个样本都变成一族变体——学生必须学到覆盖</text>
+<text x="460.0" y="237.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">整族的不变特征，边界自然更鲁棒</text>
+<rect x="448.0" y="266.0" width="384.0" height="70.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="460.0" y="286.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">迭代滚雪球</text>
+<text x="460.0" y="303.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">学生变教师后伪标签质量更高（自己就在噪声下测过）——</text>
+<text x="460.0" y="317.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">下一轮学生从更好的起点出发，收益逐轮累积</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：教师的边界贴合干净样本（窄）；学生在噪声变体上训练，边界被推开留下缓冲带——同一测试扰动下学生不再越界。右：三个条件缺一不可——没有伪标签学生乱学、没有噪声白学、没有迭代学不满</text>
+</svg>
+<div class="cap"><b>图2 · 机制解剖</b>：左是决策边界的鲁棒化（教师边界贴合干净样本 vs 学生边界被噪声推开留出缓冲带），右是三个成功条件（伪标签定向、噪声逼泛化、迭代滚雪球）。</div>
+</div>
+
+<h2><span class="no">§03</span>实验：逐轮累积，标注越少越值</h2>
+<div class="h2sub">迭代收益 · 噪声条件全覆盖 · 标注恢复</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（约值）：每轮都涨，标注越少越依赖</text>
+<line x1="36.0" y1="56.0" x2="480.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">迭代轮次的累积收益（噪声测试集）</text>
+<line x1="52.0" y1="272.0" x2="456.00" y2="272.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="275.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+0</text>
+<line x1="52.0" y1="232.0" x2="456.00" y2="232.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="235.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+2</text>
+<line x1="52.0" y1="192.0" x2="456.00" y2="192.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="195.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+4</text>
+<line x1="52.0" y1="152.0" x2="456.00" y2="152.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="155.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+6</text>
+<line x1="52.0" y1="112.0" x2="456.00" y2="112.00" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="115.0" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">+8</text>
+<rect x="92.0" y="272.0" width="60.0" height="0.0" rx="4" fill="#e8b8b0"/>
+<text x="122.0" y="286.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">基线（仅标注数</text>
+<text x="122.0" y="296.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">据）</text>
+<rect x="184.0" y="192.0" width="60.0" height="80.0" rx="4" fill="#9fc8b8"/>
+<text x="214.0" y="186.0" font-size="7.8" fill="#9fc8b8" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+3~5</text>
+<text x="214.0" y="286.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">第一轮 NST</text>
+<rect x="276.0" y="162.0" width="60.0" height="110.0" rx="4" fill="#7fb69f"/>
+<text x="306.0" y="156.0" font-size="7.8" fill="#7fb69f" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+5.5</text>
+<text x="306.0" y="286.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">第二轮 NST</text>
+<rect x="368.0" y="148.0" width="60.0" height="124.0" rx="4" fill="#0b6e52"/>
+<text x="398.0" y="142.0" font-size="7.8" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+6.2</text>
+<text x="398.0" y="286.0" font-size="7" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">第三轮 NST</text>
+<text x="256.0" y="106.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">第一轮 +3–5% · 第二轮再 +1–3% · 第三轮递减但仍有</text>
+<text x="56.0" y="306.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="56.0" y="320.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声条件全面改善：环境/音乐/人声嘈杂，低 SNR 下更显著</text>
+<text x="56.0" y="333.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 误报率下降同时保持/提升召回——不是用误报换召回</text>
+<text x="56.0" y="346.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 已应用于 Google 实际产品——工程可行性有背书</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标注稀缺场景的恢复能力</text>
+<rect x="500.0" y="92.0" width="324.0" height="190.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="112.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标注量 × 未标注补充（NST）</text>
+<text x="514.0" y="138.0" font-size="8" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">100% 标注（基线）</text>
+<rect x="628.0" y="126.0" width="150.0" height="15.0" rx="4" fill="#c9d8e8"/>
+<text x="782.0" y="138.0" font-size="8" fill="#c9d8e8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~100%</text>
+<text x="514.0" y="172.0" font-size="8" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">50% + 未标注</text>
+<rect x="628.0" y="160.0" width="138.0" height="15.0" rx="4" fill="#9fc8b8"/>
+<text x="770.0" y="172.0" font-size="8" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~92%</text>
+<text x="514.0" y="206.0" font-size="8" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">25% + 未标注</text>
+<rect x="628.0" y="194.0" width="127.5" height="15.0" rx="4" fill="#7fb69f"/>
+<text x="759.5" y="206.0" font-size="8" fill="#7fb69f" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~85%</text>
+<text x="514.0" y="240.0" font-size="8" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">10% + 未标注 ★</text>
+<rect x="628.0" y="228.0" width="120.0" height="15.0" rx="4" fill="#0b6e52"/>
+<text x="752.0" y="240.0" font-size="8" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~80%</text>
+<text x="514.0" y="270.0" font-size="8.4" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">10% 标注 + 大量未标注 ≈ 100% 标注基线——</text>
+<rect x="500.0" y="290.0" width="324.0" height="122.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="514.0" y="308.0" font-size="9" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">证据边界</text>
+<text x="514.0" y="324.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未标注数据需求大——某些语言/领域难获取</text>
+<text x="514.0" y="336.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多轮训练时间是单次的数倍</text>
+<text x="514.0" y="349.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 伪标签质量：模糊样本（弱音量/高噪）可能引噪</text>
+<text x="514.0" y="361.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 远场/混响分析有限</text>
+<text x="514.0" y="374.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未与 FixMatch / UDA 等半监督方法对比</text>
+<text x="514.0" y="386.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无真实用户环境 A/B</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：数字为笔记记录的约值（内部数据集为主）；噪声测试集含多种噪声类型与 SNR 级别（20dB 到 0dB）；低 SNR 下改善更显著——越难的条件收益越大</text>
+</svg>
+<div class="cap"><b>图3 · 主结果</b>：左是迭代轮次的累积收益（第一轮大头、逐轮递减），右是标注稀缺场景的恢复能力（10% 标注 + 未标注 ≈ 100% 基线）与证据边界。</div>
+</div>
+<table class="tb">
+<tr><th>评测线</th><th>结果（约值）</th><th>解读</th></tr>
+<tr class="hl"><td>噪声测试 vs 教师</td><td>+5–10%</td><td>学生青出于蓝</td></tr>
+<tr><td>迭代累积</td><td>第一轮 +3–5% · 第二轮 +1–3% · 第三轮递减</td><td>典型甜点 2–3 轮</td></tr>
+<tr><td>噪声类型</td><td>环境/音乐/人声嘈杂全改善</td><td>低 SNR 下更显著</td></tr>
+<tr><td>误报</td><td>下降，同时召回保持/提升</td><td>不是拿误报换召回</td></tr>
+<tr><td>标注稀缺</td><td>10% 标注 + 未标注 ≈ 100% 基线</td><td>标注预算放大 10×</td></tr>
+</table>
+<div class="tldr" style="margin-top:14px;">
+<div class="tt">读表要点</div>
+<li>「低 SNR 下改善更显著」有信息量：NST 的收益集中在最难的条件——未标注数据的多样性恰好覆盖了这些训练分布之外的角落。鲁棒性主张与数据机制自洽。</li>
+<li>「误报下降 + 召回不降」打破了「增强换鲁棒必伤精度」的直觉——伪标签锚定方向 + 置信度过滤的功劳；这也是方法能上 Google 产品的必要条件。</li>
+<li>证据边界要记：未标注数据量需求大（低资源语言难）；总训练时间数倍；伪标签质量在模糊样本上有系统风险；未与 FixMatch/UDA 横比、无真实用户 A/B——「产品可用」的背书来自 Google 内部实践而非论文实验。</li>
+</div>
+
+<h2><span class="no">§04</span>贡献</h2>
+<div class="h2sub">四点：从跨领域迁移到产品落地</div>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>首次将 NST 应用于流式 KWS</b>：跨领域迁移证明方法的通用性——时序音频任务同样能借半监督自训练大幅提升鲁棒性。</p></div>
+<div class="row"><div class="n">2</div><p><b>证明未标注数据显著提升 KWS 鲁棒性</b>：标注有限时，大量未标注数据 + 伪标签让各种噪声条件下的性能大幅提升。</p></div>
+<div class="row"><div class="n">3</div><p><b>迭代自训练的累积收益</b>：多轮教师-学生迭代逐步提升鲁棒性，每轮都有可测量改善——给出了迭代次数的工程参考（2–3 轮）。</p></div>
+<div class="row"><div class="n">4</div><p><b>生产级可用性</b>：方法已应用于 Google 实际产品——工程可行性的最硬背书。</p></div>
+</div>
+
+<h2><span class="no">§05</span>局限与判断</h2>
+<div class="h2sub">数据需求 · 训练成本 · 伪标签噪声</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未标注数据需求：数十到数百倍于标注量——低资源语言/</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  特定领域可能拿不到这个量的未标注音频</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多轮训练时间：每轮完整训练 + 伪标签生成——总时间是</text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  单次训练的数倍（工程成本要与收益对账）</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 伪标签噪声：声学模糊样本（弱音量/高噪声）的伪标签</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  可能不准——噪声标签是自训练的经典风险</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 远场/混响分析有限——鲁棒性主张覆盖面有缺口</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验边界 + 延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 最优噪声注入策略因部署场景而异——无系统性选择指南</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 未与 FixMatch / UDA 等半监督方法对比</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 缺真实用户环境 A/B 测试</text>
+<text x="536.0" y="170.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸：SSL 预训练提升伪标签质量；主动学习选择性标注</text>
+<text x="536.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">最有价值样本；在线自训练（部署后从用户数据持续学习）</text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——自训练范式推广到更多语音任务</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：半监督是解 KWS 数据瓶颈与鲁棒性的有力工具——「教师定方向、噪声练学生」的自训练范式不依赖任务细节，可平移到任何有大量未标注数据的语音任务</text>
+</svg>
+<div class="cap"><b>图4 · 边界与延伸</b>：左技术边界（未标注数据需求、多轮训练时间、伪标签噪声、远场混响缺口），右实验边界（噪声策略无选择指南、无半监督横比、无 A/B）+ 延伸方向。</div>
+</div>
+<div class="judge">
+<div class="jt">可迁移判断</div>
+<p>↳ <b>教师定方向、噪声练学生</b>：自训练范式的本质是「在更难的条件里学标准答案」——不依赖任务细节，任何有大量未标注数据 + 部署条件恶劣的语音任务都可平移（增强类型按任务重设计即可）。</p>
+<p>↳ <b>未标注数据是鲁棒性的免费来源</b>：10% 标注 + 未标注 ≈ 100% 基线——标注预算的价值被放大十倍。决策「要不要投资标注」之前，先算手里未标注数据的存量。</p>
+<p>↳ <b>置信度过滤是自训练的安全带</b>：宁可用得少、不能用得错——低置信度伪标签的引入是系统性投毒。所有伪标签工作流都该默认带这道闸门。</p>
+<p>↳ <b>迭代收益递减要提前认账</b>：第一轮大头、逐轮递减、2–3 轮封顶——自训练的计算成本是线性叠加的，边际收益递减意味着该停就停；「再来一轮总会有提升」不成立。</p>
+</div>
+
+<div class="foot">
+<a class="pill" href="https://arxiv.org/abs/2106.01604">arXiv 2106.01604 ↗</a>
+<a class="pill ghost" href="../index.html">← 返回总目录</a>
+</div>
+<div class="foot-note">笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值（Google 内部数据为主）· 2021 №20 · 205+/305</div>
+</div>
+</body>
+</html>

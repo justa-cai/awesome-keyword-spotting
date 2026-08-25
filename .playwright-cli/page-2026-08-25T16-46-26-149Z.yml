@@ -1,0 +1,241 @@
+- generic [ref=f299e2]:
+  - generic [ref=f299e3]: 论文精读 · 可视化版 · 2021 №20
+  - heading "教师贴标签、学生挨噪声： 换着来，越换越皮实——Google 的自训练进 KWS" [level=1] [ref=f299e4]: 教师贴标签、学生挨噪声：换着来，越换越皮实——Google 的自训练进 KWS
+  - generic [ref=f299e5]:
+    - generic [ref=f299e6]: Noisy Student Training · Google Research
+    - generic [ref=f299e7]: Interspeech 2021 · arXiv 2106.01604 · 已上产品
+    - generic [ref=f299e8]: 迭代自训练 + 四重噪声注入 + 置信度过滤
+    - generic [ref=f299e9]: 噪声测试 +5–10% vs 教师 · 10% 标注逼近 100% 基线
+  - generic [ref=f299e10]: 一句话：干净数据训练的 KWS 在噪声/远场/口音下掉点严重，而标注噪声数据成本极高。本文把 Google 在 ImageNet 上的 Noisy Student Training 搬进流式 KWS：教师模型给海量未标注音频贴伪标签（置信度过滤），学生在四重噪声（SpecAugment/背景噪声/速度音量时移/Dropout）中用伪标签训练，训完的学生变成新教师再来一轮。噪声测试集比教师高 5–10%，10% 标注 + 大量未标注能逼近 100% 标注的基线——方法已用于 Google 实际产品。
+  - generic [ref=f299e11]:
+    - generic [ref=f299e12]: TL;DR
+    - listitem [ref=f299e13]: ◈ 干净的脆弱：干净训练的模型在噪声、远场、不同说话人/口音下显著掉点——标注噪声数据不可能覆盖所有部署条件；未标注数据 + 激进增强是另一条路（NST 在 ImageNet 已验证，本文跨领域迁移到流式 KWS）。
+    - listitem [ref=f299e14]: ◈ 流式 KWS 的三条特殊约束：时序依赖（增强要考虑时间维，与图像增强参数空间不同）；因果性（全程因果卷积，不能偷看未来）；误报敏感（增强不能以牺牲误报率为代价——增强过头会教出「什么都像唤醒词」的学生）。
+    - listitem [ref=f299e15]: ◈ 自训练循环四步：① 教师在标注数据上训练（标准 CE · 流式因果 CNN）→ ② 教师给未标注数据生成伪标签（软/硬标签 + 置信度阈值过滤）→ ③ 学生在伪标签 + 四重噪声下训练 → ④ 学生变新教师，回到②——典型迭代 2–3 轮。
+    - listitem [ref=f299e16]: ◈ 四重噪声注入：SpecAugment（时间/频率遮蔽）· 背景噪声叠加（噪声库随机）· 音频扰动（速度/音量/时移）· Dropout（模型级正则噪声）——每个样本被扩展成一族变体。
+    - listitem [ref=f299e17]: ◈ 关键洞察：噪声逼学生学出比教师更鲁棒的决策边界（边界被推开留出缓冲带），伪标签保证方向不跑偏——「在更难的条件里学老师给的标准答案」。三个条件缺一不可。
+    - listitem [ref=f299e18]: ◈ 结果（约值）：噪声测试集 +5–10% vs 教师；第一轮 +3–5%、第二轮再 +1–3%、第三轮递减——逐轮累积；环境/音乐/人声嘈杂全改善，低 SNR 下更显著；误报下降同时召回保持/提升。
+    - listitem [ref=f299e19]: ◈ 标注稀缺场景的杀手锏：10% 标注 + 大量未标注 ≈ 100% 标注基线；50%/25% 标注也能恢复大部分性能——半监督直接把标注预算的价值放大了约 10 倍。
+    - listitem [ref=f299e20]: ◈ 边界：需要数十到数百倍于标注量的未标注数据（低资源语言难拿）；多轮训练时间是单次的数倍；伪标签在模糊样本上可能引噪；未与 FixMatch/UDA 对比。
+  - heading "§01 问题：干净训练的脆弱" [level=2] [ref=f299e21]:
+    - generic [ref=f299e22]: §01
+    - text: 问题：干净训练的脆弱
+  - generic [ref=f299e23]: 三条流式约束 + 未标注数据的机会
+  - generic [ref=f299e24]:
+    - generic [ref=f299e25]:
+      - heading "标注噪声数据的天价" [level=3] [ref=f299e26]
+      - paragraph [ref=f299e27]: 真实部署的声学条件（各种噪声 × 远场 × 口音 × 说话人）组合爆炸——逐条标注不可能覆盖。而未标注音频几乎免费（数十到数百倍于标注量）—— NST 的全部赌注就压在这份免费数据上。
+    - generic [ref=f299e28]:
+      - heading "误报敏感约束增强设计" [level=3] [ref=f299e29]
+      - paragraph [ref=f299e30]: 图像分类的增强可以激进，KWS 不行——增强过头会把非关键词也变得「像」关键词，教出高误报的学生。增强强度与类型必须配合误报率监控——这是流式 KWS 适配 NST 的核心工程难点。
+    - generic [ref=f299e31]:
+      - heading "跨领域迁移的证据" [level=3] [ref=f299e32]
+      - paragraph [ref=f299e33]: NST 在 ImageNet 上的成功依赖「未标注数据分布 ≈ 测试分布」——本文验证了这条假设在音频同样成立：海量未标注音频覆盖的声学多样性，正是鲁棒性缺的那块拼图。
+    - generic [ref=f299e34]:
+      - heading "与 SSL 路线的互补" [level=3] [ref=f299e35]
+      - paragraph [ref=f299e36]: 同年 SSL 多任务（№19）用未标注数据学通用表示，本文用未标注数据做自训练——两条路线都在榨未标注数据的价值：一个换表示质量，一个换决策边界鲁棒性，可叠加。
+  - generic [ref=f299e37]:
+    - img [ref=f299e38]:
+      - generic [ref=f299e40]: Noisy Student：教师贴标签、学生挨噪声——换着来，越换越皮实
+      - generic [ref=f299e41]: ① 干净数据训练的脆弱 + 流式 KWS 的三条特殊约束
+      - generic [ref=f299e43]: 干净训练 → 噪声/远场/不同说话人口音下性能显著下降；标注噪声数据成本极高且不可能覆盖所有部署条件——需要未标注数据 + 激进增强
+      - generic [ref=f299e44]: NST 原型来自 ImageNet（Google 2020）——本文要把它适配到流式 KWS，跨领域迁移本身是贡献之一
+      - generic [ref=f299e46]: 时序依赖
+      - generic [ref=f299e47]: 音频是时序信号——增强策略要考虑时间维（时移/时间遮蔽/速度扰动
+      - generic [ref=f299e48]: 与图像增强的参数空间不同）
+      - generic [ref=f299e50]: 因果性要求
+      - generic [ref=f299e51]: 流式 KWS 必须因果（不能用未来信息）——全程用因果卷积,
+      - generic [ref=f299e52]: 增强与训练都不能偷看未来
+      - generic [ref=f299e54]: 误报敏感
+      - generic [ref=f299e55]: KWS 对误报的容忍度极低——噪声增强不能以牺牲误报率为代价
+      - generic [ref=f299e56]: （增强过头会教出「什么都像唤醒词」的学生）
+      - generic [ref=f299e57]: ② 自训练循环：教师→伪标签→噪声学生→新教师
+      - generic [ref=f299e60]: ① 教师 = 标注数据训练
+      - generic [ref=f299e61]: 标准交叉熵 · 流式因果 CNN
+      - generic [ref=f299e63]: ② 教师生成伪标签
+      - generic [ref=f299e64]: 未标注数据 → 软/硬标签 + 置信度过滤
+      - generic [ref=f299e66]: ③ 学生在噪声中训练
+      - generic [ref=f299e67]: 伪标签数据 + 四重噪声注入
+      - generic [ref=f299e69]: ④ 学生 → 新教师
+      - generic [ref=f299e70]: 回到 ② 迭代 2–3 轮
+      - generic [ref=f299e71]: 循环：学生变教师再贴标签——鲁棒性逐轮累积
+      - generic [ref=f299e72]: 四重噪声注入（学生的「磨难」）：
+      - generic [ref=f299e73]: · SpecAugment：时间遮蔽 + 频率遮蔽（频谱图随机遮段）· 噪声叠加：从噪声库随机选背景噪声
+      - generic [ref=f299e74]: · 音频扰动：速度 / 音量 / 时移 · Dropout：模型训练的额外正则化噪声
+      - generic [ref=f299e75]: 关键洞察：噪声逼学生学出比教师更鲁棒的决策边界；伪标签保证训练方向不跑偏——「在更难的条件里学老师给的标准答案」
+      - generic [ref=f299e77]: +5–10%
+      - generic [ref=f299e78]: 噪声测试集 vs 教师
+      - generic [ref=f299e79]: +3–5%
+      - generic [ref=f299e80]: 第一轮 NST vs 基线
+      - generic [ref=f299e81]: +1–3%
+      - generic [ref=f299e82]: 第二轮增量（第三轮递减）
+      - generic [ref=f299e83]: ≈100% 基线
+      - generic [ref=f299e84]: 10% 标注 + 未标注可逼近
+      - generic [ref=f299e85]: ↓ 误报
+      - generic [ref=f299e86]: 同时保持/提升召回
+      - generic [ref=f299e87]: Google Research · Interspeech 2021 · arXiv 2106.01604；已应用于 Google 实际产品；标注 = 内部 KWS 数据集，未标注 = 数十到数百倍规模的音频；数字为约值
+    - generic [ref=f299e88]: 图1 · 机制全景：上半是干净训练的脆弱与三条流式约束，中段是四步自训练循环与四重噪声注入，底部是关键数字。
+  - heading "§02 方法：自训练的闭环" [level=2] [ref=f299e89]:
+    - generic [ref=f299e90]: §02
+    - text: 方法：自训练的闭环
+  - generic [ref=f299e91]: 教师→伪标签→噪声学生→新教师
+  - generic [ref=f299e92]:
+    - generic [ref=f299e93]: "轮 1: 教师 = 标注数据 + 标准交叉熵训练（流式因果 CNN） 循环: 教师推理未标注数据 → 伪标签（置信度 > 阈值的保留） 学生 = 伪标签 + 四重噪声（SpecAugment / 背景噪声 / 速度音量时移 / Dropout） 学生 → 新教师 → 重新生成伪标签 → 下一轮（典型 2–3 轮）"
+    - generic [ref=f299e94]: 人话：老师在安静教室里出题（伪标签），学生在暴风雨里做题（噪声增强）——做会了的学生比老师更能扛。然后这个更能扛的学生当新老师，出的题更准（它自己在噪声下测过），下一轮学生从更好的起点出发——滚雪球。
+  - generic [ref=f299e95]:
+    - generic [ref=f299e96]:
+      - heading "伪标签的置信度过滤" [level=3] [ref=f299e97]
+      - paragraph [ref=f299e98]: 教师不确定的样本（低置信度）直接丢弃——这些伪标签大概率是错的，混进来就是噪声标签。过滤是自训练的安全带：宁可用得少，不能用得错。遗留风险：模糊样本（弱音量/高噪声）即使高置信度也可能是系统性错的。
+    - generic [ref=f299e99]:
+      - heading "为什么迭代会滚雪球" [level=3] [ref=f299e100]
+      - paragraph [ref=f299e101]: 学生变教师后，它对噪声样本的伪标签质量比原教师高（自己就在噪声下训过）——下一轮的训练信号更干净；同时新教师的边界更鲁棒，置信度过滤的边界也更准——两个机制相互加强，每轮都有可测量的增量。
+  - generic [ref=f299e102]:
+    - img [ref=f299e103]:
+      - generic [ref=f299e105]: 机制解剖：为什么学生挨噪声就能超过老师
+      - generic [ref=f299e106]: 决策边界的鲁棒化
+      - generic [ref=f299e108]: 教师：干净数据的边界
+      - generic [ref=f299e119]: 边界贴合干净样本——噪声样本越界即错
+      - generic [ref=f299e120]: 学生：噪声数据的边界
+      - generic [ref=f299e141]: 边界被噪声推开留出缓冲带——扰动样本不再越界
+      - generic [ref=f299e142]: 三个成功条件
+      - generic [ref=f299e145]: 伪标签保证方向
+      - generic [ref=f299e146]: 教师虽只在干净数据上训过，但见过海量未标注音频——伪标签
+      - generic [ref=f299e147]: 提供了「正确答案」的锚点，学生不会在噪声中迷失
+      - generic [ref=f299e149]: 噪声逼出泛化
+      - generic [ref=f299e150]: 四重注入让每个样本都变成一族变体——学生必须学到覆盖
+      - generic [ref=f299e151]: 整族的不变特征，边界自然更鲁棒
+      - generic [ref=f299e153]: 迭代滚雪球
+      - generic [ref=f299e154]: 学生变教师后伪标签质量更高（自己就在噪声下测过）——
+      - generic [ref=f299e155]: 下一轮学生从更好的起点出发，收益逐轮累积
+      - generic [ref=f299e156]: 左：教师的边界贴合干净样本（窄）；学生在噪声变体上训练，边界被推开留下缓冲带——同一测试扰动下学生不再越界。右：三个条件缺一不可——没有伪标签学生乱学、没有噪声白学、没有迭代学不满
+    - generic [ref=f299e157]: 图2 · 机制解剖：左是决策边界的鲁棒化（教师边界贴合干净样本 vs 学生边界被噪声推开留出缓冲带），右是三个成功条件（伪标签定向、噪声逼泛化、迭代滚雪球）。
+  - heading "§03 实验：逐轮累积，标注越少越值" [level=2] [ref=f299e158]:
+    - generic [ref=f299e159]: §03
+    - text: 实验：逐轮累积，标注越少越值
+  - generic [ref=f299e160]: 迭代收益 · 噪声条件全覆盖 · 标注恢复
+  - generic [ref=f299e161]:
+    - img [ref=f299e162]:
+      - generic [ref=f299e164]: 主结果（约值）：每轮都涨，标注越少越依赖
+      - generic [ref=f299e165]: 迭代轮次的累积收益（噪声测试集）
+      - generic [ref=f299e166]: "+0"
+      - generic [ref=f299e167]: "+2"
+      - generic [ref=f299e168]: "+4"
+      - generic [ref=f299e169]: "+6"
+      - generic [ref=f299e170]: "+8"
+      - generic [ref=f299e171]: 基线（仅标注数
+      - generic [ref=f299e172]: 据）
+      - generic [ref=f299e174]: +3~5
+      - generic [ref=f299e175]: 第一轮 NST
+      - generic [ref=f299e177]: "+5.5"
+      - generic [ref=f299e178]: 第二轮 NST
+      - generic [ref=f299e180]: "+6.2"
+      - generic [ref=f299e181]: 第三轮 NST
+      - generic [ref=f299e182]: 第一轮 +3–5% · 第二轮再 +1–3% · 第三轮递减但仍有
+      - generic [ref=f299e183]: 读数：
+      - generic [ref=f299e184]: · 噪声条件全面改善：环境/音乐/人声嘈杂，低 SNR 下更显著
+      - generic [ref=f299e185]: · 误报率下降同时保持/提升召回——不是用误报换召回
+      - generic [ref=f299e186]: · 已应用于 Google 实际产品——工程可行性有背书
+      - generic [ref=f299e187]: 标注稀缺场景的恢复能力
+      - generic [ref=f299e189]: 标注量 × 未标注补充（NST）
+      - generic [ref=f299e190]: 100% 标注（基线）
+      - generic [ref=f299e192]: ~100%
+      - generic [ref=f299e193]: 50% + 未标注
+      - generic [ref=f299e195]: ~92%
+      - generic [ref=f299e196]: 25% + 未标注
+      - generic [ref=f299e198]: ~85%
+      - generic [ref=f299e199]: 10% + 未标注 ★
+      - generic [ref=f299e201]: ~80%
+      - generic [ref=f299e202]: 10% 标注 + 大量未标注 ≈ 100% 标注基线——
+      - generic [ref=f299e204]: 证据边界
+      - generic [ref=f299e205]: · 未标注数据需求大——某些语言/领域难获取
+      - generic [ref=f299e206]: · 多轮训练时间是单次的数倍
+      - generic [ref=f299e207]: · 伪标签质量：模糊样本（弱音量/高噪）可能引噪
+      - generic [ref=f299e208]: · 远场/混响分析有限
+      - generic [ref=f299e209]: · 未与 FixMatch / UDA 等半监督方法对比
+      - generic [ref=f299e210]: · 无真实用户环境 A/B
+      - generic [ref=f299e211]: 注：数字为笔记记录的约值（内部数据集为主）；噪声测试集含多种噪声类型与 SNR 级别（20dB 到 0dB）；低 SNR 下改善更显著——越难的条件收益越大
+    - generic [ref=f299e212]: 图3 · 主结果：左是迭代轮次的累积收益（第一轮大头、逐轮递减），右是标注稀缺场景的恢复能力（10% 标注 + 未标注 ≈ 100% 基线）与证据边界。
+  - table [ref=f299e213]:
+    - rowgroup [ref=f299e214]:
+      - row [ref=f299e215]:
+        - columnheader "评测线" [ref=f299e216]
+        - columnheader "结果（约值）" [ref=f299e217]
+        - columnheader "解读" [ref=f299e218]
+      - row [ref=f299e219]:
+        - cell "噪声测试 vs 教师" [ref=f299e220]
+        - cell "+5–10%" [ref=f299e221]
+        - cell "学生青出于蓝" [ref=f299e222]
+      - row [ref=f299e223]:
+        - cell "迭代累积" [ref=f299e224]
+        - cell "第一轮 +3–5% · 第二轮 +1–3% · 第三轮递减" [ref=f299e225]
+        - cell "典型甜点 2–3 轮" [ref=f299e226]
+      - row [ref=f299e227]:
+        - cell "噪声类型" [ref=f299e228]
+        - cell "环境/音乐/人声嘈杂全改善" [ref=f299e229]
+        - cell "低 SNR 下更显著" [ref=f299e230]
+      - row [ref=f299e231]:
+        - cell "误报" [ref=f299e232]
+        - cell "下降，同时召回保持/提升" [ref=f299e233]
+        - cell "不是拿误报换召回" [ref=f299e234]
+      - row [ref=f299e235]:
+        - cell "标注稀缺" [ref=f299e236]
+        - cell "10% 标注 + 未标注 ≈ 100% 基线" [ref=f299e237]
+        - cell "标注预算放大 10×" [ref=f299e238]
+  - generic [ref=f299e239]:
+    - generic [ref=f299e240]: 读表要点
+    - listitem [ref=f299e241]: ◈ 「低 SNR 下改善更显著」有信息量：NST 的收益集中在最难的条件——未标注数据的多样性恰好覆盖了这些训练分布之外的角落。鲁棒性主张与数据机制自洽。
+    - listitem [ref=f299e242]: ◈ 「误报下降 + 召回不降」打破了「增强换鲁棒必伤精度」的直觉——伪标签锚定方向 + 置信度过滤的功劳；这也是方法能上 Google 产品的必要条件。
+    - listitem [ref=f299e243]: ◈ 证据边界要记：未标注数据量需求大（低资源语言难）；总训练时间数倍；伪标签质量在模糊样本上有系统风险；未与 FixMatch/UDA 横比、无真实用户 A/B——「产品可用」的背书来自 Google 内部实践而非论文实验。
+  - heading "§04 贡献" [level=2] [ref=f299e244]:
+    - generic [ref=f299e245]: §04
+    - text: 贡献
+  - generic [ref=f299e246]: 四点：从跨领域迁移到产品落地
+  - generic [ref=f299e247]:
+    - generic [ref=f299e248]:
+      - generic [ref=f299e249]: "1"
+      - paragraph [ref=f299e250]: 首次将 NST 应用于流式 KWS：跨领域迁移证明方法的通用性——时序音频任务同样能借半监督自训练大幅提升鲁棒性。
+    - generic [ref=f299e251]:
+      - generic [ref=f299e252]: "2"
+      - paragraph [ref=f299e253]: 证明未标注数据显著提升 KWS 鲁棒性：标注有限时，大量未标注数据 + 伪标签让各种噪声条件下的性能大幅提升。
+    - generic [ref=f299e254]:
+      - generic [ref=f299e255]: "3"
+      - paragraph [ref=f299e256]: 迭代自训练的累积收益：多轮教师-学生迭代逐步提升鲁棒性，每轮都有可测量改善——给出了迭代次数的工程参考（2–3 轮）。
+    - generic [ref=f299e257]:
+      - generic [ref=f299e258]: "4"
+      - paragraph [ref=f299e259]: 生产级可用性：方法已应用于 Google 实际产品——工程可行性的最硬背书。
+  - heading "§05 局限与判断" [level=2] [ref=f299e260]:
+    - generic [ref=f299e261]: §05
+    - text: 局限与判断
+  - generic [ref=f299e262]: 数据需求 · 训练成本 · 伪标签噪声
+  - generic [ref=f299e263]:
+    - img [ref=f299e264]:
+      - generic [ref=f299e266]: 边界与延伸
+      - generic [ref=f299e268]: 技术边界
+      - generic [ref=f299e269]: · 未标注数据需求：数十到数百倍于标注量——低资源语言/
+      - generic [ref=f299e270]: 特定领域可能拿不到这个量的未标注音频
+      - generic [ref=f299e271]: · 多轮训练时间：每轮完整训练 + 伪标签生成——总时间是
+      - generic [ref=f299e272]: 单次训练的数倍（工程成本要与收益对账）
+      - generic [ref=f299e273]: · 伪标签噪声：声学模糊样本（弱音量/高噪声）的伪标签
+      - generic [ref=f299e274]: 可能不准——噪声标签是自训练的经典风险
+      - generic [ref=f299e275]: · 远场/混响分析有限——鲁棒性主张覆盖面有缺口
+      - generic [ref=f299e277]: 实验边界 + 延伸
+      - generic [ref=f299e278]: · 最优噪声注入策略因部署场景而异——无系统性选择指南
+      - generic [ref=f299e279]: · 未与 FixMatch / UDA 等半监督方法对比
+      - generic [ref=f299e280]: · 缺真实用户环境 A/B 测试
+      - generic [ref=f299e281]: 延伸：SSL 预训练提升伪标签质量；主动学习选择性标注
+      - generic [ref=f299e282]: 最有价值样本；在线自训练（部署后从用户数据持续学习）
+      - generic [ref=f299e283]: ——自训练范式推广到更多语音任务
+      - generic [ref=f299e284]: 可迁移判断：半监督是解 KWS 数据瓶颈与鲁棒性的有力工具——「教师定方向、噪声练学生」的自训练范式不依赖任务细节，可平移到任何有大量未标注数据的语音任务
+    - generic [ref=f299e285]: 图4 · 边界与延伸：左技术边界（未标注数据需求、多轮训练时间、伪标签噪声、远场混响缺口），右实验边界（噪声策略无选择指南、无半监督横比、无 A/B）+ 延伸方向。
+  - generic [ref=f299e286]:
+    - generic [ref=f299e287]: 可迁移判断
+    - paragraph [ref=f299e288]: ↳ 教师定方向、噪声练学生：自训练范式的本质是「在更难的条件里学标准答案」——不依赖任务细节，任何有大量未标注数据 + 部署条件恶劣的语音任务都可平移（增强类型按任务重设计即可）。
+    - paragraph [ref=f299e289]: ↳ 未标注数据是鲁棒性的免费来源：10% 标注 + 未标注 ≈ 100% 基线——标注预算的价值被放大十倍。决策「要不要投资标注」之前，先算手里未标注数据的存量。
+    - paragraph [ref=f299e290]: ↳ 置信度过滤是自训练的安全带：宁可用得少、不能用得错——低置信度伪标签的引入是系统性投毒。所有伪标签工作流都该默认带这道闸门。
+    - paragraph [ref=f299e291]: ↳ 迭代收益递减要提前认账：第一轮大头、逐轮递减、2–3 轮封顶——自训练的计算成本是线性叠加的，边际收益递减意味着该停就停；「再来一轮总会有提升」不成立。
+  - generic [ref=f299e292]:
+    - link "arXiv 2106.01604 ↗" [ref=f299e293] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2106.01604
+    - link "← 返回总目录" [ref=f299e294] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f299e295]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值（Google 内部数据为主）· 2021 №20 · 205+/305
