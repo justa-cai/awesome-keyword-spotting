@@ -1,0 +1,306 @@
+- generic [ref=f258e2]:
+  - generic [ref=f258e3]: 论文精读 · 可视化版 · 2022 №42
+  - heading "窗口长度怎么选都错？ 那就滑窗定位、变长确认：52K 参数的双路唤醒检测" [level=1] [ref=f258e4]: 窗口长度怎么选都错？那就滑窗定位、变长确认：52K 参数的双路唤醒检测
+  - generic [ref=f258e5]:
+    - generic [ref=f258e6]: SE-Res2Net · 双路干预式检测
+    - generic [ref=f258e7]: arXiv 2209.15296 · letter 短文
+    - generic [ref=f258e8]: Mobvoi SLR87 · Hi Xiaowen / Nihao Wenwen
+    - generic [ref=f258e9]: 52K 参数 · FRR@FAH=0.5：0.53% / 0.30%
+  - generic [ref=f258e10]: 一句话：唤醒词长度在 30–200 帧间浮动（近 7 倍），CNN 却要定长输入——固定窗口对长短词两头都失败。本文用双路拆解这个两难：M1 滑窗学局部模式并常驻扫描定位，M0 把变长片段插值到 200 帧学全局轮廓、只在疑似区域介入确认。骨干用 SE-Res2Net（单层内多尺度感受野 + 学出来的尺度注意力）激进瘦到 52K，在 Mobvoi 上以 LF-MMI 一半参数站进 SOTA 区间，对 ResNet 基线相对降幅最大 86.6%。
+  - generic [ref=f258e11]:
+    - generic [ref=f258e12]: TL;DR
+    - listitem [ref=f258e13]: ◈ 结构性矛盾：同一唤醒词因语速/停顿不同，频谱图 30–200 帧浮动，CNN 要求定长——词比窗长则全局轮廓拼不全（漏检），词比窗短则特征被污染（误唤醒），窗口长度怎么选都错。
+    - listitem [ref=f258e14]: ◈ 引言的关键论断：准确的唤醒词片段本身就有价值——问题不在模型容量，在喂进来的输入不干净不完整。VAD 只判「有没有人声」，不解决窗口错配。
+    - listitem [ref=f258e15]: ◈ M1 切片通路（局部）：滑窗逐段判「有没有唤醒词碎片」，窗长随词调（75/100 帧非全局一刀切）；子段标签直接继承整句（弱监督简化）——职责是定位不是切边界。
+    - listitem [ref=f258e16]: ◈ M0 整形通路（全局）：变长片段双线性插值到固定 200 帧（可预计算的卷积、零参数），学整个词的全局时序轮廓；不常驻——只在 M1 圈出疑似区域后介入，把贵的计算花在刀刃上。
+    - listitem [ref=f258e17]: ◈ 流式判决全手工但分层防抖：M1 分数超 γ₁ 记触发点 → ≥2 个连续触发点才唤 M0（单偶发高分被过滤）→ y_M1 取 max、M0 看首末触发点之间 → 平均分判决 → 1 秒不应期防重复。
+    - listitem [ref=f258e18]: ◈ 骨干贡献拆解：ResNet→Res2Net 约 −31%（单层内 1~s−1 次卷积深度并存的多尺度），Res2Net→SE 再砍大头（通道重标定 = 学出来的尺度注意力）——两个机制叠加非替代。
+    - listitem [ref=f258e19]: ◈ 瘦身交易：删整个 Conv5 stage（128K→52K，−60%），FRR 只涨 0.06/0.05 个点。52K vs LF-MMI 120K——但「性能相似」要按词拆读：四音节词好 40%，三音节词差 32.5%。
+    - listitem [ref=f258e20]: ◈ 两处按下不表的空白：双路设计无独立消融（M0-only/M1-only 对照缺失，框架收益与骨干收益不可分离）；零部署侧实测（延迟/功耗未报，参数口径还不明——若 52K 是单分类器，系统总量翻倍）。
+  - heading "§01 问题：变长目标 vs 定长模型" [level=2] [ref=f258e21]:
+    - generic [ref=f258e22]: §01
+    - text: 问题：变长目标 vs 定长模型
+  - generic [ref=f258e23]: 四条老路线的不足 + 固定窗口的不对称失败
+  - generic [ref=f258e24]:
+    - generic [ref=f258e25]:
+      - heading "词比窗口长：拼不全" [level=3] [ref=f258e26]
+      - paragraph [ref=f258e27]: 固定窗（如 1 秒非重叠段）每次只看到唤醒词的局部特征，整个词的全局时序轮廓永远拼不完整——模型永远在看局部，漏检成为结构性结果。
+    - generic [ref=f258e28]:
+      - heading "词比窗口短：被污染" [level=3] [ref=f258e29]
+      - paragraph [ref=f258e30]: 窗口里混进大量非唤醒词语音，全局特征被污染，误唤醒随之而来。加 VAD 只能省算力——它只判断「有没有人声」，完全不解决窗口与词长的错配。
+    - generic [ref=f258e31]:
+      - heading "老路线各自的行李" [level=3] [ref=f258e32]
+      - paragraph [ref=f258e33]: LVCSR 换词方便但算力远超常驻预算；keyword/filler HMM 至今有竞争力但解码图是工程负担；负例挖掘系统训练要额外的 HMM-TDNN 声学模型；LF-MMI 是混合 HMM/DNN 框架——附加依赖在小足迹部署里都是实打实的成本。
+    - generic [ref=f258e34]:
+      - heading "RNN 的串行代价" [level=3] [ref=f258e35]
+      - paragraph [ref=f258e36]: 连续输入流可能状态饱和；时序串行依赖让 chunk 流式无法并行，即使有 GPU 计算成本与延迟也上升。唤醒词很短，堆叠多层 CNN 的感受野足以覆盖——不必付 RNN 的代价。
+  - generic [ref=f258e37]:
+    - img [ref=f258e38]:
+      - generic [ref=f258e40]: Res2Net 唤醒词检测：滑窗定位 + 变长插值确认，52K 参数拆掉固定窗口两难
+      - generic [ref=f258e41]: ① 变长目标撞上定长模型：窗口长度怎么选都错
+      - generic [ref=f258e43]: 同一唤醒词，不同人的语速/发音/停顿让频谱图长度在 30–200 帧之间浮动（跨度近 7 倍）；CNN 本质上要求定长输入——变长目标 vs 定长模型的结构性矛盾
+      - generic [ref=f258e44]: 关键论断：准确的唤醒词音频片段本身就能给系统提供有价值信息——问题不在模型容量，而在喂给模型的输入不干净、不完整（VAD 只判有无人声，不解决窗口错配）
+      - generic [ref=f258e46]: 词比窗口长 → 拼不全
+      - generic [ref=f258e47]: 固定窗（如 1 秒非重叠段）每次只看到唤醒词的局部特征，整个词的
+      - generic [ref=f258e48]: 全局时序轮廓永远拼不完整——持续漏检
+      - generic [ref=f258e50]: 词比窗口短 → 被污染
+      - generic [ref=f258e51]: 窗口里混进大量非唤醒词语音，全局特征被污染，误唤醒随之而来——
+      - generic [ref=f258e52]: 固定窗口无论设多长都不可能同时适配长短两种情形
+      - generic [ref=f258e54]: 老路线的附加依赖
+      - generic [ref=f258e55]: LVCCR/HMM 方案要解码图（维护负担）；keyword/filler HMM 的 Viterbi 开销
+      - generic [ref=f258e56]: 依赖拓扑；负例挖掘系统训练要额外 HMM-TDNN；LF-MMI 是混合 HMM/DNN 框架
+      - generic [ref=f258e57]: ② 双路特征 + 干预式两级：M1 先扫，M0 只在疑似区域介入
+      - generic [ref=f258e59]: M1 切片通路 · 学局部模式
+      - generic [ref=f258e60]: 滑窗（长 w · 步长 s=重叠 0.3）把频谱图切成许多
+      - generic [ref=f258e61]: 子频谱图，逐段判断「有没有唤醒词碎片」
+      - generic [ref=f258e62]: · 窗口太大 → 失去局部价值（退化成全局检测）
+      - generic [ref=f258e63]: · 窗口太小 → 单窗信息量不足学不到特征
+      - generic [ref=f258e64]: · 窗长随词调：Hi Xiaowen w=75 · Nihao Wenwen
+      - generic [ref=f258e65]: w=100 帧（不是全局一刀切）
+      - generic [ref=f258e66]: 标签继承（弱监督简化）：子段直接继承整句标签
+      - generic [ref=f258e67]: ——(a)(b)(c) 含部分/全部唤醒词都算正例，(d) 负例
+      - generic [ref=f258e68]: 职责 = 定位：M1 只判碎片存在性，不切精确边界
+      - generic [ref=f258e70]: M0 整形通路 · 学全局模式
+      - generic [ref=f258e71]: 变长频谱图双线性插值统一到固定 200 帧
+      - generic [ref=f258e72]: （同一段语音的频谱结构相似，插值只改时间轴
+      - generic [ref=f258e73]: 采样密度不破坏结构——可预计算的卷积，零参数）
+      - generic [ref=f258e74]: M0 从等尺寸频谱图学整个唤醒词的全局时序轮廓
+      - generic [ref=f258e75]: 推理时不常驻：只在 M1 圈出疑似区域后介入，检测
+      - generic [ref=f258e76]: 「第一触发点到最后触发点」之间的变长片段（同样
+      - generic [ref=f258e77]: 插值到训练尺寸）→ 把贵的计算花在刀刃上
+      - generic [ref=f258e78]: 最终分数 y_f = (y_M0 + y_M1) / 2 > γ₁ → 触发
+      - generic [ref=f258e79]: ③ 骨干：单层内多尺度（Res2Net）+ 学出来的尺度注意力（SE）
+      - generic [ref=f258e81]: Res2Net 块
+      - generic [ref=f258e82]: 特征图按通道切 s=4 份，x₂ 起各过一个 3×3 卷积；从 x₃ 起输入先与上一
+      - generic [ref=f258e83]: 段输出相加——同一层内天然并存 1 到 s−1 次卷积深度的感受野层级。
+      - generic [ref=f258e84]: bottleneck 各分支感受野完全相同——这就是差距来源
+      - generic [ref=f258e86]: SE 块
+      - generic [ref=f258e87]: 通道重标定：全局池化 → 瓶颈网络生成门控 → 逐通道缩放。多尺度通路的通道
+      - generic [ref=f258e88]: 对应不同粒度特征、贡献天然不均——SE 相当于学出来的「尺度注意力」，
+      - generic [ref=f258e89]: 消融里 SE 是最大的单一增益来源（Res2Net→SE 再砍约 55%）
+      - generic [ref=f258e91]: 激进瘦身
+      - generic [ref=f258e92]: 通道压到 4/8/16/32 + 「II 档」直接删整个 Conv5 stage（删整段比均匀变窄省）：
+      - generic [ref=f258e93]: 128K→52K（−60%），FRR 只从 0.47%/0.25% 升到 0.53%/0.30%——
+      - generic [ref=f258e94]: Conv5 在 200 帧输入上冗余度很高，「深度换参数」相当划算
+      - generic [ref=f258e96]: 同构性适配逻辑
+      - generic [ref=f258e97]: 目标检测要同时处理大小悬殊的物体，唤醒词要同时处理长短悬殊的词——
+      - generic [ref=f258e98]: 两者对「单层内多感受野」的需求同构，这是视觉骨干迁移进 WWD 的
+      - generic [ref=f258e99]: 适配理由（应用创新，非结构创新）
+      - generic [ref=f258e101]: 52K
+      - generic [ref=f258e102]: 参数（LF-MMI 系统的一半）
+      - generic [ref=f258e103]: 0.53/0.30%
+      - generic [ref=f258e104]: 两词 FRR@FAH=0.5
+      - generic [ref=f258e105]: −86.6%
+      - generic [ref=f258e106]: vs ResNet50-II（Hi Xiaowen）
+      - generic [ref=f258e107]: −12~50%
+      - generic [ref=f258e108]: vs 流式 transformer（57K）
+      - generic [ref=f258e109]: 30–200
+      - generic [ref=f258e110]: 唤醒词帧长跨度（~7×）
+      - generic [ref=f258e111]: arXiv 2209.15296（letter 短文 · 机构未报告）；Mobvoi SLR87 两唤醒词（Hi Xiaowen 三音节 / Nihao Wenwen 四音节），每词单独训二分类模型、另一词计入负例；训练 144h/17.5 万条 · 测试 74h/7.3 万条；1024 DFT · 256 Mel · hop 160；Adam 2e-4 · 前 5 轮 SpecAugment
+    - generic [ref=f258e112]: 图1 · 机制全景：上半是 30–200 帧变长矛盾与两条失败模式，中段是双路特征 + 干预式两级流水，下半是 Res2Net/SE 骨干机制与激进瘦身。
+  - heading "§02 方法：定位交给滑窗，确认交给插值" [level=2] [ref=f258e113]:
+    - generic [ref=f258e114]: §02
+    - text: 方法：定位交给滑窗，确认交给插值
+  - generic [ref=f258e115]: 把 HMM 里 Viterbi 解码搜索的职责移植进纯 CNN 世界
+  - generic [ref=f258e116]:
+    - generic [ref=f258e117]: "Res2Net 块（s=4，通道切分 + 层内级联）: y₁ = x₁ # 不过卷积，等效深度 0 y₂ = K₂(x₂) # 一次 3×3，等效深度 1 yᵢ = Kᵢ(xᵢ + yᵢ₋₁) 2<i≤s # 输入混入上一段输出，深度递增"
+    - generic [ref=f258e118]: 人话：同一层之内天然并存 1 到 s−1 次卷积深度的感受野层级——这是「免费」的结构属性，对比 bottleneck 各分支感受野完全相同。多个块堆叠后因组合效应拿到各种粒度的表示。适配逻辑：目标检测要处理大小悬殊的物体，唤醒词要处理长短悬殊的词——对「单层内多感受野」的需求同构。
+  - generic [ref=f258e119]:
+    - generic [ref=f258e120]: "M1 滑窗打分 → 分数 > γ₁ 记触发点 → ≥2 个连续触发点 = 疑似区域 y_M1 = max(连续触发点分数) # 一个强响应子段即可顶起——匹配「碎片存在性」职责 M0 介入：检测第一触发点~最后触发点间的片段（插值到 200 帧）→ y_M0 y_f = (y_M0 + y_M1)/2 > γ₁ → 触发 → 1 秒不应期"
+    - generic [ref=f258e121]: 人话：M1 窗小、扫描频繁但单次便宜，适合常驻；M0 大而全但调用稀疏——常驻系统的平均算力被压低。M0 的输入被触发点天然「裁剪」，等于推理时自动做了一次内容聚焦，窗外语音不进全局判别。「两个连续触发点」是对孤立虚警的廉价防抖；γ₁ 一阈值两用（子段触发 + 最终判决），开发集上调整。
+  - generic [ref=f258e122]:
+    - generic [ref=f258e123]:
+      - heading "双线性插值为什么敢用" [level=3] [ref=f258e124]
+      - paragraph [ref=f258e125]: 依据是「同一段语音的频谱图结构相似」——插值只改变时间轴采样密度不破坏结构。且它不是可学习变换而是一次可预计算的卷积，训练推理零额外参数。边界：30 帧拉到 200 帧 ≈ 6.7 倍拉伸，极端缩放下是否保住判别特征论文未分析。
+    - generic [ref=f258e126]:
+      - heading "标签继承的容忍度" [level=3] [ref=f258e127]
+      - paragraph [ref=f258e128]: 子段继承整句标签——(a)(b)(c) 含部分/全部唤醒词都是正例，(d) 负例。M1 只判「碎片存在性」，这个粒度的监督够用；代价是无法区分「Nihao Wen」与「Nihao Wenwen」的尾部差异——对同产品线易混词的区分能力存疑。
+  - generic [ref=f258e129]:
+    - img [ref=f258e130]:
+      - generic [ref=f258e132]: 机制解剖：Res2Net 的层内级联 · 流式判决的时间线
+      - generic [ref=f258e133]: Res2Net 块：一层之内的感受野阶梯
+      - generic [ref=f258e136]: x1
+      - generic [ref=f258e138]: x2
+      - generic [ref=f258e140]: x3
+      - generic [ref=f258e142]: x4
+      - generic [ref=f258e144]: y₁=x₁
+      - generic [ref=f258e145]: 等效深度 0
+      - generic [ref=f258e147]: K₂
+      - generic [ref=f258e149]: y₂
+      - generic [ref=f258e150]: 等效深度 1
+      - generic [ref=f258e152]: x₃+y₂
+      - generic [ref=f258e154]: K₃
+      - generic [ref=f258e156]: y₃
+      - generic [ref=f258e157]: 深度 2
+      - generic [ref=f258e159]: y₄ 同理（深度 3）· 拼接 → 1×1 卷积；块堆叠后组合出各种粒度
+      - generic [ref=f258e160]: 流式判决时间线（第 II.B.3 节）
+      - generic [ref=f258e193]: M1 滑窗扫描（单次便宜 · 常驻）
+      - generic [ref=f258e197]: 触发点（分数 > γ₁）
+      - generic [ref=f258e199]: ≥2 个连续触发点 → 疑似区域
+      - generic [ref=f258e200]: 第一触发点 ————————— 最后触发点
+      - generic [ref=f258e201]: ↓ M0 介入（变长片段插值到 200 帧再推理）
+      - generic [ref=f258e202]: · y_M1 = 连续触发点的 max（一个强响应子段即可顶起）
+      - generic [ref=f258e203]: · y_f = (y_M0 + y_M1)/2 > γ₁ → 触发
+      - generic [ref=f258e204]: · 触发后 1 秒不应期：期间命中全忽略（防重复触发）
+      - generic [ref=f258e205]: 三层廉价防抖：单偶发高分不唤 M0；max 聚合匹配「碎片存在性」
+      - generic [ref=f258e206]: 职责；M0 输入被触发点天然裁剪——窗外语音不进全局判别
+      - generic [ref=f258e207]: γ₁ 一阈值两用（子段触发 + 最终判决），开发集上调整
+      - generic [ref=f258e208]: 左：bottleneck 各分支感受野相同，Res2Net 用通道切分 + 层内级联让 1~s−1 次卷积深度并存——多尺度是「免费」的结构属性。右：M1 常驻扫描、M0 按需介入——把 HMM 里 Viterbi 找最优路径的职责换成了滑窗 CNN + 阈值逻辑
+    - generic [ref=f258e209]: 图2 · 机制解剖：左是 Res2Net 块的层内感受野阶梯（对比 bottleneck 的同感受野分支），右是流式判决时间线——滑窗、触发点、连续规则、M0 介入窗口与不应期。
+  - heading "§03 实验：骨干链三连降 + SOTA 区间" [level=2] [ref=f258e210]:
+    - generic [ref=f258e211]: §03
+    - text: 实验：骨干链三连降 + SOTA 区间
+  - generic [ref=f258e212]: FRR@FAH=0.5（虚警预算下的误拒率）· DET 曲线 · 六配置消融
+  - generic [ref=f258e213]:
+    - img [ref=f258e214]:
+      - generic [ref=f258e216]: 主结果：骨干链上的三连降 + 52K 站进 SOTA 区间
+      - generic [ref=f258e217]: 骨干替换链 · FRR@FAH=0.5 相对降幅
+      - generic [ref=f258e220]: ResNet50-II（基线）
+      - generic [ref=f258e221]: Basic 块 · 单一感受野
+      - generic [ref=f258e224]: → Res2Net50-II
+      - generic [ref=f258e225]: −31.2% / −23.1%（两词）
+      - generic [ref=f258e226]: 多尺度感受野的贡献
+      - generic [ref=f258e229]: → SE-Res2Net50-II
+      - generic [ref=f258e230]: −86.6% / −65.5%（累计 vs 基线）
+      - generic [ref=f258e231]: SE 是最大单一增益
+      - generic [ref=f258e232]: 读法：ResNet→Res2Net 贡献约三成（多尺度），Res2Net→SE 再贡献
+      - generic [ref=f258e233]: 剩余大头（通道注意力）——两个机制叠加而非互相替代
+      - generic [ref=f258e235]: 瘦身交易（I → II：删 Conv5）
+      - generic [ref=f258e236]: 参数 128K → 52K（−60%），FRR 仅 0.47%→0.53% /
+      - generic [ref=f258e237]: 0.25%→0.30%——Conv5 在 200 帧输入上冗余度很高，
+      - generic [ref=f258e238]: "\"深度换参数\"相当划算"
+      - generic [ref=f258e239]: 四音节词比三音节词整体更易检（DET 曲线对比）——
+      - generic [ref=f258e240]: 音节多 = 可判别时序结构更长，对产品选词有直接参考价值
+      - generic [ref=f258e241]: 与先前系统对比（Table II · FRR@FAH=0.5）
+      - generic [ref=f258e243]: 系统
+      - generic [ref=f258e244]: 参数
+      - generic [ref=f258e245]: FRR%（XW / NW）
+      - generic [ref=f258e247]: 负例挖掘 [30]
+      - generic [ref=f258e248]: N/A
+      - generic [ref=f258e249]: 1.30 / 1.00
+      - generic [ref=f258e251]: LF-MMI（混合 HMM/DNN）
+      - generic [ref=f258e252]: 120K
+      - generic [ref=f258e253]: 0.40 / 0.50
+      - generic [ref=f258e255]: 流式 transformer
+      - generic [ref=f258e256]: 57K
+      - generic [ref=f258e257]: 0.60 / 0.60
+      - generic [ref=f258e259]: SE-Res2Net50-I
+      - generic [ref=f258e260]: 128K
+      - generic [ref=f258e261]: 0.47 / 0.25
+      - generic [ref=f258e263]: SE-Res2Net50-II ★
+      - generic [ref=f258e264]: 52K
+      - generic [ref=f258e265]: 0.53 / 0.30
+      - generic [ref=f258e266]: XW = Hi Xiaowen · NW = Nihao Wenwen · 越低越好
+      - generic [ref=f258e268]: 声明核对（深读必要动作）
+      - generic [ref=f258e269]: · 「超 transformer 12–50%」：XW 上实为 11.7%（口径略乐观）
+      - generic [ref=f258e270]: · 「与 LF-MMI 性能相似」：NW 好 40%，XW 差 32.5%
+      - generic [ref=f258e271]: ——「相似」抹平了按词拆看的胜负
+      - generic [ref=f258e272]: · 对负例挖掘是干净的胜利：全面更低 + 训练无需额外
+      - generic [ref=f258e273]: HMM-TDNN 声学模型
+      - generic [ref=f258e274]: · 引用编号疑似互换（[27]/[31]）· Fig.1 标注漏「2」
+      - generic [ref=f258e275]: 注：所有系统均无端侧实测（延迟/RTF/内存/功耗未报）；128K/52K 未说明是单分类器还是 M0+M1 之和——若是单分类器口径，系统总参数翻倍，「参数只有 LF-MMI 一半」的说法不成立
+    - generic [ref=f258e276]: 图3 · 主结果：左是骨干替换链的相对降幅与瘦身交易、音节数效应，右是 Table II 五系统对比与声明核对（「12%」实为 11.7%、「相似」抹平按词胜负）。
+  - table [ref=f258e277]:
+    - rowgroup [ref=f258e278]:
+      - row [ref=f258e279]:
+        - columnheader "系统（Table II）" [ref=f258e280]
+        - columnheader "参数" [ref=f258e281]
+        - columnheader "Hi Xiaowen FRR" [ref=f258e282]
+        - columnheader "Nihao Wenwen FRR" [ref=f258e283]
+        - columnheader "附注" [ref=f258e284]
+      - row [ref=f258e285]:
+        - cell "负例挖掘系统" [ref=f258e286]
+        - cell "N/A" [ref=f258e287]
+        - cell "1.30%" [ref=f258e288]
+        - cell "1.00%" [ref=f258e289]
+        - cell "训练需额外 HMM-TDNN" [ref=f258e290]
+      - row [ref=f258e291]:
+        - cell "Alignment-Free LF-MMI" [ref=f258e292]
+        - cell "120K" [ref=f258e293]
+        - cell "0.40%" [ref=f258e294]
+        - cell "0.50%" [ref=f258e295]
+        - cell "混合 HMM/DNN 框架" [ref=f258e296]
+      - row [ref=f258e297]:
+        - cell "流式 transformer" [ref=f258e298]
+        - cell "57K" [ref=f258e299]
+        - cell "0.60%" [ref=f258e300]
+        - cell "0.60%" [ref=f258e301]
+        - cell "—" [ref=f258e302]
+      - row [ref=f258e303]:
+        - cell "SE-Res2Net50-I" [ref=f258e304]
+        - cell "128K" [ref=f258e305]
+        - cell "0.47%" [ref=f258e306]
+        - cell "0.25%" [ref=f258e307]
+        - cell "只压通道" [ref=f258e308]
+      - row [ref=f258e309]:
+        - cell "SE-Res2Net50-II ★" [ref=f258e310]
+        - cell "52K" [ref=f258e311]
+        - cell "0.53%" [ref=f258e312]
+        - cell "0.30%" [ref=f258e313]
+        - cell "+删 Conv5 · 约 LF-MMI 一半参数" [ref=f258e314]
+  - generic [ref=f258e315]:
+    - generic [ref=f258e316]: 读表要点
+    - listitem [ref=f258e317]: ◈ 协议设计贴近真实：每个唤醒词单独训二分类模型，另一个唤醒词计入负例——用户说别的命令词不应触发本词模型，比只用随机负例更贴近真实误唤醒场景。
+    - listitem [ref=f258e318]: ◈ 训练细节：1024 DFT · 256 Mel 带 · hop 160；Adam lr 2e-4；前 5 轮 SpecAugment（时间掩码 0–30 帧 / 频率掩码 0–20 维，每批三份样本各做一种）——正例有限时模拟丢帧与频带缺失。
+    - listitem [ref=f258e319]: ◈ 附带发现（产品选词直接可用）：四音节词比三音节词整体更易检——音节多 = 可判别时序结构更长，Nihao Wenwen 的 DET 曲线整体优于 Hi Xiaowen。
+    - listitem [ref=f258e320]: ◈ 引用注意：Table II 行名与参考文献编号疑似互换（[27]/[31]）；Fig.1 图内标注 SE-ResNet50 疑漏「2」——数值不受影响，但对应关系混乱是这篇 letter 的明显瑕疵。
+  - heading "§04 贡献" [level=2] [ref=f258e321]:
+    - generic [ref=f258e322]: §04
+    - text: 贡献
+  - generic [ref=f258e323]: 四点：从双路框架到选词判断
+  - generic [ref=f258e324]:
+    - generic [ref=f258e325]:
+      - generic [ref=f258e326]: "1"
+      - paragraph [ref=f258e327]: 双路特征管线 + 干预式两级检测：M1 滑窗学局部并粗定位、M0 变长插值学全局并确认、平均分判决——机制上拆解固定窗口两难，系统自行确定唤醒词位置、不依赖任何辅助网络。
+    - generic [ref=f258e328]:
+      - generic [ref=f258e329]: "2"
+      - paragraph [ref=f258e330]: Res2Net 引入唤醒词检测：目标检测的多尺度骨干与「唤醒词时长差异大」同构；消融显示骨干替换是仅次于 SE 的性能来源（−31.2%/−23.1%）。
+    - generic [ref=f258e331]:
+      - generic [ref=f258e332]: "3"
+      - paragraph [ref=f258e333]: 结构瘦身到五万参数量级：通道缩减 + 删 Conv5，52K 参数（约 LF-MMI 一半），FAH=0.5 下 0.53%/0.30%，且训练不需要附加声学模型或对齐机制——部署链路干净。
+    - generic [ref=f258e334]:
+      - generic [ref=f258e335]: "4"
+      - paragraph [ref=f258e336]: 音节数效应的工程观察：四音节词天然比三音节词好检——为唤醒词产品选词提供可迁移判断。
+  - heading "§05 局限与判断" [level=2] [ref=f258e337]:
+    - generic [ref=f258e338]: §05
+    - text: 局限与判断
+  - generic [ref=f258e339]: 核心创新无独立消融 · 零端侧实测 · 参数口径不明
+  - generic [ref=f258e340]:
+    - img [ref=f258e341]:
+      - generic [ref=f258e343]: 边界与延伸
+      - generic [ref=f258e345]: 技术边界
+      - generic [ref=f258e346]: · 弱标签的精度上限：子段继承整句标签——只含部分词的片段与完整片段
+      - generic [ref=f258e347]: 同标签，监督信号有系统性噪声；M1 无法区分「Nihao Wen」与
+      - generic [ref=f258e348]: 「Nihao Wenwen」的尾部差异——对易混词（同产品线两词）区分存疑
+      - generic [ref=f258e349]: · 判决规则全手工：两个连续触发点 · max 聚合 · 1s 不应期 · γ₁ 一阈值
+      - generic [ref=f258e350]: 两用，全在开发集调；对语速极端者（触发点间隔拉长跨窗错位）未验
+      - generic [ref=f258e351]: · 零部署证据：无延迟/RTF/内存/功耗——M0 对变长片段插值再推理的
+      - generic [ref=f258e352]: 耗时未测，「小足迹」只由参数量间接支撑
+      - generic [ref=f258e353]: · 插值畸变风险：30 帧词拉到 200 帧 ≈ 6.7 倍时间轴拉伸，极端缩放下
+      - generic [ref=f258e354]: 是否保住判别特征未分析
+      - generic [ref=f258e355]: · 每词一模型：多唤醒词产品训练/存储线性增长
+      - generic [ref=f258e357]: 实验边界 + 延伸
+      - generic [ref=f258e358]: · 核心创新无独立消融：M0-only / M1-only / 双路 的对照缺失——
+      - generic [ref=f258e359]: 「干预式双路」与「SE-Res2Net 骨干」两个创新的贡献不可分离
+      - generic [ref=f258e360]: · 窗长 w / 重叠率 s / 插值目标 200 帧 / 标签继承策略，均无扫参
+      - generic [ref=f258e361]: · 参数统计口径不明（单分类器还是 M0+M1 之和？）
+      - generic [ref=f258e362]: · 只在 SLR87 原始测试集：无远场/加噪/家庭噪声/跨数据集
+      - generic [ref=f258e363]: · 开发集构成、学习率调度、方差/显著性检验均未报；采样率未说明
+      - generic [ref=f258e364]: 延伸：M0/M1 共享骨干省一半参数；多窗长并列扫描适配语速；
+      - generic [ref=f258e365]: 端侧实测 + INT8 量化闭环；伪音素边界软标签替代整句继承；
+      - generic [ref=f258e366]: 加噪/远场复测；与深度可分离卷积路线（TC-ResNet/MatchboxNet）
+      - generic [ref=f258e367]: 同参数量公平对比
+      - generic [ref=f258e368]: 可迁移判断：真正的贡献不是 Res2Net（现成视觉骨干），而是「滑窗定位 + 变长插值确认」把 HMM 解码搜索的职责移植进纯 CNN 世界——复现时应把骨干收益与框架收益分开验证
+    - generic [ref=f258e369]: 图4 · 边界与延伸：左技术边界（弱标签上限、手工规则、零部署证据、插值畸变、每词一模型），右实验边界（双路无独立消融、超参无扫参、口径不明、无压力场景）+ 延伸方向。
+  - generic [ref=f258e370]:
+    - generic [ref=f258e371]: 可迁移判断
+    - paragraph [ref=f258e372]: ↳ 定位与确认分开，常驻的只做便宜的那半：M1 小窗常驻扫描、M0 大模型按需介入——平均算力被结构性压低。这个「先粗后精」的级联思路对任何常驻检测任务（VAD、事件检测）都适用。
+    - paragraph [ref=f258e373]: ↳ 变长输入不一定要 RNN：插值保结构 + 滑窗给定位，纯前馈也能吃变长序列——不想付串行代价时，先想想输入侧能不能重整，而不是直接上循环结构。
+    - paragraph [ref=f258e374]: ↳ 多尺度是免费的结构属性：Res2Net 的感受野阶梯来自通道切分 + 层内级联，不增加任何新算子——选骨干时「单层内感受野多样性」是一个被低估的杠杆（本文消融里值 31%）。
+    - paragraph [ref=f258e375]: ↳ 引用前先拆收益归属：本文的 SOTA 数字 = 双路框架 × SE-Res2Net 骨干 × 标签策略的组合效果，但没有 M0-only/M1-only 对照——复现或借鉴时，应把「框架带来的」与「骨干带来的」分开验证，否则容易把全部收益记到其中一个头上。
+  - generic [ref=f258e376]:
+    - link "arXiv 2209.15296 ↗" [ref=f258e377] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2209.15296
+    - link "← 返回总目录" [ref=f258e378] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f258e379]: 笔记与可视化页基于 arXiv v1（letter 短文）整理 · 机构未报告 · 表中数字以 Table I/II 为准（正文「1/4 通道」实为 1/16，疑相对内部基线）· 2022 №42 · 185+/305

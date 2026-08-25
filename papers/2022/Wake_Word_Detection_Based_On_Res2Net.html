@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wake Word Detection Based on Res2Net · 论文精读可视化</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;}
+.wrap{max-width:980px;margin:0 auto;padding:56px 28px 80px;}
+.kicker{font-size:13px;letter-spacing:.22em;color:var(--acc);font-weight:700;margin-bottom:14px;text-transform:uppercase;}
+h1.hero{font-size:40px;line-height:1.32;font-weight:800;letter-spacing:.01em;margin-bottom:18px;}
+h1.hero .g{color:var(--acc);}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+.chip{font-size:12.5px;padding:4px 13px;border:1px solid var(--line);border-radius:999px;color:var(--ink2);background:#fffdf8;}
+.chip.acc{background:var(--lt);border-color:#bfe5d6;color:var(--dk);}
+.meta{border-left:3px solid var(--acc);background:#fffdf8;padding:12px 18px;font-size:13.5px;color:var(--ink2);margin-bottom:40px;border-radius:0 8px 8px 0;}
+.meta b{color:var(--ink);}
+h2{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:800;margin:56px 0 6px;}
+h2 .no{flex:none;font-size:12px;font-weight:800;color:#fff;background:var(--ink);padding:3px 10px;border-radius:999px;letter-spacing:.08em;}
+.h2sub{font-size:13.5px;color:var(--ink3);margin:0 0 18px 46px;}
+.tldr{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-bottom:8px;}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--dk);letter-spacing:.12em;margin-bottom:10px;}
+.tldr li{list-style:none;font-size:14.5px;color:var(--ink2);padding-left:20px;position:relative;margin-bottom:7px;}
+.tldr li:before{content:"◈";position:absolute;left:0;color:var(--acc);font-size:12px;top:2px;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.card{background:#fffdf8;border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
+.card h3{font-size:15.5px;font-weight:700;margin-bottom:8px;}
+.card p{font-size:13.5px;color:var(--ink2);}
+.card.acc{background:var(--lt);border-color:#bfe5d6;}
+.card.acc h3{color:var(--dk);}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4;}
+.card.bad h3{color:var(--warn);}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--lt);color:var(--dk);margin-bottom:8px;}
+.fig{margin:26px 0;}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:14px;}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:10px;line-height:1.7;}
+.cap b{color:var(--ink2);}
+.formula{background:#fffdf8;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 12px 12px 0;padding:16px 20px;margin:16px 0;}
+.formula .f{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:15px;color:var(--ink);background:#f2f4ef;padding:10px 14px;border-radius:8px;margin-bottom:10px;overflow-x:auto;white-space:pre;}
+.formula .why{font-size:13.5px;color:var(--ink2);}
+.formula .why b{color:var(--dk);}
+table.tb{width:100%;border-collapse:collapse;background:#fffdf8;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:18px 0;font-size:13.5px;}
+table.tb th{background:var(--ink);color:#fff;padding:10px 14px;text-align:left;font-weight:700;font-size:13px;}
+table.tb td{padding:10px 14px;border-top:1px solid var(--line);color:var(--ink2);}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:700;}
+.contrib{background:#fffdf8;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:18px 0;}
+.contrib .row{display:flex;gap:16px;padding:12px 0;border-bottom:1px dashed var(--line);}
+.contrib .row:last-child{border-bottom:none;}
+.contrib .n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.contrib .row p{font-size:14px;color:var(--ink2);}
+.contrib .row p b{color:var(--ink);}
+.lim{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+.judge{background:#fffaf4;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:18px 0;}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.12em;margin-bottom:10px;}
+.judge p{font-size:14px;color:var(--ink2);margin-bottom:8px;}
+.judge p b{color:var(--ink);}
+.foot{margin-top:64px;padding-top:28px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.pill{display:inline-block;font-size:13px;font-weight:700;color:var(--dk);background:var(--lt);border:1px solid #bfe5d6;border-radius:999px;padding:7px 18px;text-decoration:none;}
+.pill.ghost{background:transparent;color:var(--ink2);border-color:var(--line);}
+.foot-note{font-size:12px;color:var(--ink3);margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2022 №42</div>
+<h1 class="hero">窗口长度怎么选都错？<br>那就<span class="g">滑窗定位、变长确认</span>：52K 参数的双路唤醒检测</h1>
+<div class="chips">
+<span class="chip acc">SE-Res2Net · 双路干预式检测</span>
+<span class="chip">arXiv 2209.15296 · letter 短文</span>
+<span class="chip">Mobvoi SLR87 · Hi Xiaowen / Nihao Wenwen</span>
+<span class="chip">52K 参数 · FRR@FAH=0.5：0.53% / 0.30%</span>
+</div>
+<div class="meta">
+<b>一句话</b>：唤醒词长度在 30–200 帧间浮动（近 7 倍），CNN 却要定长输入——固定窗口对长短词两头都失败。本文用双路拆解这个两难：M1 滑窗学局部模式并常驻扫描定位，M0 把变长片段插值到 200 帧学全局轮廓、只在疑似区域介入确认。骨干用 SE-Res2Net（单层内多尺度感受野 + 学出来的尺度注意力）激进瘦到 52K，在 Mobvoi 上以 LF-MMI 一半参数站进 SOTA 区间，对 ResNet 基线相对降幅最大 86.6%。
+</div>
+
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<li>结构性矛盾：同一唤醒词因语速/停顿不同，频谱图 30–200 帧浮动，CNN 要求定长——<b>词比窗长则全局轮廓拼不全（漏检），词比窗短则特征被污染（误唤醒）</b>，窗口长度怎么选都错。</li>
+<li>引言的关键论断：准确的唤醒词片段本身就有价值——问题不在模型容量，在喂进来的输入不干净不完整。VAD 只判「有没有人声」，不解决窗口错配。</li>
+<li><b>M1 切片通路</b>（局部）：滑窗逐段判「有没有唤醒词碎片」，窗长随词调（75/100 帧非全局一刀切）；子段标签直接继承整句（弱监督简化）——职责是定位不是切边界。</li>
+<li><b>M0 整形通路</b>（全局）：变长片段双线性插值到固定 200 帧（可预计算的卷积、零参数），学整个词的全局时序轮廓；<b>不常驻</b>——只在 M1 圈出疑似区域后介入，把贵的计算花在刀刃上。</li>
+<li>流式判决全手工但分层防抖：M1 分数超 γ₁ 记触发点 → <b>≥2 个连续触发点</b>才唤 M0（单偶发高分被过滤）→ y_M1 取 max、M0 看首末触发点之间 → 平均分判决 → 1 秒不应期防重复。</li>
+<li><b>骨干贡献拆解</b>：ResNet→Res2Net 约 −31%（单层内 1~s−1 次卷积深度并存的多尺度），Res2Net→SE 再砍大头（通道重标定 = 学出来的尺度注意力）——两个机制叠加非替代。</li>
+<li>瘦身交易：删整个 Conv5 stage（128K→52K，−60%），FRR 只涨 0.06/0.05 个点。52K vs LF-MMI 120K——但「性能相似」要按词拆读：四音节词好 40%，三音节词差 32.5%。</li>
+<li>两处按下不表的空白：<b>双路设计无独立消融</b>（M0-only/M1-only 对照缺失，框架收益与骨干收益不可分离）；<b>零部署侧实测</b>（延迟/功耗未报，参数口径还不明——若 52K 是单分类器，系统总量翻倍）。</li>
+</div>
+
+<h2><span class="no">§01</span>问题：变长目标 vs 定长模型</h2>
+<div class="h2sub">四条老路线的不足 + 固定窗口的不对称失败</div>
+<div class="cards">
+<div class="card bad">
+<h3>词比窗口长：拼不全</h3>
+<p>固定窗（如 1 秒非重叠段）每次只看到唤醒词的局部特征，整个词的全局时序轮廓永远拼不完整——模型永远在看局部，漏检成为结构性结果。</p>
+</div>
+<div class="card bad">
+<h3>词比窗口短：被污染</h3>
+<p>窗口里混进大量非唤醒词语音，全局特征被污染，误唤醒随之而来。加 VAD 只能省算力——它只判断「有没有人声」，完全不解决窗口与词长的错配。</p>
+</div>
+<div class="card">
+<h3>老路线各自的行李</h3>
+<p>LVCSR 换词方便但算力远超常驻预算；keyword/filler HMM 至今有竞争力但解码图是工程负担；负例挖掘系统训练要额外的 HMM-TDNN 声学模型；LF-MMI 是混合 HMM/DNN 框架——附加依赖在小足迹部署里都是实打实的成本。</p>
+</div>
+<div class="card">
+<h3>RNN 的串行代价</h3>
+<p>连续输入流可能状态饱和；时序串行依赖让 chunk 流式无法并行，即使有 GPU 计算成本与延迟也上升。唤醒词很短，堆叠多层 CNN 的感受野足以覆盖——不必付 RNN 的代价。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 900">
+<rect x="0.0" y="0.0" width="920.0" height="900.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Res2Net 唤醒词检测：滑窗定位 + 变长插值确认，52K 参数拆掉固定窗口两难</text>
+<line x1="36.0" y1="60.0" x2="760.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 变长目标撞上定长模型：窗口长度怎么选都错</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">同一唤醒词，不同人的语速/发音/停顿让频谱图长度在 30–200 帧之间浮动（跨度近 7 倍）；CNN 本质上要求定长输入——变长目标 vs 定长模型的结构性矛盾</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键论断：准确的唤醒词音频片段本身就能给系统提供有价值信息——问题不在模型容量，而在喂给模型的输入不干净、不完整（VAD 只判有无人声，不解决窗口错配）</text>
+<rect x="36.0" y="152.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="182.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">词比窗口长 → 拼不全</text>
+<text x="230.0" y="173.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">固定窗（如 1 秒非重叠段）每次只看到唤醒词的局部特征，整个词的</text>
+<text x="230.0" y="191.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">全局时序轮廓永远拼不完整——持续漏检</text>
+<rect x="36.0" y="210.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="240.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">词比窗口短 → 被污染</text>
+<text x="230.0" y="231.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">窗口里混进大量非唤醒词语音，全局特征被污染，误唤醒随之而来——</text>
+<text x="230.0" y="249.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">固定窗口无论设多长都不可能同时适配长短两种情形</text>
+<rect x="36.0" y="268.0" width="848.0" height="50.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="298.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">老路线的附加依赖</text>
+<text x="230.0" y="289.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">LVCCR/HMM 方案要解码图（维护负担）；keyword/filler HMM 的 Viterbi 开销</text>
+<text x="230.0" y="307.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">依赖拓扑；负例挖掘系统训练要额外 HMM-TDNN；LF-MMI 是混合 HMM/DNN 框架</text>
+<text x="36.0" y="336.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 双路特征 + 干预式两级：M1 先扫，M0 只在疑似区域介入</text>
+<rect x="36.0" y="352.0" width="416.0" height="200.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="374.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">M1 切片通路 · 学局部模式</text>
+<text x="52.0" y="396.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">滑窗（长 w · 步长 s=重叠 0.3）把频谱图切成许多</text>
+<text x="52.0" y="410.2" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">子频谱图，逐段判断「有没有唤醒词碎片」</text>
+<text x="52.0" y="424.4" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="438.6" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 窗口太大 → 失去局部价值（退化成全局检测）</text>
+<text x="52.0" y="452.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 窗口太小 → 单窗信息量不足学不到特征</text>
+<text x="52.0" y="467.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 窗长随词调：Hi Xiaowen w=75 · Nihao Wenwen</text>
+<text x="52.0" y="481.2" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  w=100 帧（不是全局一刀切）</text>
+<text x="52.0" y="495.4" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="509.6" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标签继承（弱监督简化）：子段直接继承整句标签</text>
+<text x="52.0" y="523.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——(a)(b)(c) 含部分/全部唤醒词都算正例，(d) 负例</text>
+<text x="52.0" y="538.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="552.2" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">职责 = 定位：M1 只判碎片存在性，不切精确边界</text>
+<rect x="468.0" y="352.0" width="416.0" height="200.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="676.0" y="374.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">M0 整形通路 · 学全局模式</text>
+<text x="484.0" y="396.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">变长频谱图双线性插值统一到固定 200 帧</text>
+<text x="484.0" y="410.2" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（同一段语音的频谱结构相似，插值只改时间轴</text>
+<text x="484.0" y="424.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">采样密度不破坏结构——可预计算的卷积，零参数）</text>
+<text x="484.0" y="438.6" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="452.8" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">M0 从等尺寸频谱图学整个唤醒词的全局时序轮廓</text>
+<text x="484.0" y="467.0" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="481.2" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">推理时不常驻：只在 M1 圈出疑似区域后介入，检测</text>
+<text x="484.0" y="495.4" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「第一触发点到最后触发点」之间的变长片段（同样</text>
+<text x="484.0" y="509.6" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">插值到训练尺寸）→ 把贵的计算花在刀刃上</text>
+<text x="484.0" y="523.8" font-size="8.8" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="538.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">最终分数 y_f = (y_M0 + y_M1) / 2 &gt; γ₁ → 触发</text>
+<text x="36.0" y="576.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 骨干：单层内多尺度（Res2Net）+ 学出来的尺度注意力（SE）</text>
+<rect x="36.0" y="592.0" width="420.0" height="78.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="50.0" y="611.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Res2Net 块</text>
+<text x="50.0" y="628.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">特征图按通道切 s=4 份，x₂ 起各过一个 3×3 卷积；从 x₃ 起输入先与上一</text>
+<text x="50.0" y="641.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">段输出相加——同一层内天然并存 1 到 s−1 次卷积深度的感受野层级。</text>
+<text x="50.0" y="655.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">bottleneck 各分支感受野完全相同——这就是差距来源</text>
+<rect x="464.0" y="592.0" width="420.0" height="78.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="478.0" y="611.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SE 块</text>
+<text x="478.0" y="628.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">通道重标定：全局池化 → 瓶颈网络生成门控 → 逐通道缩放。多尺度通路的通道</text>
+<text x="478.0" y="641.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">对应不同粒度特征、贡献天然不均——SE 相当于学出来的「尺度注意力」，</text>
+<text x="478.0" y="655.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">消融里 SE 是最大的单一增益来源（Res2Net→SE 再砍约 55%）</text>
+<rect x="36.0" y="678.0" width="420.0" height="78.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="50.0" y="697.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">激进瘦身</text>
+<text x="50.0" y="714.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">通道压到 4/8/16/32 + 「II 档」直接删整个 Conv5 stage（删整段比均匀变窄省）：</text>
+<text x="50.0" y="727.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">128K→52K（−60%），FRR 只从 0.47%/0.25% 升到 0.53%/0.30%——</text>
+<text x="50.0" y="741.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Conv5 在 200 帧输入上冗余度很高，「深度换参数」相当划算</text>
+<rect x="464.0" y="678.0" width="420.0" height="78.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="478.0" y="697.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">同构性适配逻辑</text>
+<text x="478.0" y="714.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">目标检测要同时处理大小悬殊的物体，唤醒词要同时处理长短悬殊的词——</text>
+<text x="478.0" y="727.5" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">两者对「单层内多感受野」的需求同构，这是视觉骨干迁移进 WWD 的</text>
+<text x="478.0" y="741.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">适配理由（应用创新，非结构创新）</text>
+<rect x="36.0" y="772.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="798.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">52K</text>
+<text x="130.0" y="818.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数（LF-MMI 系统的一半）</text>
+<text x="298.0" y="798.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.53/0.30%</text>
+<text x="298.0" y="818.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">两词 FRR@FAH=0.5</text>
+<text x="466.0" y="798.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−86.6%</text>
+<text x="466.0" y="818.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">vs ResNet50-II（Hi Xiaowen）</text>
+<text x="634.0" y="798.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−12~50%</text>
+<text x="634.0" y="818.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">vs 流式 transformer（57K）</text>
+<text x="802.0" y="798.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">30–200</text>
+<text x="802.0" y="818.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">唤醒词帧长跨度（~7×）</text>
+<text x="36.0" y="856.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">arXiv 2209.15296（letter 短文 · 机构未报告）；Mobvoi SLR87 两唤醒词（Hi Xiaowen 三音节 / Nihao Wenwen 四音节），每词单独训二分类模型、另一词计入负例；训练 144h/17.5 万条 · 测试 74h/7.3 万条；1024 DFT · 256 Mel · hop 160；Adam 2e-4 · 前 5 轮 SpecAugment</text>
+</svg>
+<div class="cap"><b>图1 · 机制全景</b>：上半是 30–200 帧变长矛盾与两条失败模式，中段是双路特征 + 干预式两级流水，下半是 Res2Net/SE 骨干机制与激进瘦身。</div>
+</div>
+
+<h2><span class="no">§02</span>方法：定位交给滑窗，确认交给插值</h2>
+<div class="h2sub">把 HMM 里 Viterbi 解码搜索的职责移植进纯 CNN 世界</div>
+
+<div class="formula">
+<div class="f">Res2Net 块（s=4，通道切分 + 层内级联）:
+  y₁ = x₁                        # 不过卷积，等效深度 0
+  y₂ = K₂(x₂)                    # 一次 3×3，等效深度 1
+  yᵢ = Kᵢ(xᵢ + yᵢ₋₁)   2&lt;i≤s    # 输入混入上一段输出，深度递增</div>
+<div class="why"><b>人话</b>：同一层之内天然并存 1 到 s−1 次卷积深度的感受野层级——这是「免费」的结构属性，对比 bottleneck 各分支感受野完全相同。多个块堆叠后因组合效应拿到各种粒度的表示。适配逻辑：目标检测要处理大小悬殊的物体，唤醒词要处理长短悬殊的词——对「单层内多感受野」的需求同构。</div>
+</div>
+
+<div class="formula">
+<div class="f">M1 滑窗打分 → 分数 &gt; γ₁ 记触发点 → ≥2 个连续触发点 = 疑似区域
+y_M1 = max(连续触发点分数)          # 一个强响应子段即可顶起——匹配「碎片存在性」职责
+M0 介入：检测第一触发点~最后触发点间的片段（插值到 200 帧）→ y_M0
+y_f = (y_M0 + y_M1)/2 &gt; γ₁ → 触发 → 1 秒不应期</div>
+<div class="why"><b>人话</b>：M1 窗小、扫描频繁但单次便宜，适合常驻；M0 大而全但调用稀疏——常驻系统的平均算力被压低。M0 的输入被触发点天然「裁剪」，等于推理时自动做了一次内容聚焦，窗外语音不进全局判别。「两个连续触发点」是对孤立虚警的廉价防抖；γ₁ 一阈值两用（子段触发 + 最终判决），开发集上调整。</div>
+</div>
+
+<div class="cards">
+<div class="card acc">
+<h3>双线性插值为什么敢用</h3>
+<p>依据是「同一段语音的频谱图结构相似」——插值只改变时间轴采样密度不破坏结构。且它不是可学习变换而是一次可预计算的卷积，训练推理零额外参数。边界：30 帧拉到 200 帧 ≈ 6.7 倍拉伸，极端缩放下是否保住判别特征论文未分析。</p>
+</div>
+<div class="card acc">
+<h3>标签继承的容忍度</h3>
+<p>子段继承整句标签——(a)(b)(c) 含部分/全部唤醒词都是正例，(d) 负例。M1 只判「碎片存在性」，这个粒度的监督够用；代价是无法区分「Nihao Wen」与「Nihao Wenwen」的尾部差异——对同产品线易混词的区分能力存疑。</p>
+</div>
+</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8a93a5"/></marker></defs>
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：Res2Net 的层内级联 · 流式判决的时间线</text>
+<line x1="36.0" y1="56.0" x2="540.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="223.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Res2Net 块：一层之内的感受野阶梯</text>
+<rect x="48.0" y="92.0" width="360.0" height="196.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="72.0" y="112.0" width="56.0" height="26.0" rx="4" fill="#c9d8e8"/>
+<text x="100.0" y="129.0" font-size="9" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">x1</text>
+<rect x="164.0" y="112.0" width="56.0" height="26.0" rx="4" fill="#c9d8e8"/>
+<text x="192.0" y="129.0" font-size="9" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">x2</text>
+<rect x="256.0" y="112.0" width="56.0" height="26.0" rx="4" fill="#c9d8e8"/>
+<text x="284.0" y="129.0" font-size="9" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">x3</text>
+<rect x="348.0" y="112.0" width="56.0" height="26.0" rx="4" fill="#c9d8e8"/>
+<text x="376.0" y="129.0" font-size="9" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">x4</text>
+<line x1="100.0" y1="138.0" x2="100.00" y2="156.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="72.0" y="156.0" width="56.0" height="24.0" rx="4" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="100.0" y="172.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">y₁=x₁</text>
+<text x="156.0" y="172.0" font-size="7.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">等效深度 0</text>
+<line x1="192.0" y1="138.0" x2="192.00" y2="150.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="172.0" y="150.0" width="40.0" height="18.0" rx="3" fill="#0b6e52"/>
+<text x="192.0" y="163.0" font-size="8" fill="#ffffff" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">K₂</text>
+<line x1="192.0" y1="168.0" x2="192.00" y2="180.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="164.0" y="180.0" width="56.0" height="24.0" rx="4" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="192.0" y="196.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">y₂</text>
+<text x="248.0" y="196.0" font-size="7.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">等效深度 1</text>
+<line x1="284.0" y1="138.0" x2="284.00" y2="150.00" stroke="#8a93a5" stroke-width="1.2"/>
+<line x1="220.0" y1="192.0" x2="252.00" y2="192.00" stroke="#0b6e52" stroke-width="1.2" marker-end="url(#ar)"/>
+<rect x="240.0" y="182.0" width="88.0" height="20.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="284.0" y="196.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">x₃+y₂</text>
+<rect x="264.0" y="206.0" width="40.0" height="18.0" rx="3" fill="#0b6e52"/>
+<text x="284.0" y="219.0" font-size="8" fill="#ffffff" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">K₃</text>
+<rect x="256.0" y="228.0" width="56.0" height="22.0" rx="4" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="284.0" y="243.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">y₃</text>
+<text x="340.0" y="243.0" font-size="7.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">深度 2</text>
+<rect x="60.0" y="256.0" width="336.0" height="26.0" rx="6" fill="#f4f8f6"/>
+<text x="228.0" y="273.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">y₄ 同理（深度 3）· 拼接 → 1×1 卷积；块堆叠后组合出各种粒度</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">流式判决时间线（第 II.B.3 节）</text>
+<rect x="436.0" y="92.0" width="408.0" height="200.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<line x1="452.0" y1="150.0" x2="828.00" y2="150.00" stroke="#d8d8d0" stroke-width="1"/>
+<rect x="452.0" y="124.0" width="10.0" height="26.0" rx="2" fill="#c9d8e8"/>
+<rect x="465.4" y="114.6" width="10.0" height="35.4" rx="2" fill="#c9d8e8"/>
+<rect x="478.8" y="108.0" width="10.0" height="42.0" rx="2" fill="#c9d8e8"/>
+<rect x="492.2" y="106.1" width="10.0" height="43.9" rx="2" fill="#c9d8e8"/>
+<rect x="505.6" y="109.4" width="10.0" height="40.6" rx="2" fill="#c9d8e8"/>
+<rect x="519.0" y="117.1" width="10.0" height="32.9" rx="2" fill="#c9d8e8"/>
+<rect x="532.4" y="126.8" width="10.0" height="23.2" rx="2" fill="#c9d8e8"/>
+<rect x="545.8" y="135.7" width="10.0" height="14.3" rx="2" fill="#c9d8e8"/>
+<rect x="559.2" y="141.1" width="10.0" height="8.9" rx="2" fill="#c9d8e8"/>
+<rect x="572.6" y="141.5" width="10.0" height="8.5" rx="2" fill="#9fc8b8"/>
+<rect x="586.0" y="136.7" width="10.0" height="13.3" rx="2" fill="#9fc8b8"/>
+<rect x="599.4" y="128.2" width="10.0" height="21.8" rx="2" fill="#9fc8b8"/>
+<rect x="612.8" y="118.4" width="10.0" height="31.6" rx="2" fill="#9fc8b8"/>
+<rect x="626.2" y="110.3" width="10.0" height="39.7" rx="2" fill="#9fc8b8"/>
+<rect x="639.6" y="106.2" width="10.0" height="43.8" rx="2" fill="#9fc8b8"/>
+<rect x="653.0" y="107.4" width="10.0" height="42.6" rx="2" fill="#9fc8b8"/>
+<rect x="666.4" y="113.5" width="10.0" height="36.5" rx="2" fill="#9fc8b8"/>
+<rect x="679.8" y="122.7" width="10.0" height="27.3" rx="2" fill="#c9d8e8"/>
+<rect x="693.2" y="132.2" width="10.0" height="17.8" rx="2" fill="#c9d8e8"/>
+<rect x="706.6" y="139.4" width="10.0" height="10.6" rx="2" fill="#c9d8e8"/>
+<rect x="720.0" y="142.0" width="10.0" height="8.0" rx="2" fill="#c9d8e8"/>
+<rect x="733.4" y="139.3" width="10.0" height="10.7" rx="2" fill="#c9d8e8"/>
+<rect x="746.8" y="132.1" width="10.0" height="17.9" rx="2" fill="#c9d8e8"/>
+<rect x="760.2" y="122.5" width="10.0" height="27.5" rx="2" fill="#c9d8e8"/>
+<rect x="773.6" y="113.3" width="10.0" height="36.7" rx="2" fill="#c9d8e8"/>
+<rect x="787.0" y="107.3" width="10.0" height="42.7" rx="2" fill="#c9d8e8"/>
+<rect x="800.4" y="106.2" width="10.0" height="43.8" rx="2" fill="#c9d8e8"/>
+<rect x="813.8" y="110.4" width="10.0" height="39.6" rx="2" fill="#c9d8e8"/>
+<rect x="506.0" y="106.0" width="96.0" height="50.0" rx="4" fill="none" stroke="#0b6e52" stroke-width="1.4"/>
+<rect x="554.0" y="106.0" width="96.0" height="50.0" rx="4" fill="none" stroke="#0b6e52" stroke-width="1.4"/>
+<rect x="602.0" y="106.0" width="96.0" height="50.0" rx="4" fill="none" stroke="#0b6e52" stroke-width="1.4"/>
+<text x="554.0" y="166.0" font-size="8.3" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">M1 滑窗扫描（单次便宜 · 常驻）</text>
+<circle cx="602" cy="98" r="5" fill="#c0392b"/>
+<circle cx="650" cy="98" r="5" fill="#c0392b"/>
+<circle cx="698" cy="98" r="5" fill="#c0392b"/>
+<text x="676.0" y="88.0" font-size="8.3" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">触发点（分数 &gt; γ₁）</text>
+<rect x="602.0" y="50.0" width="148.0" height="26.0" rx="6" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="676.0" y="67.0" font-size="8.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">≥2 个连续触发点 → 疑似区域</text>
+<text x="676.0" y="40.0" font-size="8.3" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">第一触发点 ————————— 最后触发点</text>
+<text x="676.0" y="28.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">↓ M0 介入（变长片段插值到 200 帧再推理）</text>
+<text x="450.0" y="250.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· y_M1 = 连续触发点的 max（一个强响应子段即可顶起）</text>
+<text x="450.0" y="263.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· y_f = (y_M0 + y_M1)/2 &gt; γ₁ → 触发</text>
+<text x="450.0" y="277.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 触发后 1 秒不应期：期间命中全忽略（防重复触发）</text>
+<text x="450.0" y="290.5" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="304.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">三层廉价防抖：单偶发高分不唤 M0；max 聚合匹配「碎片存在性」</text>
+<text x="450.0" y="317.5" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">职责；M0 输入被触发点天然裁剪——窗外语音不进全局判别</text>
+<text x="450.0" y="331.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">γ₁ 一阈值两用（子段触发 + 最终判决），开发集上调整</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：bottleneck 各分支感受野相同，Res2Net 用通道切分 + 层内级联让 1~s−1 次卷积深度并存——多尺度是「免费」的结构属性。右：M1 常驻扫描、M0 按需介入——把 HMM 里 Viterbi 找最优路径的职责换成了滑窗 CNN + 阈值逻辑</text>
+</svg>
+<div class="cap"><b>图2 · 机制解剖</b>：左是 Res2Net 块的层内感受野阶梯（对比 bottleneck 的同感受野分支），右是流式判决时间线——滑窗、触发点、连续规则、M0 介入窗口与不应期。</div>
+</div>
+
+<h2><span class="no">§03</span>实验：骨干链三连降 + SOTA 区间</h2>
+<div class="h2sub">FRR@FAH=0.5（虚警预算下的误拒率）· DET 曲线 · 六配置消融</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：骨干链上的三连降 + 52K 站进 SOTA 区间</text>
+<line x1="36.0" y1="56.0" x2="530.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">骨干替换链 · FRR@FAH=0.5 相对降幅</text>
+<rect x="56.0" y="96.0" width="390.0" height="56.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<rect x="56.0" y="96.0" width="6.0" height="56.0" rx="3" fill="#c9d8e8"/>
+<text x="72.0" y="118.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">ResNet50-II（基线）</text>
+<text x="72.0" y="136.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Basic 块 · 单一感受野</text>
+<rect x="56.0" y="162.0" width="390.0" height="56.0" rx="8" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<rect x="56.0" y="162.0" width="6.0" height="56.0" rx="3" fill="#9fc8b8"/>
+<text x="72.0" y="184.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ Res2Net50-II</text>
+<text x="72.0" y="202.0" font-size="8.3" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">−31.2% / −23.1%（两词）</text>
+<text x="72.0" y="214.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">多尺度感受野的贡献</text>
+<rect x="56.0" y="228.0" width="390.0" height="56.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<rect x="56.0" y="228.0" width="6.0" height="56.0" rx="3" fill="#0b6e52"/>
+<text x="72.0" y="250.0" font-size="10.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">→ SE-Res2Net50-II</text>
+<text x="72.0" y="268.0" font-size="8.3" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">−86.6% / −65.5%（累计 vs 基线）</text>
+<text x="72.0" y="280.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SE 是最大单一增益</text>
+<text x="56.0" y="300.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读法：ResNet→Res2Net 贡献约三成（多尺度），Res2Net→SE 再贡献</text>
+<text x="56.0" y="313.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">剩余大头（通道注意力）——两个机制叠加而非互相替代</text>
+<rect x="56.0" y="328.0" width="390.0" height="100.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="70.0" y="348.0" font-size="9.3" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">瘦身交易（I → II：删 Conv5）</text>
+<text x="70.0" y="366.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">参数 128K → 52K（−60%），FRR 仅 0.47%→0.53% /</text>
+<text x="70.0" y="378.8" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.25%→0.30%——Conv5 在 200 帧输入上冗余度很高，</text>
+<text x="70.0" y="391.6" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">"深度换参数"相当划算</text>
+<text x="70.0" y="404.4" font-size="8.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="70.0" y="417.2" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">四音节词比三音节词整体更易检（DET 曲线对比）——</text>
+<text x="70.0" y="430.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">音节多 = 可判别时序结构更长，对产品选词有直接参考价值</text>
+<text x="670.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">与先前系统对比（Table II · FRR@FAH=0.5）</text>
+<rect x="508.0" y="92.0" width="316.0" height="232.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="522.0" y="112.0" font-size="8.3" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系统</text>
+<text x="668.0" y="112.0" font-size="8.3" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">参数</text>
+<text x="718.0" y="112.0" font-size="8.3" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FRR%（XW / NW）</text>
+<rect x="516.0" y="120.0" width="300.0" height="32.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="524.0" y="141.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">负例挖掘 [30]</text>
+<text x="668.0" y="141.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">N/A</text>
+<text x="718.0" y="141.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">1.30 / 1.00</text>
+<rect x="516.0" y="158.0" width="300.0" height="32.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="524.0" y="179.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">LF-MMI（混合 HMM/DNN）</text>
+<text x="668.0" y="179.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">120K</text>
+<text x="718.0" y="179.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.40 / 0.50</text>
+<rect x="516.0" y="196.0" width="300.0" height="32.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="524.0" y="217.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">流式 transformer</text>
+<text x="668.0" y="217.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">57K</text>
+<text x="718.0" y="217.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0.60 / 0.60</text>
+<rect x="516.0" y="234.0" width="300.0" height="32.0" rx="6" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="524.0" y="255.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SE-Res2Net50-I</text>
+<text x="668.0" y="255.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">128K</text>
+<text x="718.0" y="255.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.47 / 0.25</text>
+<rect x="516.0" y="272.0" width="300.0" height="32.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="524.0" y="293.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SE-Res2Net50-II ★</text>
+<text x="668.0" y="293.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">52K</text>
+<text x="718.0" y="293.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.53 / 0.30</text>
+<text x="522.0" y="316.0" font-size="7.8" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">XW = Hi Xiaowen · NW = Nihao Wenwen · 越低越好</text>
+<rect x="508.0" y="332.0" width="316.0" height="92.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="522.0" y="350.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">声明核对（深读必要动作）</text>
+<text x="522.0" y="366.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 「超 transformer 12–50%」：XW 上实为 11.7%（口径略乐观）</text>
+<text x="522.0" y="377.8" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 「与 LF-MMI 性能相似」：NW 好 40%，XW 差 32.5%</text>
+<text x="522.0" y="389.6" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   ——「相似」抹平了按词拆看的胜负</text>
+<text x="522.0" y="401.4" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 对负例挖掘是干净的胜利：全面更低 + 训练无需额外</text>
+<text x="522.0" y="413.2" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   HMM-TDNN 声学模型</text>
+<text x="522.0" y="425.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 引用编号疑似互换（[27]/[31]）· Fig.1 标注漏「2」</text>
+<text x="36.0" y="456.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：所有系统均无端侧实测（延迟/RTF/内存/功耗未报）；128K/52K 未说明是单分类器还是 M0+M1 之和——若是单分类器口径，系统总参数翻倍，「参数只有 LF-MMI 一半」的说法不成立</text>
+</svg>
+<div class="cap"><b>图3 · 主结果</b>：左是骨干替换链的相对降幅与瘦身交易、音节数效应，右是 Table II 五系统对比与声明核对（「12%」实为 11.7%、「相似」抹平按词胜负）。</div>
+</div>
+<table class="tb">
+<tr><th>系统（Table II）</th><th>参数</th><th>Hi Xiaowen FRR</th><th>Nihao Wenwen FRR</th><th>附注</th></tr>
+<tr><td>负例挖掘系统</td><td>N/A</td><td>1.30%</td><td>1.00%</td><td>训练需额外 HMM-TDNN</td></tr>
+<tr><td>Alignment-Free LF-MMI</td><td>120K</td><td>0.40%</td><td>0.50%</td><td>混合 HMM/DNN 框架</td></tr>
+<tr><td>流式 transformer</td><td>57K</td><td>0.60%</td><td>0.60%</td><td>—</td></tr>
+<tr><td>SE-Res2Net50-I</td><td>128K</td><td>0.47%</td><td>0.25%</td><td>只压通道</td></tr>
+<tr class="hl"><td>SE-Res2Net50-II ★</td><td>52K</td><td>0.53%</td><td>0.30%</td><td>+删 Conv5 · 约 LF-MMI 一半参数</td></tr>
+</table>
+<div class="tldr" style="margin-top:14px;">
+<div class="tt">读表要点</div>
+<li>协议设计贴近真实：每个唤醒词单独训二分类模型，<b>另一个唤醒词计入负例</b>——用户说别的命令词不应触发本词模型，比只用随机负例更贴近真实误唤醒场景。</li>
+<li>训练细节：1024 DFT · 256 Mel 带 · hop 160；Adam lr 2e-4；前 5 轮 SpecAugment（时间掩码 0–30 帧 / 频率掩码 0–20 维，每批三份样本各做一种）——正例有限时模拟丢帧与频带缺失。</li>
+<li>附带发现（产品选词直接可用）：<b>四音节词比三音节词整体更易检</b>——音节多 = 可判别时序结构更长，Nihao Wenwen 的 DET 曲线整体优于 Hi Xiaowen。</li>
+<li>引用注意：Table II 行名与参考文献编号疑似互换（[27]/[31]）；Fig.1 图内标注 SE-ResNet50 疑漏「2」——数值不受影响，但对应关系混乱是这篇 letter 的明显瑕疵。</li>
+</div>
+
+<h2><span class="no">§04</span>贡献</h2>
+<div class="h2sub">四点：从双路框架到选词判断</div>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>双路特征管线 + 干预式两级检测</b>：M1 滑窗学局部并粗定位、M0 变长插值学全局并确认、平均分判决——机制上拆解固定窗口两难，系统自行确定唤醒词位置、不依赖任何辅助网络。</p></div>
+<div class="row"><div class="n">2</div><p><b>Res2Net 引入唤醒词检测</b>：目标检测的多尺度骨干与「唤醒词时长差异大」同构；消融显示骨干替换是仅次于 SE 的性能来源（−31.2%/−23.1%）。</p></div>
+<div class="row"><div class="n">3</div><p><b>结构瘦身到五万参数量级</b>：通道缩减 + 删 Conv5，52K 参数（约 LF-MMI 一半），FAH=0.5 下 0.53%/0.30%，且训练不需要附加声学模型或对齐机制——部署链路干净。</p></div>
+<div class="row"><div class="n">4</div><p><b>音节数效应的工程观察</b>：四音节词天然比三音节词好检——为唤醒词产品选词提供可迁移判断。</p></div>
+</div>
+
+<h2><span class="no">§05</span>局限与判断</h2>
+<div class="h2sub">核心创新无独立消融 · 零端侧实测 · 参数口径不明</div>
+<div class="fig">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">技术边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 弱标签的精度上限：子段继承整句标签——只含部分词的片段与完整片段</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  同标签，监督信号有系统性噪声；M1 无法区分「Nihao Wen」与</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「Nihao Wenwen」的尾部差异——对易混词（同产品线两词）区分存疑</text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 判决规则全手工：两个连续触发点 · max 聚合 · 1s 不应期 · γ₁ 一阈值</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  两用，全在开发集调；对语速极端者（触发点间隔拉长跨窗错位）未验</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 零部署证据：无延迟/RTF/内存/功耗——M0 对变长片段插值再推理的</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  耗时未测，「小足迹」只由参数量间接支撑</text>
+<text x="72.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 插值畸变风险：30 帧词拉到 200 帧 ≈ 6.7 倍时间轴拉伸，极端缩放下</text>
+<text x="72.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  是否保住判别特征未分析</text>
+<text x="72.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 每词一模型：多唤醒词产品训练/存储线性增长</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验边界 + 延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 核心创新无独立消融：M0-only / M1-only / 双路 的对照缺失——</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「干预式双路」与「SE-Res2Net 骨干」两个创新的贡献不可分离</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 窗长 w / 重叠率 s / 插值目标 200 帧 / 标签继承策略，均无扫参</text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 参数统计口径不明（单分类器还是 M0+M1 之和？）</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 只在 SLR87 原始测试集：无远场/加噪/家庭噪声/跨数据集</text>
+<text x="536.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 开发集构成、学习率调度、方差/显著性检验均未报；采样率未说明</text>
+<text x="536.0" y="211.0" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸：M0/M1 共享骨干省一半参数；多窗长并列扫描适配语速；</text>
+<text x="536.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">端侧实测 + INT8 量化闭环；伪音素边界软标签替代整句继承；</text>
+<text x="536.0" y="251.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">加噪/远场复测；与深度可分离卷积路线（TC-ResNet/MatchboxNet）</text>
+<text x="536.0" y="265.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">同参数量公平对比</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：真正的贡献不是 Res2Net（现成视觉骨干），而是「滑窗定位 + 变长插值确认」把 HMM 解码搜索的职责移植进纯 CNN 世界——复现时应把骨干收益与框架收益分开验证</text>
+</svg>
+<div class="cap"><b>图4 · 边界与延伸</b>：左技术边界（弱标签上限、手工规则、零部署证据、插值畸变、每词一模型），右实验边界（双路无独立消融、超参无扫参、口径不明、无压力场景）+ 延伸方向。</div>
+</div>
+<div class="judge">
+<div class="jt">可迁移判断</div>
+<p>↳ <b>定位与确认分开，常驻的只做便宜的那半</b>：M1 小窗常驻扫描、M0 大模型按需介入——平均算力被结构性压低。这个「先粗后精」的级联思路对任何常驻检测任务（VAD、事件检测）都适用。</p>
+<p>↳ <b>变长输入不一定要 RNN</b>：插值保结构 + 滑窗给定位，纯前馈也能吃变长序列——不想付串行代价时，先想想输入侧能不能重整，而不是直接上循环结构。</p>
+<p>↳ <b>多尺度是免费的结构属性</b>：Res2Net 的感受野阶梯来自通道切分 + 层内级联，不增加任何新算子——选骨干时「单层内感受野多样性」是一个被低估的杠杆（本文消融里值 31%）。</p>
+<p>↳ <b>引用前先拆收益归属</b>：本文的 SOTA 数字 = 双路框架 × SE-Res2Net 骨干 × 标签策略的组合效果，但没有 M0-only/M1-only 对照——复现或借鉴时，应把「框架带来的」与「骨干带来的」分开验证，否则容易把全部收益记到其中一个头上。</p>
+</div>
+
+<div class="foot">
+<a class="pill" href="https://arxiv.org/abs/2209.15296">arXiv 2209.15296 ↗</a>
+<a class="pill ghost" href="../index.html">← 返回总目录</a>
+</div>
+<div class="foot-note">笔记与可视化页基于 arXiv v1（letter 短文）整理 · 机构未报告 · 表中数字以 Table I/II 为准（正文「1/4 通道」实为 1/16，疑相对内部基线）· 2022 №42 · 185+/305</div>
+</div>
+</body>
+</html>
