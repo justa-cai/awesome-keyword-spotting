@@ -1,0 +1,261 @@
+- generic [ref=f294e2]:
+  - generic [ref=f294e3]: 论文精读 · 可视化版 · 2021 №18
+  - heading "误报砍三成的办法： 让 KWS 和 VAD 在解码器里互相对话" [level=1] [ref=f294e4]: 误报砍三成的办法：让 KWS 和 VAD 在解码器里互相对话
+  - generic [ref=f294e5]:
+    - generic [ref=f294e6]: Cross-Attention Multi-Task · Apple + 港中文
+    - generic [ref=f294e7]: arXiv 2107.07634 · KWS + VAD 联合
+    - generic [ref=f294e8]: 共享编码器 + 双向交叉注意力 + 门控融合
+    - generic [ref=f294e9]: 误报 −20–30%（同召回）· 准确率 +1–2%
+  - generic [ref=f294e10]: 一句话：KWS 部署的头号痛点是误报——用户日常对话里常有与唤醒词声学相似的片段。语音助手本来就同时需要 KWS 和 VAD，两个任务天然互补（VAD 帮 KWS 拒非语音段，KWS 的声学知识反哺 VAD），但传统多任务只在编码器底层共享特征——高层互补信息传不过去。本文在任务解码器之间加双向交叉注意力（各自的 Query 去检索对方的 K/V）+ 门控融合：误报率降 20–30%（同召回），准确率升 1–2%，交叉注意力本身再贡献 0.5–1%。
+  - generic [ref=f294e11]:
+    - generic [ref=f294e12]: TL;DR
+    - listitem [ref=f294e13]: ◈ 核心矛盾：对目标词要极高灵敏度（低漏检），对非目标语音要极低误报——日常对话中与唤醒词声学相似的片段导致频繁误触发，这是单任务模型的结构性短板。
+    - listitem [ref=f294e14]: ◈ 天然互补被浪费：语音助手同时需要 KWS（词出现吗）+ VAD（有语音吗）+ 设备导向检测（是对设备说的吗）——VAD 可帮 KWS 排除噪声/静音段的误报，KWS 的声学知识可帮 VAD 更准——但单任务模型各自为战。
+    - listitem [ref=f294e15]: ◈ 简单共享不够：传统多任务只在编码器底层共享——高层解码器各走各路，任务间细粒度的互补信息（哪些帧有语音、哪些帧像词）传不过去。
+    - listitem [ref=f294e16]: ◈ 交叉注意力：Attention(Q_A, K_B, V_B)——任务 A 用自己的查询去检索任务 B 的特征表示：KWS 从 VAD 特征里取「这里有没有语音」的证据，VAD 从 KWS 特征里取「像不像词」的声学证据。双向对称交换，两个任务互相受益。
+    - listitem [ref=f294e17]: ◈ 门控融合必需：外来信息并非总有用——可学习的门控系数控制混入量（有用多混、无关压低）。消融：移除门控后交叉注意力收益明显减少。
+    - listitem [ref=f294e18]: ◈ 三组件框架：共享编码器（CNN/Conformer，4–6 层甜点）→ 任务特定解码器 → 解码器中间层插双向交叉注意力。损失 L = α·L_KWS + β·L_VAD + γ·L_other。
+    - listitem [ref=f294e19]: ◈ 结果（约值）：准确率 vs 单任务 +1–2%；同召回下误报 −20–30%（VAD 分支贡献最大）；交叉注意力在多任务框架上再 +0.5–1%；双向略优于单向；VAD 也从联合训练获益（略高于单独训练的 VAD）。
+    - listitem [ref=f294e20]: ◈ 边界：交叉注意力增加参数与计算（推理开销未量化）；训练数据要同时有 KWS 与 VAD 标注；任务相关性低时有负迁移风险；内部数据为主复现性受限。
+  - heading "§01 问题：误报与被浪费的互补" [level=2] [ref=f294e21]:
+    - generic [ref=f294e22]: §01
+    - text: 问题：误报与被浪费的互补
+  - generic [ref=f294e23]: 单任务的结构短板 + 多任务的共享天花板
+  - generic [ref=f294e24]:
+    - generic [ref=f294e25]:
+      - heading "误报是部署头号痛" [level=3] [ref=f294e26]
+      - paragraph [ref=f294e27]: 用户对话中与唤醒词声学相似的片段、电视声、相似词——每条都是潜在误触发。误报直接伤用户信任（「它自己就醒了」），商用系统宁可牺牲召回也要压误报。
+    - generic [ref=f294e28]:
+      - heading "级联 VAD 的硬边界" [level=3] [ref=f294e29]
+      - paragraph [ref=f294e30]: 传统做法是推理时级联一个 VAD 做前置过滤——硬门限、独立训练、错误不可逆。联合建模让「VAD 的判断」作为软证据进入 KWS 的判决过程，比外挂级联更可学。
+    - generic [ref=f294e31]:
+      - heading "任务关联的天然性" [level=3] [ref=f294e32]
+      - paragraph [ref=f294e33]: KWS 要判断「是不是唤醒词」，VAD 要判断「是不是语音」——前者蕴含后者（唤醒词必是语音）：逻辑包含关系让两个任务的表示天然相关，联合训练有理论依据。
+    - generic [ref=f294e34]:
+      - heading "底层共享的信息瓶颈" [level=3] [ref=f294e35]
+      - paragraph [ref=f294e36]: 共享编码器只在底层交换通用声学特征——任务特有的判别信息（VAD 的语音边界、KWS 的词形模式）在高层才形成，底层共享传不了这些——需要在解码器层建立第二条通路。
+  - generic [ref=f294e37]:
+    - img [ref=f294e38]:
+      - generic [ref=f294e40]: 交叉注意力多任务：让 KWS 和 VAD 在解码器里互相对话
+      - generic [ref=f294e41]: ① 误报：KWS 部署的头号痛点 + 多任务的天然互补
+      - generic [ref=f294e43]: 核心矛盾：对目标词要极高灵敏度（低漏检），对非目标语音要极低误报——用户日常对话里常有与唤醒词声学相似的片段，误触发频繁
+      - generic [ref=f294e44]: 语音助手本来就同时需要 KWS + VAD + 设备导向检测三个任务——任务间有天然关联，单任务模型却各自为战，互补信息全浪费
+      - generic [ref=f294e46]: VAD 帮 KWS 拒非语音
+      - generic [ref=f294e47]: 噪声/静音段的误报可由 VAD 排除——「先确认有语音，再谈是不是唤醒词」
+      - generic [ref=f294e48]: 的级联逻辑内化进联合模型
+      - generic [ref=f294e50]: KWS 帮 VAD 更准
+      - generic [ref=f294e51]: KWS 学到的声学知识（哪些频谱模式像语音里的词）反哺 VAD 的
+      - generic [ref=f294e52]: 语音/非语音判别——信息交换是双向的
+      - generic [ref=f294e54]: 简单共享不够
+      - generic [ref=f294e55]: 传统多任务只在编码器底层共享特征——高层解码器各走各的路，
+      - generic [ref=f294e56]: 任务间的细粒度互补信息传不过去（这是交叉注意力要解决的）
+      - generic [ref=f294e57]: ② 三组件框架：共享编码器 + 任务解码器 + 交叉注意力
+      - generic [ref=f294e60]: 共享编码器（CNN / Conformer）
+      - generic [ref=f294e61]: 输入频谱图/MFCC → 通用声学特征
+      - generic [ref=f294e63]: KWS 解码器分支
+      - generic [ref=f294e64]: 任务特定卷积/FC → 分类头
+      - generic [ref=f294e66]: VAD 解码器分支
+      - generic [ref=f294e67]: 任务特定卷积/FC → 分类头
+      - generic [ref=f294e68]: 交叉注意力（双向）
+      - generic [ref=f294e69]: 门控融合：可学习系数控制外来信息的混入量
+      - generic [ref=f294e70]: Attention(Q_A, K_B, V_B) = softmax(Q_A·K_Bᵀ/√d)·V_B —— 任务 A 用自己的查询去检索任务 B 的特征
+      - generic [ref=f294e72]: 损失函数
+      - generic [ref=f294e73]: L = α·L_KWS + β·L_VAD + γ·L_other
+      - generic [ref=f294e74]: 权重实验调优或动态权重策略
+      - generic [ref=f294e76]: 消融：共享深度与插位
+      - generic [ref=f294e77]: 共享编码器 4–6 层最佳（太浅特征弱 · 太深任务干扰）
+      - generic [ref=f294e78]: 交叉注意力插在解码器中间层最好
+      - generic [ref=f294e80]: +1–2%
+      - generic [ref=f294e81]: 准确率 vs 单任务基线
+      - generic [ref=f294e82]: −20–30%
+      - generic [ref=f294e83]: 误报率（同召回下）
+      - generic [ref=f294e84]: +0.5–1%
+      - generic [ref=f294e85]: 交叉注意力的额外增益
+      - generic [ref=f294e86]: 双向 > 单向
+      - generic [ref=f294e87]: 对称交换略优
+      - generic [ref=f294e88]: 去门控
+      - generic [ref=f294e89]: 交叉注意力收益减少
+      - generic [ref=f294e90]: Apple + 香港中文大学 · arXiv 2107.07634；内部 KWS 数据 + 公开数据组合评测（目标词/非目标语音/噪声/静音）；数字为约值
+    - generic [ref=f294e91]: 图1 · 机制全景：上半是误报痛点与任务互补，中段是三组件框架与双向交叉注意力、门控融合的架构图，底部是消融甜点与关键数字。
+  - heading "§02 方法：跨分支检索 + 可控混入" [level=2] [ref=f294e92]:
+    - generic [ref=f294e93]: §02
+    - text: 方法：跨分支检索 + 可控混入
+  - generic [ref=f294e94]: 交叉注意力的查询语义 · 门控的必要性
+  - generic [ref=f294e95]:
+    - generic [ref=f294e96]: "交叉: Attention(Q_KWS, K_VAD, V_VAD) # KWS 检索 VAD 的特征 Attention(Q_VAD, K_KWS, V_KWS) # VAD 检索 KWS 的特征（双向） 门控: out = g · cross_out + (1−g) · self_out # g 可学习 损失: L = α·L_KWS + β·L_VAD + γ·L_other"
+    - generic [ref=f294e97]: 人话：交叉注意力的本质是「跨分支检索」——KWS 拿着自己的查询（我在找什么样的证据）去 VAD 的特征库里翻（那里有没有语音的存在证明）。检索回来的信息不直接替换原特征，而是经门控按需混入——门控是保险丝，防止无关信息污染主任务。
+  - generic [ref=f294e98]:
+    - generic [ref=f294e99]:
+      - heading "门控与残差同构" [level=3] [ref=f294e100]
+      - paragraph [ref=f294e101]: 门控融合在结构上就是加权残差：新通路（交叉注意力）的价值要在「可控混入」的前提下才能兑现——直接相加等于强迫每个样本都接受外来信息，噪声段的外来证据对 KWS 可能是有害的。
+    - generic [ref=f294e102]:
+      - heading "两个甜点都有先例" [level=3] [ref=f294e103]
+      - paragraph [ref=f294e104]: 共享 4–6 层（太浅无红利、太深任务干扰）与交叉注意力插解码器中间层——与 LDF 的位置消融、注意力插入位置的结论第三次同构：中间层是信息交换的黄金窗口，这条规律在本系列至少四篇论文中独立出现。
+  - generic [ref=f294e105]:
+    - img [ref=f294e106]:
+      - generic [ref=f294e108]: 机制解剖：跨任务注意力怎么算 · 门控为什么必需
+      - generic [ref=f294e109]: 交叉注意力的数据流
+      - generic [ref=f294e112]: KWS 分支
+      - generic [ref=f294e113]: Q_KWS ← 自己的查询
+      - generic [ref=f294e114]: K,V 也从自己来
+      - generic [ref=f294e116]: VAD 分支
+      - generic [ref=f294e117]: K_VAD, V_VAD
+      - generic [ref=f294e118]: （供对方检索）
+      - generic [ref=f294e119]: Q_KWS
+      - generic [ref=f294e120]: Q_VAD
+      - generic [ref=f294e121]: Attention(Q_KWS, K_VAD, V_VAD)
+      - generic [ref=f294e122]: Attention(Q_VAD, K_KWS, V_KWS)
+      - generic [ref=f294e123]: KWS 从 VAD 特征里取「这里有没有语音」的证据
+      - generic [ref=f294e124]: VAD 从 KWS 特征里取「像不像词」的声学证据
+      - generic [ref=f294e125]: 两个方向各自算完 → 门控融合回各自分支
+      - generic [ref=f294e126]: 对比普通多任务：只在编码器底层共享——
+      - generic [ref=f294e127]: 高层互补信息传不过去
+      - generic [ref=f294e128]: 门控融合与消融
+      - generic [ref=f294e130]: 门控：为什么不能直接相加
+      - generic [ref=f294e131]: · 外来信息并非总是有用（两任务关注的声学维度不同）
+      - generic [ref=f294e132]: · 门控系数（可学习）控制混入量：有用就多混，无关就压低
+      - generic [ref=f294e133]: · 消融证据：移除门控后交叉注意力收益明显减少
+      - generic [ref=f294e134]: · 这与残差思想同构：新通路的价值要在「可控混入」下才能兑现
+      - generic [ref=f294e136]: 两个甜点消融
+      - generic [ref=f294e137]: 共享编码器深度：4–6 层最佳
+      - generic [ref=f294e138]: · 太浅：特征不够丰富，共享无红利
+      - generic [ref=f294e139]: · 太深：任务干扰增加（负迁移的苗头）
+      - generic [ref=f294e140]: 交叉注意力位置：解码器中间层最好
+      - generic [ref=f294e141]: （与 LDF/注意力插入位置结论第三次同构）
+      - generic [ref=f294e142]: 双向 > 单向：对称交换让两个任务都受益
+      - generic [ref=f294e143]: 左：交叉注意力的本质是「跨分支检索」——KWS 用自己的查询去 VAD 的特征里找「这段有没有语音」的证据，反之亦然。右：门控控制混入量，两个甜点（共享深度与插位）都有消融背书
+    - generic [ref=f294e144]: 图2 · 机制解剖：左是交叉注意力的数据流（双向检索、各自的查询语义、门控融合回分支），右是门控的必要性与两个甜点消融（共享深度、插入位置）。
+  - heading "§03 实验：三级递进的收益" [level=2] [ref=f294e145]:
+    - generic [ref=f294e146]: §03
+    - text: 实验：三级递进的收益
+  - generic [ref=f294e147]: 单任务 → 多任务 → 多任务+交叉注意力
+  - generic [ref=f294e148]:
+    - img [ref=f294e149]:
+      - generic [ref=f294e151]: 主结果（约值）：误报砍三成，交叉注意力再白拿半个点
+      - generic [ref=f294e152]: 三级递进的准确率与误报
+      - generic [ref=f294e153]: "93"
+      - generic [ref=f294e154]: "94"
+      - generic [ref=f294e155]: "95"
+      - generic [ref=f294e156]: "96"
+      - generic [ref=f294e157]: "97"
+      - generic [ref=f294e158]: "98"
+      - generic [ref=f294e160]: ~94.5
+      - generic [ref=f294e161]: 单任务 KWS
+      - generic [ref=f294e163]: ~95.5
+      - generic [ref=f294e164]: 多任务（共享编
+      - generic [ref=f294e165]: 码器）
+      - generic [ref=f294e167]: ~96.5
+      - generic [ref=f294e168]: 多任务 + 交
+      - generic [ref=f294e169]: 叉注意力 ★
+      - generic [ref=f294e170]: 误报率（同召回 · 相对值）
+      - generic [ref=f294e171]: 单任务 KWS
+      - generic [ref=f294e173]: 100%
+      - generic [ref=f294e174]: 多任务（共享编码器
+      - generic [ref=f294e176]: −25%
+      - generic [ref=f294e177]: 多任务 + 交叉注
+      - generic [ref=f294e179]: −28%
+      - generic [ref=f294e180]: 读数：多任务 −20~30% 误报（VAD 分支贡献最大）；交叉注意力再 +0.5~1% 准确率
+      - generic [ref=f294e181]: VAD 也获益：联合训练的 VAD 准确率略高于单独训练的 VAD——交换是互利的
+      - generic [ref=f294e182]: 消融与证据边界
+      - generic [ref=f294e184]: 四条消融读数
+      - generic [ref=f294e185]: · 交叉注意力 vs 无：+0.5–1%（同框架对照）
+      - generic [ref=f294e186]: · 双向 vs 单向：双向略优
+      - generic [ref=f294e187]: · 门控移除：交叉注意力收益减少——门控必需
+      - generic [ref=f294e188]: · 共享深度：4–6 层甜点
+      - generic [ref=f294e189]: 机理：交叉注意力把「VAD 判非语音」的证据
+      - generic [ref=f294e190]: 直接送进 KWS 的解码过程——比推理时级联
+      - generic [ref=f294e191]: VAD 后验（硬门限）更软、更可学
+      - generic [ref=f294e192]: 误报场景：噪声/静音/相似语音段都受益
+      - generic [ref=f294e194]: 证据边界
+      - generic [ref=f294e195]: · 内部数据集为主——细节不可复现
+      - generic [ref=f294e196]: · 交叉注意力的推理开销未量化
+      - generic [ref=f294e197]: · 远场/噪声条件评估不充分
+      - generic [ref=f294e198]: · 未探索 3 个以上任务的组合
+      - generic [ref=f294e199]: · 哪些任务组合收益最大——分析有限
+      - generic [ref=f294e200]: 引用提醒：数字为笔记记录的约值
+      - generic [ref=f294e201]: 注：内部 KWS 数据 + 公开数据组合评测；准确率/误报率的绝对数值因数据集而异——相对量级（多任务砍误报、交叉注意力加精度）是可迁移的结论
+    - generic [ref=f294e202]: 图3 · 主结果：左是三级配置的准确率与误报率对比（多任务砍误报、交叉注意力加精度），右是四条消融读数与证据边界。
+  - table [ref=f294e203]:
+    - rowgroup [ref=f294e204]:
+      - row [ref=f294e205]:
+        - columnheader "对比项" [ref=f294e206]
+        - columnheader "结果（约值）" [ref=f294e207]
+        - columnheader "解读" [ref=f294e208]
+      - row [ref=f294e209]:
+        - cell "多任务 vs 单任务" [ref=f294e210]
+        - cell "准确率 +1–2% · 误报 −20–30%" [ref=f294e211]
+        - cell "VAD 分支贡献最大" [ref=f294e212]
+      - row [ref=f294e213]:
+        - cell "交叉注意力 vs 无" [ref=f294e214]
+        - cell "+0.5–1%" [ref=f294e215]
+        - cell "高层互补信息的价值" [ref=f294e216]
+      - row [ref=f294e217]:
+        - cell "双向 vs 单向" [ref=f294e218]
+        - cell "双向略优" [ref=f294e219]
+        - cell "对称交换两方受益" [ref=f294e220]
+      - row [ref=f294e221]:
+        - cell "去门控" [ref=f294e222]
+        - cell "交叉注意力收益减少" [ref=f294e223]
+        - cell "可控混入是前提" [ref=f294e224]
+      - row [ref=f294e225]:
+        - cell "VAD 侧收益" [ref=f294e226]
+        - cell "联合训练的 VAD 略优" [ref=f294e227]
+        - cell "交换是互利的" [ref=f294e228]
+  - generic [ref=f294e229]:
+    - generic [ref=f294e230]: 读表要点
+    - listitem [ref=f294e231]: ◈ 误报收益主要来自多任务本身（−20–30%），交叉注意力主要是精度增量（+0.5–1%）——拆开看两个贡献源，工程上可按需取舍（预算紧时只做多任务）。
+    - listitem [ref=f294e232]: ◈ 「VAD 也获益」值得注意：联合训练不是零和——KWS 的声学知识让 VAD 更准，说明两个任务的表示确实互补而非竞争（负迁移没有发生在任务相关性高的一对上）。
+    - listitem [ref=f294e233]: ◈ 证据边界：内部数据为主（复现受限）、交叉注意力推理开销未量化、远场/噪声评估不充分、未探索 3+ 任务组合——绝对数字不可直接引用，相对量级可迁移。
+  - heading "§04 贡献" [level=2] [ref=f294e234]:
+    - generic [ref=f294e235]: §04
+    - text: 贡献
+  - generic [ref=f294e236]: 四点：从机制到误报策略
+  - generic [ref=f294e237]:
+    - generic [ref=f294e238]:
+      - generic [ref=f294e239]: "1"
+      - paragraph [ref=f294e240]: 交叉注意力用于 KWS 任务间信息共享：区别于底层共享的多任务——在高层解码器间细粒度交换，每个任务精确获取最相关的信息。
+    - generic [ref=f294e241]:
+      - generic [ref=f294e242]: "2"
+      - paragraph [ref=f294e243]: 证明交叉注意力多任务提升 KWS：显著优于单任务与无交叉注意力的多任务——误报控制尤其突出。
+    - generic [ref=f294e244]:
+      - generic [ref=f294e245]: "3"
+      - paragraph [ref=f294e246]: 揭示 VAD 与 KWS 的互补性：VAD 帮 KWS 拒非语音段，KWS 声学知识帮 VAD 判别——双向互利有实验证据。
+    - generic [ref=f294e247]:
+      - generic [ref=f294e248]: "4"
+      - paragraph [ref=f294e249]: 有效的误报缓解策略：多任务推理用 VAD 判断作辅助信号——为 KWS 误报问题提供系统级方案而非单点技巧。
+  - heading "§05 局限与判断" [level=2] [ref=f294e250]:
+    - generic [ref=f294e251]: §05
+    - text: 局限与判断
+  - generic [ref=f294e252]: 复杂度 · 标注成本 · 负迁移风险
+  - generic [ref=f294e253]:
+    - img [ref=f294e254]:
+      - generic [ref=f294e256]: 边界与延伸
+      - generic [ref=f294e258]: 技术边界
+      - generic [ref=f294e259]: · 复杂度增加：交叉注意力模块加参数与计算——严格资源约束下
+      - generic [ref=f294e260]: 可能不可接受（且推理开销未量化）
+      - generic [ref=f294e261]: · 多任务标注需求：训练数据要同时有 KWS 与 VAD 标注——
+      - generic [ref=f294e262]: 数据准备成本上升
+      - generic [ref=f294e263]: · 负迁移风险：任务相关性低时多任务可能导致某些任务性能
+      - generic [ref=f294e264]: 下降——共享深度 4–6 层的甜点正是干扰的边界证据
+      - generic [ref=f294e266]: 实验边界 + 延伸
+      - generic [ref=f294e267]: · 内部数据为主，复现性受限
+      - generic [ref=f294e268]: · 远场/噪声条件评估不充分
+      - generic [ref=f294e269]: · 未探索 3+ 任务；最优任务组合分析有限
+      - generic [ref=f294e270]: 延伸：任务相似性度量预测最优组合；动态任务权重
+      - generic [ref=f294e271]: 调整；蒸馏多任务知识到单任务轻量模型（端侧部署的
+      - generic [ref=f294e272]: 正确姿势——多任务训、单任务部署）；扩展到情感识别/
+      - generic [ref=f294e273]: 语言识别等更多任务
+      - generic [ref=f294e274]: 可迁移判断：多任务训、单任务部署——联合训练的价值在表示质量，不必把整个多任务模型搬上端侧；跨分支检索（交叉注意力）比底层共享能传更细粒度的互补信息
+    - generic [ref=f294e275]: 图4 · 边界与延伸：左技术边界（交叉注意力开销、双标注需求、负迁移风险），右实验边界（内部数据、远场噪声、3+ 任务未探索）+ 延伸方向（含「多任务训、单任务部署」的蒸馏路线）。
+  - generic [ref=f294e276]:
+    - generic [ref=f294e277]: 可迁移判断
+    - paragraph [ref=f294e278]: ↳ 多任务训、单任务部署：联合训练的价值在表示质量（互为免费的辅助监督），不必把整个多任务模型搬上端侧——蒸馏到单任务轻量模型就能保留大部分收益，部署复杂度不增。
+    - paragraph [ref=f294e279]: ↳ 跨分支检索比底层共享传得更细：底层共享传「通用特征」，交叉注意力传「任务特有判别信息」——两个任务有逻辑包含关系（唤醒词 ⊂ 语音）时，后者是前者的必要补充。
+    - paragraph [ref=f294e280]: ↳ 辅助任务的选择看相关性：VAD 与 KWS 高相关所以互利；任务相关性低时负迁移会出现——共享深度的甜点（4–6 层）正是干扰边界的量化。选辅助任务先问「它的输出是否蕴含我任务的先验」。
+    - paragraph [ref=f294e281]: ↳ 新通路要配保险丝：交叉注意力、动态滤波、任何引入外部信息的模块都需要门控/残差式的可控混入——「无脑融合」的收益在消融里从来都不稳定。
+  - generic [ref=f294e282]:
+    - link "arXiv 2107.07634 ↗" [ref=f294e283] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2107.07634
+    - link "← 返回总目录" [ref=f294e284] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f294e285]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值（内部数据为主，绝对值不可直接引用）· 2021 №18 · 203+/305
