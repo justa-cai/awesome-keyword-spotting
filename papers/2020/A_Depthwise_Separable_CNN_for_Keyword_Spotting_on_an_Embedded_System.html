@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DS-CNN 上 MCU：量化、真实噪声与 ARM Cortex M4 真机闭环 | 论文精读 2020 №1</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.22em;color:var(--acc);font-weight:700;text-transform:uppercase;margin-bottom:14px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.sub{font-size:17px;color:var(--ink2);margin-bottom:22px;font-weight:400}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.chip{font-size:12.5px;padding:5px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2);font-weight:600}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:16px 20px;font-size:14px;color:var(--ink2);margin-bottom:40px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:10px;vertical-align:-6px}
+h2{font-size:24px;font-weight:800;margin-bottom:18px;letter-spacing:.01em}
+h3{font-size:17px;font-weight:700;margin:26px 0 10px}
+p{margin-bottom:14px;color:#2c3646}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:800;color:var(--acc);letter-spacing:.14em;margin-bottom:10px}
+.tldr li{list-style:none;padding-left:22px;position:relative;margin-bottom:8px;color:#2c3646;font-size:15px}
+.tldr li::before{content:"◆";position:absolute;left:2px;color:var(--acc);font-size:10px;top:7px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:18px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px}
+.card h4{font-size:15px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13.5px;color:var(--ink2);margin-bottom:0}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h4{color:var(--dk)}
+.card.bad{background:#fdf0ee;border-color:#f0d9d4}
+.card.bad h4{color:var(--warn)}
+.fig{margin:26px 0}
+.fig svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:9px;text-align:center}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 22px;margin:16px 0;font-size:15px}
+.formula .f{font-family:"SF Mono",Consolas,"Liberation Mono",monospace;font-size:14.5px;color:var(--ink);background:#f4f4ef;border-radius:8px;padding:10px 16px;margin-bottom:8px;overflow-x:auto;white-space:pre-wrap}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;margin:16px 0}
+table.tb th{background:#eff1ec;color:var(--ink);font-weight:700;text-align:left;padding:10px 14px;border-bottom:2px solid var(--line);font-size:13px}
+table.tb td{padding:9px 14px;border-bottom:1px solid #f0f0ea;color:#2c3646;vertical-align:top}
+table.tb tr:last-child td{border-bottom:none}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.contrib{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:18px 0}
+.contrib .row{display:flex;gap:14px;margin-bottom:12px;align-items:flex-start}
+.contrib .row:last-child{margin-bottom:0}
+.contrib .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lt);color:var(--dk);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.contrib .row p{margin:0;font-size:14px;color:#2c3646}
+.judge{background:#fdf8f0;border:1px solid #eadfc8;border-radius:12px;padding:20px 24px;margin:18px 0}
+.judge .jt{font-size:13px;font-weight:800;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:#5a4a2f;margin-bottom:10px;font-weight:600}
+.judge .rw{font-size:13.5px;color:#7a6a4a;padding-left:18px;position:relative;margin-bottom:9px}
+.judge .rw::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{font-size:12px;padding:4px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink3);font-weight:600}
+.foot-note{font-size:12px;color:var(--ink3);width:100%;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">论文精读 · 可视化版 · 2020 №1</div>
+<h1 class="hero">把 DS-CNN 真正塞进单片机：量化怎么压、噪声怎么喂、<span class="g">M4 真机怎么跑</span></h1>
+<div class="sub">A Depthwise Separable CNN for Keyword Spotting on an Embedded System —— 一篇把「架构、量化、增强、部署」四件事一次做完的工程作业</div>
+<div class="chips">
+<span class="chip acc">DS-CNN</span><span class="chip">ARM Cortex M4</span><span class="chip">定点量化</span><span class="chip">真实噪声增强</span><span class="chip">真机实时闭环</span>
+</div>
+<div class="meta">
+<b>丹麦技术大学（DTU）· EURASIP Journal on Audio, Speech, and Music Processing 2020</b>（DOI 10.1186/s13636-020-00176-2）<br>
+任务：GSC 10 词分类 · 目标平台：ARM Cortex M4（SRAM 数百 KB · 主频 100–200MHz · 无 AI 加速器）<br>
+一句话：DSConv 骨干 + 超参网格搜索 + 两种定点量化 + 真实室内噪声增强，全部在 MCU 上闭环验证——8 位定点几乎免费拿走 75% 体积缩减。
+</div>
+
+<section>
+<span class="no">01</span><h2>为什么值得读：一篇「把链条走完」的论文</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>大量 KWS 论文止步于「准确率表」，这篇把 <b>架构选择 → 量化 → 数据增强 → 真机部署 → 匹配/不匹配噪声评估</b> 整条链走完，是难得的完整工程记录。</li>
+<li>核心结论一：<b>8 位定点几乎无精度损失，模型体积 −75%</b>——嵌入式量化的默认档位，不需要任何花哨技巧。</li>
+<li>核心结论二：<b>真实实录噪声增强优于人工（高斯白噪）增强</b>，在未见过的不匹配噪声上更稳——增强素材与部署声学的分布一致性比噪声量更重要。</li>
+<li>边界清醒：仅 10 词词表、单通道、M4 平台绑定；4 位以下精度明显下降，需要后续分布整形类方法（如 2022 年亚 8 比特工作）接力。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN 上 MCU：量化怎么压、噪声怎么喂、真机怎么跑——一份工程作业</text>
+<line x1="36.0" y1="60.0" x2="740.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① MCU 的三重硬约束 + 被遗漏的研究空白</text>
+<rect x="36.0" y="98.0" width="848.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="52.0" y="118.0" font-size="9.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ARM Cortex M 系列的现实：SRAM 几百 KB · 主频 100–200MHz · 无专用 AI 加速——所有计算靠 CPU；标准 CNN 参数与计算量装不进去</text>
+<text x="52.0" y="134.0" font-size="9" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">DSConv 已被证明能降复杂度（约 1/N + 1/K²），但「量化对 DS-CNN KWS 精度的影响」在本文之前没被系统研究——这是它要填的空白</text>
+<rect x="36.0" y="152.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="182.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">极有限内存</text>
+<text x="215.0" y="173.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">SRAM 几百 KB 量级——模型参数、特征缓冲、中间激活全要塞进去；参数放 Flash、激活放 SRAM 的分工是部署基线</text>
+<text x="215.0" y="191.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<rect x="36.0" y="210.0" width="848.0" height="50.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="240.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">计算力有限</text>
+<text x="215.0" y="231.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">主频 100–200MHz——每帧推理必须远快于音频采集（实时性）；无 GPU/NPU，乘加全靠 CPU 通用指令</text>
+<text x="215.0" y="249.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<rect x="36.0" y="268.0" width="848.0" height="50.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="298.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">量化研究空白</text>
+<text x="215.0" y="289.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">DSConv 降复杂度已知，但部署必然要做量化——量化对 DS-CNN KWS 精度的影响没有系统数据（本文的定位）</text>
+<text x="215.0" y="307.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="36.0" y="332.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 四件套方法论</text>
+<rect x="36.0" y="348.0" width="420.0" height="78.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="50.0" y="369.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN 骨干</text>
+<text x="50.0" y="387.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">深度卷积（每通道独立空间卷积）+ 逐点 1×1（跨通道融合）—</text>
+<text x="50.0" y="400.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">—复杂度约 1/N + 1/K²</text>
+<rect x="464.0" y="348.0" width="420.0" height="78.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="478.0" y="369.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">超参数网格搜索</text>
+<text x="478.0" y="387.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">核数量 · 层数 · 核大小系统扫描——找精度-复杂度的帕累托</text>
+<text x="478.0" y="400.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">前沿</text>
+<rect x="36.0" y="434.0" width="420.0" height="78.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="50.0" y="455.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两种定点量化</text>
+<text x="50.0" y="473.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">混合位宽（敏感层 16 位 · 不敏感层 8 位）+ 动态定点</text>
+<text x="50.0" y="486.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（每层独立定小数点）</text>
+<rect x="464.0" y="434.0" width="420.0" height="78.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="478.0" y="455.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">真实噪声增强</text>
+<text x="478.0" y="473.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">空调/风扇/键盘/谈话等室内实录 · SNR −5dB~+20</text>
+<text x="478.0" y="486.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">dB 混合（不用高斯白噪）</text>
+<text x="36.0" y="520.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 嵌入式部署的完整闭环</text>
+<rect x="36.0" y="536.0" width="848.0" height="162.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<rect x="56.0" y="560.0" width="180.0" height="56.0" rx="8" fill="#ffffff" stroke="#d5e8df" stroke-width="1"/>
+<text x="146.0" y="582.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">连续音频流</text>
+<text x="146.0" y="600.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">MCU 采集</text>
+<line x1="236.0" y1="588.0" x2="264.00" y2="588.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="264.0" y="560.0" width="180.0" height="56.0" rx="8" fill="#ffffff" stroke="#d5e8df" stroke-width="1"/>
+<text x="354.0" y="582.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MFCC 前端</text>
+<text x="354.0" y="600.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">MCU 上完成</text>
+<line x1="444.0" y1="588.0" x2="472.00" y2="588.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="472.0" y="560.0" width="180.0" height="56.0" rx="8" fill="#ffffff" stroke="#d5e8df" stroke-width="1"/>
+<text x="562.0" y="582.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DS-CNN 推理</text>
+<text x="562.0" y="600.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">定点计算</text>
+<line x1="652.0" y1="588.0" x2="680.00" y2="588.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="680.0" y="560.0" width="180.0" height="56.0" rx="8" fill="#ffffff" stroke="#d5e8df" stroke-width="1"/>
+<text x="770.0" y="582.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实时输出</text>
+<text x="770.0" y="600.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">处理快于采集</text>
+<text x="52.0" y="636.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">内存分工：模型参数存 Flash · 推理中间激活存 SRAM——两级存储各司其职</text>
+<text x="52.0" y="651.0" font-size="9.3" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="666.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">评估矩阵的完备性：匹配噪声（训练见过）与不匹配噪声（未见）分列 · 多 SNR 条件 · 真实实录噪声——鲁棒性主张有对照面</text>
+<rect x="36.0" y="716.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="130.0" y="742.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~94%</text>
+<text x="130.0" y="762.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC 10 词准确率（原始 DS-CNN）</text>
+<text x="298.0" y="742.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">8-bit</text>
+<text x="298.0" y="762.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">量化几乎无精度损失 · 体积 −75%</text>
+<text x="466.0" y="742.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−数倍</text>
+<text x="466.0" y="762.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">网格搜索后的复杂度降幅</text>
+<text x="634.0" y="742.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">M4 实时</text>
+<text x="634.0" y="762.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">推理远快于音频采集</text>
+<text x="802.0" y="742.0" font-size="13.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4-bit</text>
+<text x="802.0" y="762.0" font-size="8.3" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">精度开始明显下降的档位</text>
+<text x="36.0" y="800.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">丹麦技术大学（DTU）· EURASIP JASMP 2020；GSC 10 词 · 10 词词表；ARM Cortex M4 目标平台；数字为约值</text>
+</svg>
+<div class="cap">图 1 · 全景：MCU 三重约束 → 四件套方法论 → 部署闭环 → 核心数字带</div>
+<p>论文的起点是一个被许多研究跳过的现实：唤醒词设备的大多数出货形态是 <b>单片机（MCU）</b>，不是手机 SoC。SRAM 只有几百 KB，主频一两百 MHz，没有任何 AI 加速单元——所有乘加都靠 CPU 通用指令硬算。标准 CNN 的参数量和计算量在这个约束下直接出局，深度可分离卷积（DSConv）是当时的标准答案。但作者指出一个空白：<b>DSConv 降复杂度已被反复证明，「量化对 DS-CNN KWS 精度的影响」却没有系统数据</b>——而部署必然要做量化。这篇论文就是填这个空白的。</p>
+</section>
+
+<section>
+<span class="no">02</span><h2>机制：DSConv 拆的是什么，两种定点差在哪</h2>
+<p>DSConv 的思路是把标准卷积耦合在一起的两件事拆开：<b>空间卷积</b>（每个通道独立做）和 <b>通道混合</b>（用 1×1 卷积跨通道融合）。标准卷积一步做两件事，复杂度正比于 N·K²；拆开后近似降为 1/N + 1/K² 的量级。对输入只有 1 秒 MFCC 特征的 KWS 任务，小网络完全吃得住这个算子的表达力。</p>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：DSConv 的拆法 · 两种定点的差异</text>
+<line x1="36.0" y1="56.0" x2="520.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="220.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标准卷积 vs DSConv</text>
+<rect x="48.0" y="92.0" width="350.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="60.0" y="112.0" font-size="9.3" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标准卷积一步做两件事</text>
+<rect x="72.0" y="126.0" width="200.0" height="40.0" rx="6" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="172.0" y="150.0" font-size="8.5" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">空间卷积 + 通道混合 同时做</text>
+<text x="72.0" y="182.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">复杂度 ∝ N·K²（N 输出通道 · K 核尺寸）</text>
+<text x="60.0" y="216.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DSConv 拆成两步</text>
+<rect x="72.0" y="230.0" width="96.0" height="40.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="120.0" y="254.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">深度卷积</text>
+<text x="120.0" y="282.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每通道独立</text>
+<rect x="184.0" y="230.0" width="96.0" height="40.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="232.0" y="254.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">逐点 1×1</text>
+<text x="232.0" y="282.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">通道间融合</text>
+<line x1="168.0" y1="250.0" x2="184.00" y2="250.00" stroke="#8a93a5" stroke-width="1.1"/>
+<text x="213.0" y="316.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">复杂度 ≈ 1/N + 1/K²（相对标准卷积）</text>
+<text x="213.0" y="332.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 输入 1 秒 × MFCC → 小网络吃得住</text>
+<text x="596.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两种定点量化</text>
+<rect x="436.0" y="92.0" width="408.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="450.0" y="112.0" font-size="9.3" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">混合位宽（Mixed Fixed-Point）</text>
+<text x="450.0" y="128.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 对量化敏感的层 → 16 位 · 不敏感的层 → 8 位</text>
+<text x="450.0" y="141.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 相同平均位宽下精度高于统一量化</text>
+<text x="450.0" y="154.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 需要逐层敏感度分析（哪层敏感要先测）</text>
+<text x="450.0" y="180.0" font-size="9.3" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">动态定点（Dynamic Fixed-Point）</text>
+<text x="450.0" y="196.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 每层独立确定小数点位置（bit split）</text>
+<text x="450.0" y="209.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 按各层权重/激活的实际数值范围动态调参</text>
+<text x="450.0" y="222.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 避免固定参数导致的溢出或精度损失</text>
+<text x="450.0" y="235.0" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="248.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">结论档位：</text>
+<text x="450.0" y="261.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 8 位定点：几乎无精度损失 · 模型 −75%</text>
+<text x="450.0" y="274.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 4 位定点：精度开始明显下降</text>
+<text x="450.0" y="287.0" font-size="8.4" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="450.0" y="300.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">对比同期（2022 #36 亚 8 比特）：那篇走分布整形，</text>
+<text x="450.0" y="313.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">这篇走位宽分配——两条路线</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：DSConv 把「空间+通道」耦合的标准卷积拆成两步各司其职——小模型的核心算子。右：混合位宽按敏感度分配 · 动态定点按数值范围定位——本文量化研究的两条腿</text>
+</svg>
+<div class="cap">图 2 · 机制解剖：标准卷积 vs DSConv 的拆分 · 混合位宽与动态定点两种量化方案</div>
+<div class="formula">
+<div class="f">标准卷积：每输出通道都要看全部输入通道 × 全部核位置 → O(N·K²·D)
+DSConv：深度卷积 O(K²·D) + 逐点卷积 O(N·D) → 相对开销 ≈ 1/N + 1/K²</div>
+<div class="why"><b>人话：</b>标准卷积像「每个评委都要翻完所有材料」，DSConv 先让每个人只看自己那页（深度卷积），再用一个快速汇总会（1×1）交流意见——步骤多了，但每步便宜得多，总账大幅下降。</div>
+</div>
+<p>量化部分论文系统对比了两种定点方案，它们解决的是不同的问题：</p>
+<div class="cards">
+<div class="card"><h4>混合位宽（Mixed Fixed-Point）</h4><p>对量化<b>敏感的层留 16 位</b>、不敏感的层压到 8 位。相同平均位宽下精度高于统一量化——代价是要先做逐层敏感度分析。</p></div>
+<div class="card"><h4>动态定点（Dynamic Fixed-Point）</h4><p><b>每层独立确定小数点位置</b>（bit split），按各层权重/激活的实际数值范围调参——避免固定格式导致的溢出或精度浪费。</p></div>
+<div class="card bad"><h4>再往下压的墙</h4><p>4 位定点精度开始<b>明显下降</b>——这一档不是「调参」能解决的，需要分布整形类专门方法（后来 2022 年的亚 8 比特工作走的就是那条路）。</p></div>
+</div>
+<p>数据增强是另一半方法主体：作者用<b>空调、风扇、键盘敲击、谈话声等室内实录噪声</b>，在 SNR −5dB 到 +20dB 多档混合，而不是惯用的高斯白噪。这个选择在后面的评估里被证明是关键的。</p>
+</section>
+
+<section>
+<span class="no">03</span><h2>实验与结果：8 位白拿 75%，真实噪声赢得干净</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（约值）：8 位白拿 75%，复杂度还有数倍余量</text>
+<line x1="36.0" y1="56.0" x2="540.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="251.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">量化档位与精度</text>
+<line x1="52.0" y1="255.2" x2="456.00" y2="255.16" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="258.2" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">80</text>
+<line x1="52.0" y1="213.1" x2="456.00" y2="213.05" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="216.1" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">85</text>
+<line x1="52.0" y1="170.9" x2="456.00" y2="170.95" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="173.9" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">90</text>
+<line x1="52.0" y1="128.8" x2="456.00" y2="128.84" stroke="#eef0ec" stroke-width="1"/>
+<text x="48.0" y="131.8" font-size="7.5" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">95</text>
+<rect x="100.0" y="137.3" width="72.0" height="134.7" rx="4" fill="#8a93a5"/>
+<text x="136.0" y="131.3" font-size="9" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~94.0</text>
+<text x="136.0" y="286.0" font-size="8.3" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">浮点基线</text>
+<text x="136.0" y="297.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">体积 100%</text>
+<rect x="228.0" y="141.5" width="72.0" height="130.5" rx="4" fill="#0b6e52"/>
+<text x="264.0" y="135.5" font-size="9" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~93.5</text>
+<text x="264.0" y="286.0" font-size="8.3" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">8-bit 定点 ★</text>
+<text x="264.0" y="297.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">体积 25%</text>
+<rect x="356.0" y="213.1" width="72.0" height="58.9" rx="4" fill="#e8b8b0"/>
+<text x="392.0" y="207.1" font-size="9" fill="#e8b8b0" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~85.0</text>
+<text x="392.0" y="286.0" font-size="8.3" fill="#1c2430" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">4-bit 定点</text>
+<text x="392.0" y="297.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">体积 12%</text>
+<text x="256.0" y="106.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">柱高 = 精度 · 柱下 = 相对模型体积</text>
+<text x="56.0" y="306.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：</text>
+<text x="56.0" y="320.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 8 位定点：精度几乎不掉 · 模型 −75%——嵌入式量化的默认档</text>
+<text x="56.0" y="333.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 4 位：精度开始明显掉——再往下压需要专门方法（分布整形类）</text>
+<text x="56.0" y="346.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 混合位宽优于统一位宽：同平均位宽下精度更高</text>
+<text x="56.0" y="359.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 网格搜索：复杂度还能再降数倍，精度只轻微下降</text>
+<text x="56.0" y="372.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——DS-CNN 在 KWS 上有大量冗余参数</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声增强与真机</text>
+<rect x="500.0" y="92.0" width="324.0" height="140.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="112.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">真实噪声 vs 人工噪声</text>
+<text x="514.0" y="128.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 空调 · 风扇 · 键盘敲击 · 谈话声等实录室内噪声</text>
+<text x="514.0" y="141.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· SNR −5dB ~ +20dB 多档混合</text>
+<text x="514.0" y="154.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 结论：实录噪声增强的模型在未见噪声上优于</text>
+<text x="514.0" y="167.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  人工（高斯白噪）增强——部署噪声有真实谱结构</text>
+<text x="514.0" y="180.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 匹配/不匹配噪声分列评估 + 多 SNR 训练提鲁棒性</text>
+<rect x="500.0" y="238.0" width="324.0" height="104.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="514.0" y="258.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ARM Cortex M4 真机</text>
+<text x="514.0" y="274.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 连续音频流实时 KWS（前端 MFCC + 推理全在 MCU）</text>
+<text x="514.0" y="287.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 内存：参数 Flash · 激活 SRAM——满足约束</text>
+<text x="514.0" y="300.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 延迟：推理远快于音频采集（实时成立）</text>
+<text x="514.0" y="313.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 结论形态：完整验证而非纸面推断——2020 年少见的</text>
+<text x="514.0" y="326.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  「真机 + 匹配/不匹配噪声」双维度证据</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注：数字为笔记记录的约值（原文见 EURASIP JASMP 2020 DOI 10.1186/s13636-020-00176-2）；网格搜索的「数倍」复杂度降幅为笔记的定性记录——具体数值回对原文</text>
+</svg>
+<div class="cap">图 3 · 主结果：量化档位 vs 精度/体积 · 真实噪声 vs 人工噪声 · M4 真机验证</div>
+<p>主结果可以压成一张表——每往下一档，你付出什么、换到什么，一目了然：</p>
+<table class="tb">
+<tr><th>配置</th><th>精度（GSC 10 词，约值）</th><th>相对体积</th><th>判断</th></tr>
+<tr><td>浮点 DS-CNN 基线</td><td>~94%</td><td>100%</td><td>训练精度上限</td></tr>
+<tr class="hl"><td>8-bit 定点（混合/动态）</td><td>~93.5%（几乎无损）</td><td>~25%</td><td>嵌入式默认档——白拿 −75% 体积</td></tr>
+<tr><td>4-bit 定点</td><td>~85%（明显下降）</td><td>~12%</td><td>墙；再压需分布整形类方法</td></tr>
+<tr><td>网格搜索后小模型</td><td>轻微下降</td><td>—</td><td>复杂度再降数倍——DS-CNN 冗余很大</td></tr>
+</table>
+<div class="contrib">
+<div class="row"><div class="n">1</div><p><b>量化不是最后一公里才做的事。</b>8 位定点几乎免费——精度几乎不掉、体积 −75%。把它留在部署末期才碰，等于全程背着 4 倍大的模型做开发迭代。</p></div>
+<div class="row"><div class="n">2</div><p><b>网格搜索显示 DS-CNN 在 KWS 上有大量冗余参数。</b>系统扫描核数量/层数/核大小后，复杂度还能再降数倍而精度只轻微下降——默认配置远不是帕累托前沿。</p></div>
+<div class="row"><div class="n">3</div><p><b>真实噪声增强在不匹配噪声上优于人工噪声增强。</b>实录噪声带着真实的谱结构（空调的低频轰鸣、键盘的瞬态冲击），高斯白噪没有——增强素材与部署声学的<b>分布一致性</b>，比噪声的量更重要。</p></div>
+<div class="row"><div class="n">4</div><p><b>M4 真机闭环不是装饰。</b>MFCC 前端 + 定点推理全在 MCU 上，参数存 Flash、激活存 SRAM，推理远快于音频采集（实时成立）——「匹配噪声（训练见过）/不匹配噪声（未见）」分列评估给了鲁棒性主张一个对照面。2020 年同时具备这两点的论文不多。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">04</span><h2>边界：结论不能外推的地方</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与延伸</text>
+<line x1="36.0" y1="56.0" x2="200.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="56.0" y="88.0" width="400.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="256.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法边界</text>
+<text x="72.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 词表限制：仅 10 词 GSC——更大词表（35 词/自定义词）的扩展性</text>
+<text x="72.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  未验证；10 词 ~94% 的结论不能直接外推</text>
+<text x="72.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 单通道音频：未用多通道信息做空间滤波——远场场景受限</text>
+<text x="72.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 平台绑定：定点方案主要针对 ARM Cortex M4——RISC-V/DSP</text>
+<text x="72.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  等其他平台的适用性待验</text>
+<text x="72.0" y="197.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声类型有限：实录噪声限于特定室内类型——户外/交通/</text>
+<text x="72.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  电视场景未知</text>
+<rect x="520.0" y="88.0" width="324.0" height="300.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="682.0" y="110.0" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延伸</text>
+<text x="536.0" y="130.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 大词表与自定义关键词场景</text>
+<text x="536.0" y="143.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 二值化 / 4 位 / 2 位更低比特量化</text>
+<text x="536.0" y="157.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多通道前端（波束成形）提远场</text>
+<text x="536.0" y="170.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· NAS 自动发现适配特定硬件的 DS-CNN</text>
+<text x="536.0" y="184.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 在线适应：部署后适应新噪声环境</text>
+<text x="536.0" y="197.5" font-size="9.5" fill="" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="536.0" y="211.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">系列坐标：本文是「DS-CNN × MCU × 量化」的工程基线——</text>
+<text x="536.0" y="224.5" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">后续 MatchboxNet（ICASSP 2020）/BC-ResNet（2021）走</text>
+<text x="536.0" y="238.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">架构创新，2022 #36 走分布整形，各有侧重</text>
+<text x="36.0" y="416.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">可迁移判断：8 位定点在 KWS 上几乎免费（精度不掉 · 体积 −75%）——部署链路上量化不该留到最后才做；真实噪声增强优于人工噪声——增强素材与部署声学的分布一致性，比噪声的量更重要</text>
+</svg>
+<div class="cap">图 4 · 边界与延伸：词表/通道/平台/噪声四个方向的适用范围</div>
+<div class="cards">
+<div class="card bad"><h4>词表边界</h4><p>仅 10 词 GSC。<b>~94% 的结论不能直接外推到 35 词或自定义词表</b>——词表变大、词间混淆变多，量化损失会被放大。</p></div>
+<div class="card bad"><h4>单通道</h4><p>未用多通道信息做空间滤波——远场多麦克风场景（音箱的典型工况）不在此文覆盖范围。</p></div>
+<div class="card bad"><h4>平台绑定</h4><p>定点方案主要针对 ARM Cortex M4 的指令与内存分层。RISC-V、DSP 等其他平台的适用性待验证。</p></div>
+<div class="card"><h4>噪声类型有限</h4><p>实录噪声限于特定室内类型；户外、交通、电视伴音等场景未知。</p></div>
+</div>
+</section>
+
+<section>
+<span class="no">05</span><h2>可迁移的判断</h2>
+<div class="judge">
+<div class="jt">JUDGMENTS · 能带走的三条</div>
+<p>① 8 位定点在 KWS 上几乎免费。</p>
+<div class="rw">部署链路上量化不该留到最后才做——−75% 体积、精度不掉，早做早受益；4 位以下才是需要专门技术（分布整形、QAT）的领域。</div>
+<p>② 增强素材与部署声学的分布一致性 &gt; 噪声的量。</p>
+<div class="rw">实录噪声（带真实谱结构与瞬态）训练出的模型在未见噪声上更稳；高斯白噪便宜但不代表真实部署声学。</div>
+<p>③ 真机闭环 + 匹配/不匹配分列，是嵌入式 ML 论文可信度的分水岭。</p>
+<div class="rw">只有「真机跑起来 + 未见噪声也测了」的鲁棒性主张才立得住；本文 2020 年就把这两件事做齐，方法论至今适用。</div>
+</div>
+<p><b>系列坐标</b>：本文是「DS-CNN × MCU × 量化」的工程基线。同期的 MatchboxNet（ICASSP 2020）和下一年的 BC-ResNet（2021）走架构创新路线，2022 年的亚 8 比特量化走分布整形路线——本文代表的「系统工程路线」与它们互补：前者回答「网络长什么样」，本文回答「网络怎么活在下位机里」。</p>
+</section>
+
+<div class="foot">
+<span class="pill">EURASIP JASMP 2020</span><span class="pill">GSC 10 词</span><span class="pill">ARM Cortex M4</span><span class="pill">8-bit −75%</span>
+<div class="foot-note">数字为笔记记录的约值，具体数值以原文为准（DOI 10.1186/s13636-020-00176-2）· 本页为可视化精读笔记，图表由 SVG 重绘</div>
+</div>
+
+</div>
+</body>
+</html>
