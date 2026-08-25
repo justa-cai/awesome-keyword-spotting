@@ -1,0 +1,265 @@
+- generic [ref=f277e2]:
+  - generic [ref=f277e3]: 论文精读 · 可视化版 · 2021 №9
+  - heading "上下文不必逐对算： 把它压成一个线性函数，长程交互免二次税" [level=1] [ref=f277e4]: 上下文不必逐对算：把它压成一个线性函数，长程交互免二次税
+  - generic [ref=f277e5]:
+    - generic [ref=f277e6]: Temporal Lambda Networks · 加泰罗尼亚理工大学
+    - generic [ref=f277e7]: arXiv 2104.08086 · Lambda 层首次进语音
+    - generic [ref=f277e8]: DS-CNN 主干 + 1–2 个 Lambda 层 · O(n) 长程建模
+    - generic [ref=f277e9]: GSC v2 约 95–96% · vs 标准注意力计算 −30–50%
+  - generic [ref=f277e10]: 一句话：CNN 靠堆深度换感受野，自注意力直接建模任意两帧但付 O(n²)。本文把视觉领域的 Lambda 网络（Bello 2021）首次引入 KWS：不逐对算关系，而是把整个时间上下文压缩成一个 (d_k, d_v) 的线性变换 λ = softmax(Kᵀ)·V，再作用到每个查询——生成为 O(n)、应用也是 O(n)。插在 DS-CNN 第 4–5 层后的 1–2 个 Lambda 层拿到约 1 个点的全局建模红利，与标准注意力差距 <1%，计算量省 30–50%，训练还不用 warmup。
+  - generic [ref=f277e11]:
+    - generic [ref=f277e12]: TL;DR
+    - listitem [ref=f277e13]: ◈ 两难老问题：CNN 局部核（3–5 帧）要堆多层才覆盖整段，参数计算随之涨；自注意力能建模任意两帧但 O(n²)，训练还要 warmup——长程时间依赖（音素序列结构、韵律、语调轨迹）始终是两边的痛。
+    - listitem [ref=f277e14]: ◈ Lambda 的范式转换：自注意力对每个查询与所有键逐对算关系；Lambda 先把整个上下文压成一个线性变换 λ = softmax(Kᵀ)·V（沿时间维归一化的键值外积，形状 d_k×d_v），再让每个时间步的查询乘同一个 λ——「压缩再应用」，n 只线性进入。
+    - listitem [ref=f277e15]: ◈ 计算流五步：Q=XW_q · K=XW_k · V=XW_v → λ=softmax(Kᵀ)·V → y_t=Q_t·λ → 输出投影 + 残差。多头版把 d_k 切 H 份各算各的 λ——不同子空间捕不同类型的时间依赖。
+    - listitem [ref=f277e16]: ◈ 集成方式：DS-CNN 照常提局部特征，Lambda 层插在第 4–5 层卷积后（太早特征太底层、太晚序列已被过度压缩）；插 1–2 个拿大部分收益，≥3 个递减——全局建模不需要堆。
+    - listitem [ref=f277e17]: ◈ 结果（约值）：GSC v2 12 类 95–96%（DS-CNN 94–95）；与标准注意力差距 <1%、计算量 −30–50%；Lambda 层只加 5–10% 参数（不需要每位置的大 K/V 投影）。
+    - listitem [ref=f277e18]: ◈ 消融甜点全套：位置第 4–5 层后 · 层数 1–2 · d_k=64 · 头数 H=4（优于 1 和 8）——复现的起点配置齐全。
+    - listitem [ref=f277e19]: ◈ 短序列的诚实账：T≈50 时 O(n²) 本就不突出——Lambda 在 KWS 常规长度上的加速有限，常数因子吃掉大头；真正的效率优势要在数百帧以上的序列（ASR、连续语音关键词搜索）才显现。KWS 上的实际卖点是参数更少、计算图更简、训练免 warmup——三条都不依赖序列长。
+    - listitem [ref=f277e20]: ◈ 边界：λ 的计算（softmax(Kᵀ)·V）需要完整序列——非因果、流式未适配；未与 Performer/线性 Transformer/Linformer 横比；仅 GSC 干净数据；无延迟实测。
+  - heading "§01 问题：全局建模的两条老路与新选项" [level=2] [ref=f277e21]:
+    - generic [ref=f277e22]: §01
+    - text: 问题：全局建模的两条老路与新选项
+  - generic [ref=f277e23]: 感受野账单 vs 二次税账单
+  - generic [ref=f277e24]:
+    - generic [ref=f277e25]:
+      - heading "CNN 的感受野账单" [level=3] [ref=f277e26]
+      - paragraph [ref=f277e27]: 3–5 帧的局部核捕短时特征没问题，但关键词的判别信息一半在长程：音素序列的时序结构、韵律模式、语调轨迹——跨整段的依赖要靠堆多层换感受野，参数与计算随之线性涨。
+    - generic [ref=f277e28]:
+      - heading "注意力的二次税账单" [level=3] [ref=f277e29]
+      - paragraph [ref=f277e30]: softmax(QKᵀ)V 直接建模任意两帧关系，但每个查询要与所有键点积——O(n²) 在序列变长时成为瓶颈；softmax 的逐对归一化还让训练需要 warmup 才稳。
+    - generic [ref=f277e31]:
+      - heading "λ 学到什么" [level=3] [ref=f277e32]
+      - paragraph [ref=f277e33]: 可视化 λ 权重矩阵：Lambda 层学到关键词内不同时间段之间的关联——如「yes」的 /j/ 段与 /s/ 段的联系被编码进同一个变换。与注意力的逐对权重不同，λ 表达的是整段语音的统计性时间结构。
+    - generic [ref=f277e34]:
+      - heading "中间态的定位" [level=3] [ref=f277e35]
+      - paragraph [ref=f277e36]: CNN 只有局部、注意力逐对爆炸——Lambda 是两者之间的中间态：全局（上下文全部参与）、紧凑（一个 d_k×d_v 矩阵）、线性（O(n)）。代价是所有时间步共享同一变换——损失了逐位置的特异性。
+  - generic [ref=f277e37]:
+    - img [ref=f277e38]:
+      - generic [ref=f277e40]: 时序 Lambda 网络：把上下文压成一个线性函数，长程交互不付二次税
+      - generic [ref=f277e41]: ① 两难：CNN 靠堆深度换感受野，注意力付二次税
+      - generic [ref=f277e43]: CNN 的感受野账
+      - generic [ref=f277e44]: 局部卷积核（3–5 帧）捕短时特征没问题，但音素序列的时序结构、韵律模式、
+      - generic [ref=f277e45]: 语调轨迹是跨整段的长程依赖——要靠堆多层扩大感受野，参数与计算随之涨
+      - generic [ref=f277e47]: 自注意力的二次税
+      - generic [ref=f277e48]: 能直接建模任意两帧的关系，但 softmax(QKᵀ)V 是 O(n²)——序列一长就是
+      - generic [ref=f277e49]: 瓶颈；训练还要 warmup 才稳
+      - generic [ref=f277e51]: Lambda 的范式转换
+      - generic [ref=f277e52]: 不逐对算关系，而是把整个上下文「压缩」成一个线性变换函数 λ，再作用到
+      - generic [ref=f277e53]: 查询上——生成为 O(n)、应用也是 O(n)，长程交互免二次税
+      - generic [ref=f277e54]: ② Lambda 层：上下文 → 变换矩阵 → 作用到查询
+      - generic [ref=f277e56]: 计算流（时间维 Lambda）
+      - generic [ref=f277e57]: 输入 X ∈ (B, T, C) ← 40 维 MFCC · T≈49
+      - generic [ref=f277e58]: ① 查询：Q = X·W_q （C → d_k）
+      - generic [ref=f277e59]: ② 键值：K = X·W_k · V = X·W_v
+      - generic [ref=f277e60]: ③ 上下文压缩：λ = softmax(Kᵀ)·V
+      - generic [ref=f277e61]: softmax 沿时间维归一化 → λ 是 (d_k, d_v) 的
+      - generic [ref=f277e62]: 变换矩阵——整个时间序列被压进一个线性函数
+      - generic [ref=f277e63]: ④ 应用：y_t = Q_t · λ （每个时间步同一变换）
+      - generic [ref=f277e64]: ⑤ 输出投影 + 残差连接
+      - generic [ref=f277e65]: 多头版：d_k 切成 H 份各算各的 λ，拼接后投影
+      - generic [ref=f277e67]: 与 CNN 主干的集成
+      - generic [ref=f277e68]: DS-CNN 照常提局部特征（MFCC → 卷积栈）
+      - generic [ref=f277e69]: Lambda 层插在中间（第 4–5 层卷积后）：
+      - generic [ref=f277e70]: · 太早：特征太底层，全局交互无意义
+      - generic [ref=f277e71]: · 太晚：序列已被过度压缩，长程信息已丢
+      - generic [ref=f277e72]: 残差连接保梯度流动；插 1–2 个即拿大部分收益，
+      - generic [ref=f277e73]: 3 个以上递减
+      - generic [ref=f277e74]: 训练：Adam + 余弦调度 · SpecAugment · 标准 CE
+      - generic [ref=f277e75]: 参数账：Lambda 层只加基础 CNN 的 5–10%
+      - generic [ref=f277e76]: ③ λ 学到什么：时间段之间的关联模式
+      - generic [ref=f277e78]: 可视化 λ 的权重矩阵：Lambda 层学到关键词内不同时间段之间的关联——例如「yes」的 /j/ 音素段与 /s/ 音素段之间的联系
+      - generic [ref=f277e79]: 被编码在同一个 (d_k, d_v) 变换里。与注意力的逐对权重不同，λ 是「全局共享一个变换」——
+      - generic [ref=f277e80]: 它表达的是整段语音的统计性时间结构，而非特定两帧的局部关系
+      - generic [ref=f277e81]: 这正是 CNN（只有局部）与注意力（逐对爆炸）之间的中间态：全局、紧凑、线性复杂度
+      - generic [ref=f277e83]: 95–96%
+      - generic [ref=f277e84]: GSC v2 12 类（DS-CNN 94–95）
+      - generic [ref=f277e85]: <1%
+      - generic [ref=f277e86]: 与标准注意力的准确率差
+      - generic [ref=f277e87]: −30–50%
+      - generic [ref=f277e88]: 计算量 vs 标准注意力
+      - generic [ref=f277e89]: +5–10%
+      - generic [ref=f277e90]: Lambda 层额外参数
+      - generic [ref=f277e91]: 1–2 层
+      - generic [ref=f277e92]: 拿大部分收益的层数
+      - generic [ref=f277e93]: 加泰罗尼亚理工大学 · arXiv 2104.08086；Lambda 网络源自 Bello 2021（视觉任务），本文首次引入语音/KWS；消融甜点：位置第 4–5 层后 · d_k=64 · H=4 头；数字为约值
+    - generic [ref=f277e94]: 图1 · 机制全景：上半是两难与范式转换，中段是 Lambda 计算流五步与 CNN 集成方式，底部是 λ 的可解释性与关键数字。
+  - heading "§02 方法：压缩再应用" [level=2] [ref=f277e95]:
+    - generic [ref=f277e96]: §02
+    - text: 方法：压缩再应用
+  - generic [ref=f277e97]: 键值外积 · 共享变换 · 四个消融甜点
+  - generic [ref=f277e98]:
+    - generic [ref=f277e99]: "自注意力: Y = softmax(QKᵀ)·V # 逐对：O(n²·d)，n×n 矩阵必须物化 Lambda: λ = softmax(Kᵀ)·V # 压缩：(d_k, d_v) 变换，与 n 无关 y_t = Q_t · λ # 应用：所有时间步共享同一个 λ 多头: d_k 切成 H 份，每头独立算 λ 并应用，拼接后投影"
+    - generic [ref=f277e100]: 人话：注意力问「每一对帧的关系是什么」，Lambda 问「整段语音作为一个整体给查询施加什么变换」——前者表达力强但要付 n²，后者把上下文烧成一个紧凑矩阵，生成和应用都是 O(n)。softmax 沿时间维归一化保证 λ 是对序列的加权统计，而不是某个位置的主导。
+  - generic [ref=f277e101]:
+    - generic [ref=f277e102]:
+      - heading "插入位置的门道" [level=3] [ref=f277e103]
+      - paragraph [ref=f277e104]: 太早（浅层）特征太底层，全局交互在原始频谱模式上无意义；太晚序列已被过度压缩，长程信息已丢——中间层（第 4–5 层卷积后）恰好是「特征已成形、信息未压缩」的窗口。这个甜点与 Res2Net/多尺度融合的中间层插入结论同构。
+    - generic [ref=f277e105]:
+      - heading "训练稳定性的隐藏红利" [level=3] [ref=f277e106]
+      - paragraph [ref=f277e107]: 无 softmax 逐对归一化 → 不需要学习率 warmup（标准注意力要）——训练流水线更简单；计算图更简、参数更少（不需要每位置的大 K/V 投影）——这些优势与序列长度无关，是 KWS 上最实际的三条卖点。
+  - generic [ref=f277e108]:
+    - img [ref=f277e109]:
+      - generic [ref=f277e111]: 机制解剖：逐对关系 vs 共享变换，差在哪一步
+      - generic [ref=f277e112]: 两条计算路径
+      - generic [ref=f277e114]: 自注意力：先算 n×n 成对关系
+      - generic [ref=f277e118]: Q
+      - generic [ref=f277e122]: K
+      - generic [ref=f277e148]: n×n
+      - generic [ref=f277e149]: ×V
+      - generic [ref=f277e153]: 每个查询 × 每个键：O(n²·d) · 要 softmax
+      - generic [ref=f277e155]: Lambda：先压成 d_k×d_v 共享变换
+      - generic [ref=f277e159]: Kᵀ
+      - generic [ref=f277e161]: λ
+      - generic [ref=f277e162]: (d_k×d_v)
+      - generic [ref=f277e164]: V
+      - generic [ref=f277e165]: → y_t = Q_t·λ
+      - generic [ref=f277e166]: λ = softmax(Kᵀ)·V：与 n 无关的变换矩阵
+      - generic [ref=f277e167]: 生成 O(n) · 应用 O(n) · 无 softmax 逐对归一化
+      - generic [ref=f277e168]: 所有时间步共享同一个 λ——全局统计结构
+      - generic [ref=f277e169]: 四个消融甜点
+      - generic [ref=f277e173]: 插入位置
+      - generic [ref=f277e174]: 第 4–5 层卷积后最佳：太早特征太底层、太晚序列被过度压缩
+      - generic [ref=f277e177]: 层数
+      - generic [ref=f277e178]: 1–2 层拿大部分收益，≥3 层递减——全局建模不需要堆
+      - generic [ref=f277e181]: 查询维度 d_k
+      - generic [ref=f277e182]: d_k=64 是准确率与计算量的平衡点
+      - generic [ref=f277e185]: 头数 H
+      - generic [ref=f277e186]: H=4 优于 1 与 8——适度数量捕获不同类型时间依赖
+      - generic [ref=f277e188]: 训练稳定性的隐藏红利
+      - generic [ref=f277e189]: 无 softmax 逐对归一化 → 不需要学习率 warmup（标准注意力要）
+      - generic [ref=f277e190]: 计算图更简单、参数更少（不需要每位置的大 K/V 投影）
+      - generic [ref=f277e191]: 左：注意力必须物化 n×n 的成对关系矩阵；Lambda 把整个上下文压成一个 d_k×d_v 的共享变换——先「压缩」再「应用」，n 只线性进入。右：四个超参的甜点全部消融过——插哪、插几、多宽、几头都有答案
+    - generic [ref=f277e192]: 图2 · 机制解剖：左是两条计算路径的对照（n×n 成对矩阵 vs d_k×d_v 共享变换），右是四个消融甜点（位置/层数/d_k/头数）与训练稳定性红利。
+  - heading "§03 实验：贴住注意力，砍三到五成计算" [level=2] [ref=f277e193]:
+    - generic [ref=f277e194]: §03
+    - text: 实验：贴住注意力，砍三到五成计算
+  - generic [ref=f277e195]: GSC v2 12 类 · 约值读数 · 诚实的账本
+  - generic [ref=f277e196]:
+    - img [ref=f277e197]:
+      - generic [ref=f277e199]: 主结果（约值）：贴住注意力，砍三到五成计算
+      - generic [ref=f277e200]: GSC v2 12 类准确率（%）
+      - generic [ref=f277e201]: "93"
+      - generic [ref=f277e202]: "94"
+      - generic [ref=f277e203]: "95"
+      - generic [ref=f277e204]: "96"
+      - generic [ref=f277e205]: "97"
+      - generic [ref=f277e207]: ~94.5
+      - generic [ref=f277e208]: DS-CNN（纯 C
+      - generic [ref=f277e209]: NN）
+      - generic [ref=f277e211]: ~95.5
+      - generic [ref=f277e212]: DS-CNN + 时
+      - generic [ref=f277e213]: 序 Lambda ★
+      - generic [ref=f277e215]: ~95.8
+      - generic [ref=f277e216]: 标准注意力混合（参照
+      - generic [ref=f277e217]: ）
+      - generic [ref=f277e218]: Lambda 与标准注意力差距 <1%，都压过纯 CNN 约 1 个点
+      - generic [ref=f277e219]: 读数：
+      - generic [ref=f277e220]: · 全局时间建模值约 1 个点（两种全局机制都拿到）
+      - generic [ref=f277e221]: · Lambda 以 <1% 的精度差换 −30~50% 计算量
+      - generic [ref=f277e222]: · 参数只多 5–10%：λ 不需要每位置的大 K/V 投影
+      - generic [ref=f277e223]: · 无 warmup 直接训——部署流水线更简单
+      - generic [ref=f277e224]: 诚实的账本：短序列上的真实差距
+      - generic [ref=f277e226]: 计算量对比（vs 标准注意力）
+      - generic [ref=f277e227]: 标准注意力
+      - generic [ref=f277e229]: 100%
+      - generic [ref=f277e230]: Lambda
+      - generic [ref=f277e232]: −35%
+      - generic [ref=f277e233]: 名义 −30~50%；但这是复杂度口径，不是实测延迟
+      - generic [ref=f277e234]: ——论文没有 CPU/MCU 上的延迟实测数字
+      - generic [ref=f277e236]: 短序列的真相（T≈50）
+      - generic [ref=f277e237]: · O(n²) 在 n=50 时并不突出——Lambda 的加速
+      - generic [ref=f277e238]: 在 KWS 常规长度上有限，常数因子吃掉大头
+      - generic [ref=f277e239]: · 真正的优势场景：更长序列（ASR 数百帧 ·
+      - generic [ref=f277e240]: 连续语音关键词搜索）——那里二次税才痛
+      - generic [ref=f277e241]: · KWS 上 Lambda 的实际卖点：
+      - generic [ref=f277e242]: 参数更少 · 计算图更简 · 训练免 warmup
+      - generic [ref=f277e243]: （三条都不依赖序列长）
+      - generic [ref=f277e244]: · 未与 Performer/线性 Transformer/Linformer 横比
+      - generic [ref=f277e245]: ——线性注意力家族内谁最优未知
+      - generic [ref=f277e246]: 注：数字为笔记记录的约值（原文见 arXiv 2104.08086）；消融里的甜点（第 4–5 层后 · 1–2 层 · d_k=64 · H=4）是复现的起点配置
+    - generic [ref=f277e247]: 图3 · 主结果：左是三方准确率对比与读数，右是诚实的账本——计算量口径的 −30~50% 不是实测延迟，短序列上常数因子吃掉大头，KWS 的实际卖点是参数/计算图/训练稳定性。
+  - table [ref=f277e248]:
+    - rowgroup [ref=f277e249]:
+      - row [ref=f277e250]:
+        - columnheader "对比项" [ref=f277e251]
+        - columnheader "结果（约值）" [ref=f277e252]
+        - columnheader "一句话" [ref=f277e253]
+      - row [ref=f277e254]:
+        - cell "vs 纯 CNN（DS-CNN）" [ref=f277e255]
+        - cell "+1 个点（95–96 vs 94–95）" [ref=f277e256]
+        - cell "全局时间建模的红利" [ref=f277e257]
+      - row [ref=f277e258]:
+        - cell "vs 标准注意力" [ref=f277e259]
+        - cell "准确率差 <1% · 计算 −30~50%" [ref=f277e260]
+        - cell "线性复杂度换极少精度" [ref=f277e261]
+      - row [ref=f277e262]:
+        - cell "参数开销" [ref=f277e263]
+        - cell "+5–10%（Lambda 层）" [ref=f277e264]
+        - cell "无每位置大 K/V 投影" [ref=f277e265]
+      - row [ref=f277e266]:
+        - cell "训练" [ref=f277e267]
+        - cell "免 warmup" [ref=f277e268]
+        - cell "无逐对 softmax 的稳定性代价" [ref=f277e269]
+      - row [ref=f277e270]:
+        - cell "层数/位置/d_k/头" [ref=f277e271]
+        - cell "1–2 层 · 第 4–5 层后 · 64 · H=4" [ref=f277e272]
+        - cell "全套消融甜点" [ref=f277e273]
+  - generic [ref=f277e274]:
+    - generic [ref=f277e275]: 读表要点
+    - listitem [ref=f277e276]: ◈ 「−30~50% 计算量」是复杂度口径的估算，论文没有 CPU/MCU 上的延迟实测——引用时要把「理论省」与「实测快」分开说。
+    - listitem [ref=f277e277]: ◈ 短序列真相：T≈50 时标准注意力的 O(n²) 并不突出——Lambda 在 KWS 常规长度上的加速被常数因子吃掉；真优势场景是连续语音关键词搜索这类长序列任务（论文自己的展望）。
+    - listitem [ref=f277e278]: ◈ 证据边界：未与 Performer/线性 Transformer/Linformer 对比——线性注意力家族内部谁在 KWS 上最优仍未知；仅 GSC 干净数据。
+  - heading "§04 贡献" [level=2] [ref=f277e279]:
+    - generic [ref=f277e280]: §04
+    - text: 贡献
+  - generic [ref=f277e281]: 四点：从首次迁移到设计范式
+  - generic [ref=f277e282]:
+    - generic [ref=f277e283]:
+      - generic [ref=f277e284]: "1"
+      - paragraph [ref=f277e285]: 首次将 Lambda 网络用于关键词检测：视觉任务出身的高效上下文建模机制进入语音——为 KWS 长程时间依赖建模提供新技术选项。
+    - generic [ref=f277e286]:
+      - generic [ref=f277e287]: "2"
+      - paragraph [ref=f277e288]: 免二次成本的长程时间建模：O(n) 复杂度使长程依赖建模在资源受限设备上可用——即使序列短，其低开销也为端侧开了门。
+    - generic [ref=f277e289]:
+      - generic [ref=f277e290]: "3"
+      - paragraph [ref=f277e291]: Transformer KWS 的高效替代：对同期 KWT（标准 O(n²) 注意力）保持相近时间建模能力、更低计算复杂度。
+    - generic [ref=f277e292]:
+      - generic [ref=f277e293]: "4"
+      - paragraph [ref=f277e294]: CNN-Lambda 混合设计范式：CNN 局部特征 + Lambda 全局上下文的插层式组合——消融给出位置/数量/维度/头数的完整甜点。
+  - heading "§05 局限与判断" [level=2] [ref=f277e295]:
+    - generic [ref=f277e296]: §05
+    - text: 局限与判断
+  - generic [ref=f277e297]: 短序列收益有限 · 非因果 · 无线性家族横比
+  - generic [ref=f277e298]:
+    - img [ref=f277e299]:
+      - generic [ref=f277e301]: 边界与延伸
+      - generic [ref=f277e303]: 技术边界
+      - generic [ref=f277e304]: · 理论优势 → 实际加速的转化有限：O(n) 在 KWS 短序列（n≈50）上被
+      - generic [ref=f277e305]: 常数因子抵消——真加速要在数百帧以上的序列才显现
+      - generic [ref=f277e306]: · λ 计算非因果：softmax(Kᵀ)·V 需要完整序列——流式推理未适配
+      - generic [ref=f277e307]: · 插入位置/层数靠经验调优——无自动确定方法
+      - generic [ref=f277e308]: · 仅 GSC 干净数据：噪声/远场/自定义关键词未验证
+      - generic [ref=f277e310]: 实验边界 + 延伸
+      - generic [ref=f277e311]: · 未与 Performer / 线性 Transformer / Linformer 对比
+      - generic [ref=f277e312]: · 无 CPU/MCU 延迟实测
+      - generic [ref=f277e313]: · 消融深度有限：λ 在不同类型关键词上捕获什么模式
+      - generic [ref=f277e314]: 未系统分析
+      - generic [ref=f277e315]: · 因果 Lambda（只用过去）的实现与性能未探索
+      - generic [ref=f277e316]: 延伸：因果 Lambda 做流式 KWS；长序列任务（连续语音
+      - generic [ref=f277e317]: 关键词搜索）验证效率优势；与蒸馏结合压模型；多模态
+      - generic [ref=f277e318]: 扩展（关键词音素序列作额外上下文）
+      - generic [ref=f277e319]: 可迁移判断：想拿全局建模又不想付二次税时，「把上下文压缩成共享变换」是一条介于 CNN 与注意力之间的路——但先算自己的 n：短序列上它的实际收益在参数与训练稳定性，不在速度
+    - generic [ref=f277e320]: 图4 · 边界与延伸：左技术边界（O(n) 优势需长序列、λ 非因果、位置靠手调、仅 GSC），右实验边界（无 Performer 等横比、无延迟实测、消融深度有限）+ 延伸方向。
+  - generic [ref=f277e321]:
+    - generic [ref=f277e322]: 可迁移判断
+    - paragraph [ref=f277e323]: ↳ 「压缩上下文成共享变换」是逐对注意力的第三条路：表达力换复杂度的交易在中间态成交——当任务需要的是统计性时间结构（韵律、整体模式）而非逐位置特异性时，λ 的假设恰好成立。
+    - paragraph [ref=f277e324]: ↳ 复杂度优势要对着自己的 n 算：O(n²) vs O(n) 在 n=50 上差距很小——线性注意力的卖点按序列长度分档：短序列上买参数与稳定性，长序列上才买速度。选型前先量自己的 T。
+    - paragraph [ref=f277e325]: ↳ 全局模块插中间层的规律再次应验：太早特征未成形、太晚信息已压缩——Lambda 的位置消融与多尺度融合、注意力插入的结论同构；「中间层是全局建模的窗口」可当默认假设。
+    - paragraph [ref=f277e326]: ↳ 训练稳定性是被低估的工程属性：免 warmup 意味着流水线更简单、调参更少——在复杂度差距不大的候选间，选训练行为更稳的那个往往是工程上的正解。
+  - generic [ref=f277e327]:
+    - link "arXiv 2104.08086 ↗" [ref=f277e328] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2104.08086
+    - link "← 返回总目录" [ref=f277e329] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f277e330]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值 · 2021 №9 · 194+/305
