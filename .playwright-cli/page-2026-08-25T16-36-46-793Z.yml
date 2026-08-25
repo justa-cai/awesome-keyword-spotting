@@ -1,0 +1,262 @@
+- generic [ref=f297e2]:
+  - generic [ref=f297e3]: 论文精读 · 可视化版 · 2021 №19
+  - heading "一个模型干三份活： 自监督打底，KWS+VAD+SV 一次前向全出" [level=1] [ref=f297e4]: 一个模型干三份活：自监督打底，KWS+VAD+SV 一次前向全出
+  - generic [ref=f297e5]:
+    - generic [ref=f297e6]: SSL Multi-Task Voice Framework · 加州大学 + 高通
+    - generic [ref=f297e7]: arXiv 2110.01077 · CPC 预训练 + 三任务头
+    - generic [ref=f297e8]: 共享编码器 + GradNorm 梯度平衡
+    - generic [ref=f297e9]: 总参数 40–50%（vs 三独立模型）· 推理 2–3×
+  - generic [ref=f297e10]: 一句话：语音助手要同时跑 KWS、VAD、SV 三个模型——内存翻三倍、同样的话被编码三遍、开发维护三份。本文先在未标注语音上做 CPC 自监督预训练（预测未来 k 步的表示，零标注换通用结构），再用「共享编码器 + 三个任务头」的多任务微调统一三个任务：总参数只有三个独立模型的 40–50%，一次前向同时输出三个预测（推理效率 2–3×），且各任务性能不降反升——SSL 预训练对 KWS +1–3%、对 VAD +2–5%。
+  - generic [ref=f297e11]:
+    - generic [ref=f297e12]: TL;DR
+    - listitem [ref=f297e13]: ◈ 三独立模型的四宗罪：内存开销大（三份骨干存三遍）、计算冗余（同一段语音被编码三次）、开发维护复杂（三套版本与回归）、数据利用不充分（各任务只能用自己的标注——与 2021 №18 的洞察同源）。
+    - listitem [ref=f297e14]: "◈ 两阶段框架：① CPC 自监督预训练——给定当前编码 z_t 预测未来 k 步的 z_{t+k}，InfoNCE 对比损失（真未来 vs 随机负样本）；② 多任务微调——共享预训练编码器 + KWS/VAD/SV 三个任务头联合训练。"
+    - listitem [ref=f297e15]: ◈ 为什么 CPC 能白学：要预测未来就必须理解现在——音素结构、韵律、说话人特征都是「预测未来」的有用线索，被无损地烧进编码器，不花一张标注。
+    - listitem [ref=f297e16]: ◈ 三个头各司其职：KWS 头（全连接分类器）、VAD 头（二分类器）、SV 头（嵌入提取 + 相似度计算）——判别逻辑不同但声学基础相同，共享编码器天然合理。
+    - listitem [ref=f297e17]: ◈ 多任务训练两件套：交替训练（每步随机选任务算损失，防互相踩脚）+ GradNorm 梯度平衡（动态调整损失权重，把各任务梯度拉回同一量级——防止大梯度任务主导编码器更新）。
+    - listitem [ref=f297e18]: ◈ 参数共享三档消融：硬共享（全共用，参数最省）vs 软共享（底层共享+高层分支，部分任务更好）vs 无共享（基线）——效率与特异性的权衡与 2021 №1（个性化触发）的结论一致。
+    - listitem [ref=f297e19]: ◈ 结果（约值）：总参数 40–50%（vs 三独立之和）；推理效率 2–3×（一次前向三输出）；KWS 相当或略高、VAD 略升、SV EER 可接受；SSL 预训练 KWS +1–3%、VAD +2–5%（标注越少收益越大）。
+    - listitem [ref=f297e20]: ◈ 任务组合：KWS+VAD 增益最大，加 SV 后 KWS/VAD 保持——三任务同框可行。边界：任务差异大时有干扰风险（KWS 要时序细节 vs SV 要说话人特征）；SSL 预训练计算开销大（一次性成本摊三个任务才划算）。
+  - heading "§01 问题：三个模型的重复税" [level=2] [ref=f297e21]:
+    - generic [ref=f297e22]: §01
+    - text: 问题：三个模型的重复税
+  - generic [ref=f297e23]: 四宗罪与统一的机会
+  - generic [ref=f297e24]:
+    - generic [ref=f297e25]:
+      - heading "内存与计算的重复税" [level=3] [ref=f297e26]
+      - paragraph [ref=f297e27]: 三个任务各带一套完整骨干——存储翻三倍、内存翻三倍；推理时同一段音频要过三次编码器——底层声学特征的计算被重复了三遍，而三次算出的结果高度相似。
+    - generic [ref=f297e28]:
+      - heading "数据孤岛" [level=3] [ref=f297e29]
+      - paragraph [ref=f297e30]: KWS 模型看不到 SV 数据里的说话人标注、VAD 模型看不到 KWS 的词标注——每个任务的监督信号只服务自己。而三个任务共享同一物理基础（声学编码），孤岛完全是工程造成的。
+    - generic [ref=f297e31]:
+      - heading "统一的前提是表示通用" [level=3] [ref=f297e32]
+      - paragraph [ref=f297e33]: 三个任务的判别逻辑不同但底层需求相同——都需要「这段音频里有什么结构」的通用表示。CPC 类自监督恰好能零标注地提供这个地基——统一框架的时机由 SSL 成熟度决定。
+    - generic [ref=f297e34]:
+      - heading "与同系列论文的呼应" [level=3] [ref=f297e35]
+      - paragraph [ref=f297e36]: 与 2021 №18（交叉注意力）同一年的平行工作：那篇聚焦「任务间怎么交换信息」，本篇聚焦「任务间怎么共享骨架」——一个加密交换通路，一个砍重复结构，恰好互补。
+  - generic [ref=f297e37]:
+    - img [ref=f297e38]:
+      - generic [ref=f297e40]: 一个模型三个任务：自监督打底，KWS+VAD+SV 一次前向全出
+      - generic [ref=f297e41]: ① 三个独立模型的四宗罪
+      - generic [ref=f297e43]: 内存开销大
+      - generic [ref=f297e44]: 边缘设备同时存 KWS / VAD / SV 三个模型——存储与内存被重复的骨干
+      - generic [ref=f297e45]: 吃掉大半
+      - generic [ref=f297e47]: 计算冗余
+      - generic [ref=f297e48]: 三个模型各自重复计算相似的底层声学特征——同样的话被编码三遍
+      - generic [ref=f297e50]: 开发维护复杂
+      - generic [ref=f297e51]: 三个模型独立优化和更新——版本对齐、回归测试都是三份工作量
+      - generic [ref=f297e53]: 数据利用不充分
+      - generic [ref=f297e54]: 每个模型只能用自己的标注——其他任务的监督信号被浪费
+      - generic [ref=f297e55]: （与 2021 №18 的洞察同源）
+      - generic [ref=f297e56]: ② 两阶段框架：SSL 预训练 → 多任务微调
+      - generic [ref=f297e58]: 阶段一：自监督预训练（CPC）
+      - generic [ref=f297e59]: 数据：大规模未标注语音（LibriSpeech / VoxCeleb）
+      - generic [ref=f297e60]: 目标：对比预测编码（Contrastive Predictive Coding）
+      - generic [ref=f297e61]: "· 给定当前编码 z_t，预测未来 k 步的 z_{t+k}"
+      - generic [ref=f297e62]: · InfoNCE 损失：正样本（真实未来）vs 负样本（随机）
+      - generic [ref=f297e63]: 学到：语音的基本结构——音素 · 韵律 · 说话人特征
+      - generic [ref=f297e64]: （零标注成本换通用表示）
+      - generic [ref=f297e65]: 编码器：多层 CNN 或 Transformer（频谱图输入）
+      - generic [ref=f297e67]: 阶段二：多任务微调
+      - generic [ref=f297e68]: 共享编码器 = 预训练编码器（全部任务共用）
+      - generic [ref=f297e69]: 三个任务特定头：
+      - generic [ref=f297e70]: · KWS 头：全连接分类器 → 关键词类别
+      - generic [ref=f297e71]: · VAD 头：二分类器 → 语音/非语音
+      - generic [ref=f297e72]: · SV 头：嵌入提取 + 相似度计算模块
+      - generic [ref=f297e73]: 联合损失：L = α·L_KWS + β·L_VAD + γ·L_SV
+      - generic [ref=f297e74]: 交替训练：每步随机选任务算损失更新
+      - generic [ref=f297e75]: 梯度平衡：GradNorm 防止单任务主导
+      - generic [ref=f297e76]: 推理：一次前向同时输出三个预测
+      - generic [ref=f297e77]: ③ 参数共享的三档策略（消融对象）
+      - generic [ref=f297e79]: 硬共享
+      - generic [ref=f297e80]: 全部任务共用整个编码器
+      - generic [ref=f297e81]: 只换任务头 · 参数最省
+      - generic [ref=f297e83]: 软共享
+      - generic [ref=f297e84]: 底层共享 + 高层任务分支
+      - generic [ref=f297e85]: 兼顾特异性 · 部分任务更好
+      - generic [ref=f297e87]: 无共享
+      - generic [ref=f297e88]: 三个完全独立的模型
+      - generic [ref=f297e89]: 基线对照 · 性能上限参考
+      - generic [ref=f297e91]: 40–50%
+      - generic [ref=f297e92]: 总参数 vs 三独立模型之和
+      - generic [ref=f297e93]: 2–3×
+      - generic [ref=f297e94]: 推理效率（一次前向三输出）
+      - generic [ref=f297e95]: +1–3%
+      - generic [ref=f297e96]: SSL 预训练对 KWS 的提升
+      - generic [ref=f297e97]: +2–5%
+      - generic [ref=f297e98]: SSL 预训练对 VAD 的提升
+      - generic [ref=f297e99]: ≥ 单任务
+      - generic [ref=f297e100]: 三任务联合的性能底线
+      - generic [ref=f297e101]: 加州大学 + 高通 · arXiv 2110.01077；预训练 = LibriSpeech/VoxCeleb 未标注语料；KWS = GSC；VAD = 标准数据集；SV = VoxCeleb；数字为约值
+    - generic [ref=f297e102]: 图1 · 机制全景：上半是三独立模型的四宗罪，中段是 CPC 预训练与多任务微调两阶段、参数共享三档策略，底部是关键数字。
+  - heading "§02 方法：预测未来 + 共享骨架" [level=2] [ref=f297e103]:
+    - generic [ref=f297e104]: §02
+    - text: 方法：预测未来 + 共享骨架
+  - generic [ref=f297e105]: InfoNCE · 三头结构 · GradNorm
+  - generic [ref=f297e106]:
+    - generic [ref=f297e107]: "CPC: 给定 z_t 预测 z_{t+k} → InfoNCE: 真 future ↑ / 随机负样本 ↓ 多任务: L = α·L_KWS + β·L_VAD + γ·L_SV 交替训练（每步随机选任务） + GradNorm（梯度拉回同量级） 推理: 一次前向 → 共享编码 → 三头并行 → 三个预测同时出"
+    - generic [ref=f297e108]: 人话：预训练阶段让编码器玩「猜未来」游戏——猜得准就必须懂语音结构；微调阶段把这套懂结构的编码器接三个不同的头，联合训练时用 GradNorm 保证没有哪个任务的梯度嗓门太大。推理时语音只编码一次，三个头各取所需。
+  - generic [ref=f297e109]:
+    - generic [ref=f297e110]:
+      - heading "GradNorm 解决什么" [level=3] [ref=f297e111]
+      - paragraph [ref=f297e112]: 多任务最要命的是梯度打架：某任务的梯度若比其他大一个量级，共享编码器的更新就会被它主导——其他任务被拖着走。GradNorm 动态调整损失权重把梯度拉回同一量级；交替训练则从采样层面防踩脚——两件套一起上。
+    - generic [ref=f297e113]:
+      - heading "硬共享 vs 软共享的选型" [level=3] [ref=f297e114]
+      - paragraph [ref=f297e115]: 硬共享参数最省（本文主推）；软共享（底层共享+高层分支）在部分任务上更好——当任务对高层特征的需求分化（KWS 的时序 vs SV 的音色）时，分支换参数买特异性。与个性化触发（№1）的共享层数消融互相印证。
+  - generic [ref=f297e116]:
+    - img [ref=f297e117]:
+      - generic [ref=f297e119]: 机制解剖：CPC 预测未来 · 三头一次前向 · 梯度打架怎么办
+      - generic [ref=f297e120]: CPC：预测未来的自监督
+      - generic [ref=f297e123]: z0
+      - generic [ref=f297e125]: z1
+      - generic [ref=f297e127]: z2
+      - generic [ref=f297e129]: z3
+      - generic [ref=f297e131]: z4
+      - generic [ref=f297e133]: z5
+      - generic [ref=f297e135]: z6
+      - generic [ref=f297e136]: 当前 t
+      - generic [ref=f297e139]: "给定 z_t 预测 z_{t+k}（未来 k 步）"
+      - generic [ref=f297e141]: 负
+      - generic [ref=f297e143]: 负
+      - generic [ref=f297e145]: 负
+      - generic [ref=f297e146]: InfoNCE：真未来 ↑ 随机负样本 ↓
+      - generic [ref=f297e147]: 为什么这招能学到通用结构：
+      - generic [ref=f297e148]: 要预测未来就必须理解现在——音素结构/韵律/说话人
+      - generic [ref=f297e149]: 特征都是「预测未来」的有用线索，被无损（无需标注）地
+      - generic [ref=f297e150]: 烧进编码器
+      - generic [ref=f297e151]: 三头联合与梯度平衡
+      - generic [ref=f297e154]: 共享编码器（预训练）
+      - generic [ref=f297e157]: KWS 头
+      - generic [ref=f297e158]: 分类
+      - generic [ref=f297e161]: VAD 头
+      - generic [ref=f297e162]: 二分类
+      - generic [ref=f297e165]: SV 头
+      - generic [ref=f297e166]: 嵌入+相似度
+      - generic [ref=f297e167]: L = α·L_KWS + β·L_VAD + γ·L_SV
+      - generic [ref=f297e168]: 交替训练：每步随机选任务（防互相踩脚）
+      - generic [ref=f297e170]: 梯度平衡：GradNorm
+      - generic [ref=f297e171]: · 任务梯度大小不同——大梯度的任务会主导共享编码器的更新
+      - generic [ref=f297e172]: · GradNorm 动态调整损失权重，把各任务梯度拉回同一量级
+      - generic [ref=f297e173]: · 多任务训练的关键工程件（与交替训练互补）
+      - generic [ref=f297e174]: 左：CPC 用「预测未来」这个免费目标学到音素/韵律/说话人结构——不花一张标注。右：一次前向三头全出；GradNorm 解决多任务最要命的梯度打架问题
+    - generic [ref=f297e175]: 图2 · 机制解剖：左是 CPC 的时间轴预测任务与 InfoNCE 负采样，右是三头一次前向的结构与 GradNorm 梯度平衡的必要性。
+  - heading "§03 实验：参数砍半，任务不掉队" [level=2] [ref=f297e176]:
+    - generic [ref=f297e177]: §03
+    - text: 实验：参数砍半，任务不掉队
+  - generic [ref=f297e178]: 参数/推理效率 · SSL 收益 · 任务组合
+  - generic [ref=f297e179]:
+    - img [ref=f297e180]:
+      - generic [ref=f297e182]: 主结果（约值）：参数砍半，任务不掉队，SSL 白拿几个点
+      - generic [ref=f297e183]: 参数与推理效率
+      - generic [ref=f297e185]: 总参数量（相对三独立模型之和）
+      - generic [ref=f297e187]: 100%（独立 ×3）
+      - generic [ref=f297e189]: 40–50%（统一框架 ★）
+      - generic [ref=f297e190]: 推理效率 2–3×：一次前向 → 三任务预测同时出
+      - generic [ref=f297e191]: （独立模型要跑三次编码器）
+      - generic [ref=f297e192]: 各任务性能（vs 单任务基线）：
+      - generic [ref=f297e193]: · KWS：相当或略高——统一框架没伤主任务
+      - generic [ref=f297e194]: · VAD：从联合训练获益，略有提升
+      - generic [ref=f297e195]: · SV：EER 保持在可接受范围
+      - generic [ref=f297e196]: 消融：SSL 与任务组合
+      - generic [ref=f297e198]: SSL 预训练 vs 随机初始化
+      - generic [ref=f297e199]: KWS
+      - generic [ref=f297e201]: +1–3%
+      - generic [ref=f297e202]: VAD
+      - generic [ref=f297e204]: +2–5%
+      - generic [ref=f297e205]: 更多未标注数据 → 一致继续提升
+      - generic [ref=f297e206]: 标注数据越少，预训练收益越显著
+      - generic [ref=f297e207]: 任务组合：
+      - generic [ref=f297e208]: · KWS+VAD 组合增益最大
+      - generic [ref=f297e209]: · 加 SV 后 KWS/VAD 性能保持
+      - generic [ref=f297e211]: 证据边界
+      - generic [ref=f297e212]: · 噪声/远场测试不充分
+      - generic [ref=f297e213]: · 共享编码器各层的贡献分析有限
+      - generic [ref=f297e214]: · 增量学习未探索（新任务加入时的遗忘）
+      - generic [ref=f297e215]: 引用提醒：内部/多源数据组合，绝对值
+      - generic [ref=f297e216]: 依赖配置——相对量级（省参数·不掉性能·
+      - generic [ref=f297e217]: SSL 白拿）是可迁移结论
+      - generic [ref=f297e218]: 注：数字为笔记记录的约值（原文见 arXiv 2110.01077）；三任务各自的数据集不同（GSC/VAD 标准/VoxCeleb）——性能对比在各自标准评测口径下
+    - generic [ref=f297e219]: 图3 · 主结果：左是总参数对比与推理效率、各任务性能底线，右是 SSL 预训练的分层收益（KWS/VAD）、任务组合消融与证据边界。
+  - table [ref=f297e220]:
+    - rowgroup [ref=f297e221]:
+      - row [ref=f297e222]:
+        - columnheader "评测线" [ref=f297e223]
+        - columnheader "结果（约值）" [ref=f297e224]
+        - columnheader "解读" [ref=f297e225]
+      - row [ref=f297e226]:
+        - cell "总参数" [ref=f297e227]
+        - cell "40–50%（vs 三独立之和）" [ref=f297e228]
+        - cell "砍掉重复骨干" [ref=f297e229]
+      - row [ref=f297e230]:
+        - cell "推理效率" [ref=f297e231]
+        - cell "2–3×" [ref=f297e232]
+        - cell "一次编码三头并行" [ref=f297e233]
+      - row [ref=f297e234]:
+        - cell "KWS / VAD / SV" [ref=f297e235]
+        - cell "相当或略高 / 略升 / EER 可接受" [ref=f297e236]
+        - cell "统一没有伤个体" [ref=f297e237]
+      - row [ref=f297e238]:
+        - cell "SSL vs 随机初始化" [ref=f297e239]
+        - cell "KWS +1–3% · VAD +2–5%" [ref=f297e240]
+        - cell "零标注白拿" [ref=f297e241]
+      - row [ref=f297e242]:
+        - cell "任务组合" [ref=f297e243]
+        - cell "KWS+VAD 增益最大；+SV 保持" [ref=f297e244]
+        - cell "三任务同框可行" [ref=f297e245]
+  - generic [ref=f297e246]:
+    - generic [ref=f297e247]: 读表要点
+    - listitem [ref=f297e248]: ◈ SSL 收益的两条规律：标注越少收益越大（预训练补的是数据缺口）；未标注数据越多越好（还有扩展空间）——这两条决定了该路线对低资源场景的价值。
+    - listitem [ref=f297e249]: ◈ 「三任务不降反升」说明任务间是正迁移——KWS/VAD/SV 的声学基础共享度高；反过来这也划出了方法的适用边界：任务差异太大（如加上与声学无关的任务）时干扰风险真实存在。
+    - listitem [ref=f297e250]: ◈ 证据边界：噪声/远场不充分、编码器各层贡献分析有限、增量学习（新任务加入的遗忘）未探索——统一框架的「可扩展性」还欠账。
+  - heading "§04 贡献" [level=2] [ref=f297e251]:
+    - generic [ref=f297e252]: §04
+    - text: 贡献
+  - generic [ref=f297e253]: 四点：从 SSL 引入到部署方案
+  - generic [ref=f297e254]:
+    - generic [ref=f297e255]:
+      - generic [ref=f297e256]: "1"
+      - paragraph [ref=f297e257]: 自监督预训练进入语音激活多任务框架：未标注数据上的 CPC 对 KWS/VAD/SV 全部有益——零标注提取通用语音知识的有效路径。
+    - generic [ref=f297e258]:
+      - generic [ref=f297e259]: "2"
+      - paragraph [ref=f297e260]: 跨任务参数共享减模型总量：共享编码器使总参数显著少于三独立模型之和——边缘设备同时跑多任务变得可行。
+    - generic [ref=f297e261]:
+      - generic [ref=f297e262]: "3"
+      - paragraph [ref=f297e263]: 实用部署方案：预训练 → 多任务微调 → 推理的端到端方案——从研究到落地的完整链路。
+    - generic [ref=f297e264]:
+      - generic [ref=f297e265]: "4"
+      - paragraph [ref=f297e266]: 验证多任务互补效应：不同任务的监督信号互补——联合训练后各任务不劣于（甚至优于）单独训练。
+  - heading "§05 局限与判断" [level=2] [ref=f297e267]:
+    - generic [ref=f297e268]: §05
+    - text: 局限与判断
+  - generic [ref=f297e269]: 任务干扰 · 训练复杂度 · 预训练开销
+  - generic [ref=f297e270]:
+    - img [ref=f297e271]:
+      - generic [ref=f297e273]: 边界与延伸
+      - generic [ref=f297e275]: 技术边界
+      - generic [ref=f297e276]: · 任务干扰：任务差异大时共享编码器难以兼顾——KWS 要时序
+      - generic [ref=f297e277]: 细节、SV 要说话人特征，部分任务可能被拖累
+      - generic [ref=f297e278]: · 训练复杂度：损失权重 + 学习率的平衡比单任务难调——
+      - generic [ref=f297e279]: GradNorm 缓解但不消除
+      - generic [ref=f297e280]: · 预训练计算开销：SSL 阶段要大量计算与时间——一次性成本
+      - generic [ref=f297e281]: 摊给三个任务才划算
+      - generic [ref=f297e283]: 实验边界 + 延伸
+      - generic [ref=f297e284]: · 噪声/远场测试不充分
+      - generic [ref=f297e285]: · 共享编码器各层贡献分析有限
+      - generic [ref=f297e286]: · 增量学习未探索（新任务加入的遗忘）
+      - generic [ref=f297e287]: 延伸：任务条件化动态路由（按任务激活编码器不同
+      - generic [ref=f297e288]: 部分）；联邦学习做隐私保护的多任务预训练；蒸馏
+      - generic [ref=f297e289]: 到更紧凑的学生模型
+      - generic [ref=f297e290]: 可迁移判断：统一多任务语音前端是边缘部署的趋势——自监督给地基，共享编码器给骨架，任务头给弹性；三任务一次前向的省，来自「同一段语音被编码三遍」的浪费被消除
+    - generic [ref=f297e291]: 图4 · 边界与延伸：左技术边界（任务干扰风险、多任务调参复杂度、SSL 计算开销），右实验边界（噪声远场、层贡献分析、增量学习）+ 延伸方向（动态路由、联邦、蒸馏）。
+  - generic [ref=f297e292]:
+    - generic [ref=f297e293]: 可迁移判断
+    - paragraph [ref=f297e294]: ↳ 统一多任务语音前端是边缘部署的趋势：SSL 给地基（零标注的通用表示）、共享编码器给骨架（砍重复计算）、任务头给弹性（新任务加头不改骨架）——三层结构值得作为语音端侧系统的默认架构思考。
+    - paragraph [ref=f297e295]: ↳ 省的本质是消除重复编码：三个模型对同一段音频各算一遍特征——统一框架的 2–3× 推理效率不是魔法，只是把「同样的计算做三遍」的浪费归一。审查任何多模型系统时先找这种重复。
+    - paragraph [ref=f297e296]: ↳ SSL 的收益与标注稀缺度成正比：标注充足的场景收益小、标注昂贵的场景收益大——决定要不要上 SSL 先看自己的标注预算，而不是看潮流。
+    - paragraph [ref=f297e297]: ↳ 多任务训练的成败在梯度治理：交替训练 + GradNorm 是「让多个任务公平使用共享资源」的机制——任何共享参数的联合训练（多任务/多域/多目标）都需要同类的治理结构，否则必然被大梯度任务绑架。
+  - generic [ref=f297e298]:
+    - link "arXiv 2110.01077 ↗" [ref=f297e299] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2110.01077
+    - link "← 返回总目录" [ref=f297e300] [cursor=pointer]:
+      - /url: ../index.html
+  - generic [ref=f297e301]: 笔记与可视化页基于 arXiv 版整理 · 表中数字为笔记记录的约值 · 2021 №19 · 204+/305
