@@ -1,0 +1,239 @@
+- generic [active] [ref=f176e1]:
+  - generic [ref=f176e2]:
+    - link "← 返回论文列表" [ref=f176e3] [cursor=pointer]:
+      - /url: ../../index.html
+    - generic [ref=f176e4]: 论文精读 · 可视化版 · 2022 №23
+    - heading "在损失函数里放一个伯努利随机数， 唤醒延迟变成可调旋钮" [level=1] [ref=f176e5]: 在损失函数里放一个伯努利随机数，唤醒延迟变成可调旋钮
+    - generic [ref=f176e6]:
+      - generic [ref=f176e7]: Amazon Science · arXiv 2206.07261
+      - generic [ref=f176e8]: max-pooling 损失 + β 回退
+      - generic [ref=f176e9]: 「Amazon」唤醒词 · 20000h 内部数据
+      - generic [ref=f176e10]: 零端点标注 · 单超参数单调权衡
+    - generic [ref=f176e11]: max-pooling 损失让模型「自己选最大帧」——峰值整体后漂，检测对了但迟到了。改动只有一行：正例选帧下标减一个伯努利随机的 β。
+    - generic [ref=f176e12]:
+      - heading "一分钟版本" [level=3] [ref=f176e13]
+      - list [ref=f176e14]:
+        - listitem [ref=f176e15]: ▸ 张力：KWS 是语音助手的门控——唤醒触发后续重计算；准和快天然反向。延迟不只让回应慢，还改变用户行为：等不到回应就把唤醒词再说一遍 → 重复触发。
+        - listitem [ref=f176e16]: ▸ 界定：本文治的是算法延迟（关键词端点之后还要多听几帧才判决），不是工程延迟（算力受限的推理开销）——所以工作落在损失函数层，与省算力路线正交可叠加。
+        - listitem [ref=f176e17]: ▸ 病根：max-pooling 损失自动选帧免对齐（正例选最大帧、负例选最小帧），但模型会利用关键词之后的额外上下文抬置信度——峰值后漂；决策窗口显著大于关键词长度时（语速快）尤其严重。
+        - listitem [ref=f176e18]: ▸ 核心改动：t = (argmax(p^y) − β)₊，β~Bernoulli(b)——以概率 b 把损失从峰值帧挪到前一帧：要么置信度质量整体前移、要么峰值前一帧后验抬高，都通向更早检测。
+        - listitem [ref=f176e19]: ▸ 为什么随机：β 逐例随机让峰值帧和前峰值帧交替受监督——不为早检单点过拟合，精度退化渐进、由 b 连续控制的软权衡。
+        - listitem [ref=f176e20]: ▸ 为什么一步够：本架构后验时间步长较大（一层池化 + 3 跨步卷积），回退一步就是可观的毫秒数；小步长模型需泊松式多变回退（只有提议无实验）。
+        - listitem [ref=f176e21]: ▸ 主结果：固定延迟下相对 max-latency SOTA（依赖端点标注）约 25% 相对误收改善；相对 CE 对齐训练同样约 25%——b=0 严格退化为 max-pooling 且是全场精度最优点（无隐藏精度税）。
+        - listitem [ref=f176e22]: ▸ 甜点 b=0.33：精度恰好回到 CE 基线水平、延迟已显著低于 max-pooling——「免对齐训练 + 精度不亏 + 延迟赚一段」。
+        - listitem [ref=f176e23]: ▸ 单调旋钮：b 与延迟单调挂钩——给定延迟约束只需少量几个 b 各训一版就能命中；b=1 时峰值抢在关键词物理终点之前（信息不完整就下判决的激进工作点）。
+        - listitem [ref=f176e24]: ▸ 通用化：Eqn. 3 把机制从交叉熵解耦——任何「单时刻后验向量+标签」形态的损失都能挂上延迟控制，误唤醒/漏唤醒的代价不对称加权可正交组合。
+    - heading "§01 问题：峰值后漂，检测对了但迟到了" [level=2] [ref=f176e25]:
+      - generic [ref=f176e26]: §01
+      - text: 问题：峰值后漂，检测对了但迟到了
+    - generic [ref=f176e27]: 四层相关路线在延迟维度上的短板
+    - paragraph [ref=f176e28]: 两阶段 DNN+HMM 靠 Viterbi 解码天然给出端点和低延迟，但要子词标注、计算昂贵、训练调参难；单阶段全神经方案标注友好但失去端点结构——判决落在哪个时刻完全由模型自己学出来；max-pooling 损失免对齐但引入新的延迟病根；已有的延迟治理手段（直接加延迟惩罚、max-latency 遮蔽）要么丢掉免对齐优势要么依赖端点知识。
+    - generic [ref=f176e29]:
+      - generic [ref=f176e30]:
+        - heading "Fig. 1 的直观例子" [level=4] [ref=f176e31]
+        - paragraph [ref=f176e32]: 作者本人说「Amazon, what's the weather」——max-pooling 模型训练出的对齐后验曲线里，峰值后验对应的上下文窗口明显延伸到关键词之后：检测是对的，但迟到了。
+      - generic [ref=f176e33]:
+        - heading "max-latency 的两个结构依赖" [level=4] [ref=f176e34]
+        - paragraph [ref=f176e35]: 遮蔽的起点是关键词端点（必须先有端点标注，实验里用 HMM 估计）；遮蔽作用在输入数据上而非损失里——换个损失函数要重新适配，不通用。
+    - heading "§02 方法：选帧下标减一个随机步" [level=2] [ref=f176e36]:
+      - generic [ref=f176e37]: §02
+      - text: 方法：选帧下标减一个随机步
+    - generic [ref=f176e38]: 最小侵入的改动拿到一个可调旋钮——不动架构/数据/训练流程
+    - generic [ref=f176e39]:
+      - img [ref=f176e40]:
+        - generic [ref=f176e42]: 延迟控制损失：在选帧下标里减一个伯努利随机数——延迟变成可调旋钮
+        - generic [ref=f176e43]: ① 门控定位的两目标张力
+        - generic [ref=f176e45]: 延迟不只是慢
+        - generic [ref=f176e46]: · 准确率提升常以检测延迟为代价（行业现状）
+        - generic [ref=f176e47]: · 等不到回应 → 忍不住再说一遍 → 重复触发
+        - generic [ref=f176e48]: · 对日活级助手：延迟 ≈ 误唤醒率的体验权重
+        - generic [ref=f176e50]: 本文关心的是算法延迟
+        - generic [ref=f176e51]: · 算法延迟 = 关键词端点之后还要多听多少帧
+        - generic [ref=f176e52]: · 区别于算力受限的工程/推理延迟
+        - generic [ref=f176e53]: · 所以落在损失函数层，不在模型压缩层
+        - generic [ref=f176e54]: · 与省算力路线正交，可叠加
+        - generic [ref=f176e55]: ② 四条相关路线在延迟维度上的短板
+        - generic [ref=f176e57]: 两阶段 DNN+HMM
+        - generic [ref=f176e58]: ✓ Viterbi 天然给端点·低延迟
+        - generic [ref=f176e59]: ✗ 昂贵解码 · 子词级标注 · 调参难
+        - generic [ref=f176e60]: 短板
+        - generic [ref=f176e62]: 单阶段全神经
+        - generic [ref=f176e63]: ✓ 硬件友好 · 只需关键词级标注
+        - generic [ref=f176e64]: ✗ 无显式端点结构——延迟失去抓手
+        - generic [ref=f176e65]: 短板
+        - generic [ref=f176e67]: max-pooling 损失
+        - generic [ref=f176e68]: ✓ 自动选帧免对齐 · 优于人工对齐
+        - generic [ref=f176e69]: ✗ 病根：用词后上下文抬置信度 → 峰值后漂
+        - generic [ref=f176e70]: 短板
+        - generic [ref=f176e72]: 延迟治理（端点惩罚/max-latency）
+        - generic [ref=f176e73]: ✓ 能压延迟
+        - generic [ref=f176e74]: ✗ 要端点精确标注 · 绑定具体损失
+        - generic [ref=f176e75]: 短板
+        - generic [ref=f176e76]: ③ 解法：正例选帧下标减一个随机步
+        - generic [ref=f176e78]: t = ( argmax_i p_i^y − β )₊ ， β ~ Bernoulli(b)
+        - generic [ref=f176e79]: 以概率 b 把损失从峰值帧挪到前一帧——峰值前移或前一帧后验抬高，都通向更早检测
+        - generic [ref=f176e80]: ④ 为什么这是一个「旋钮」
+        - generic [ref=f176e82]: b 与延迟单调挂钩：少量几个 b 值各训一版即可命中目标延迟——延迟约束变成像学习率一样好调的超参
+        - generic [ref=f176e83]: b=0 严格退化为标准 max-pooling（无隐藏精度税）
+        - generic [ref=f176e85]: −25%
+        - generic [ref=f176e86]: 相对误收 vs SOTA 基线
+        - generic [ref=f176e87]: b=0.33
+        - generic [ref=f176e88]: 甜点：精度回到 CE + 延迟已降
+        - generic [ref=f176e89]: 20,000h
+        - generic [ref=f176e90]: 内部训练语料
+        - generic [ref=f176e91]: 1,400h
+        - generic [ref=f176e92]: 评测语料
+        - generic [ref=f176e93]: 1 行算式
+        - generic [ref=f176e94]: 改动量（不动架构/数据）
+        - generic [ref=f176e95]: Christin Jose / Joseph Wang / Grant P. Strimell / Mohammad Omar Khursheed / Yuriy Mishchenko / Brian Kulis（Amazon Science）· arXiv 2206.07261（2022.06）· 「Amazon」唤醒词二分类 · DET + Fig.4/5
+      - paragraph [ref=f176e96]: 图1 · 机制全景：门控定位的两目标张力与算法/工程延迟的区分；四层相关路线的短板；Eqn. 1→2 的核心改动（β 回退、(·)₊ 截断、两个梯度压力）与通用化 Eqn. 3。
+  - generic [ref=f176e97]:
+    - generic [ref=f176e98]: 正例支：t = ( argmax(p_i^y) − β )₊ β ~ Bernoulli(b)；负例支不动（仍选 p⁰ 最小帧）
+    - generic [ref=f176e99]: 人话：max-pooling 的正例支把全部监督集中在（往往迟到的）峰值帧——峰值之前的帧从未被要求给出高后验，判决自然后漂。减一个随机 β：要么网络学会把置信度质量整体前移，要么把峰值前一帧的后验也抬高。b 越大前移压力越强：延迟越低、精度损失越大——由 b 连续控制的软权衡。
+  - paragraph [ref=f176e100]: 控制变量设计：所有模型严格共用同一套架构（5 层卷积 + 3 层 FC 的流式 CNN）、初始化和训练流程，只换损失函数——本文全部论点落在「损失的改动导致延迟和精度变化」这条因果链上，任何架构或优化器的混杂因素都会污染它。
+  - heading "§03 实验：b 扫描就是消融" [level=2] [ref=f176e101]:
+    - generic [ref=f176e102]: §03
+    - text: 实验：b 扫描就是消融
+  - generic [ref=f176e103]: "六档 b ∈ {0, 0.1, 0.2, 0.33, 0.5, 1.0}——b 是方法里唯一的自由度"
+  - generic [ref=f176e104]:
+    - img [ref=f176e105]:
+      - generic [ref=f176e107]: 机制解剖：峰值帧、回退帧与两股梯度压力
+      - generic [ref=f176e108]: 正例支的选帧（示意）
+      - generic [ref=f176e111]: …
+      - generic [ref=f176e113]: 低
+      - generic [ref=f176e115]: 低
+      - generic [ref=f176e117]: 低
+      - generic [ref=f176e119]: 升
+      - generic [ref=f176e121]: 峰
+      - generic [ref=f176e123]: 低
+      - generic [ref=f176e125]: 低
+      - generic [ref=f176e127]: …
+      - generic [ref=f176e128]: ← 时间
+      - generic [ref=f176e129]: 峰值帧：argmax 的结果（绿色）
+      - generic [ref=f176e130]: 回退帧：峰值前一帧（橙色）
+      - generic [ref=f176e131]: 损失落在哪帧：
+      - generic [ref=f176e132]: · 概率 1−b → 峰值帧（标准 max-pooling）
+      - generic [ref=f176e133]: · 概率 b → 回退帧（前移压力）
+      - generic [ref=f176e134]: (·)₊ 截断：峰值在第 0 帧时减 β 会出负下标，max(·,0) 钳回
+      - generic [ref=f176e135]: 两股梯度压力（右）
+      - generic [ref=f176e137]: 压力一：峰值整体前移
+      - generic [ref=f176e138]: · 网络学会更早给出高后验
+      - generic [ref=f176e139]: 压力二：前一帧后验抬高
+      - generic [ref=f176e140]: · 峰值前于关键词结束出现
+      - generic [ref=f176e141]: · 两者都通向更早的检测
+      - generic [ref=f176e142]: 为什么随机而不是固定回退：
+      - generic [ref=f176e143]: · 峰值帧/回退帧交替受监督
+      - generic [ref=f176e144]: · 不为早检单点过拟合
+      - generic [ref=f176e145]: · 精度退化由 b 连续软控制
+      - generic [ref=f176e146]: 为什么伯努利就够：
+      - generic [ref=f176e147]: · 本文架构后验步长大（池化+跨步
+      - generic [ref=f176e148]: 卷积）——回退一步 ≈ 可观毫秒数
+      - generic [ref=f176e149]: · 小步长模型需泊松多步（未验证）
+      - generic [ref=f176e150]: 左：窗口内的后验帧——绿色峰值帧是 argmax 选出的监督帧，β 以概率 b 把监督挪到橙色前一帧；右：两股梯度压力与三个实现细节的「为什么」
+    - paragraph [ref=f176e151]: 图2 · b 扫描（Fig. 3/5 形态）：同一段音频的后验峰值随 b 单调前移（b=1 抢跑关键词终点）；精度-延迟权衡曲线——b=0 全场精度最优、b=0.33 甜点（精度回 CE 水平 + 延迟大降）。
+  - generic [ref=f176e152]:
+    - img [ref=f176e153]:
+      - generic [ref=f176e155]: 主结果（示意）：b 扫描就是消融 + 核心权衡曲线
+      - generic [ref=f176e156]: 精度随 b 单调下降（Fig.3 定性）
+      - generic [ref=f176e158]: "0.0"
+      - generic [ref=f176e159]: 最高
+      - generic [ref=f176e161]: "0.1"
+      - generic [ref=f176e163]: "0.2"
+      - generic [ref=f176e165]: "0.33"
+      - generic [ref=f176e166]: ≈CE
+      - generic [ref=f176e168]: "0.5"
+      - generic [ref=f176e170]: "1.0"
+      - generic [ref=f176e171]: 激进
+      - generic [ref=f176e172]: b（回退概率）→
+      - generic [ref=f176e173]: b=0 严格还原 max-pooling 且全场最准——无隐藏精度税
+      - generic [ref=f176e174]: b=0.33：精度回到 CE 基线 + 延迟已显著降低（甜点）
+      - generic [ref=f176e175]: 固定误拒率下的延迟-误收权衡（Fig.4 定性）
+      - generic [ref=f176e177]: 相对误收
+      - generic [ref=f176e178]: 延迟削减量 →
+      - generic [ref=f176e182]: 本文
+      - generic [ref=f176e183]: max-latency
+      - generic [ref=f176e184]: CE+HMM 对齐
+      - generic [ref=f176e185]: 固定延迟下：相对误收 −25%（vs SOTA 与 vs CE 各一条）
+      - generic [ref=f176e186]: 数据源：论文 Fig.3/4/5（相对值曲线，绝对 FA/FR 与各档毫秒数未报告）；柱状与曲线为定性示意。Fig.5：同一段音频后验峰值随 b 单调前移，b=1 时峰值抢在词尾之前
+    - paragraph [ref=f176e187]: 图3 · 横向对比：四条压延迟路线的手段与依赖；max-latency（收窄搜索范围，需端点）vs 本文（从搜索结果回退，零端点依赖 + 损失无关）的机制级差别；单调映射的工程价值。
+  - generic [ref=f176e188]:
+    - img [ref=f176e189]:
+      - generic [ref=f176e191]: 边界与谱系：一步回退的前提 · 两条延迟路线的分岔
+      - generic [ref=f176e192]: 方法边界四条
+      - generic [ref=f176e194]: 一步回退吃步长
+      - generic [ref=f176e195]: β 只回退一个后验步——本文架构步长大所以够用；10ms 级小步长模型需泊松多步（论文只提议未验证）
+      - generic [ref=f176e197]: 负例支没动
+      - generic [ref=f176e198]: 延迟控制只在正例选帧——误收侧的时序行为不在控制范围
+      - generic [ref=f176e200]: b=1 抢跑风险未量化
+      - generic [ref=f176e201]: 峰值先于词尾出现 = 信息不完整就判决——误收上边界没给数
+      - generic [ref=f176e203]: (·)₊ 截断的饱和效应
+      - generic [ref=f176e204]: 峰值贴窗口起点的样本 β 实际失效——有效 b 低于名义 b（论文未讨论）
+      - generic [ref=f176e205]: 谱系坐标
+      - generic [ref=f176e207]: max-pooling 损失
+      - generic [ref=f176e208]: Amazon 2017（others №9）
+      - generic [ref=f176e210]: β 回退损失
+      - generic [ref=f176e211]: 本文 Amazon 2022
+      - generic [ref=f176e213]: max-latency 遮蔽
+      - generic [ref=f176e214]: Fu ICASSP 2022（SOTA 基线）
+      - generic [ref=f176e216]: 泊松 β / 运行期多档
+      - generic [ref=f176e217]: 论文自列未来
+      - generic [ref=f176e218]: ▸
+      - generic [ref=f176e219]: ▸
+      - generic [ref=f176e220]: ▸
+      - generic [ref=f176e221]: 对照读法：Fu 靠「数据遮蔽」压延迟（要端点标注·绑损失），本文靠「选帧回退」（零端点依赖·损失无关）；与省算力路线（cFSMN/TC-ResNet 的工程延迟）
+      - generic [ref=f176e222]: 正交——端侧唤醒的完整延迟账本 = 工程延迟（压算力）+ 算法延迟（本文压的这半）
+    - paragraph [ref=f176e223]: 图4 · 边界：一步回退的前提（大后验步长）、负例支未动、b=1 风险上界未量化、饱和效应；单关键词、全相对值、内部数据不可复现、无在线实验等验证边界。
+  - heading "§04 贡献：四条" [level=2] [ref=f176e224]:
+    - generic [ref=f176e225]: §04
+    - text: 贡献：四条
+  - generic [ref=f176e226]:
+    - generic [ref=f176e227]:
+      - generic [ref=f176e228]: "1"
+      - paragraph [ref=f176e229]: 免端点标注的延迟控制损失：「控制算法延迟」与「不需要端点知识」第一次兼得——把 HMM 时代靠子词标注换低延迟、max-pooling 时代靠上下文堆精度丢延迟的两难折进一个损失函数。
+    - generic [ref=f176e230]:
+      - generic [ref=f176e231]: "2"
+      - paragraph [ref=f176e232]: 单超参数的单调权衡旋钮：六档扫描覆盖「精度优先 → 峰值抢跑终点」全谱工作点——学术 trade-off 变成产线可操作参数。
+    - generic [ref=f176e233]:
+      - generic [ref=f176e234]: "3"
+      - paragraph [ref=f176e235]: 损失函数级通用化：Eqn. 3 把机制从交叉熵解耦，为类别不对称代价等真实需求留好接口。
+    - generic [ref=f176e236]:
+      - generic [ref=f176e237]: "4"
+      - paragraph [ref=f176e238]: SOTA 对比全面胜出：固定延迟下相对依赖端点的 max-latency 约 25% 相对误收改善，且无需对齐标注。
+  - heading "§05 局限与边界" [level=2] [ref=f176e239]:
+    - generic [ref=f176e240]: §05
+    - text: 局限与边界
+  - generic [ref=f176e241]: 一步回退的前提与验证范围
+  - generic [ref=f176e242]:
+    - generic [ref=f176e243]:
+      - heading "一步回退依赖大后验步长" [level=4] [ref=f176e244]
+      - paragraph [ref=f176e245]: 伯努利 β 只能回退一个后验步——10ms 级输出步长的模型一步只有 10ms，压不出有意义的延迟；泊松多变回退只有提议没有验证。负例支完全没动——误收侧时序行为不在控制范围。
+    - generic [ref=f176e246]:
+      - heading "极端点与饱和效应" [level=4] [ref=f176e247]
+      - paragraph [ref=f176e248]: b=1 峰值抢在关键词说完之前（信息不完整下判决），误收风险上边界未量化；峰值贴近窗口起点的样本 (·)₊ 截断让 β 实际失效——有效 b 低于名义 b，论文未讨论。
+    - generic [ref=f176e249]:
+      - heading "全相对值、单关键词" [level=4] [ref=f176e250]
+      - paragraph [ref=f176e251]: 只验证「Amazon」二分类——多词/多类/短语未测；无绝对延迟毫秒表、无置信区间显著性——跨论文不可比。
+    - generic [ref=f176e252]:
+      - heading "不可复现 + 无在线验证" [level=4] [ref=f176e253]
+      - paragraph [ref=f176e254]: 全部内部数据（20,000h 训练 / 1,400h 评测）无公开代码；延迟锚点是 HMM 端点（其对齐误差污染延迟测量本身）；max-latency 基线的 f 扫描未报告是否调到最优；延迟对真实用户行为（重复唤醒率）的影响无在线实验——而这恰是立论起点。
+  - generic [ref=f176e255]:
+    - heading "可迁移判断（超出 KWS 也成立）" [level=4] [ref=f176e256]
+    - list [ref=f176e257]:
+      - listitem [ref=f176e258]: ↳ 自动选帧/选例的损失会让学生自己挑最舒服的位置——监督信号集中在哪个时刻，行为就漂向哪个时刻；要控制行为先控制监督落点。
+      - listitem [ref=f176e259]: ↳ 「收窄搜索范围」可以换成「从搜索结果回退」：前者要边界知识，后者只要相对参照——免标注的控制往往来自相对化改写。
+      - listitem [ref=f176e260]: ↳ 把 trade-off 从「系统设计目标」变成「训练期超参数」的前提是单调映射——单调性让命中约束的搜索成本从密集扫参降到几个点。
+      - listitem [ref=f176e261]: ↳ 随机化回退优于确定性回退：交替监督两个位置避免单点过拟合，代价曲线从悬崖变成可调斜坡。
+      - listitem [ref=f176e262]: ↳ 算法延迟与工程延迟是两本账：改损失压算法延迟、省算力压工程延迟——两者正交，完整的端侧延迟账本要两边一起算。
+  - generic [ref=f176e263]:
+    - link "论文原文 ↗" [ref=f176e264] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2206.07261
+    - link "📖 深读笔记" [ref=f176e265] [cursor=pointer]:
+      - /url: ../../library.html#/papers/2022/Latency_Control_For_Keyword_Spotting.md
+    - link "📄 PDF 原稿" [ref=f176e266] [cursor=pointer]:
+      - /url: Latency_Control_For_Keyword_Spotting.pdf
+    - link "笔记全文 ↗" [ref=f176e267] [cursor=pointer]:
+      - /url: Latency_Control_For_Keyword_Spotting.md
+    - link "返回列表" [ref=f176e268] [cursor=pointer]:
+      - /url: ../../index.html
+  - link "⌂ 导览" [ref=f176e269] [cursor=pointer]:
+    - /url: ../../index.html

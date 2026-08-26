@@ -1,0 +1,366 @@
+- generic [ref=f185e2]:
+  - generic [ref=f185e3]: 论文精读 · 可视化版 · 2022 №32
+  - heading "换唤醒词，零训练零发版： 81 维嵌入装下开放词表" [level=1] [ref=f185e4]: 换唤醒词，零训练零发版：81 维嵌入装下开放词表
+  - generic [ref=f185e5]:
+    - generic [ref=f185e6]: QbyE-MLPMixer · LG Toronto AI Lab · arXiv 2206.13231
+    - generic [ref=f185e7]: 纯 MLP · 免 patch · Hardswish
+    - generic [ref=f185e8]: 0.25M 参数 · 20.16M MACs 双全场最小
+    - generic [ref=f185e9]: Hey-Snips + 内部 8 家电词（400 说话人）
+  - generic [ref=f185e10]: 智能家电的唤醒词出厂即固定——"Hey LG"之外的词，厂商要重采数据、重训模型、重发版本，链路以周计。QbyE-MLPMixer 让用户用自己的说法注册唤醒词：注册只是几次前向编码，推理退化为一次余弦距离比较，全程零解码零重训。
+  - generic [ref=f185e11]:
+    - heading "一分钟版本" [level=3] [ref=f185e12]
+    - listitem [ref=f185e13]: 任务：开放词表 KWS——用户自定义唤醒词；旧范式换词 = 重采 + 重训 + 发版，本文换词 = 念 3 遍注册，零训练零发版
+    - listitem [ref=f185e14]: 范式：QbyE（Query-by-Example）——变长音频编码成定长嵌入，同词相近、异词相远；推理只是注册嵌入与查询嵌入的距离比较，无解码 / 无注意力 / 无递归
+    - listitem [ref=f185e15]: 架构：MLPMixer 音频化三改动——① 免 patch 直接喂 81×81 MFCC（MFCC 已是压缩时频特征，patch 化是视觉的负资产）② 混合轴从 token/通道改为特征/时间（单通道时频输入真正有物理意义的两个轴）③ 时间维平均池化出 81 维嵌入（词位置随机 → 平均天然平移不变）
+    - listitem [ref=f185e16]: 公式：U = X + W₂σ(W₁·LN(X))（特征维）、Y = (U + W₄σ(W₃·LN(Uᵀ)))ᵀ（时间维）同构交替堆 12 块；块输出形状恒等 → 真超参只有 4 个（h, g, 块数, 激活），ASHA 数百次搜索定隐宽 64
+    - listitem [ref=f185e17]: 激活：Hardswish 全面优于 GELU/ReLU/SiLU，且分段线性不含指数——硬件更容易实现
+    - listitem [ref=f185e18]: 推理：1 秒窗 / 100ms 步滑窗（每秒 10 次前向）；注册短 → 对查询做卷积取最小距离（模板滑移对齐）；余弦距离只看方向，对响度漂移免疫
+    - listitem [ref=f185e19]: 训练：LibriSpeech 1000h 词级切分 + 4–12dB 噪声 + 50% 远场仿真增广；训练词表与评测词零重叠——纯零样本评测
+    - listitem [ref=f185e20]: 尺寸：0.25M 参数 + 20.16M MACs 双全场最小（参数 = 最小基线的 45%，MACs = 91%）；嵌入 81 维 vs 基线约 1000 维
+    - listitem [ref=f185e21]: 主结果：Hey-Snips 六场景 FRR@0.3FA/h——条件越苦优势越大（领先次优 2.15 → 8.57 点单调放大）；远场 10dB 的 7.50 几乎只有次优（13.93）的一半
+    - listitem [ref=f185e22]: 诚实边界：干净近场不是最优（内部集 2.68 vs MobileNetV3 0.62）；优势场景被作者自己清晰限定在噪声与远场
+  - heading "§01 问题：唤醒词的出厂锁定" [level=2] [ref=f185e23]:
+    - generic [ref=f185e24]: §01
+    - text: 问题：唤醒词的出厂锁定
+  - generic [ref=f185e25]: 为什么"开放词表"是个真需求，而不是锦上添花
+  - generic [ref=f185e26]:
+    - generic [ref=f185e27]:
+      - heading "固定词表的成本结构旧范式" [level=4] [ref=f185e28]
+      - paragraph [ref=f185e29]: 智能音箱、家电的唤醒词出厂即固定。要换一个词，厂商需要重新采集数据、重新训练模型、重新发版，整条链路以周计。对厂商是成本，对普通用户是完全关闭的选项——你只能用它选好的那个词。
+    - generic [ref=f185e30]:
+      - heading "ASR 转录匹配路线的两硬伤被否路线" [level=4] [ref=f185e31]
+      - paragraph [ref=f185e32]: 一个直觉方案是跑完整 ASR 再匹配关键词。硬伤一：完整解码与 KWS「常驻低功耗」的定位冲突；硬伤二：关键词落在 ASR 词表外立刻退化——而词表外恰是开放词表的典型用例，路线自相矛盾。
+    - generic [ref=f185e33]:
+      - heading "QbyE 范式：嵌入检索代替判决" [level=4] [ref=f185e34]
+      - paragraph [ref=f185e35]: 变长音频 → 定长嵌入，训练目标是同词相近、异词相远。推理退化为：查询嵌入 vs n 个注册嵌入的距离比较，距离小于阈值即触发。注册新词 = 念几遍做前向编码，零训练、零发版。
+    - generic [ref=f185e36]:
+      - heading "真正的挑战：分布外 + 资源紧" [level=4] [ref=f185e37]
+      - paragraph [ref=f185e38]: 注册与查询音频天然落在训练分布之外（训练词表不可能覆盖所有未来词）——模型不能靠记住特定词的判决面过关，必须学出通用的词级音频表征；同时端侧要求低延迟、小内存，编码器必须又小又快。
+  - generic [ref=f185e39]:
+    - img [ref=f185e40]:
+      - generic [ref=f185e42]: QbyE-MLPMixer：把唤醒词装进 81 维嵌入，换词零训练零发版
+      - generic [ref=f185e43]: ① 任务：开放词表 KWS——用户自定义唤醒词
+      - generic [ref=f185e45]: 固定词表范式
+      - generic [ref=f185e46]: 换唤醒词 = 重新采集 + 重训 + 发版，链路以周计；
+      - generic [ref=f185e47]: 对厂商是成本，对普通用户是完全关闭的选项
+      - generic [ref=f185e49]: ASR 转录匹配路线
+      - generic [ref=f185e50]: 跑完整 ASR 解码与「常驻低功耗」定位冲突；关键词
+      - generic [ref=f185e51]: 落在 ASR 词表外立刻退化——而词表外恰是典型用例
+      - generic [ref=f185e53]: QbyE 范式（本文路线）
+      - generic [ref=f185e54]: 变长音频 → 定长嵌入，同词相近、异词相远；推理只比
+      - generic [ref=f185e55]: 注册与查询嵌入的距离——零解码，注册新词零训练零发版
+      - generic [ref=f185e56]: 开放词表三重挑战：低延迟 · 小内存 · 注册与查询天然落在训练分布之外——不能靠「记住特定词的判决面」过关，必须学出通用的词级音频表征
+      - generic [ref=f185e57]: ② 编码器：对 MLPMixer 的音频化改造（12 个混合块，约 250K 参数）
+      - generic [ref=f185e59]: 输入：81×81 MFCC 方阵
+      - generic [ref=f185e60]: 1 秒音频 · 25ms 帧长 / 12.5ms 帧移
+      - generic [ref=f185e61]: → 81 帧 × 81 维，恰好方阵（f = t = 81）
+      - generic [ref=f185e62]: 进模型前：时间维 CMVN 归一化
+      - generic [ref=f185e63]: 免 patch：MFCC 已是压缩时频特征，
+      - generic [ref=f185e64]: 81×81 就是全部信息量——不存在
+      - generic [ref=f185e65]: 「降采样减负」的问题；强切 9×9 patch
+      - generic [ref=f185e66]: 把跨 patch 交互推深层 + 多付 7K 参数
+      - generic [ref=f185e67]: / 500K MACs（Table 4 证伪）
+      - generic [ref=f185e69]: 12 ×（特征混合块 → 时间混合块）
+      - generic [ref=f185e70]: 特征混合：每一帧的 81 维频谱内部重新组合
+      - generic [ref=f185e71]: 时间混合：每个频点的 81 帧历史重新组合
+      - generic [ref=f185e72]: h = g = 64 · Hardswish · LayerNorm + 残差
+      - generic [ref=f185e73]: 块输出形状恒等于输入 f×t → 可自由堆叠
+      - generic [ref=f185e74]: 真超参只有 4 个（h, g, 块数 n, 激活 σ）
+      - generic [ref=f185e75]: ASHA 异步超参搜索数百次试验
+      - generic [ref=f185e76]: → 12 块 / 隐宽 64 / 无 dropout
+      - generic [ref=f185e78]: 公式与输出
+      - generic [ref=f185e79]: U = X + W₂σ(W₁·LN(X)) （特征维）
+      - generic [ref=f185e80]: Y = (U + W₄σ(W₃·LN(Uᵀ)))ᵀ （时间维）
+      - generic [ref=f185e81]: 两式完全同构，只换操作的轴
+      - generic [ref=f185e82]: z = (1/t)·Σᵢ O_:,i —— 时间维平均池化
+      - generic [ref=f185e83]: 词在窗口内位置随机 → 对时间平均
+      - generic [ref=f185e84]: 天然平移不变，只留词身份
+      - generic [ref=f185e85]: → 嵌入 z ∈ R⁸¹（基线约 1000 维）
+      - generic [ref=f185e86]: ③ 推理：检索即触发（无解码 / 无注意力 / 无递归）＋ 训练协议
+      - generic [ref=f185e88]: 滑窗推理与余弦检索
+      - generic [ref=f185e89]: 1 秒窗口 / 100ms 步长 → 每秒 10 次前向
+      - generic [ref=f185e90]: 注册嵌入短于查询 → 注册对查询做卷积取最小
+      - generic [ref=f185e91]: 距离（模板滑移、最佳局部对齐）；注册更长 →
+      - generic [ref=f185e92]: 查询左侧零填充（流式可预开最长注册等长缓冲）
+      - generic [ref=f185e93]: 余弦距离只看方向——对说话人 / 增益的模长
+      - generic [ref=f185e94]: 漂移天然免疫；n 个注册取最小距离 < 阈值触发
+      - generic [ref=f185e96]: 训练：与评测词零重叠的通用词表
+      - generic [ref=f185e97]: LibriSpeech 1000 小时 · Montreal Forced Aligner
+      - generic [ref=f185e98]: 词级对齐切分 · 统一 1 秒（长裁剪 / 短零填充）
+      - generic [ref=f185e99]: 增广两路：MS-SNSD 4–12dB 噪声；50% 概率远场
+      - generic [ref=f185e100]: 仿真再叠 4–15dB 点源噪声
+      - generic [ref=f185e101]: 损失：词级交叉熵（解码器只在训练期拴住嵌入，
+      - generic [ref=f185e102]: 部署时丢弃）；训练词与评测关键词完全不重叠
+      - generic [ref=f185e103]: ——嵌入空间靠海量无关词塑形，评测纯零样本
+      - generic [ref=f185e105]: 0.25M
+      - generic [ref=f185e106]: 参数（全场最小）
+      - generic [ref=f185e107]: 20.16M
+      - generic [ref=f185e108]: MACs（全场最小）
+      - generic [ref=f185e109]: 81 维
+      - generic [ref=f185e110]: 嵌入（基线约 1000 维）
+      - generic [ref=f185e111]: 0 次
+      - generic [ref=f185e112]: 训练即可注册新词
+      - generic [ref=f185e113]: 2.15–8.57
+      - generic [ref=f185e114]: Hey-Snips 领先次优（点）
+      - generic [ref=f185e115]: 六场景 = 干净 / 10dB / 6dB × 非远场 / 远场，指标 FRR @ 每小时 0.3 次误唤醒；条件越苦纯 MLP 优势越大——远场 10dB 的 7.50 几乎只有次优基线（13.93）的一半
+    - paragraph [ref=f185e116]: 图1 · 机制全景：上——任务三路线对比与开放词表三挑战；中——81×81 MFCC 免 patch 输入 + 12 个特征/时间混合块 + 公式(1)(2)(3)；下——滑窗余弦检索与零重叠词表训练协议；底部数字行为全文关键量。
+  - heading "§02 方法：MLPMixer 的音频化改造" [level=2] [ref=f185e117]:
+    - generic [ref=f185e118]: §02
+    - text: 方法：MLPMixer 的音频化改造
+  - generic [ref=f185e119]: 不是拿来就用——三个「去视觉化」决策各有消融背书
+  - generic [ref=f185e120]:
+    - generic [ref=f185e121]: "特征混合（公式 1）：U = X + W₂ σ(W₁ · LayerNorm(X)) W₁ ∈ ℝ^{h×f}, W₂ ∈ ℝ^{f×h}"
+    - generic [ref=f185e122]: "时间混合（公式 2）：Y = (U + W₄ σ(W₃ · LayerNorm(Uᵀ)))ᵀ W₃ ∈ ℝ^{g×t}, W₄ ∈ ℝ^{t×g}"
+    - generic [ref=f185e123]: "时间维平均池化（公式 3）：z = (1/t) Σᵢ O_{:,i} → z ∈ ℝ⁸¹"
+    - generic [ref=f185e124]: 人话：公式 1 在每一帧内部重组 81 维频谱（这帧像什么音色）；公式 2 在每个频点上重组 81 帧历史（这个频率成分怎么随时间变化）——两个式子完全同构，只换操作的轴。每块都带 LayerNorm + 残差，输出形状恒等于输入，所以可以自由堆叠，真超参只有 4 个（h, g, 块数 n, 激活 σ）。最后公式 3 对时间平均：词在 1 秒窗内位置随机，平均把位置信息抹掉、只留词身份——顺带把嵌入压到 81 维。
+  - generic [ref=f185e125]:
+    - generic [ref=f185e126]:
+      - heading "免 patch：直接喂 81×81" [level=4] [ref=f185e127]
+      - paragraph [ref=f185e128]: 视觉 MLPMixer 要把图像切块成 token。音频这里 1 秒音频（25ms 窗 / 12.5ms 移）恰好产生 81 帧 × 81 维 MFCC 的方阵——MFCC 本身已是压缩后的时频特征，信息量就这么多。强行 9×9 patch 化反而把跨 patch 交互推到深层去补，额外多付 7K 参数 + 500K MACs，六场景消融（Table 4）直接证伪：直接输入相对 with PE 错误率低 40%。
+    - generic [ref=f185e129]:
+      - heading "混合轴：特征 × 时间" [level=4] [ref=f185e130]
+      - paragraph [ref=f185e131]: 视觉里 token-mixing / channel-mixing 对应图像的两个轴；音频单通道输入没有"通道"概念，本文改成特征维（每一帧的频谱形状）× 时间维（每个频点的历史）——这是时频表示真正有物理意义的两个轴，也是 MFCC 方阵天然的两个维度。
+    - generic [ref=f185e132]:
+      - heading "Hardswish 激活" [level=4] [ref=f185e133]
+      - paragraph [ref=f185e134]: 原版 MLPMixer 用 GELU。本文六场景消融（Table 5）里 Hardswish 全面最优，且它是分段线性函数、不含指数和 sigmoid——硬件实现指令更少。每秒 10 次滑窗前向会把激活开销放大 10 倍，这个选择在端侧不是小事。
+    - generic [ref=f185e135]:
+      - heading "ASHA 搜出来的极简配置" [level=4] [ref=f185e136]
+      - paragraph [ref=f185e137]: 异步超参搜索（ASHA）数百次试验后收敛到：12 个混合块、隐宽 64、无 dropout。搜索目标很明确——参数和 MACs 都要比所有基线的单项冠军还小。最终 0.25M 参数 / 20.16M MACs，双全场最小。
+  - heading "§03 实验：条件越苦，优势越大" [level=2] [ref=f185e138]:
+    - generic [ref=f185e139]: §03
+    - text: 实验：条件越苦，优势越大
+  - generic [ref=f185e140]: 六场景（干净/10dB/6dB × 非远场/远场），指标 FRR @ 0.3 FA/h
+  - generic [ref=f185e141]:
+    - img [ref=f185e142]:
+      - generic [ref=f185e144]: 尺寸对比（Table 1）：参数与 MACs 双全场最小
+      - generic [ref=f185e145]: "0"
+      - generic [ref=f185e146]: "20"
+      - generic [ref=f185e147]: "40"
+      - generic [ref=f185e148]: "60"
+      - generic [ref=f185e149]: "80"
+      - generic [ref=f185e150]: "0"
+      - generic [ref=f185e152]: "1"
+      - generic [ref=f185e154]: "2"
+      - generic [ref=f185e155]: "3"
+      - generic [ref=f185e157]: "4"
+      - generic [ref=f185e158]: MACs（百万）→ 越右越耗算
+      - generic [ref=f185e159]: 参数（百万）↑
+      - generic [ref=f185e161]: ViT
+      - generic [ref=f185e163]: GRU-ATTN
+      - generic [ref=f185e165]: MobileNetV2
+      - generic [ref=f185e167]: MobileNetV3
+      - generic [ref=f185e169]: EfficientNetB0
+      - generic [ref=f185e171]: QbyE-MLPMixer ★
+      - generic [ref=f185e173]: 左下角 = 又小又省的甜蜜区
+      - generic [ref=f185e175]: 双项全场最小
+      - generic [ref=f185e176]: 0.25M 参数 + 20.16M MACs——基线各自的单项冠军
+      - generic [ref=f185e177]: 都被同时压过（搜索目标本就如此）
+      - generic [ref=f185e179]: 45% / 91%
+      - generic [ref=f185e180]: 参数 = 最小基线 GRU-ATTN（0.55M）的 45%；
+      - generic [ref=f185e181]: MACs = 最小基线 MobileNetV3（22.24M）的 91%
+      - generic [ref=f185e183]: 嵌入 81 维
+      - generic [ref=f185e184]: CNN 基线约 1000 维量级（MobileNetV3 为 960）
+      - generic [ref=f185e185]: ——注册存储与检索开销随维度线性缩小
+      - generic [ref=f185e186]: 配置由 ASHA 数百次试验收敛：
+      - generic [ref=f185e187]: 12 块 / 隐宽 64 / 无 dropout
+      - generic [ref=f185e188]: 基线阵营读数：GRU-ATTN 参数最小但 MACs 41.23M（比本文高一倍，RNN 串行依赖难并行）；ViT 参数 0.96M 却要 77.06M MACs（近四倍）——自注意力二次复杂度是常驻场景实打实的功耗负担
+    - paragraph [ref=f185e189]: 图2 · 尺寸对比（Table 1）：参数-MACs 散点，QbyE-MLPMixer 独占左下角「又小又省」甜蜜区；右侧读数卡：双项全场最小、参数 45% / MACs 91%、嵌入 81 维 vs 约 1000 维。
+  - generic [ref=f185e190]:
+    - img [ref=f185e191]:
+      - generic [ref=f185e193]: 主结果（Table 2）：条件越苦，纯 MLP 优势越大
+      - generic [ref=f185e195]: QbyE-MLPMixer
+      - generic [ref=f185e197]: 该场次优基线（ViT / MNv2 / MNv3 / ENB0）
+      - generic [ref=f185e198]: "0"
+      - generic [ref=f185e199]: "8"
+      - generic [ref=f185e200]: "16"
+      - generic [ref=f185e201]: "24"
+      - generic [ref=f185e202]: "32"
+      - generic [ref=f185e205]: "5.36"
+      - generic [ref=f185e206]: "5.36"
+      - generic [ref=f185e207]: 并列
+      - generic [ref=f185e208]: 干净
+      - generic [ref=f185e209]: vs MNv2
+      - generic [ref=f185e212]: "8.21"
+      - generic [ref=f185e213]: "10.36"
+      - generic [ref=f185e214]: −2.15
+      - generic [ref=f185e215]: 10 dB
+      - generic [ref=f185e216]: vs ViT
+      - generic [ref=f185e219]: "10.00"
+      - generic [ref=f185e220]: "14.29"
+      - generic [ref=f185e221]: −4.29
+      - generic [ref=f185e222]: 6 dB
+      - generic [ref=f185e223]: vs ViT
+      - generic [ref=f185e226]: "8.93"
+      - generic [ref=f185e227]: "12.86"
+      - generic [ref=f185e228]: −3.93
+      - generic [ref=f185e229]: 远场·干净
+      - generic [ref=f185e230]: vs MNv3
+      - generic [ref=f185e233]: "7.50"
+      - generic [ref=f185e234]: "13.93"
+      - generic [ref=f185e235]: −6.43
+      - generic [ref=f185e236]: 远场·10dB
+      - generic [ref=f185e237]: vs ENB0
+      - generic [ref=f185e240]: "20.36"
+      - generic [ref=f185e241]: "28.93"
+      - generic [ref=f185e242]: −8.57
+      - generic [ref=f185e243]: 远场·6dB
+      - generic [ref=f185e244]: vs ViT
+      - generic [ref=f185e245]: Hey-Snips FRR%（@ 0.3 FA/h）· 越低越好 · 柱上数字为与次优的差距
+      - generic [ref=f185e247]: 内部数据集（8 家电词 × 50 人）
+      - generic [ref=f185e248]: 干净非远场：MobileNetV3 0.62 最好，
+      - generic [ref=f185e249]: 本文 2.68 落后（GRU-ATTN 0.81）
+      - generic [ref=f185e250]: ——干净近场阵地仍属 CNN/RNN
+      - generic [ref=f185e251]: （作者自认的优势边界）
+      - generic [ref=f185e252]: 10dB 非远场：3.71 ≈ MNv3 3.69 持平
+      - generic [ref=f185e253]: 6dB 非远场 + 全部三个远场条件：
+      - generic [ref=f185e254]: 本文全部最优
+      - generic [ref=f185e255]: 远场 6dB：本文 11.34
+      - generic [ref=f185e256]: vs MNv3 16.82（−5.48）
+      - generic [ref=f185e257]: vs GRU-ATTN 26.78（崩掉，−15+）
+      - generic [ref=f185e258]: 指标逻辑：一次误唤醒 = 设备在用户没召唤时突然录音——代价远高于漏唤醒，业界把误唤醒钉死在 0.3 次/小时再比谁漏得少。另一观察：GRU-ATTN 远场干净从 7.86 崩到 20.00，本文只 5.36→8.93——RNN 对远场失真的退化速度明显快于纯 MLP
+    - paragraph [ref=f185e259]: 图3 · 主结果（Table 2/3）：Hey-Snips 六场景本文 vs 该场次优基线，领先幅度 2.15 → 4.29 → 3.93 → 6.43 → 8.57 随条件恶化单调放大；右栏内部数据集——干净近场输给 MobileNetV3（优势边界），6dB 与全部远场最优。
+  - generic [ref=f185e260]:
+    - img [ref=f185e261]:
+      - generic [ref=f185e263]: 两项消融：免 patch 与 Hardswish 都在交正收益（FRR%）
+      - generic [ref=f185e264]: 输入表示（Table 4）
+      - generic [ref=f185e265]: HS
+      - generic [ref=f185e266]: 非远场
+      - generic [ref=f185e267]: 内部非远场
+      - generic [ref=f185e268]: HS
+      - generic [ref=f185e269]: 远场
+      - generic [ref=f185e270]: 内部远场
+      - generic [ref=f185e272]: 直接输入（本文）★
+      - generic [ref=f185e274]: "7.86"
+      - generic [ref=f185e276]: "3.57"
+      - generic [ref=f185e278]: "12.26"
+      - generic [ref=f185e280]: "8.63"
+      - generic [ref=f185e282]: with PE（9×9 patch+线性嵌入）
+      - generic [ref=f185e284]: "13.22"
+      - generic [ref=f185e286]: "5.98"
+      - generic [ref=f185e288]: "20.37"
+      - generic [ref=f185e290]: "13.07"
+      - generic [ref=f185e292]: w/o PE（仅切块 reshape）
+      - generic [ref=f185e294]: "17.02"
+      - generic [ref=f185e296]: "5.74"
+      - generic [ref=f185e298]: "21.67"
+      - generic [ref=f185e300]: "12.40"
+      - generic [ref=f185e301]: 相对 with PE：HS 两场景错误率 −40%、内部远场 −34%，
+      - generic [ref=f185e302]: 且省 7K 参数 + 500K MACs；w/o PE 随数据集摇摆
+      - generic [ref=f185e303]: （HS 更差、内部略好）——直接输入是稳健全局最优
+      - generic [ref=f185e304]: 激活函数（Table 5）
+      - generic [ref=f185e305]: HS
+      - generic [ref=f185e306]: 非远场
+      - generic [ref=f185e307]: 内部非远场
+      - generic [ref=f185e308]: HS
+      - generic [ref=f185e309]: 远场
+      - generic [ref=f185e310]: 内部远场
+      - generic [ref=f185e312]: Hardswish（本文）★
+      - generic [ref=f185e314]: "7.86"
+      - generic [ref=f185e316]: "3.57"
+      - generic [ref=f185e318]: "12.26"
+      - generic [ref=f185e320]: "8.63"
+      - generic [ref=f185e322]: SiLU
+      - generic [ref=f185e324]: "8.33"
+      - generic [ref=f185e326]: "4.29"
+      - generic [ref=f185e328]: "11.90"
+      - generic [ref=f185e330]: "9.91"
+      - generic [ref=f185e332]: GELU（原版 MLPMixer）
+      - generic [ref=f185e334]: "8.69"
+      - generic [ref=f185e336]: "3.95"
+      - generic [ref=f185e338]: "13.13"
+      - generic [ref=f185e340]: "10.02"
+      - generic [ref=f185e342]: ReLU
+      - generic [ref=f185e344]: "9.76"
+      - generic [ref=f185e346]: "4.03"
+      - generic [ref=f185e348]: "14.90"
+      - generic [ref=f185e350]: "9.29"
+      - generic [ref=f185e351]: Hardswish 分段线性、不含指数 / sigmoid——硬件更
+      - generic [ref=f185e352]: 容易实现；激活指令开销被每秒 10 次滑窗前向放大
+      - generic [ref=f185e353]: 共同线索：两个「去视觉化」决策（免 patch、GELU→Hardswish）都在给音频任务交正收益且零额外开销——从视觉迁移骨干时，每个基础构件的角色都值得逐个审问
+    - paragraph [ref=f185e354]: 图4 · 消融（Table 4/5）：左——输入表示三变体，直接输入相对 with PE 错误率降 40%/34% 且省 7K 参数 + 500K MACs；右——激活函数四对比，Hardswish 全面最优且硬件最易实现。
+  - table [ref=f185e355]:
+    - rowgroup [ref=f185e356]:
+      - row [ref=f185e357]:
+        - columnheader "项" [ref=f185e358]
+        - columnheader "设定" [ref=f185e359]
+      - row [ref=f185e360]:
+        - cell "训练" [ref=f185e361]
+        - cell "LibriSpeech 1000 小时 · Montreal Forced Aligner 词级对齐切分 · 统一 1 秒（长随机裁剪 / 短零填充）· 词级交叉熵（解码器训练后丢弃）" [ref=f185e362]
+      - row [ref=f185e363]:
+        - cell "增广" [ref=f185e364]
+        - cell "MS-SNSD 噪声 4–12dB；50% 概率远场仿真（房间脉冲响应）再叠 4–15dB 点源噪声" [ref=f185e365]
+      - row [ref=f185e366]:
+        - cell "正例" [ref=f185e367]
+        - cell "Hey-Snips 筛至 40 说话人（3 注册 + 7 查询）；内部集 8 个家电词（Styler / Washer / Dryer / Hey LG / Fridge / Puricare / Oven / Hey Cloi）× 50 人 = 400 说话人，同样 3 + 7" [ref=f185e368]
+      - row [ref=f185e369]:
+        - cell "指标" [ref=f185e370]
+        - cell "FRR @ 0.3 FA/h（每小时 0.3 次误唤醒的工作点）——误唤醒 = 设备在用户没召唤时突然录音，代价远高于漏唤醒，业界先钉死误唤醒再比漏唤醒" [ref=f185e371]
+      - row [ref=f185e372]:
+        - cell "零样本" [ref=f185e373]
+        - cell "训练词表与全部评测关键词完全不重叠——嵌入空间靠海量无关词塑形，评测是对\"通用词级表征\"的纯零样本检验" [ref=f185e374]
+  - heading "§04 贡献清单" [level=2] [ref=f185e375]:
+    - generic [ref=f185e376]: §04
+    - text: 贡献清单
+  - generic [ref=f185e377]: MLPMixer 正式进入 QbyE 开放词表 KWS
+  - generic [ref=f185e378]:
+    - generic [ref=f185e379]:
+      - generic [ref=f185e380]: "1"
+      - paragraph [ref=f185e381]: 纯 MLP 骨干进入 QbyE KWS：证明 MLPMixer 可作为 CNN/RNN/ViT 之外的现实选项，且在小模型区间（<0.3M）是帕累托最优。
+    - generic [ref=f185e382]:
+      - generic [ref=f185e383]: "2"
+      - paragraph [ref=f185e384]: 一套有消融背书的音频适配：免 patch、特征/时间双维混合、Hardswish、时间平均池化——其中输入表示（Table 4）与激活函数（Table 5）两项均有六场景消融，不是拍脑袋。
+    - generic [ref=f185e385]:
+      - generic [ref=f185e386]: "3"
+      - paragraph [ref=f185e387]: 双全场最小下的 SOTA 精度：0.25M / 20.16M 双最小开销下，Hey-Snips 与 400 人内部集超 CNN/RNN 基线，困难条件领先 2.15–8.57 点。
+    - generic [ref=f185e388]:
+      - generic [ref=f185e389]: "4"
+      - paragraph [ref=f185e390]: 81 维超小嵌入：比基线（约 1000 维）小一个数量级——注册存储与检索开销线性缩小，对说话人验证、新颖性检测等 QbyE 应用有外溢潜力。
+    - generic [ref=f185e391]:
+      - generic [ref=f185e392]: "5"
+      - paragraph [ref=f185e393]: 实用长度不齐处理：短注册对查询做卷积取最小距离（模板滑移对齐）、长注册零填充、流式预开缓冲——工程上把 QbyE 检索做成了可流式部署的形态。
+  - heading "§05 局限与边界" [level=2] [ref=f185e394]:
+    - generic [ref=f185e395]: §05
+    - text: 局限与边界
+  - generic [ref=f185e396]: 优势场景被作者自己划清：噪声与远场；干净近场仍是 CNN/RNN 的阵地
+  - generic [ref=f185e397]:
+    - generic [ref=f185e398]:
+      - heading "干净近场非最优" [level=4] [ref=f185e399]
+      - paragraph [ref=f185e400]: 内部集干净非远场：MobileNetV3 0.62 最好，本文 2.68 落后（连 GRU-ATTN 0.81 都不如）；10dB 也只 3.71 vs 3.69 持平。纯 MLP 的容量优势要在条件恶化时才兑现。
+    - generic [ref=f185e401]:
+      - heading "1 秒固定窗口假设" [level=4] [ref=f185e402]
+      - paragraph [ref=f185e403]: 架构围绕 81×81 方阵设计；更长多词短语（如两句口号）未报告。嵌入级卷积对齐只允许平移这一种形变，没和可微分 DTW / 局部注意力这类更精细的对齐方案比较。
+    - generic [ref=f185e404]:
+      - heading "平均池化抹掉时序" [level=4] [ref=f185e405]
+      - paragraph [ref=f185e406]: 81 帧直接平均，音素顺序与节奏不进嵌入——理论上音近词对（发音相同顺序不同）的区分上限受限，论文未做误接受词对分析来验证这个隐忧。
+    - generic [ref=f185e407]:
+      - heading "单一全局阈值 + 维度未消融" [level=4] [ref=f185e408]
+      - paragraph [ref=f185e409]: 所有说话人 / 信道共用一个触发阈值，无自适应机制；嵌入维度 81 恰好等于特征维更像设计巧合，未做维度扫描实验。
+    - generic [ref=f185e410]:
+      - heading "评测规模小" [level=4] [ref=f185e411]
+      - paragraph [ref=f185e412]: Hey-Snips 筛至 40 人 × 7 条查询——每场景约 280 条正例，1 条话语 ≈ 0.36 个 FRR 点；无置信区间 / 显著性检验，2 点以内的差距要谨慎读。
+    - generic [ref=f185e413]:
+      - heading "失真全仿真 + 单语种朗读" [level=4] [ref=f185e414]
+      - paragraph [ref=f185e415]: 远场与噪声全部来自仿真（无真实房间 / 回声设备验证）；训练只有英文朗读有声书——口语化、多语种场景未覆盖。
+    - generic [ref=f185e416]:
+      - heading "无端侧实测" [level=4] [ref=f185e417]
+      - paragraph [ref=f185e418]: 只有参数 / MACs 代理指标——真实时延、实时率、内存峰值、功耗、100ms 滑窗的延迟分布均未上板验证。
+    - generic [ref=f185e419]:
+      - heading "公平性存疑 + 注册协议单一" [level=4] [ref=f185e420]
+      - paragraph [ref=f185e421]: 本文 ASHA 搜了数百次，基线调参预算未报，视觉基线还带着 ImageNet 预训练（资源不对等）；固定 3 注册 / 7 查询协议，无 one-shot 注册曲线、无跨说话人注册评估。
+  - generic [ref=f185e422]:
+    - heading "可迁移判断" [level=4] [ref=f185e423]
+    - paragraph [ref=f185e424]: ↳ 视觉架构的输入惯例对音频不是中性操作——patch 化在图像是有效归纳偏置，在 MFCC 上是负资产。迁移骨干时逐个审问每个组件的角色，小改动（换激活）的收益可以和结构改动同量级。
+    - paragraph [ref=f185e425]: ↳ 表征学习与触发决策解耦是个性化的通用蓝图——训练用海量无关词塑形嵌入空间，部署时注册新词只是几次前向编码。这套路子可直接外溢到说话人验证、新颖性检测。
+    - paragraph [ref=f185e426]: ↳ 余弦 over 欧氏：说话人差异和增益变化主要漂移模长、不漂移方向——度量选择本身就是一种归一化，比在特征端做归一化更稳。
+    - paragraph [ref=f185e427]: ↳ 把指标钉在产品代价不对称处：误唤醒的信任代价远高于漏唤醒，先钉死 0.3 FA/h 再比 FRR——评测算什么，模型就优化什么。
+  - generic [ref=f185e428]:
+    - link "论文原文 arXiv 2206.13231 ↗" [ref=f185e429] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/2206.13231
+    - link "← 返回论文列表" [ref=f185e430] [cursor=pointer]:
+      - /url: ../index.html
+    - link "📖 深读笔记" [ref=f185e431] [cursor=pointer]:
+      - /url: ../../library.html#/papers/2022/QbyE-MLPMixer_Query-by-Example_Open-Vocabulary_Keyword_Spotting_Using_MLPMixer.md
+    - link "📄 PDF 原稿" [ref=f185e432] [cursor=pointer]:
+      - /url: QbyE-MLPMixer_Query-by-Example_Open-Vocabulary_Keyword_Spotting_Using_MLPMixer.pdf
+  - link "⌂ 导览" [ref=f185e433] [cursor=pointer]:
+    - /url: ../../index.html
