@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>类神经形态硬件 KWS 能效基准（Loihi）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · 2018 №4 · 新范式基准</div>
+<h1 class="hero">脉冲网络的能效账：Loihi 每次推理 <span class="g">0.00027 焦耳</span>，比 GPU 省 110 倍还不掉点</h1>
+<div class="chips">
+<span class="chip acc">类神经形态硬件</span><span class="chip">脉冲神经网络 SNN</span><span class="chip">ANN→SNN 免重训转换</span><span class="chip">五平台同题基准</span><span class="chip">110× 能效</span>
+</div>
+<div class="meta">
+<b>Benchmarking Keyword Spotting Efficiency on Neuromorphic Hardware</b> · Peter Blouw / Xuan Choo / Eric Hunsberger / Chris Eliasmith（Applied Brain Research &amp; 滑铁卢大学）· arXiv <a href="https://arxiv.org/abs/1812.01739" style="color:var(--acc)">1812.01739</a>（2018.12）<br>
+一句话：把 CTC 训练的两层前馈网络用 Nengo <b>免重训转成脉冲网络</b>部署到 Intel Loihi——同网络同数据跑五个平台，Loihi 能耗/推理 <b>0.00027 J</b>（GPU 的 1/110），真正例率 <b>93.8% 还比原版高 1.1 个点</b>。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：常开 KWS 的能耗账本，没人给 SNN 算过真账</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>KWS 是 7×24 在烧电的功能——CPU/GPU 的功耗特性根本不适合常开场景。</li>
+<li>Jetson TX1 / Movidius NCS 已是嵌入式优选，但每次推理仍是 mJ 级——IoT 电池还是吃不消。</li>
+<li>SNN 事件驱动理论上极省，但「能效 + 准确率 + 扩展性」的<b>真机系统基准</b>一直是空白。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">类神经形态 KWS 基准：Loihi 每次推理 0.00027 焦耳——比 GPU 省 110 倍还不掉点</text>
+<line x1="36.0" y1="60.0" x2="820.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 常开 KWS 的能耗账本：mW 级预算</text>
+<rect x="36.0" y="102.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="129.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">常开 = 7×24 在烧电</text>
+<text x="240.0" y="129.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 永远在听——电池设备的头号能耗项，CPU/GPU 的功耗特性根本不适合</text>
+<rect x="36.0" y="152.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="179.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">低功耗平台也不够省</text>
+<text x="240.0" y="179.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Jetson TX1 / Movidius NCS 已是嵌入式优选——但每次推理仍是 mJ 级</text>
+<rect x="36.0" y="202.0" width="848.0" height="42.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="229.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SNN 理论上极省</text>
+<text x="240.0" y="229.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">事件驱动：只在有脉冲时计算——但真机能效从未在语音任务上被系统验证</text>
+<rect x="36.0" y="252.0" width="848.0" height="42.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="279.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">缺一个公平基准</text>
+<text x="240.0" y="279.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">同一网络 · 同一数据 · 五个平台 · 统一指标——没人做过</text>
+<text x="36.0" y="320.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 方法：训好连续值网络，直接转脉冲——不重训</text>
+<rect x="36.0" y="338.0" width="264.0" height="100.0" rx="12" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="168.0" y="362.0" font-size="12" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TF 训练</text>
+<text x="168.0" y="386.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">两层前馈 + CTC</text>
+<text x="168.0" y="406.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">13 维 MFCC · 100Hz</text>
+<text x="312.0" y="394.0" font-size="14" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="324.0" y="338.0" width="264.0" height="100.0" rx="12" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="456.0" y="362.0" font-size="12" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Nengo 转换</text>
+<text x="456.0" y="386.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">激活值 → 脉冲发放率</text>
+<text x="456.0" y="406.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">LIF 神经元直接迁权重</text>
+<text x="600.0" y="394.0" font-size="14" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="612.0" y="338.0" width="264.0" height="100.0" rx="12" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="744.0" y="362.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Loihi 部署</text>
+<text x="744.0" y="386.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">128 核 · 每核 1024 神经元</text>
+<text x="744.0" y="406.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">事件驱动推理</text>
+<text x="460.0" y="468.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词「aloha」· 96 说话人 192 条语料 · 留一说话人交叉验证</text>
+<text x="36.0" y="508.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 五平台同题同卷：能效 / 速度 / 准确率一起量</text>
+<rect x="36.0" y="524.0" width="848.0" height="60.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="460.0" y="550.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Intel Loihi · Movidius NCS · Jetson TX1 · Xeon CPU · Quadro GPU——同网络同数据同指标</text>
+<text x="460.0" y="570.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">测量：运行功率 (W) · 推理速率 (次/s) · 能耗/推理 (J) · 真正例/真负例率</text>
+<rect x="36.0" y="620.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="646.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.00027 J</text>
+<text x="134.0" y="666.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Loihi 能耗/推理</text>
+<text x="304.0" y="646.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">110×</text>
+<text x="304.0" y="666.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">vs GPU 能效优势</text>
+<text x="474.0" y="646.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">93.8%</text>
+<text x="474.0" y="666.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">真正例率（不降反升）</text>
+<text x="644.0" y="646.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">296 次/s</text>
+<text x="644.0" y="666.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Loihi 推理速率</text>
+<text x="814.0" y="646.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">&gt;100 次/s</text>
+<text x="814.0" y="666.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">网络增大仍稳</text>
+<text x="36.0" y="704.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Peter Blouw / Xuan Choo / Eric Hunsberger / Chris Eliasmith（Applied Brain Research & 滑铁卢大学）· arXiv 1812.01739（2018.12）· Intel Loihi 研究芯片；系列语境：基准设施 + 新范式双料</text>
+</svg>
+<div class="cap">图 1 · 机制全景：常开能耗账本 → 三步方法（TF 训练 → Nengo 转换 → Loihi 部署）→ 五平台统一基准协议 → 结果速览。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：激活强度编码成脉冲密度</h2>
+<div class="cards">
+<div class="card acc"><h3>ANN→SNN 免重训转换</h3>Nengo 把连续激活值映射为 LIF 神经元的发放率——权重直接迁移，只需调膜时间常数和阈值匹配激活分布。</div>
+<div class="card acc"><h3>发放率编码</h3>激活越强发放越密——信息在脉冲密度里，不在单个脉冲里。</div>
+<div class="card"><h3>CTC 端到端训练</h3>原网络用 CTC 损法学序列级判别——脉冲侧用累积脉冲计数算输出概率分布。</div>
+<div class="card"><h3>Loihi 的扩展性</h3>128 核 × 每核 1024 神经元——网络变大就启用更多核，推理速率基本不掉。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：连续激活怎么变成脉冲——发放率编码</text>
+<line x1="36.0" y1="56.0" x2="580.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="238.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ANN → SNN 转换原理</text>
+<rect x="48.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="64.0" y="118.0" font-size="9.2" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">连续值网络（TF 训练）</text>
+<rect x="78.0" y="126.0" width="40.0" height="14.0" rx="4" fill="#c9d8e8"/>
+<rect x="134.0" y="116.0" width="40.0" height="24.0" rx="4" fill="#c9d8e8"/>
+<rect x="190.0" y="104.0" width="40.0" height="36.0" rx="4" fill="#c9d8e8"/>
+<rect x="246.0" y="120.0" width="40.0" height="20.0" rx="4" fill="#c9d8e8"/>
+<rect x="302.0" y="108.0" width="40.0" height="32.0" rx="4" fill="#c9d8e8"/>
+<rect x="358.0" y="130.0" width="40.0" height="10.0" rx="4" fill="#c9d8e8"/>
+<text x="64.0" y="176.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">激活值大小 → 决定脉冲密度</text>
+<line x1="248.0" y1="186.0" x2="248.00" y2="206.00" stroke="#8a93a5" stroke-width="1.2"/>
+<text x="64.0" y="226.0" font-size="9.2" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">脉冲网络（LIF 神经元）</text>
+<line x1="82.0" y1="246.0" x2="82.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="102.0" y1="246.0" x2="102.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="78.0" y1="256.0" x2="118.00" y2="256.00" stroke="#e6e6df" stroke-width="1"/>
+<line x1="138.0" y1="246.0" x2="138.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="148.0" y1="246.0" x2="148.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="158.0" y1="246.0" x2="158.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="168.0" y1="246.0" x2="168.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="134.0" y1="256.0" x2="174.00" y2="256.00" stroke="#e6e6df" stroke-width="1"/>
+<line x1="194.0" y1="246.0" x2="194.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="202.0" y1="246.0" x2="202.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="210.0" y1="246.0" x2="210.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="218.0" y1="246.0" x2="218.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="226.0" y1="246.0" x2="226.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="190.0" y1="256.0" x2="230.00" y2="256.00" stroke="#e6e6df" stroke-width="1"/>
+<line x1="250.0" y1="246.0" x2="250.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="263.3" y1="246.0" x2="263.33" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="276.7" y1="246.0" x2="276.67" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="246.0" y1="256.0" x2="286.00" y2="256.00" stroke="#e6e6df" stroke-width="1"/>
+<line x1="306.0" y1="246.0" x2="306.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="314.0" y1="246.0" x2="314.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="322.0" y1="246.0" x2="322.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="330.0" y1="246.0" x2="330.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="338.0" y1="246.0" x2="338.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="302.0" y1="256.0" x2="342.00" y2="256.00" stroke="#e6e6df" stroke-width="1"/>
+<line x1="362.0" y1="246.0" x2="362.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="382.0" y1="246.0" x2="382.00" y2="266.00" stroke="#0a6b4e" stroke-width="2.2"/>
+<line x1="358.0" y1="256.0" x2="398.00" y2="256.00" stroke="#e6e6df" stroke-width="1"/>
+<text x="64.0" y="292.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">激活越强 → 发放越密（发放率编码）</text>
+<text x="64.0" y="318.0" font-size="8.8" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">权重直接迁移，不重训——调整膜时间常数与阈值</text>
+<text x="64.0" y="340.0" font-size="8.8" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">匹配原网络激活分布即可</text>
+<text x="656.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Loihi 的事件驱动红利</text>
+<rect x="480.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="496.0" y="116.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 脉冲稀疏：无输入时不计算</text>
+<text x="496.0" y="131.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 事件驱动：只有脉冲到达才触发</text>
+<text x="496.0" y="146.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  突触计算——静默即零功耗</text>
+<text x="496.0" y="161.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="496.0" y="176.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 128 核 × 1024 神经元片上网络</text>
+<text x="496.0" y="191.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 网络变大 → 启用更多核并行，</text>
+<text x="496.0" y="206.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  推理速率基本不掉（&gt;100 次/s）</text>
+<text x="496.0" y="221.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="496.0" y="236.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">对比：Movidius NCS 资源固定，</text>
+<text x="496.0" y="251.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">网络一大速率直线下坠，最终</text>
+<text x="496.0" y="266.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">跌破实时阈值</text>
+<text x="496.0" y="281.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="496.0" y="296.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 输出：空白/关键词标签用</text>
+<text x="496.0" y="311.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">累积脉冲计数算概率</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：转换的关键是把「激活强度」编码成「脉冲密度」——柱越高（激活越强）竖线越密（发放越快）；右：Loihi 靠事件驱动与核级扩展拿到能效与扩展性双红利</text>
+</svg>
+<div class="cap">图 2 · 左：转换原理——柱高（激活强度）对应竖线密度（脉冲发放率）；右：Loihi 的事件驱动红利：无脉冲不计算、静默即零功耗，核级并行让速率稳定。</div>
+<div class="formula">
+<div class="f">ANN:  y = f(W·x)        →        SNN:  firing_rate(neuron_i) ∝ f(W·x)_i        （权重不变，只换神经元模型）</div>
+<div class="why"><b>人话：</b>原来网络里一个 0.8 的激活值，转换后让这个神经元每秒发 800 个脉冲——数值大小变成脉冲疏密。计算从「乘加阵列」变成「有脉冲才算、没脉冲歇着」，省电就省在「歇着」上。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果：五平台同题同卷</h2>
+<table class="tb">
+<tr><th>平台</th><th>运行功率</th><th>推理速率</th><th>能耗/推理</th></tr>
+<tr class="hl"><td>Intel Loihi</td><td>0.029 W</td><td>296 次/s</td><td>0.00027 J</td></tr>
+<tr><td>Movidius NCS</td><td>0.150 W</td><td>100 次/s</td><td>0.0015 J</td></tr>
+<tr><td>Jetson TX1</td><td>0.560 W</td><td>100 次/s</td><td>0.0056 J</td></tr>
+<tr><td>Xeon CPU</td><td>12.800 W</td><td>~2000 次/s</td><td>0.0063 J</td></tr>
+<tr><td>Quadro GPU</td><td>14.900 W</td><td>~500 次/s</td><td>0.0298 J</td></tr>
+</table>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：能耗/推理五平台对比（对数尺度）+ 准确率不掉反升</text>
+<line x1="36.0" y1="56.0" x2="700.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="306.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">能耗 / 推理（J，log 尺度）</text>
+<text x="60.0" y="126.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Intel Loihi</text>
+<rect x="176.0" y="112.0" width="23.8" height="22.0" rx="5" fill="#0b6e52"/>
+<text x="205.8" y="127.0" font-size="9.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.00027 J</text>
+<text x="60.0" y="182.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Movidius NCS</text>
+<rect x="176.0" y="168.0" width="159.7" height="22.0" rx="5" fill="#5d9c85"/>
+<text x="341.7" y="183.0" font-size="9.5" fill="#5d9c85" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.0015 J</text>
+<text x="60.0" y="238.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Jetson TX1</text>
+<rect x="176.0" y="224.0" width="264.1" height="22.0" rx="5" fill="#9fc8b8"/>
+<text x="446.1" y="239.0" font-size="9.5" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.0056 J</text>
+<text x="60.0" y="294.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Xeon CPU</text>
+<rect x="176.0" y="280.0" width="273.5" height="22.0" rx="5" fill="#c9d8e8"/>
+<text x="455.5" y="295.0" font-size="9.5" fill="#c9d8e8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.0063 J</text>
+<text x="60.0" y="350.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Quadro GPU</text>
+<rect x="176.0" y="336.0" width="396.7" height="22.0" rx="5" fill="#e0a9a0"/>
+<text x="578.7" y="351.0" font-size="9.5" fill="#e0a9a0" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.0298 J</text>
+<text x="60.0" y="396.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Loihi vs 各平台：NCS 5.6× · TX1 20.7× · CPU 23.3× · GPU 110.4×（能效优势）</text>
+<text x="740.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率</text>
+<rect x="640.0" y="92.0" width="204.0" height="258.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="654.0" y="116.0" width="176.0" height="92.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="742.0" y="142.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SNN（Loihi）</text>
+<text x="742.0" y="166.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TPR 93.8%</text>
+<text x="742.0" y="188.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">TNR 97.9%</text>
+<rect x="654.0" y="224.0" width="176.0" height="92.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="742.0" y="250.0" font-size="9.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ANN 原版</text>
+<text x="742.0" y="274.0" font-size="10" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TPR 92.7%</text>
+<text x="742.0" y="296.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">TNR 97.9%</text>
+<text x="742.0" y="336.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">脉冲随机发放 ≈ 隐式正则化</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文基准表（arXiv 1812.01739）；运行功率 Loihi 0.029W / NCS 0.15W / TX1 0.56W / CPU 12.8W / GPU 14.9W；注意 Loihi 报的是最高读数（保守）</text>
+</svg>
+<div class="cap">图 3 · 左：能耗/推理对数尺度条形图（Loihi vs NCS/TX1/CPU/GPU = 5.6×/20.7×/23.3×/110.4× 能效优势）；右：SNN 真正例率 93.8% vs 原版 92.7%——脉冲随机发放 ≈ 隐式正则化。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：小数据的「首次」要怎么读</h2>
+<div class="cards">
+<div class="card bad"><h3>数据集太小</h3>96 说话人 192 条语料——真实部署的多样性远超这个量级，结论外推要小心。</div>
+<div class="card bad"><h3>单词验证</h3>只测「aloha」——多关键词/长短语的脉冲编码有效性未验证。</div>
+<div class="card bad"><h3>软件栈不可比</h3>TF vs Nengo vs Movidius SDK 优化程度不同——纯硬件对比存在偏差。</div>
+<div class="card bad"><h3>干净条件</h3>无噪声鲁棒性测试、无连续语音流评估——离真实场景还有距离。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：小数据的「首次」要怎么读</text>
+<line x1="36.0" y1="56.0" x2="520.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">数据集太小</text>
+<text x="205.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">96 说话人 192 条语料——真实部署的多样性远超这个量级，结论外推要小心</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单词验证</text>
+<text x="205.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">只测「aloha」——多关键词/长短语的脉冲编码有效性未验证</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">软件栈不可比</text>
+<text x="205.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">TF vs Nengo vs Movidius SDK 优化程度不同——纯硬件对比有一定偏差</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">干净条件</text>
+<text x="205.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">无噪声鲁棒性测试、无连续语音流评估——离真实场景还有距离</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CPU/GPU 常开</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">传统平台</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Loihi KWS 基准</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 2018</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SNN 转换方法学</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ANN→SNN 系</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">类神经形态量产</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Akida 等 2020+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">价值定位：它证明的是「范式可行 + 量级正确」，不是「产品就绪」——转换式 SNN（不重训）成为后续 ANN→SNN 方法学的一部分；随类神经形态芯片量产</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（BrainChip Akida 等），常开 KWS 的能效天花板被持续抬高。与 TC-ResNet（2019 №20）的真机评估精神同源：把纸面优势放到物理硬件上量</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：它证明的是「范式可行 + 量级正确」，转换式 SNN 成为 ANN→SNN 方法学的一部分；类神经形态量产（Akida 等 2020+）持续抬高常开 KWS 能效天花板。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>范式验证的价值在量级不在精度：本文的贡献是「SNN 在语音任务上能效优势是数量级的」这个事实本身——小数据集上的 93.8% 不是卖点，110× 的能耗比才是。</p>
+<p>免重训转换是 SNN 落地的工程钥匙：直接迁移权重 + 调神经元参数，让存量 ANN 训练生态复用——「先训后转」至今仍是 SNN 应用的主流路径。</p>
+<p>基准测试的信誉来自同题同卷：同网络、同数据、同指标跑五个平台，而不是各引各的最好数字——本文与 TC-ResNet（2019 №20）的真机评估精神同源：把纸面优势放到物理硬件上量。</p>
+</div>
+<span class="pill">系列：新范式 · 类神经形态 KWS 的第一份真机基准</span>
+<div class="foot-note">数据与结论来自论文原文（arXiv 1812.01739）；Loihi 功率取最高读数（保守估计）。系列内关联：TC-ResNet（2019 №20）真机延迟评估 · Sinc 卷积（2019 №17）另一条极简计算路线 · MicroNets（2020 №13）传统平台的算力压缩。</div>
+</section>
+</div>
+</body>
+</html>
