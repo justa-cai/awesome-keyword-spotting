@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小足迹 KWS 的序列到序列模型（小米）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · 2018 №17 · 端到端转向</div>
+<h1 class="hero">训练怎么练，解码就怎么跑：帧级一致性白拿 <span class="g">20% 提升</span>，还顺手砍掉滑动窗口</h1>
+<div class="chips">
+<span class="chip acc">帧级 Seq2Seq</span><span class="chip">TDNN-LSTM 强制对齐造标签</span><span class="chip">−1 屏蔽模糊边界</span><span class="chip">宽 &gt; 深 · GRU &gt; LSTM</span><span class="chip">FRR 3.05% @ 0.1 FA/hr</span>
+</div>
+<div class="meta">
+<b>Sequence-to-Sequence Models for Small-Footprint Keyword Spotting</b> · Haitong Zhang / Junbo Zhang / Yujun Wang（小米 AI 实验室）· arXiv <a href="https://arxiv.org/abs/1811.00348" style="color:var(--acc)">1811.00348</a>（2018.11）<br>
+一句话：用 3000 小时预训练的 TDNN-LSTM 强制对齐生成<b>帧级标签（0/1/−1 三值）</b>，1 层 128 单元 GRU 逐帧输出词概率——训练与解码完全一致：FRR 从注意力基线 4.47% 压到 <b>3.05%</b>（@ 0.1 FA/hr），参数仅 73.3K。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：注意力模型（同组前作）的三个裂缝</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li><b>训练-解码不匹配</b>：序列到一训练用 189 帧整窗 → 单标签，解码却用滑动窗扫流——窗口选择没有理论指导。</li>
+<li><b>滑动窗口两难</b>：窗大延迟高、窗小截断关键词——不同长度词最优窗口还不同，调参负担重。</li>
+<li><b>帧级监督缺失</b>：注意力要自己学「在哪关注」——难训且可能聚焦非最优位置。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Seq2Seq 帧级 KWS：训练怎么练，解码就怎么跑——一致性本身就是 20% 提升</text>
+<line x1="36.0" y1="60.0" x2="820.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 注意力模型（前作）的三个裂缝</text>
+<rect x="36.0" y="102.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="131.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练-解码不匹配</text>
+<text x="230.0" y="131.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">序列到一训练用 189 帧整窗 → 单标签；解码却用滑动窗扫流——窗口怎么选没理论指导</text>
+<rect x="36.0" y="158.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="187.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">滑动窗口两难</text>
+<text x="230.0" y="187.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">窗大延迟高 · 窗小截断关键词——不同长度的词最优窗口还不同，调参负担重</text>
+<rect x="36.0" y="214.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="243.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级监督缺失</text>
+<text x="230.0" y="243.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力要自己学「在哪关注」——难训且可能聚焦非最优位置</text>
+<text x="36.0" y="290.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 解法：每帧独立打标签，训练=解码</text>
+<rect x="36.0" y="306.0" width="416.0" height="190.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="330.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级标签从哪来（关键前提）</text>
+<text x="52.0" y="356.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 3000 小时数据预训练 TDNN-LSTM</text>
+<text x="52.0" y="373.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输出音素后验 → 强制对齐</text>
+<text x="52.0" y="390.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 得到关键词的精确时间边界</text>
+<text x="52.0" y="407.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="52.0" y="424.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 边界内帧 → 1（词帧）</text>
+<text x="52.0" y="441.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 边界外帧 → 0（非词帧）</text>
+<text x="52.0" y="458.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 边界模糊帧 → −1（训时屏蔽损失）</text>
+<rect x="468.0" y="306.0" width="416.0" height="190.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="676.0" y="330.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">模型与解码</text>
+<text x="484.0" y="356.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 编码器：1 层 GRU（128 单元）</text>
+<text x="484.0" y="373.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输入：PCEN 特征（可学习归一化）</text>
+<text x="484.0" y="390.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输出：逐帧 sigmoid 概率 + BCE</text>
+<text x="484.0" y="407.0" font-size="8.8" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="424.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 流式解码：天然逐帧，无窗口</text>
+<text x="484.0" y="441.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 后验平滑：n 帧移动平均降误警</text>
+<text x="484.0" y="458.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练怎么练、解码就怎么跑——完全一致</text>
+<text x="36.0" y="528.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 两个架构发现</text>
+<rect x="36.0" y="544.0" width="416.0" height="92.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="244.0" y="568.0" font-size="10.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GRU &gt; LSTM</text>
+<text x="52.0" y="592.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 简洁门控对 KWS 的时序建模已够用</text>
+<text x="52.0" y="609.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 复杂门控反而在小数据上难训</text>
+<rect x="468.0" y="544.0" width="416.0" height="92.0" rx="10" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="676.0" y="568.0" font-size="10.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">宽 &gt; 深</text>
+<text x="484.0" y="592.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 单层 128 单元 &gt; 多层 64 单层</text>
+<text x="484.0" y="609.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· KWS 要的是表示宽度，不是抽象深度</text>
+<rect x="36.0" y="668.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="694.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.05%</text>
+<text x="134.0" y="714.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FRR @ 0.1 FA/hr（GRU）</text>
+<text x="304.0" y="694.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~20%</text>
+<text x="304.0" y="714.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">相对注意力基线提升</text>
+<text x="474.0" y="694.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">73.3K</text>
+<text x="474.0" y="714.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量</text>
+<text x="644.0" y="694.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−1 帧</text>
+<text x="644.0" y="714.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">模糊边界屏蔽机制</text>
+<text x="814.0" y="694.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0 窗口</text>
+<text x="814.0" y="714.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">解码无窗口依赖</text>
+<text x="36.0" y="752.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Haitong Zhang / Junbo Zhang / Yujun Wang（小米 AI 实验室）· arXiv 1811.00348（2018.11）· 「小爱同学」· 小米内部大规模中文数据；同组前作：注意力序列到一（2018 №3）→ 本文帧级 → 多通道听觉注意力（2018 №10）</text>
+</svg>
+<div class="cap">图 1 · 机制全景：前作三裂缝 → 解法（帧级标签生成 + 逐帧模型 + 流式解码）→ 两个架构发现（GRU&gt;LSTM · 宽&gt;深）→ 结果速览。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：帧级标签是一切的前提</h2>
+<div class="cards">
+<div class="card acc"><h3>标签三值制</h3>边界内帧=1（词帧）、边界外帧=0、边界模糊帧=−1（训练时屏蔽损失）——对齐不确定性被显式建模。</div>
+<div class="card acc"><h3>逐帧推理</h3>模型以帧为单位输出概率——天然流式、延迟固定单帧粒度、无任何窗口超参。</div>
+<div class="card"><h3>后验平滑</h3>n 帧移动平均压掉帧级毛刺——零成本的推理优化，平滑窗口大小不敏感。</div>
+<div class="card"><h3>PCEN 特征</h3>可学习的自适应能量归一化——跟着网络端到端训练，适应不同录音条件。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：帧级标签的生成 · 训练-解码一致性对比</text>
+<line x1="36.0" y1="56.0" x2="640.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="248.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一帧窗的标签与概率（示意）</text>
+<rect x="48.0" y="92.0" width="420.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="72.0" y="116.0" width="26.0" height="24.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="85.0" y="132.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<rect x="104.0" y="116.0" width="26.0" height="24.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="117.0" y="132.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<rect x="136.0" y="116.0" width="26.0" height="24.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="149.0" y="132.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<rect x="168.0" y="116.0" width="26.0" height="24.0" rx="4" fill="#fde9d8" stroke="#dde2e9" stroke-width="1"/>
+<text x="181.0" y="132.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">-1</text>
+<rect x="200.0" y="116.0" width="26.0" height="24.0" rx="4" fill="#cfe9de" stroke="#dde2e9" stroke-width="1"/>
+<text x="213.0" y="132.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1</text>
+<rect x="232.0" y="116.0" width="26.0" height="24.0" rx="4" fill="#cfe9de" stroke="#dde2e9" stroke-width="1"/>
+<text x="245.0" y="132.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1</text>
+<rect x="264.0" y="116.0" width="26.0" height="24.0" rx="4" fill="#cfe9de" stroke="#dde2e9" stroke-width="1"/>
+<text x="277.0" y="132.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1</text>
+<rect x="296.0" y="116.0" width="26.0" height="24.0" rx="4" fill="#fde9d8" stroke="#dde2e9" stroke-width="1"/>
+<text x="309.0" y="132.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">-1</text>
+<rect x="328.0" y="116.0" width="26.0" height="24.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="341.0" y="132.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<rect x="360.0" y="116.0" width="26.0" height="24.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="373.0" y="132.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<rect x="392.0" y="116.0" width="26.0" height="24.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="405.0" y="132.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<rect x="424.0" y="116.0" width="26.0" height="24.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="437.0" y="132.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0</text>
+<text x="64.0" y="160.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">0 = 非词帧 · 1 = 词帧 · −1 = 边界模糊（屏蔽）</text>
+<path d="M 85.0 279.0 L 117.0 273.5 L 149.0 268.0 L 181.0 235.0 L 213.0 196.5 L 245.0 191.0 L 277.0 202.0 L 309.0 246.0 L 341.0 273.5 L 373.0 279.0 L 405.0 276.8 L 437.0 281.2" fill="none" stroke="#0b6e52" stroke-width="2"/>
+<line x1="72.0" y1="290.0" x2="456.00" y2="290.00" stroke="#8a93a5" stroke-width="0.8"/>
+<text x="64.0" y="310.0" font-size="8.4" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">逐帧输出概率</text>
+<text x="64.0" y="332.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">后验平滑：n 帧移动平均压掉毛刺</text>
+<text x="676.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练-解码一致性</text>
+<rect x="500.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="516.0" y="116.0" font-size="9.2" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力（前作 2018 №3）</text>
+<rect x="516.0" y="126.0" width="320.0" height="30.0" rx="6" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="676.0" y="146.0" font-size="8.2" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">训练 189 帧窗 → 解码滑窗——两套几何</text>
+<text x="516.0" y="182.0" font-size="9.2" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Seq2Seq（本文）</text>
+<rect x="516.0" y="192.0" width="320.0" height="30.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="676.0" y="212.0" font-size="8.2" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">训练逐帧 → 解码逐帧——同一套几何</text>
+<text x="516.0" y="244.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一致性的三重回报：</text>
+<text x="524.0" y="262.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无窗口超参可调（少一个玄学）</text>
+<text x="524.0" y="278.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 延迟固定为单帧粒度</text>
+<text x="524.0" y="294.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 流式天然支持——工业部署友好</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：帧级标签三值制（0/1/−1）与逐帧概率输出 + 后验平滑；右：两代模型的训练-解码几何对比——一致性换来无窗口、定延迟、流式友好三重回报</text>
+</svg>
+<div class="cap">图 2 · 左：一帧窗的三值标签与逐帧概率输出曲线 + 后验平滑；右：两代模型的训练-解码几何对比——一致性换来无窗口、定延迟、流式友好三重回报。</div>
+<div class="formula">
+<div class="f">TDNN-LSTM 强制对齐 → 边界 → label_t ∈ {0, 1, −1}        L = Σ_{t: label≠−1} BCE( p_t , label_t )        解码：smooth(p_1..T) &gt; θ</div>
+<div class="why"><b>人话：</b>先让一个「懂音素的大模型」标出唤醒词在每段录音里的精确起止时间，照着时间给每一帧打分（词内=1、词外=0、说不清的边界=−1 不参与训练）。小模型学的是逐帧打分，部署时也逐帧打分——练习和考试是同一件事，不用再纠结「考卷要多大一张」。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果：一致性 + 帧级监督的合力</h2>
+<table class="tb">
+<tr><th>模型</th><th>FRR @ 0.1 FA/hr</th><th>参数量</th></tr>
+<tr class="hl"><td>Seq2Seq GRU（1 层 128）</td><td>3.05%</td><td>73.3K</td></tr>
+<tr><td>Seq2Seq LSTM（1 层 128）</td><td>6.08%</td><td>86.8K</td></tr>
+<tr><td>基线 GRU（注意力）</td><td>4.47%</td><td>77.5K</td></tr>
+<tr><td>基线 LSTM（注意力）</td><td>11.86%</td><td>103K</td></tr>
+</table>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：四配置 FRR 对比 + 相对提升拆解</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="286.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FRR (%) @ 0.1 FA/hr（越低越好）</text>
+<text x="60.0" y="126.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">基线 LSTM（注意力）</text>
+<rect x="196.0" y="112.0" width="450.7" height="22.0" rx="5" fill="#e0a9a0"/>
+<text x="654.7" y="127.0" font-size="10" fill="#e0a9a0" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">11.86</text>
+<text x="60.0" y="186.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">基线 GRU（注意力）</text>
+<rect x="196.0" y="172.0" width="169.9" height="22.0" rx="5" fill="#c9d8e8"/>
+<text x="373.9" y="187.0" font-size="10" fill="#c9d8e8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4.47</text>
+<text x="60.0" y="246.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Seq2Seq LSTM</text>
+<rect x="196.0" y="232.0" width="231.0" height="22.0" rx="5" fill="#9fc8b8"/>
+<text x="435.0" y="247.0" font-size="10" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">6.08</text>
+<text x="60.0" y="306.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Seq2Seq GRU ★</text>
+<rect x="196.0" y="292.0" width="115.9" height="22.0" rx="5" fill="#0b6e52"/>
+<text x="319.9" y="307.0" font-size="10" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3.05</text>
+<text x="60.0" y="366.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：同 GRU 骨架，注意力 → Seq2Seq = 4.47 → 3.05（相对 −31%）；</text>
+<text x="60.0" y="384.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">对比 LSTM 基线降幅近 75%——一致性 + 帧级监督的合力</text>
+<text x="760.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量</text>
+<rect x="660.0" y="92.0" width="200.0" height="258.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="674.0" y="124.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LSTM 注意力</text>
+<rect x="674.0" y="128.0" width="154.5" height="12.0" rx="3" fill="#e0a9a0"/>
+<text x="832.5" y="138.0" font-size="8" fill="#e0a9a0" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">103K</text>
+<text x="674.0" y="180.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LSTM Seq2Seq</text>
+<rect x="674.0" y="184.0" width="130.2" height="12.0" rx="3" fill="#9fc8b8"/>
+<text x="808.2" y="194.0" font-size="8" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">86.8K</text>
+<text x="674.0" y="236.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GRU 注意力</text>
+<rect x="674.0" y="240.0" width="116.2" height="12.0" rx="3" fill="#c9d8e8"/>
+<text x="794.2" y="250.0" font-size="8" fill="#c9d8e8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">77.5K</text>
+<text x="674.0" y="292.0" font-size="8.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GRU Seq2Seq</text>
+<rect x="674.0" y="296.0" width="109.9" height="12.0" rx="3" fill="#0b6e52"/>
+<text x="788.0" y="306.0" font-size="8" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">73.3K</text>
+<text x="760.0" y="340.0" font-size="8.6" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">最准的模型也最小</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文实验（arXiv 1811.00348 · 小米内部数据 · 「小爱同学」· FRR @ 0.1 FA/hr）；帧级标签由 3000 小时 TDNN-LSTM 强制对齐生成</text>
+</svg>
+<div class="cap">图 3 · 左：四配置 FRR 对比（同 GRU 骨架注意力→Seq2Seq 相对 −31%）；右：参数量——最准的模型同时是最小的。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：帧级标签的成本</h2>
+<div class="cards">
+<div class="card bad"><h3>标签生产成本重</h3>要 3000 小时预训练 TDNN-LSTM + 强制对齐——没有这个家底的方法不直接适用。</div>
+<div class="card bad"><h3>标签噪声传导</h3>对齐错误 → 帧级标签错——边界附近的 −1 屏蔽缓解但没根治。</div>
+<div class="card bad"><h3>单词单语验证</h3>仅「小爱同学」中文——多关键词/跨语言未探。</div>
+<div class="card bad"><h3>对比面窄</h3>未与 Deep KWS / CNN 系对比 · 无说话人群体分析 · 无真实噪声鲁棒性评估。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：帧级标签的成本 · 小米三部曲中环</text>
+<line x1="36.0" y1="56.0" x2="580.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标签生产成本重</text>
+<text x="200.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级标签要 3000 小时预训练 TDNN-LSTM + 强制对齐——没有这个家底的方法不直接适用</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标签噪声传导</text>
+<text x="200.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">对齐错误 → 帧级标签错——边界附近的 −1 屏蔽缓解但没根治</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单词单语验证</text>
+<text x="200.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">仅「小爱同学」中文——多关键词/跨语言未探</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">对比面窄</text>
+<text x="200.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">未与 Deep KWS / CNN 系对比 · 无说话人群体分析 · 无真实噪声鲁棒性评估</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标（小米三部曲）</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力序列到一</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2018 №3</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Seq2Seq 帧级</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 2018 №17</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多通道听觉注意力</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2018 №10</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">空洞 CNN+门控</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Snips 2019 №4</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">三部曲内部逻辑：№3 证明注意力可行（但训练解码不一致）→ 本文用帧级标签修复一致性 → №10 把注意力用到通道融合（另一维度）；</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级范式后来由 Snips 空洞 CNN+门控（182 帧上下文）与高通 CTC+FST 延续——「逐帧输出 + 平滑触发」成为工业 KWS 的主流形态</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标（小米三部曲）：№3 注意力可行 → 本文修复一致性 → №10 注意力转向通道融合；帧级范式由 Snips 空洞 CNN（2019 №4）与高通 CTC+FST 延续。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>训练-解码一致性是流式系统的设计公理：任何「训练时一种几何、部署时另一种几何」的方案都在为不一致付税——窗口超参、延迟不确定、性能折损都是这笔税的账单；从第一天就让两边一致，比事后调窗口便宜。</p>
+<p>帧级监督是把大模型知识「外包」给小模型：3000 小时 TDNN-LSTM 的对齐能力变成逐帧标签，小 GRU 直接站在它的肩膀上——标注质量决定上限，−1 屏蔽是对标注不确定性的诚实处理。</p>
+<p>小任务偏好「宽而浅」+「简门控」：KWS 的时序建模不需要 LSTM 三重门的抽象深度——单层宽 GRU 又准又小；架构复杂度要匹配任务复杂度，超额配置在小数据上反而是负担。</p>
+</div>
+<span class="pill">系列：端到端转向 · 帧级范式的确立</span>
+<div class="foot-note">数据与结论来自论文原文（arXiv 1811.00348 · 小米内部数据 · 「小爱同学」）。系列内关联：注意力序列到一（2018 №3，同组前作）· 多通道听觉注意力（2018 №10）· Snips 空洞 CNN+门控（2019 №4）· 高通 CTC+FST（2019 №13）。</div>
+</section>
+</div>
+</body>
+</html>
