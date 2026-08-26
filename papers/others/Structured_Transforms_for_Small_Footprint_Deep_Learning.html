@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小足迹深度学习的结构化变换（Google 2015）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn')}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · others №14 · 代数压缩流派</div>
+<h1 class="hero">给权重矩阵立规矩：低位移秩结构化变换，<span class="g">10-50 倍</span>压缩靠代数不靠砍</h1>
+<div class="chips">
+<span class="chip acc">低位移秩 LDR 矩阵</span><span class="chip">Toeplitz / Vandermonde / Cauchy 家族</span><span class="chip">O(n²)→O(nr) 参数</span><span class="chip">FFT 乘法 O(n log n)</span><span class="chip">从头训练非压后处理</span>
+</div>
+<div class="meta">
+<b>Structured Transforms for Small-Footprint Deep Learning</b> · Vikas Sindhwani / Tara N. Sainath / Sanjiv Kumar（Google）· 2015 · arXiv <a href="https://arxiv.org/abs/1507.02593" style="color:var(--acc)">1507.02593</a><br>
+一句话：用<b>低位移秩矩阵</b>（∇_{F,G}(A)=FA−AG 的秩 r ≪ n → 只需 O(nr) 参数）替换密集权重——Toeplitz 等结构家族 + 直接参数化端到端训练：<b>10-50× 参数压缩</b>、FFT 乘法加速、精度保持，「压缩 = 引入结构先验」的代数流派代表作。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：2015 年的压缩困境</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>语音 DNN <b>数百万参数</b>——移动/嵌入式内存装不下。</li>
+<li>剪枝/量化常需重训、压缩比不够、稀疏结构本身也要存储成本。</li>
+<li>目标：10-50× 压缩 · 精度保持 · <b>不牺牲表达能力</b>——换一条路：从参数化本身动手。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">结构化变换：给权重矩阵立规矩——10-50 倍压缩靠代数结构，不靠砍</text>
+<line x1="36.0" y1="60.0" x2="780.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 2015 年的压缩困境</text>
+<rect x="36.0" y="102.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="131.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">权重矩阵是参数黑洞</text>
+<text x="280.0" y="131.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">语音 DNN 数百万参数——移动/嵌入式内存装不下</text>
+<rect x="36.0" y="156.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="185.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">剪枝/量化的局限</text>
+<text x="280.0" y="185.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">常需重训 · 压缩比不够 · 非零元素的稀疏结构也要存储</text>
+<rect x="36.0" y="210.0" width="848.0" height="46.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="239.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">目标</text>
+<text x="280.0" y="239.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">10-50× 参数压缩 · 精度保持 · 不牺牲表达能力</text>
+<text x="36.0" y="288.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 低位移秩（LDR）：矩阵的「家谱」</text>
+<rect x="36.0" y="304.0" width="848.0" height="158.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="60.0" y="324.0" width="380.0" height="118.0" rx="10" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="250.0" y="346.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">位移定义</text>
+<text x="76.0" y="370.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">∇_{F,G}(A) = FA − AG</text>
+<text x="76.0" y="388.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">位移秩 = r（远小于维度 n）</text>
+<text x="76.0" y="406.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ A 可只用 O(nr) 个参数表示</text>
+<text x="76.0" y="424.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（密集矩阵要 O(n²)）</text>
+<rect x="468.0" y="324.0" width="380.0" height="118.0" rx="10" fill="#fde9d8" stroke="#e0b880" stroke-width="1"/>
+<text x="658.0" y="346.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">结构化矩阵家族（全是 LDR）</text>
+<text x="484.0" y="370.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Toeplitz（常对角线 · O(n) 参数）</text>
+<text x="484.0" y="388.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Vandermonde · Cauchy · Hankel</text>
+<text x="484.0" y="406.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Toeplitz-like：位移秩 r 的一般化</text>
+<text x="484.0" y="424.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· G/H 低秩分解 ← Gohberg-Semençul 恢复 A</text>
+<text x="36.0" y="494.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 替换与训练</text>
+<rect x="36.0" y="510.0" width="848.0" height="100.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="60.0" y="528.0" width="196.0" height="62.0" rx="8" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="158.0" y="550.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">密集 W</text>
+<text x="158.0" y="574.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">mn 个参数</text>
+<text x="263.0" y="560.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="268.0" y="528.0" width="196.0" height="62.0" rx="8" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="550.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">→ LDR 矩阵 A</text>
+<text x="366.0" y="574.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">O((m+n)r) 个参数</text>
+<text x="471.0" y="560.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="476.0" y="528.0" width="196.0" height="62.0" rx="8" fill="#eef6f1" stroke="#ffffff" stroke-width="2"/>
+<text x="574.0" y="550.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">直接参数化 G·H</text>
+<text x="574.0" y="574.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">当可训练参数用</text>
+<text x="679.0" y="560.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="684.0" y="528.0" width="196.0" height="62.0" rx="8" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="782.0" y="550.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">端到端 SGD</text>
+<text x="782.0" y="574.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">前向 O(n log n)</text>
+<text x="460.0" y="618.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Toeplitz 乘法走 FFT——参数与计算量双降；RNN 循环矩阵（最大的权重）收益最大</text>
+<rect x="36.0" y="632.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="658.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">10-50×</text>
+<text x="134.0" y="678.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数压缩比</text>
+<text x="304.0" y="658.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">O(n²)→O(nr)</text>
+<text x="304.0" y="678.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数复杂度</text>
+<text x="474.0" y="658.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">O(n log n)</text>
+<text x="474.0" y="678.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Toeplitz 乘法（FFT）</text>
+<text x="644.0" y="658.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RNN 收益最大</text>
+<text x="644.0" y="678.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">循环权重替换</text>
+<text x="814.0" y="658.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">从头训练</text>
+<text x="814.0" y="678.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">非剪枝非量化路线</text>
+<text x="36.0" y="716.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Vikas Sindhwani / Tara N. Sainath / Sanjiv Kumar（Google）· 2015 · arXiv 1507.02593；「压缩 = 引入结构先验」的代数流派代表作</text>
+</svg>
+<div class="cap">图 1 · 机制全景：压缩困境 → LDR 的位移定义与结构矩阵家族 → 替换与训练四步 → 关键数字。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：Toeplitz 的「常对角线」几何</h2>
+<div class="cards">
+<div class="card acc"><h3>位移结构</h3>∇_{F,G}(A) = FA − AG 的秩 r 远小于 n——A 可从低秩分解 G·Hᵀ 恢复，O(nr) 参数表达 n×n 矩阵。</div>
+<div class="card acc"><h3>结构家族</h3>Toeplitz（常对角线 · O(n)）· Vandermonde · Cauchy · Hankel——全是 LDR 特例；Toeplitz-like 是一般化。</div>
+<div class="card"><h3>双降收益</h3>参数 O(n²)→O(nr)；Toeplitz 乘法走 FFT O(n log n)——存储与计算同时降。</div>
+<div class="card"><h3>RNN 收益最大</h3>循环权重矩阵是网络里最大的——替换成 LDR 压缩比最高。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：Toeplitz 的「常对角线」几何</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="248.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">密集 vs Toeplitz</text>
+<rect x="48.0" y="92.0" width="420.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="64.0" y="116.0" font-size="8.8" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">密集矩阵：n² 个独立值</text>
+<rect x="78.0" y="124.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="112.0" y="124.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="146.0" y="124.0" width="30.0" height="24.0" rx="3" fill="#b9c6d8"/>
+<rect x="180.0" y="124.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="214.0" y="124.0" width="30.0" height="24.0" rx="3" fill="#b9c6d8"/>
+<rect x="248.0" y="124.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="78.0" y="152.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="112.0" y="152.0" width="30.0" height="24.0" rx="3" fill="#b9c6d8"/>
+<rect x="146.0" y="152.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="180.0" y="152.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="214.0" y="152.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="248.0" y="152.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="78.0" y="180.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="112.0" y="180.0" width="30.0" height="24.0" rx="3" fill="#b9c6d8"/>
+<rect x="146.0" y="180.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="180.0" y="180.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="214.0" y="180.0" width="30.0" height="24.0" rx="3" fill="#b9c6d8"/>
+<rect x="248.0" y="180.0" width="30.0" height="24.0" rx="3" fill="#b9c6d8"/>
+<rect x="78.0" y="208.0" width="30.0" height="24.0" rx="3" fill="#b9c6d8"/>
+<rect x="112.0" y="208.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="146.0" y="208.0" width="30.0" height="24.0" rx="3" fill="#b9c6d8"/>
+<rect x="180.0" y="208.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="214.0" y="208.0" width="30.0" height="24.0" rx="3" fill="#b9c6d8"/>
+<rect x="248.0" y="208.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="78.0" y="236.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="112.0" y="236.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="146.0" y="236.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="180.0" y="236.0" width="30.0" height="24.0" rx="3" fill="#b9c6d8"/>
+<rect x="214.0" y="236.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="248.0" y="236.0" width="30.0" height="24.0" rx="3" fill="#b9c6d8"/>
+<rect x="78.0" y="264.0" width="30.0" height="24.0" rx="3" fill="#b9c6d8"/>
+<rect x="112.0" y="264.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="146.0" y="264.0" width="30.0" height="24.0" rx="3" fill="#b9c6d8"/>
+<rect x="180.0" y="264.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="214.0" y="264.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<rect x="248.0" y="264.0" width="30.0" height="24.0" rx="3" fill="#d7dfeb"/>
+<text x="288.0" y="176.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每个位置一个</text>
+<text x="288.0" y="192.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">独立参数</text>
+<text x="288.0" y="216.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">n=1024 时</text>
+<text x="288.0" y="234.0" font-size="8.5" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">≈ 100 万参数</text>
+<text x="64.0" y="316.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Toeplitz：对角线共享值——n=1024 只需 ~2K 参数</text>
+<text x="676.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Toeplitz 网格</text>
+<rect x="500.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="540.0" y="116.0" width="30.0" height="24.0" rx="3" fill="#2a8067"/>
+<rect x="574.0" y="116.0" width="30.0" height="24.0" rx="3" fill="#4d9480"/>
+<rect x="608.0" y="116.0" width="30.0" height="24.0" rx="3" fill="#71a898"/>
+<rect x="642.0" y="116.0" width="30.0" height="24.0" rx="3" fill="#95bcb0"/>
+<rect x="676.0" y="116.0" width="30.0" height="24.0" rx="3" fill="#b9d0c8"/>
+<rect x="710.0" y="116.0" width="30.0" height="24.0" rx="3" fill="#b9d0c8"/>
+<rect x="540.0" y="144.0" width="30.0" height="24.0" rx="3" fill="#4d9480"/>
+<rect x="574.0" y="144.0" width="30.0" height="24.0" rx="3" fill="#2a8067"/>
+<rect x="608.0" y="144.0" width="30.0" height="24.0" rx="3" fill="#4d9480"/>
+<rect x="642.0" y="144.0" width="30.0" height="24.0" rx="3" fill="#71a898"/>
+<rect x="676.0" y="144.0" width="30.0" height="24.0" rx="3" fill="#95bcb0"/>
+<rect x="710.0" y="144.0" width="30.0" height="24.0" rx="3" fill="#b9d0c8"/>
+<rect x="540.0" y="172.0" width="30.0" height="24.0" rx="3" fill="#71a898"/>
+<rect x="574.0" y="172.0" width="30.0" height="24.0" rx="3" fill="#4d9480"/>
+<rect x="608.0" y="172.0" width="30.0" height="24.0" rx="3" fill="#2a8067"/>
+<rect x="642.0" y="172.0" width="30.0" height="24.0" rx="3" fill="#4d9480"/>
+<rect x="676.0" y="172.0" width="30.0" height="24.0" rx="3" fill="#71a898"/>
+<rect x="710.0" y="172.0" width="30.0" height="24.0" rx="3" fill="#95bcb0"/>
+<rect x="540.0" y="200.0" width="30.0" height="24.0" rx="3" fill="#95bcb0"/>
+<rect x="574.0" y="200.0" width="30.0" height="24.0" rx="3" fill="#71a898"/>
+<rect x="608.0" y="200.0" width="30.0" height="24.0" rx="3" fill="#4d9480"/>
+<rect x="642.0" y="200.0" width="30.0" height="24.0" rx="3" fill="#2a8067"/>
+<rect x="676.0" y="200.0" width="30.0" height="24.0" rx="3" fill="#4d9480"/>
+<rect x="710.0" y="200.0" width="30.0" height="24.0" rx="3" fill="#71a898"/>
+<rect x="540.0" y="228.0" width="30.0" height="24.0" rx="3" fill="#b9d0c8"/>
+<rect x="574.0" y="228.0" width="30.0" height="24.0" rx="3" fill="#95bcb0"/>
+<rect x="608.0" y="228.0" width="30.0" height="24.0" rx="3" fill="#71a898"/>
+<rect x="642.0" y="228.0" width="30.0" height="24.0" rx="3" fill="#4d9480"/>
+<rect x="676.0" y="228.0" width="30.0" height="24.0" rx="3" fill="#2a8067"/>
+<rect x="710.0" y="228.0" width="30.0" height="24.0" rx="3" fill="#4d9480"/>
+<rect x="540.0" y="256.0" width="30.0" height="24.0" rx="3" fill="#b9d0c8"/>
+<rect x="574.0" y="256.0" width="30.0" height="24.0" rx="3" fill="#b9d0c8"/>
+<rect x="608.0" y="256.0" width="30.0" height="24.0" rx="3" fill="#95bcb0"/>
+<rect x="642.0" y="256.0" width="30.0" height="24.0" rx="3" fill="#71a898"/>
+<rect x="676.0" y="256.0" width="30.0" height="24.0" rx="3" fill="#4d9480"/>
+<rect x="710.0" y="256.0" width="30.0" height="24.0" rx="3" fill="#2a8067"/>
+<text x="676.0" y="300.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">同色 = 同一条对角线 = 同一个参数</text>
+<text x="676.0" y="324.0" font-size="8.8" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">信息藏在「结构」里而非格子里</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：密集矩阵每格独立——n² 个自由度；右：Toeplitz 沿对角线共享参数——n 个自由度表达整张矩阵；位移秩是对这种「结构化程度」的一般化度量</text>
+</svg>
+<div class="cap">图 2 · 左：密集矩阵每格独立（n² 自由度）；右：Toeplitz 沿对角线共享参数（n 个自由度表达整张矩阵）——信息藏在结构里而非格子里。</div>
+<div class="formula">
+<div class="f">∇_{F,G}(A) = FA − AG = GHᵀ（秩 r）        A 用 O(nr) 参数表示        Toeplitz: y = A·x 经 FFT 在 O(n log n) 完成</div>
+<div class="why"><b>人话：</b>普通矩阵像一张每个格子都不同的表格，要存 n² 个数。Toeplitz 矩阵像「斜条纹壁纸」——沿对角线的格子全是同一个值，只要存 n 个数就能画出整张表。低位移秩是给「这张表有多规则」定一个可度量的指标，规则程度越高，要存的越少。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果（定性）：压缩-精度-计算三维收益</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：压缩-精度-计算的三维收益</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="48.0" y="84.0" width="200.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="148.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">维度</text>
+<rect x="248.0" y="84.0" width="330.0" height="34.0" rx="0" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="413.0" y="106.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">结构化变换（本文）</text>
+<rect x="578.0" y="84.0" width="330.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="743.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">剪枝/量化路线</text>
+<rect x="48.0" y="118.0" width="200.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="148.0" y="144.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">压缩比</text>
+<rect x="248.0" y="118.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="413.0" y="144.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">10-50×</text>
+<rect x="578.0" y="118.0" width="330.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="743.0" y="144.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">通常更低 / 需重训</text>
+<rect x="48.0" y="160.0" width="200.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="148.0" y="186.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数来源</text>
+<rect x="248.0" y="160.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="413.0" y="186.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">代数结构（O(nr)）</text>
+<rect x="578.0" y="160.0" width="330.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="743.0" y="186.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">稀疏化 / 低比特</text>
+<rect x="48.0" y="202.0" width="200.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="148.0" y="228.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">乘法成本</text>
+<rect x="248.0" y="202.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="413.0" y="228.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">O(n log n)（FFT）</text>
+<rect x="578.0" y="202.0" width="330.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="743.0" y="228.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">稀疏核依赖硬件</text>
+<rect x="48.0" y="244.0" width="200.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="148.0" y="270.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">表达能力</text>
+<rect x="248.0" y="244.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="413.0" y="270.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">保持甚至提升</text>
+<rect x="578.0" y="244.0" width="330.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="743.0" y="270.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">可能受损</text>
+<rect x="48.0" y="286.0" width="200.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="148.0" y="312.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">训练方式</text>
+<rect x="248.0" y="286.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="413.0" y="312.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">从头直接训 G·H</text>
+<rect x="578.0" y="286.0" width="330.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="743.0" y="312.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">训完再压 + 微调</text>
+<text x="36.0" y="344.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读表：结构化路线的哲学差异——「先给矩阵立规矩再训」 vs 「训完再删/再压」</text>
+<text x="36.0" y="392.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（2015 · 语音任务 · Google）；结论为论文定性表述，具体数值回对原文</text>
+</svg>
+<div class="cap">图 3 · 五维对比表——结构化路线 vs 剪枝/量化路线的哲学差异：「先给矩阵立规矩再训」 vs 「训完再删/再压」。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：结构先验的天花板</h2>
+<div class="cards">
+<div class="card bad"><h3>结构即天花板</h3>Toeplitz 先验假设权重有平移结构——学不到的结构硬套会限表达力（r 的选取是折衷）。</div>
+<div class="card bad"><h3>实现复杂度</h3>FFT 乘法与位移参数化在通用框架里没有现成算子——工程落地成本高于量化。</div>
+<div class="card bad"><h3>r 的选择靠经验</h3>位移秩逐层怎么定——没有自动搜索（后继工作接手）。</div>
+<div class="card bad"><h3>被后来者盖过</h3>depthwise/低秩/量化的组合在工程上更顺手——结构化变换未能成为主流。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：结构先验的天花板 · 低秩家族的亲戚</text>
+<line x1="36.0" y1="56.0" x2="580.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">结构即天花板</text>
+<text x="200.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Toeplitz 先验假设权重有平移结构——学不到的结构硬套会限表达力（r 的选取是折衷</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实现复杂度</text>
+<text x="200.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FFT 乘法与位移参数化在通用框架里没有现成算子——工程落地成本高于量化</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">r 的选择靠经验</text>
+<text x="200.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">位移秩逐层怎么定——没有自动搜索（后继工作接手）</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">被后来者盖过</text>
+<text x="200.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">depthwise/低秩分解/量化组合在工程上更顺手——结构化变换未能成为主流</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">密集权重</text>
+<text x="150.0" y="355.0" font-size="7.8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">O(n²)</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">结构化变换 LDR</text>
+<text x="366.0" y="355.0" font-size="7.8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 Google 2015</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SVD 低秩压缩</text>
+<text x="582.0" y="355.0" font-size="7.8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Amazon 2017（others №3）</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Depthwise/NAS 结构</text>
+<text x="798.0" y="355.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2017+ 工程主流</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">思想遗产：「权重的冗余可以由代数结构描述」——SVD 低秩（others №3）是它的特例化、cFSMN 低维投影（01 期）是投影版、</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">循环低秩（LR-RNN）一脉相承；工程上 depthwise 赢了落地，但「结构化参数化」的思想活在一切高效架构里</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：思想遗产——「权重的冗余可由代数结构描述」；SVD 低秩（others №3）是特例化、cFSMN 低维投影（01 期）是投影版、LR-RNN 一脉相承；工程上 depthwise 赢了落地，但结构化参数化思想活在一切高效架构里。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>压缩有两条哲学：「训完再压」（剪枝/量化）与「先立规矩再训」（结构化参数化）——后者把先验写进参数空间，训练全程在低维流形上进行；没有重训环节，但规矩错了天花板也低。</p>
+<p>参数的「自由度」不等于「个数」：密集矩阵 n² 个参数但有效自由度可能远低——识别数据的内在维度并用紧凑参数化对齐它，是所有高效架构（卷积/循环/低秩/结构化）的共同本质。</p>
+<p>工程可落地性往往决定学术路线的胜负：结构化变换数学上更优雅，但量化/depthwise 有现成算子与工具链——好思想的扩散速度受工程摩擦力制约，这是读「被埋没的好论文」时最该带的眼镜。</p>
+</div>
+<span class="pill">系列：代数压缩流派 · 结构化参数化的代表作</span>
+<div class="foot-note">数据与结论来自论文原文（2015 · Google · 语音任务）；结论为定性表述。系列内关联：SVD 压缩 TDNN（others №3）· cFSMN 低维投影（01 期）· Hello Edge DS-CNN（others №7）· 稀疏训练（2018 №22）· TNT 双轴（2019 №21）。</div>
+</section>
+</div>
+</body>
+</html>
