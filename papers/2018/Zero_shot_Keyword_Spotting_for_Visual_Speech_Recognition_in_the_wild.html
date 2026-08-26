@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>零样本视觉语音关键词检测（诺丁汉，ECCV 2018）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · 2018 №23 · 跨模态与零样本</div>
+<h1 class="hero">读唇术的零样本检索：新词只给文字，G2P 发音嵌入当查询向量，<span class="g">模型零重训</span></h1>
+<div class="chips">
+<span class="chip acc">视觉 KWS（唇读）</span><span class="chip">零样本检测（首个）</span><span class="chip">G2P 发音嵌入</span><span class="chip">3D ResNet 时空特征</span><span class="chip">LRS2 in-the-wild</span>
+</div>
+<div class="meta">
+<b>Zero-shot Keyword Spotting for Visual Speech Recognition in-the-wild</b> · Themos Stafylakis / Georgios Tzimiropoulos（诺丁汉大学）· ECCV 2018 · <a href="https://openaccess.thecvf.com/content/ECCV_2018/papers/Themos_Stafylakis_Zero-shot_keyword_search_ECCV_2018_paper.pdf" style="color:var(--acc)">论文链接</a><br>
+一句话：唇部视频（3D ResNet 时空特征）与关键词的 <b>G2P 发音嵌入</b>在 BiLSTM 匹配网络中对齐——训练用大词汇学「唇动↔发音」的通用对应，<b>测试遇到没见过的新词只给字素</b>：现场转发音嵌入直接匹配，零重训零新数据。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：为什么需要看嘴</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>音频在<b>极端噪声 / 静音监控</b>场景完全失效——唇读是天生的补充：安防监控、嘈杂工厂、听障辅助。</li>
+<li>标注视觉语音数据极贵（精确时间边界 + 高质量唇部视频）——<b>零样本是刚需</b>：新警报词、新人名不可能逐个重收重训。</li>
+<li>挑战：怎么把「文本形式的关键词」变成能和视觉特征匹配的表示。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读唇术的零样本 KWS：新词给文字就能查——G2P 发音嵌入当查询向量</text>
+<line x1="36.0" y1="60.0" x2="780.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 为什么需要看嘴</text>
+<rect x="36.0" y="102.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="129.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音频在极端场景失效</text>
+<text x="240.0" y="129.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">工厂 · 演唱会级噪声 · 静音监控录像——麦克风路线完全没戏</text>
+<rect x="36.0" y="152.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="179.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">唇读是天生的补充</text>
+<text x="240.0" y="179.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不依赖音频信号——安防监控 / 嘈杂环境 / 听障辅助</text>
+<rect x="36.0" y="202.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="229.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">标注视频太贵</text>
+<text x="240.0" y="229.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">精确时间边界 + 高质量唇部视频——逐词收集标注不现实</text>
+<rect x="36.0" y="252.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="279.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">零样本是刚需</text>
+<text x="240.0" y="279.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">新警报词、新人名——不可能每个词重收数据重训模型</text>
+<text x="36.0" y="320.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 三组件架构：视觉流 + 发音流 + 匹配</text>
+<rect x="36.0" y="336.0" width="848.0" height="158.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="60.0" y="356.0" width="240.0" height="118.0" rx="10" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="180.0" y="378.0" font-size="10.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">视觉流</text>
+<text x="76.0" y="402.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 人脸检测 → 唇部裁剪</text>
+<text x="76.0" y="421.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 3D ResNet（空间+时间）</text>
+<text x="76.0" y="440.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 每帧出定长视觉特征</text>
+<rect x="340.0" y="356.0" width="240.0" height="118.0" rx="10" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="460.0" y="378.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">发音流（G2P 编解码器）</text>
+<text x="356.0" y="402.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 字素 "H-E-L-L-O"</text>
+<text x="356.0" y="421.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· → 音素 "HH AH L OW"</text>
+<text x="356.0" y="440.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 编码器隐状态 = 发音嵌入</text>
+<rect x="620.0" y="356.0" width="240.0" height="118.0" rx="10" fill="#fde9d8" stroke="#e0b880" stroke-width="1"/>
+<text x="740.0" y="378.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">匹配网络</text>
+<text x="636.0" y="402.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· BiLSTM 编码视觉序列</text>
+<text x="636.0" y="421.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 注意力对齐视觉帧↔音素</text>
+<text x="636.0" y="440.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输出各时刻词存在概率</text>
+<text x="460.0" y="496.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">端到端联合训练——无手工特征、无关键词边界标注</text>
+<text x="36.0" y="524.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 零样本怎么发生：训练学「对应」，测试换新词</text>
+<rect x="36.0" y="540.0" width="848.0" height="84.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="460.0" y="568.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LRS2（BBC 节目 · in-the-wild）大词汇训练——学通用的「唇动 ↔ 发音」对应关系</text>
+<text x="460.0" y="592.0" font-size="9.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">测试：全新关键词只给字素 → G2P 现场转发音嵌入 → 直接匹配——模型零重训</text>
+<rect x="36.0" y="646.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="672.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">首个</text>
+<text x="134.0" y="692.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">零样本视觉 KWS</text>
+<text x="304.0" y="672.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">G2P &gt; 字素</text>
+<text x="304.0" y="692.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">发音嵌入显著更优</text>
+<text x="474.0" y="672.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">胜 ASR 基线</text>
+<text x="474.0" y="692.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">直接匹配 &gt; 先转录再搜</text>
+<text x="644.0" y="672.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LRS2</text>
+<text x="644.0" y="692.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">BBC · in-the-wild</text>
+<text x="814.0" y="672.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ECCV 2018</text>
+<text x="814.0" y="692.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">跨学科发表</text>
+<text x="36.0" y="730.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Themos Stafylakis / Georgios Tzimiropoulos（诺丁汉大学）· ECCV 2018 · LRS2（数万条 BBC 说话视频）；KWS 概念进入视觉领域的代表作</text>
+</svg>
+<div class="cap">图 1 · 机制全景：四重需求 → 三组件架构（视觉流 / G2P 发音流 / 匹配网络）→ 零样本的发生机制 → 结果速览。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：G2P 是零样本的钥匙</h2>
+<div class="cards">
+<div class="card acc"><h3>视觉流</h3>人脸检测 → 唇部裁剪 → 3D ResNet（空间流捕唇形 + 时间流捕开合节奏）→ 每帧定长特征。</div>
+<div class="card acc"><h3>G2P 编解码器</h3>字素 "H-E-L-L-O" → 编码 → 解码为音素 "HH AH L OW"——编码器隐状态即发音嵌入。</div>
+<div class="card"><h3>同音词收敛</h3>their/there 拼写不同但读音相同——G2P 空间里距离近；唇动跟读音走，不跟拼写走。</div>
+<div class="card"><h3>匹配网络</h3>BiLSTM 编码视觉序列 + 注意力对齐视觉帧↔音素位置 → 各时刻词存在概率。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：G2P 为什么是零样本的钥匙</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="238.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">同音词的嵌入收敛</text>
+<rect x="48.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="64.0" y="120.0" font-size="9" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">字素空间（一对一，离散）：</text>
+<circle cx="128.0" cy="152.0" r="10" fill="#e8edf5" stroke="#b9c6d8"/>
+<text x="128.0" y="156.0" font-size="7.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">their</text>
+<circle cx="348.0" cy="152.0" r="10" fill="#e8edf5" stroke="#b9c6d8"/>
+<text x="348.0" y="156.0" font-size="7.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">there</text>
+<text x="238.0" y="156.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">距离远（拼写不同）</text>
+<text x="64.0" y="204.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">G2P 发音空间（连续，按读音）：</text>
+<circle cx="233.0" cy="240.0" r="12" fill="#cfe9de" stroke="#7fb69f"/>
+<circle cx="263.0" cy="240.0" r="12" fill="#cfe9de" stroke="#7fb69f"/>
+<text x="233.0" y="244.0" font-size="7" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">their</text>
+<text x="263.0" y="244.0" font-size="7" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">there</text>
+<text x="248.0" y="272.0" font-size="7.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">距离近（读音相同 DH EH R）</text>
+<text x="248.0" y="312.0" font-size="8.8" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">唇动跟读音走，不跟拼写走——</text>
+<text x="248.0" y="330.0" font-size="8.8" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">发音嵌入才是视觉匹配的正确坐标</text>
+<text x="676.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">新词的零样本通路</text>
+<rect x="500.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="516.0" y="116.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练时：</text>
+<text x="516.0" y="132.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 大词汇（不限于目标词）训练</text>
+<text x="516.0" y="148.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 模型学「唇部运动 ↔ 音素串」</text>
+<text x="516.0" y="164.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  的通用对应，不看具体词</text>
+<text x="516.0" y="180.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="196.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">测试时（新词 "banquet"）：</text>
+<text x="516.0" y="212.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 字素 → G2P → B AE NG K W AH T</text>
+<text x="516.0" y="228.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 发音嵌入直接进匹配网络</text>
+<text x="516.0" y="244.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 无需重训 / 无需新数据</text>
+<text x="516.0" y="260.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="276.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">G2P 训练需要音标词典</text>
+<text x="516.0" y="292.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（英语有；低资源语言未必）</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：their/there 在字素空间相距远、在 G2P 发音空间收敛——唇动跟读音走；右：训练学对应关系、测试换新词的零样本机制</text>
+</svg>
+<div class="cap">图 2 · 左：their/there 在字素空间相距远、在 G2P 发音空间收敛——发音嵌入才是视觉匹配的正确坐标；右：训练学对应、测试换新词的零样本机制。</div>
+<div class="formula">
+<div class="f">训练：  唇部视频特征 ↔ 大词汇发音嵌入（学通用对应）        测试：  新词 "banquet" → G2P → B AE NG K W AH T → 直接匹配</div>
+<div class="why"><b>人话：</b>模型不是背「哪个词配哪张嘴」，而是学「嘴怎么动对应怎么发音」的通用规律。查新词时，先把文字转成音素串（就像查词典拿拼音），再拿这个「拼音」去视频里找对应的嘴型——只要 G2P 认识这个词的文字，模型就不用重新训练。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果（定性）：两条对比 + 一个难例</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：两条对比 + 一个难例</text>
+<line x1="36.0" y1="56.0" x2="520.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="48.0" y="84.0" width="260.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="178.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">对比</text>
+<rect x="308.0" y="84.0" width="300.0" height="34.0" rx="0" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="458.0" y="106.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">本文（直接匹配）</text>
+<rect x="608.0" y="84.0" width="300.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="758.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">基线</text>
+<rect x="48.0" y="118.0" width="260.0" height="44.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="178.0" y="145.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">G2P 嵌入 vs 字素嵌入</text>
+<rect x="308.0" y="118.0" width="300.0" height="44.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="458.0" y="145.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">发音嵌入显著更优</text>
+<rect x="608.0" y="118.0" width="300.0" height="44.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="758.0" y="145.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">字素一对一离散</text>
+<rect x="48.0" y="162.0" width="260.0" height="44.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="178.0" y="189.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">直接匹配 vs 视觉 ASR 转录</text>
+<rect x="308.0" y="162.0" width="300.0" height="44.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="458.0" y="189.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">更优</text>
+<rect x="608.0" y="162.0" width="300.0" height="44.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="758.0" y="189.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">先 VSR 转文本再搜索</text>
+<rect x="48.0" y="206.0" width="260.0" height="44.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="178.0" y="233.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">零样本能力</text>
+<rect x="308.0" y="206.0" width="300.0" height="44.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="458.0" y="233.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">任意新词直接检测</text>
+<rect x="608.0" y="206.0" width="300.0" height="44.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="758.0" y="233.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">只能测训练过的词</text>
+<text x="36.0" y="272.0" font-size="9.2" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">定性观察：</text>
+<text x="52.0" y="290.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 能正确定位关键词在视频中的时间位置</text>
+<text x="52.0" y="307.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 对不同说话人/光照有一定鲁棒性</text>
+<text x="52.0" y="324.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 短词（1-2 音节）更难——视觉变化更微妙</text>
+<text x="36.0" y="360.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（ECCV 2018 · LRS2）；原文称「非常有前景」的纯视觉零样本结果——具体数值回对原文</text>
+</svg>
+<div class="cap">图 3 · 三行对比（G2P &gt; 字素嵌入 · 直接匹配 &gt; 先转录再搜索 · 任意新词 vs 只能测训练词）+ 定性观察（时间定位准确 · 说话人/光照鲁棒 · 短词更难——视觉变化更微妙）。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：视觉同音词的天生短板</h2>
+<div class="cards">
+<div class="card bad"><h3>视觉同音词</h3>唇部信息量天生低于音频——p/b、m/n 等音素视觉难辨，纯视觉上限注定低于音频。</div>
+<div class="card bad"><h3>嘴部可见性依赖</h3>侧脸 · 口罩 · 遮手 · 低分辨率——任一都严重影响性能。</div>
+<div class="card bad"><h3>G2P 语言依赖</h3>G2P 要音标词典训练——低资源语言没这个家底。</div>
+<div class="card bad"><h3>算力与验证面</h3>3D ResNet 重（嵌入式实时难）；仅 LRS2 英语评估，无跨语言/跨模态融合对比。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：视觉同音词的天生短板 · 零样本的通用配方</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">视觉同音词</text>
+<text x="195.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">唇部信息量天生低于音频——p/b、m/n 等音素视觉难辨，纯视觉上限注定低于音频</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">嘴部可见性依赖</text>
+<text x="195.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">侧脸 · 口罩 · 遮手 · 低分辨率——任一都严重影响性能</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">G2P 语言依赖</text>
+<text x="195.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">G2P 要音标词典训练——低资源语言没这个家底</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">算力与验证面</text>
+<text x="195.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">3D ResNet 重（嵌入式实时难）；仅 LRS2 英语评估，无跨语言/跨模态融合对比</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音频 KWS</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">固定词训练</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">零样本视觉 KWS</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 ECCV 2018</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">G2P 查询进音频</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">开词汇系 2019+</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多模态 KWS</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">视听融合 2020+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">通用配方：「中间表示可从文本生成」= 零样本——G2P 发音嵌入的思想后来进入音频侧开放词汇 KWS；视觉侧则走向</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">多模态融合（噪声中视觉补音频）。本文也把 KWS 的概念版图从音频扩展到了视觉——跨学科（ECCV）发表的标志</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：「中间表示可从文本生成 = 零样本」的通用配方——G2P 查询思想后来进入音频侧开放词汇 KWS；视觉侧走向多模态融合；本文把 KWS 概念版图扩展到视觉（ECCV 跨学科发表的标志）。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>零样本的通用配方是「中间表示可从文本生成」：查询侧只要能从文字现场算出嵌入（G2P 发音、语义编码器），训练侧学的是对应关系而非具体词——新词成本从「重收数据重训」降为「跑一次 G2P」，这是开放词汇系统的共同骨架。</p>
+<p>表示空间要选在「与感知模态同构」的那一层：唇动跟读音走、不跟拼写走——所以匹配要在发音空间做；选错表示层（字素）会让天生同音的样本在空间里被强行拉开，几何就帮倒忙了。</p>
+<p>直接训练检测目标优于「先转录再搜索」的级联：视觉 ASR 转录的误差会全部传进搜索，而端到端匹配让表示为检测目标优化——级联每加一级就引入一次目标错位，这也是音频侧 KWS 从 LVCSR 后处理走向端到端的同一课。</p>
+</div>
+<span class="pill">系列：跨模态与零样本 · KWS 概念的视觉版图</span>
+<div class="foot-note">数据与结论来自论文原文（ECCV 2018 · LRS2）。系列内关联：视觉接地跨语言 KWS（2018 №21，图像当中介）· DONUT CTC-QbE（2018 №7，音频侧零样本注册）· Sonos 开放词汇量化（2020 №18）· 多模态视听 KWS（2020+）。</div>
+</section>
+</div>
+</body>
+</html>
