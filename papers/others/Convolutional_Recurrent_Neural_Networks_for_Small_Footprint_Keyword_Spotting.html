@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小足迹 KWS 的卷积循环网络 CRNN（Baidu 2017）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · others №5 · 经典架构</div>
+<h1 class="hero">卷积管局部频谱、循环管全局时序：<span class="g">23 万参数</span>的 CRNN 打穿 97.71%</h1>
+<div class="chips">
+<span class="chip acc">CRNN 架构（经典配方源头）</span><span class="chip">卷积特征 + GRU 时序分工</span><span class="chip">四架构系统对比</span><span class="chip">97.71% @ 0.5 FA/hr</span><span class="chip">~230K 参数</span>
+</div>
+<div class="meta">
+<b>Convolutional Recurrent Neural Networks for Small-Footprint Keyword Spotting</b> · Sercan O. Arik / Markus Kliegl / Rewon Child 等（Baidu Research）· 2017 · arXiv <a href="https://arxiv.org/abs/1706.05112" style="color:var(--acc)">1706.05112</a><br>
+一句话：CNN 捕局部频谱模式但感受野有限、RNN 建时序但重学局部模式浪费参数——<b>卷积在前提炼特征、循环在后建时序</b>的 CRNN：~230K 参数达 <b>97.71%（@ 0.5 FA/hr）</b>，小 CRNN 精度反超更大参数量的纯 DNN/CNN。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：两类架构各瘸一条腿</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>CNN 捕局部频谱-时间模式在行——但<b>感受野有限</b>，较长时间依赖漏掉。</li>
+<li>RNN 建模时序天然合适——但直接吃原始频谱要<b>花大量参数重学</b>卷积本可高效提取的局部模式。</li>
+<li>关键词声学两面都要：局部频谱模式（共振峰）+ 全局时间模式（音素序列 · 节奏）——<b>单一架构只能顾一边</b>。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CRNN：卷积管局部频谱、循环管全局时序——23 万参数打穿 97.71%</text>
+<line x1="36.0" y1="60.0" x2="760.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 两类架构各瘸一条腿</text>
+<rect x="36.0" y="102.0" width="848.0" height="46.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="131.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN 的缺口</text>
+<text x="165.0" y="131.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">卷积核捕局部频谱-时间模式很行——但感受野有限，较长的时间依赖漏掉</text>
+<rect x="36.0" y="156.0" width="848.0" height="46.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="185.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RNN 的浪费</text>
+<text x="165.0" y="185.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">循环建模时序天然合适——但直接吃原始频谱，得花大量参数重学卷积本可高效提取的局部模式</text>
+<rect x="36.0" y="210.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="239.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">任务的两面性</text>
+<text x="165.0" y="239.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词声学既有局部频谱模式（共振峰结构）也有全局时间模式（音素序列 · 节奏）——单一架构只能顾一边</text>
+<text x="36.0" y="288.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② CRNN 三段式：功能分工</text>
+<rect x="36.0" y="304.0" width="848.0" height="158.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="60.0" y="324.0" width="252.0" height="118.0" rx="10" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="186.0" y="348.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">卷积特征提取</text>
+<text x="186.0" y="372.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2-3 层 · 3×3/5×5 · BN+ReLU</text>
+<text x="186.0" y="389.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">通道 32→128 · 池化降分辨率</text>
+<text x="322.0" y="384.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="340.0" y="324.0" width="252.0" height="118.0" rx="10" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="466.0" y="348.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">循环时间建模</text>
+<text x="466.0" y="372.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">1-2 层 GRU/LSTM</text>
+<text x="466.0" y="389.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">128-256 隐单元——全局时序</text>
+<text x="602.0" y="384.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="620.0" y="324.0" width="252.0" height="118.0" rx="10" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="746.0" y="348.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">全连接分类</text>
+<text x="746.0" y="372.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">softmax 出词类别概率</text>
+<text x="746.0" y="389.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（或时间步聚合后分类）</text>
+<text x="460.0" y="456.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">输入：T 帧 × 40 通道 log-mel——卷积提取高质量特征供循环层用，循环层只管时序演化</text>
+<text x="36.0" y="478.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 训练配方</text>
+<rect x="36.0" y="494.0" width="848.0" height="60.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="460.0" y="520.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">交叉熵 + Adam/SGD-momentum + 学习率衰减 · Dropout 与 BN 组合防过拟合 · 增强用时间拉伸/音量/背景噪声</text>
+<text x="460.0" y="542.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">背景噪声叠加对嘈杂环境表现提升显著</text>
+<rect x="36.0" y="586.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="612.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">97.71%</text>
+<text x="134.0" y="632.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率 @ 0.5 FA/hr</text>
+<text x="304.0" y="612.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~230K</text>
+<text x="304.0" y="632.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量</text>
+<text x="474.0" y="612.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">&gt; 更大纯 CNN</text>
+<text x="474.0" y="632.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">小 CRNN 精度反超</text>
+<text x="644.0" y="612.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC</text>
+<text x="644.0" y="632.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">标准基准评估</text>
+<text x="814.0" y="612.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四架构对比</text>
+<text x="814.0" y="632.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">DNN/CNN/RNN/CRNN</text>
+<text x="36.0" y="670.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Sercan O. Arik / Markus Kliegl / Rewon Child / Joel Hestness / Andrew Gibiansky / Chris Fougner / Ryan Prenger / Adam Coates（Baidu Research）· 2017 · arXiv 1706.05112；CRNN 配方自此成为 KWS 的经典基线</text>
+</svg>
+<div class="cap">图 1 · 机制全景：两类架构的短腿 → CRNN 三段式分工 → 训练配方 → 关键数字。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：为什么卷积在前、循环在后</h2>
+<div class="cards">
+<div class="card acc"><h3>卷积段的经济学</h3>共振峰、噪声纹理这类局部模式，卷积几层就高效搞定——让循环层干这活要花成倍参数。</div>
+<div class="card acc"><h3>循环段拿到「已提炼」序列</h3>池化后序列更短、特征更纯——GRU 只需专注时间演化，参数省。</div>
+<div class="card"><h3>GRU 优于 LSTM（同预算）</h3>少一个门、参数更少——KWS 的时序复杂度不需要完整 LSTM 三重门。</div>
+<div class="card"><h3>配置有最优区间</h3>2-3 层卷积（通道 32→128）+ 1-2 层 GRU（128-256 单元）——过犹不及，消融验证。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：分工的几何 · 为什么卷积在前循环在后</text>
+<line x1="36.0" y1="56.0" x2="660.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="248.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">信息流的分工</text>
+<rect x="48.0" y="92.0" width="420.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="64.0" y="116.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输入 log-mel（T × 40）</text>
+<rect x="72.0" y="124.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="72.0" y="144.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="72.0" y="164.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="72.0" y="184.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="72.0" y="204.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="98.0" y="124.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="98.0" y="144.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="98.0" y="164.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="98.0" y="184.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="98.0" y="204.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="124.0" y="124.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="124.0" y="144.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="124.0" y="164.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="124.0" y="184.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="124.0" y="204.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="150.0" y="124.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="150.0" y="144.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="150.0" y="164.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="150.0" y="184.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="150.0" y="204.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="176.0" y="124.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="176.0" y="144.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="176.0" y="164.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="176.0" y="184.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="176.0" y="204.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="202.0" y="124.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="202.0" y="144.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="202.0" y="164.0" width="22.0" height="16.0" rx="2" fill="#0b6e52"/>
+<rect x="202.0" y="184.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="202.0" y="204.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="228.0" y="124.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="228.0" y="144.0" width="22.0" height="16.0" rx="2" fill="#0b6e52"/>
+<rect x="228.0" y="164.0" width="22.0" height="16.0" rx="2" fill="#0b6e52"/>
+<rect x="228.0" y="184.0" width="22.0" height="16.0" rx="2" fill="#0b6e52"/>
+<rect x="228.0" y="204.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="254.0" y="124.0" width="22.0" height="16.0" rx="2" fill="#0b6e52"/>
+<rect x="254.0" y="144.0" width="22.0" height="16.0" rx="2" fill="#0b6e52"/>
+<rect x="254.0" y="164.0" width="22.0" height="16.0" rx="2" fill="#0b6e52"/>
+<rect x="254.0" y="184.0" width="22.0" height="16.0" rx="2" fill="#0b6e52"/>
+<rect x="254.0" y="204.0" width="22.0" height="16.0" rx="2" fill="#0b6e52"/>
+<rect x="280.0" y="124.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="280.0" y="144.0" width="22.0" height="16.0" rx="2" fill="#0b6e52"/>
+<rect x="280.0" y="164.0" width="22.0" height="16.0" rx="2" fill="#0b6e52"/>
+<rect x="280.0" y="184.0" width="22.0" height="16.0" rx="2" fill="#0b6e52"/>
+<rect x="280.0" y="204.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="306.0" y="124.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="306.0" y="144.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="306.0" y="164.0" width="22.0" height="16.0" rx="2" fill="#0b6e52"/>
+<rect x="306.0" y="184.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="306.0" y="204.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="332.0" y="124.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="332.0" y="144.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="332.0" y="164.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="332.0" y="184.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="332.0" y="204.0" width="22.0" height="16.0" rx="2" fill="#7fb69f"/>
+<rect x="358.0" y="124.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="358.0" y="144.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="358.0" y="164.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="358.0" y="184.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<rect x="358.0" y="204.0" width="22.0" height="16.0" rx="2" fill="#dfe9e3"/>
+<text x="238.0" y="244.0" font-size="8.6" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">↓ 卷积：局部模式（共振峰 · 噪声纹理）</text>
+<text x="238.0" y="268.0" font-size="8.4" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">↓ 池化：分辨率降 · 通道升</text>
+<text x="238.0" y="296.0" font-size="8.6" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">↓ GRU：时间演化（音素序列 · 节奏）</text>
+<text x="238.0" y="324.0" font-size="8.6" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">↓ softmax：词概率</text>
+<text x="676.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么这个顺序</text>
+<rect x="500.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="516.0" y="116.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 循环层直接吃原始频谱：</text>
+<text x="516.0" y="132.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  得花大量参数重学局部模式</text>
+<text x="516.0" y="148.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——卷积几层就能高效搞定的事</text>
+<text x="516.0" y="164.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="180.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 卷积在前的收益：</text>
+<text x="516.0" y="196.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  循环层拿到的是「已提炼」序列</text>
+<text x="516.0" y="212.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  参数省 · 序列更短（池化后）</text>
+<text x="516.0" y="228.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="244.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· GRU 优于 LSTM（同预算）：</text>
+<text x="516.0" y="260.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  少一个门 · 参数更少</text>
+<text x="516.0" y="276.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  KWS 时序复杂度不需要完整 LSTM</text>
+<text x="516.0" y="292.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="308.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 层数/宽度存在最优配置——</text>
+<text x="516.0" y="324.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  过犹不及（消融验证）</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：信息流从频谱图经卷积提炼、循环建模到分类；右：卷积在前的经济学——别让贵的序列模型干便宜卷积能干的活</text>
+</svg>
+<div class="cap">图 2 · 左：信息流从频谱图经卷积提炼、循环建模到分类；右：卷积在前的经济学——别让贵的序列模型干便宜卷积能干的活。</div>
+<div class="formula">
+<div class="f">log-mel(T×40) → Conv×2-3 + BN + ReLU + Pool → GRU×1-2 → FC + softmax        ~230K 参数 · 97.71% @ 0.5 FA/hr</div>
+<div class="why"><b>人话：</b>就像流水线：先让「老师傅」（卷积）快速筛出每段声音里的关键纹理，再让「记性好的人」（GRU）只负责盯这些纹理随时间怎么变化。老师傅干活便宜又快，记性好的人很贵——让他只干只有他能干的活，整条流水线又便宜又准。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果（定性）：四架构对比与「小胜大」</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：四架构对比与「小胜大」</text>
+<line x1="36.0" y1="56.0" x2="520.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="48.0" y="84.0" width="200.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="148.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">架构</text>
+<rect x="248.0" y="84.0" width="330.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="413.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">强项</text>
+<rect x="578.0" y="84.0" width="330.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="743.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">弱项</text>
+<rect x="48.0" y="118.0" width="200.0" height="44.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="148.0" y="145.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">纯 DNN</text>
+<rect x="248.0" y="118.0" width="330.0" height="44.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="413.0" y="145.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">简单 · 快</text>
+<rect x="578.0" y="118.0" width="330.0" height="44.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="743.0" y="145.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">无时序建模 · 局部模式靠拼窗</text>
+<rect x="48.0" y="162.0" width="200.0" height="44.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="148.0" y="189.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">纯 CNN</text>
+<rect x="248.0" y="162.0" width="330.0" height="44.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="413.0" y="189.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">局部频谱模式高效</text>
+<rect x="578.0" y="162.0" width="330.0" height="44.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="743.0" y="189.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">感受野有限——长时依赖漏</text>
+<rect x="48.0" y="206.0" width="200.0" height="44.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="148.0" y="233.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">纯 RNN</text>
+<rect x="248.0" y="206.0" width="330.0" height="44.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="413.0" y="233.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">时序建模强</text>
+<rect x="578.0" y="206.0" width="330.0" height="44.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="743.0" y="233.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">重学局部模式 · 参数浪费</text>
+<rect x="48.0" y="250.0" width="200.0" height="44.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="148.0" y="277.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CRNN ★</text>
+<rect x="248.0" y="250.0" width="330.0" height="44.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="413.0" y="277.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两者互补 · 230K 达 97.71%</text>
+<rect x="578.0" y="250.0" width="330.0" height="44.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="743.0" y="277.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">循环层并行性受限</text>
+<text x="36.0" y="308.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">「小胜大」：230K 的 CRNN 精度超过更大参数量的纯 DNN 和纯 CNN——</text>
+<text x="36.0" y="330.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">架构设计比参数量更关键；噪声条件下保持高准确率（增强的功劳）</text>
+<text x="36.0" y="392.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（2017 · GSC · 准确率 @ 0.5 FA/hr）；四架构对比为论文结论的定性表述</text>
+</svg>
+<div class="cap">图 3 · 四架构强弱势对比表 + 「小胜大」结论——230K 的 CRNN 精度超过更大参数量的纯 DNN/CNN：架构设计比参数量更关键。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：整段处理的软肋</h2>
+<div class="cards">
+<div class="card bad"><h3>整段处理非流式</h3>基于完整 utterance 设计——常开唤醒的流式场景未讨论（需因果卷积 + 状态缓存改造）。</div>
+<div class="card bad"><h3>循环层并行差</h3>序列依赖无法充分并行——延迟敏感的流式应用比纯 CNN 吃亏。</div>
+<div class="card bad"><h3>超参多维难调</h3>层数×通道×循环类型×隐单元——多维搜索复杂（NAS 是后来者的答案）。</div>
+<div class="card bad"><h3>固定词集</h3>加新词要重训整个模型——无灵活性。</div>
+<div class="card bad"><h3>缺硬件数据</h3>无真机功耗/延迟——部署可行性要另行评估（树莓派功耗论文来补，others №4）。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：整段处理的软肋 · 配方的长尾传播</text>
+<line x1="36.0" y1="56.0" x2="580.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">五条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="118.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">整段处理非流式</text>
+<text x="195.0" y="118.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">基于完整 utterance 设计——流式场景（常开唤醒）未讨论，需因果卷积+状态缓存改造</text>
+<rect x="36.0" y="136.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="156.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">循环层并行差</text>
+<text x="195.0" y="156.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">序列依赖无法充分并行——延迟敏感的流式应用比纯 CNN 吃亏</text>
+<rect x="36.0" y="174.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="194.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">超参多维难调</text>
+<text x="195.0" y="194.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">层数×通道×循环类型×隐单元——多维搜索复杂（NAS 是后来者的答案）</text>
+<rect x="36.0" y="212.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="232.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">固定词集</text>
+<text x="195.0" y="232.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">加新词要重训整个模型——无灵活性</text>
+<rect x="36.0" y="250.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="270.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">缺硬件数据</text>
+<text x="195.0" y="270.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">无真机功耗/延迟——部署可行性要另行评估（树莓派功耗论文来补，others №4）</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">HMM-DNN</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2014 开山</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CRNN 分工配方</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 Baidu 2017</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力端到端</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">小米 2018 №3/№17</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">流式 CRNN</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Google 2020 №19</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">配方的传播：「卷积提特征 + 循环建时序」出现在小米 CRNN+注意力（2018 №3）、流式查询 C-CRNN（2018 №20）、</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Google 流式 CRNN（2020 №19）——本文是这条长尾的源头；每篇后续都在补它的一个边界（流式化 · 注意力 · 真机）</text>
+</svg>
+<div class="cap">图 4 · 边界五条 + 谱系坐标：「卷积提特征 + 循环建时序」配方传播到小米 CRNN+注意力（2018 №3）、流式查询 C-CRNN（2018 №20）、Google 流式 CRNN（2020 №19）——每篇后续都在补本文的一个边界。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>混合架构的设计原则是「按信息类型分工」：局部模式给卷积（便宜高效）、长程时序给循环（贵但必要）——分工的判据是「每类信息用哪种算子提取的成本最低」，而不是把最强架构堆上去。</p>
+<p>组件顺序有经济学：贵的组件要吃便宜的预处理产物——循环层直接啃原始频谱是在用高价算力做低价工作；「先提炼再建模」的次序选择本身就是参数效率的大头。</p>
+<p>「小胜大」是架构论文最有力的论据：230K 打过更大模型说明瓶颈在结构不在容量——此后 KWS 的主流叙事从「更大更准」转向「更聪明地小」，本文是这个转向的早期坐标点。</p>
+</div>
+<span class="pill">系列：经典架构 · CRNN 配方的源头</span>
+<div class="foot-note">数据与结论来自论文原文（2017 · GSC · 准确率 @ 0.5 FA/hr）。系列内关联：HMM-DNN 开山（others №1）· 小米 CRNN+注意力（2018 №3）· 流式查询 C-CRNN（2018 №20）· Google 流式 CRNN（2020 №19）· 树莓派功耗实测（others №4）。</div>
+</section>
+</div>
+</body>
+</html>
