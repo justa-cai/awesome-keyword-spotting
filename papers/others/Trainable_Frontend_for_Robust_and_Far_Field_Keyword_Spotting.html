@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>可训练前端 PCEN 的鲁棒远场 KWS（Google 2017）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · others №15 · 特征工程里程碑</div>
+<h1 class="hero">把 log 压缩拔出来换上 PCEN：<span class="g">前端自己学怎么听</span>，远场从此不一样</h1>
+<div class="chips">
+<span class="chip acc">PCEN 每通道能量归一化</span><span class="chip">可训练前端（梯度穿过特征层）</span><span class="chip">自适应增益 AGC</span><span class="chip">每通道独立参数</span><span class="chip">EMA 时间平滑</span>
+</div>
+<div class="meta">
+<b>Trainable Frontend for Robust and Far-Field Keyword Spotting</b> · Yuxuan Wang / Pascal Getreuer / Thad Hughes / Richard F. Lyon / Rif A. Saurous（Google）· 2017 · arXiv <a href="https://arxiv.org/abs/1707.07428" style="color:var(--acc)">1707.07428</a><br>
+一句话：固定 log 压缩对所有通道/强度一刀切——远场弱信号抬不够、噪声跟着抬——<b>PCEN</b>（E/(ε+S)^α)^β 用每通道可训练的 s·α·β·δ 实现自适应增益：梯度从 KWS 损失<b>反向传播穿过前端</b>，特征为任务而学，从此成为 KWS 的标配输入。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：固定前端的远场失灵</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>log 压缩<b>一刀切</b>：所有频率通道、所有信号强度同一种处理——近场强信号与远场弱信号不分。</li>
+<li>远场语音信号弱噪声占比高——log 后<b>噪声能量仍然显著</b>。</li>
+<li>前端不可学：特征提取与任务损失脱钩——KWS 需要什么特征，前端不知道。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PCEN：把 log 压缩从流水线里拔出来——前端自己学怎么听</text>
+<line x1="36.0" y1="60.0" x2="740.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 固定前端的远场失灵</text>
+<rect x="36.0" y="102.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="131.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">log 压缩一刀切</text>
+<text x="230.0" y="131.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">所有频率通道 · 所有信号强度同一种处理——近场强信号与远场弱信号不分</text>
+<rect x="36.0" y="156.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="185.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声压不掉</text>
+<text x="230.0" y="185.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">远场语音信号弱噪声占比高——log 后噪声能量仍然显著</text>
+<rect x="36.0" y="210.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="239.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">前端不可学</text>
+<text x="230.0" y="239.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">特征提取与任务损失脱钩——KWS 需要什么特征，前端不知道</text>
+<text x="36.0" y="288.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② PCEN：每通道能量归一化</text>
+<rect x="36.0" y="304.0" width="848.0" height="158.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="60.0" y="324.0" width="380.0" height="118.0" rx="10" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="250.0" y="346.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PCEN 公式</text>
+<text x="76.0" y="370.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">PCEN_m(t) = (E/(ε+S)^α)^β − δ^β</text>
+<text x="76.0" y="388.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">S_m(t) = (1−s)·S(t−1) + s·E(t)  ← EMA</text>
+<text x="76.0" y="406.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每通道独立的 s · α · β · δ 四参数</text>
+<text x="76.0" y="424.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">全部可训练——反向传播到前端</text>
+<rect x="468.0" y="324.0" width="380.0" height="118.0" rx="10" fill="#fde9d8" stroke="#e0b880" stroke-width="1"/>
+<text x="658.0" y="346.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">信号处理含义</text>
+<text x="484.0" y="370.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· S 跟踪长期能量 → 自动增益控制</text>
+<text x="484.0" y="388.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声强 → 分母大 → 增益自动降</text>
+<text x="484.0" y="406.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 安静 → 分母小 → 增益自动升</text>
+<text x="484.0" y="424.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· β &lt; 1：自适应的动态范围压缩</text>
+<text x="36.0" y="494.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 端到端：梯度穿过前端</text>
+<rect x="36.0" y="510.0" width="848.0" height="96.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="60.0" y="528.0" width="196.0" height="62.0" rx="8" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="158.0" y="550.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">原始音频</text>
+<text x="158.0" y="574.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">流式输入</text>
+<text x="263.0" y="560.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="268.0" y="528.0" width="196.0" height="62.0" rx="8" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="550.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">STFT + 梅尔滤波</text>
+<text x="366.0" y="574.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">固定</text>
+<text x="471.0" y="560.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="476.0" y="528.0" width="196.0" height="62.0" rx="8" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="574.0" y="550.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PCEN</text>
+<text x="574.0" y="574.0" font-size="8.2" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">可训练 ★</text>
+<text x="679.0" y="560.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="684.0" y="528.0" width="196.0" height="62.0" rx="8" fill="#eef6f1" stroke="#ffffff" stroke-width="2"/>
+<text x="782.0" y="550.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 分类器</text>
+<text x="782.0" y="574.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">可训练</text>
+<text x="460.0" y="618.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 交叉熵损失 ← 反向传播穿过 PCEN ← EMA 梯度沿时间回传（BPTT）</text>
+<rect x="36.0" y="632.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="658.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">远场↑</text>
+<text x="134.0" y="678.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">替代 log 的主要收益</text>
+<text x="304.0" y="658.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">自适应</text>
+<text x="304.0" y="678.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">AGC 按背景能量调增益</text>
+<text x="474.0" y="658.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">每通道</text>
+<text x="474.0" y="678.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">不同频段独立参数</text>
+<text x="644.0" y="658.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">端到端</text>
+<text x="644.0" y="678.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">前端为任务而学</text>
+<text x="814.0" y="658.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">流式</text>
+<text x="814.0" y="678.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">EMA 因果可在线</text>
+<text x="36.0" y="716.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Yuxuan Wang / Pascal Getreuer / Thad Hughes / Richard F. Lyon / Rif A. Saurous（Google）· 2017 · arXiv 1707.07428；含 Richard Lyon（耳蜗模型之父）——PCEN 从此成为 KWS 的标配特征</text>
+</svg>
+<div class="cap">图 1 · 机制全景：固定前端三宗罪 → PCEN 公式与信号处理含义 → 端到端梯度链（EMA 沿时间 BPTT）→ 关键数字。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：log 与 PCEN 的行为差异</h2>
+<div class="cards">
+<div class="card acc"><h3>自适应增益（AGC）</h3>S 跟踪每通道长期能量——噪声强分母大增益自动降，安静分母小增益自动升。</div>
+<div class="card acc"><h3>四参数分工</h3>s 管时间窗快慢 · α 管归一化强度 · β 管压缩狠度 · δ 管数值稳定——每通道独立可训。</div>
+<div class="card"><h3>EMA 时间平滑</h3>指数移动平均抑制瞬态噪声——且 EMA 是因果的，流式在线可用。</div>
+<div class="card"><h3>可微分算子</h3>TensorFlow 里实现为可微算子——梯度穿过非线性与 EMA 回传到前端参数。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：log 与 PCEN 在两种场景下的行为</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="248.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">近场强信号 vs 远场弱信号</text>
+<rect x="48.0" y="92.0" width="420.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="64.0" y="118.0" font-size="9" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">log 压缩（固定）</text>
+<line x1="78.0" y1="200.0" x2="248.00" y2="200.00" stroke="#8a93a5" stroke-width="0.8"/>
+<rect x="78.0" y="40.0" width="14.0" height="160.0" rx="2" fill="#b9c6d8"/>
+<rect x="118.0" y="54.0" width="14.0" height="146.0" rx="2" fill="#b9c6d8"/>
+<rect x="158.0" y="68.0" width="14.0" height="132.0" rx="2" fill="#b9c6d8"/>
+<rect x="198.0" y="82.0" width="14.0" height="118.0" rx="2" fill="#b9c6d8"/>
+<rect x="238.0" y="96.0" width="14.0" height="104.0" rx="2" fill="#b9c6d8"/>
+<text x="258.0" y="160.0" font-size="8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">弱信号被抬升有限</text>
+<text x="258.0" y="178.0" font-size="8" fill="#c0392b" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声也一起抬</text>
+<text x="64.0" y="246.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PCEN（自适应）</text>
+<line x1="78.0" y1="330.0" x2="248.00" y2="330.00" stroke="#8a93a5" stroke-width="0.8"/>
+<rect x="78.0" y="330.0" width="14.0" height="2.0" rx="2" fill="#7fb69f"/>
+<rect x="118.0" y="300.0" width="14.0" height="30.0" rx="2" fill="#7fb69f"/>
+<rect x="158.0" y="260.0" width="14.0" height="70.0" rx="2" fill="#7fb69f"/>
+<rect x="198.0" y="218.0" width="14.0" height="112.0" rx="2" fill="#7fb69f"/>
+<rect x="238.0" y="176.0" width="14.0" height="154.0" rx="2" fill="#7fb69f"/>
+<text x="258.0" y="286.0" font-size="8" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">弱信号相对抬高</text>
+<text x="258.0" y="304.0" font-size="8" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">强背景被压低</text>
+<text x="248.0" y="336.0" font-size="7.6" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（柱高示意输出幅度，非精确数值）</text>
+<text x="676.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四参数各自管什么</text>
+<rect x="500.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="514.0" y="112.0" width="324.0" height="46.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="526.0" y="132.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">s 平滑系数</text>
+<text x="526.0" y="149.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">EMA 时间窗——多快跟上能量变化</text>
+<rect x="514.0" y="168.0" width="324.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="526.0" y="188.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">α 增益指数</text>
+<text x="526.0" y="205.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">归一化强度——除多少</text>
+<rect x="514.0" y="224.0" width="324.0" height="46.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="526.0" y="244.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">β 压缩指数</text>
+<text x="526.0" y="261.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">动态范围压多狠</text>
+<rect x="514.0" y="280.0" width="324.0" height="46.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="526.0" y="300.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">δ 偏置</text>
+<text x="526.0" y="317.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数值稳定 · 防除零</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：log 一刀切（弱信号抬不够 · 噪声跟着抬）vs PCEN 自适应（按背景能量调节）；右：四个可训练参数的分工</text>
+</svg>
+<div class="cap">图 2 · 左：log（弱信号抬升有限 · 噪声跟着抬）vs PCEN（弱信号相对抬高 · 强背景被压低）的行为示意；右：四个可训练参数的分工。</div>
+<div class="formula">
+<div class="f">PCEN_m(t) = (E_m(t) / (ε + S_m(t))^α)^β − δ^β        S_m(t) = (1−s)·S_m(t−1) + s·E_m(t)        s α β δ 逐通道可训练</div>
+<div class="why"><b>人话：</b>普通 log 像一个固定音量的耳机——环境多吵都开同一格。PCEN 像自动音量的耳机：先听几秒估出背景多吵（S 就是这个估计），吵就自动调小、静就调大，而且每个频段各配一套旋钮。旋钮的角度不用人调——损失函数的梯度会自己拧。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果（定性）：PCEN vs log-mel 对表</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：PCEN vs log-mel 的对表</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="48.0" y="84.0" width="220.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="158.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">特性</text>
+<rect x="268.0" y="84.0" width="330.0" height="34.0" rx="0" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="433.0" y="106.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PCEN</text>
+<rect x="598.0" y="84.0" width="330.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="763.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">log 压缩</text>
+<rect x="48.0" y="118.0" width="220.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="158.0" y="144.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">增益控制</text>
+<rect x="268.0" y="118.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="433.0" y="144.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">自适应（AGC）</text>
+<rect x="598.0" y="118.0" width="330.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="763.0" y="144.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">固定</text>
+<rect x="48.0" y="160.0" width="220.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="158.0" y="186.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">远场/噪声抑制</text>
+<rect x="268.0" y="160.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="433.0" y="186.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">强（归一化压制）</text>
+<rect x="598.0" y="160.0" width="330.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="763.0" y="186.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">弱</text>
+<rect x="48.0" y="202.0" width="220.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="158.0" y="228.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数</text>
+<rect x="268.0" y="202.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="433.0" y="228.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">每通道可训练</text>
+<rect x="598.0" y="202.0" width="330.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="763.0" y="228.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">无可训参数</text>
+<rect x="48.0" y="244.0" width="220.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="158.0" y="270.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">端到端</text>
+<rect x="268.0" y="244.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="433.0" y="270.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">梯度直通前端</text>
+<rect x="598.0" y="244.0" width="330.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="763.0" y="270.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">与任务脱钩</text>
+<rect x="48.0" y="286.0" width="220.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="158.0" y="312.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">瞬态噪声</text>
+<rect x="268.0" y="286.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="433.0" y="312.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">EMA 时间平滑抑制</text>
+<rect x="598.0" y="286.0" width="330.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="763.0" y="312.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">不处理</text>
+<text x="36.0" y="344.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">历史影响：PCEN 从此成为 KWS 的默认特征——小米（2018 №3/№17）、流式查询 C-CRNN（2018 №20）、</text>
+<text x="36.0" y="364.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Google 流式 CRNN（2020 №19）等几乎所有后续论文的输入端都写着 PCEN</text>
+<text x="36.0" y="396.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（2017 · Google · 64/80 mel 通道 · CNN/DNN 后端）；结论为论文定性表述</text>
+</svg>
+<div class="cap">图 3 · 五维对比表 + 历史影响——PCEN 从此成为 KWS 默认特征：小米（2018 №3/№17）、流式查询 C-CRNN（2018 №20）、Google 流式 CRNN（2020 №19）等几乎所有后续论文的输入端都写着 PCEN。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：EMA 的时窗与不可学的上游</h2>
+<div class="cards">
+<div class="card bad"><h3>EMA 时窗折衷</h3>s 太快跟不上长期能量 · 太慢反应迟钝——时窗仍是手工超参。</div>
+<div class="card bad"><h3>每通道独立 = 不跨频</h3>通道间无交互——跨频带的增益协调不学（更复杂前端的后继方向）。</div>
+<div class="card bad"><h3>STFT 仍固定</h3>上游滤波器组不可训——「可学」只覆盖压缩这一步，整条前端未端到端。</div>
+<div class="card bad"><h3>评估细节</h3>远场/噪声的系统性消融与公开基准对照回对原文。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：EMA 的时窗与「可学习前端」的谱系</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">EMA 时窗折衷</text>
+<text x="235.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">s 太快跟不上长期能量 · 太慢反应迟钝——时窗本身仍是手工超参</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">每通道独立 = 不跨频</text>
+<text x="235.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">通道间无交互——跨频带的增益协调不学（更复杂前端的后继方向）</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">STFT 仍固定</text>
+<text x="235.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">上游的滤波器组不可训——「可学」只覆盖压缩这一步，整条前端未端到端</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">评估细节</text>
+<text x="235.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">远场/噪声的系统性消融与公开基准对照回对原文</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">固定 log-mel</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">手工前端</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PCEN 可训压缩</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 Google 2017</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Sinc/免乘法前端</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2018-2026 学习滤波器</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">全可学前端</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">wav2vec raw-wave 2020+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「可学习前端」的进化阶梯：压缩可学（PCEN）→ 滤波器组可学（Sinc 卷积 2019 №17 · 免乘法特征 2026）→</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">整条前端可学（wav2vec 直接吃原始波形）——每一步都把流水线里「固定的那段」再往前挪一格</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：「可学习前端」的进化阶梯——压缩可学（PCEN）→ 滤波器组可学（Sinc 卷积 2019 №17 · 免乘法特征 2026）→ 整条前端可学（wav2vec 吃原始波形）；每一步都把流水线里「固定的那段」往前挪一格。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>流水线里每个「固定」的组件都是潜在的可学点：log 压缩被视为理所当然十年——把它参数化并接入梯度流，任务损失自己教会前端怎么听；审视系统时逐段问「这段为什么是固定的」。</p>
+<p>自适应归一化的本质是「以背景为参照系」：除以 S^α 让输出衡量「比背景强多少」而非「绝对多强」——远场/近场的差异被参照系吸收；一切鲁棒性设计都在找正确的归一化基准。</p>
+<p>好的特征创新会变成领域的默认配置：PCEN 出现后几乎每篇 KWS 论文的输入端都写它——评价特征类工作的标准不是单篇论文的提升，而是它是否消失在后续论文的「标配」清单里。</p>
+</div>
+<span class="pill">系列：特征工程里程碑 · PCEN 的诞生地</span>
+<div class="foot-note">数据与结论来自论文原文（2017 · Google · 64/80 mel 通道 · CNN/DNN 后端）。系列内关联：小米注意力/Seq2Seq（2018 №3/№17）· 流式查询 C-CRNN（2018 №20）· Sinc 卷积（2019 №17）· Google 流式 CRNN（2020 №19）· 免乘法特征提取器（2026 №1）。</div>
+</section>
+</div>
+</body>
+</html>
