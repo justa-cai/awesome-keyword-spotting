@@ -1,7 +1,7 @@
 # 可视化精读改写计划（VIZ_PLAN）
 
 按年份倒序把全部论文笔记重写为自包含 HTML+SVG 可视化精读页。每篇：读笔记 → python 生成 4 张 SVG → 注入统一模板 HTML → 校验 → 截图自查 → 提交推送。
-**总进度：298 / 305**
+**总进度：299 / 305**
 
 ## 2026（24 篇）
 **进度：24 / 24**
@@ -329,7 +329,7 @@
 - [x] Zero-shot Keyword Spotting for Visual Speech Recognition in-the-wild
 
 ## others（16 篇）
-**进度：10 / 16**
+**进度：11 / 16**
 
 - [⬜] An End-to-End Architecture for Keyword Spotting and Voice Activity Detection
 - [x] Cascade Architecture for Keyword Spotting on Mobile Devices
@@ -341,7 +341,7 @@
 - [x] Low Resource Keyword Spotting with Deep Neural Networks
 - [x] Max-Pooling Loss Training for LSTM Keyword Spotting
 - [x] Multiple-Instance Cascaded Classification for Narrow-Band Keyword Spotting
-- [⬜] Online Keyword Spotting with Character-Level Recurrent Neural Networks and CTC
+- [x] Online Keyword Spotting with Character-Level Recurrent Neural Networks and CTC
 - [x] Small-Footprint Keyword Spotting Using Deep Neural Networks
 - [⬜] Small-Footprint Keyword Spotting with Deep Neural Networks and Connectionist Temporal Classification
 - [⬜] Streaming End-to-End Speech Recognition and Keyword Spotting Using Sequence-to-Sequence Models

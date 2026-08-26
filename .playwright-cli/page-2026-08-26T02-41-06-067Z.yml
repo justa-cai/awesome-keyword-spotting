@@ -1,0 +1,199 @@
+- generic [ref=f140e2]:
+  - generic [ref=f140e3]: 论文精读 · 可视化版 · others №11 · 流式与开放词汇
+  - heading "换唤醒词只改一行字符串：字符级 CTC 的在线触发，词尾后几百毫秒就响应" [level=1] [ref=f140e4]
+  - generic [ref=f140e5]:
+    - generic [ref=f140e6]: 在线（流式）RNN-CTC（首个）
+    - generic [ref=f140e7]: 字符级输出空间
+    - generic [ref=f140e8]: 增量 CTC 前向变量
+    - generic [ref=f140e9]: 换词零重训
+    - generic [ref=f140e10]: 200-500ms 触发延迟
+  - generic [ref=f140e11]:
+    - text: Online Keyword Spotting with Character-Level Recurrent Neural Networks and CTC · Kyuyeon Hwang / Minjae Lee / Wonyong Sung（Seoul National University）· 2017 · arXiv
+    - link "1706.02693" [ref=f140e12] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/1706.02693
+    - text: 一句话：单向字符级 RNN 逐帧输出字符分布（a-z + 空格 + blank），检测逻辑用增量 CTC 前向变量实时算「词已说出的概率」，超阈值立即触发——同一模型检测任意关键词（改字符序列即可），在线精度 ≈ 离线、词尾后 200-500ms 触发。
+  - generic [ref=f140e13]:
+    - heading "1 问题：离线范式的延迟税" [level=2] [ref=f140e14]:
+      - generic [ref=f140e15]: "1"
+      - text: 问题：离线范式的延迟税
+    - generic [ref=f140e16]:
+      - generic [ref=f140e17]: TL;DR
+      - list [ref=f140e18]:
+        - listitem [ref=f140e19]: ◆ 离线方法等整段再判——唤醒词说完还要等，实时应用不可接受。
+        - listitem [ref=f140e20]: ◆ 专用关键词模型换词要重训——自定义唤醒词成本高。
+        - listitem [ref=f140e21]: ◆ 在线三需求：逐帧增量出字符 · 监控目标字符序列 · 词完整出现立即触发。
+    - img [ref=f140e22]:
+      - generic [ref=f140e24]: 在线字符级 RNN-CTC：换唤醒词只改一行字符串——流式触发不等说完
+      - generic [ref=f140e25]: ① 离线范式的延迟税
+      - generic [ref=f140e27]: 等整段再判
+      - generic [ref=f140e28]: 离线方法要拿到完整音频段才判断——唤醒词说完还要等，实时应用不可接受
+      - generic [ref=f140e30]: 换词要重训
+      - generic [ref=f140e31]: 专用关键词模型——换唤醒词就得重新训练整个声学模型
+      - generic [ref=f140e33]: 在线三需求
+      - generic [ref=f140e34]: 逐帧处理增量出字符 · 监控目标字符序列 · 词完整出现立即触发
+      - generic [ref=f140e35]: ② 三模块架构：全流式设计
+      - generic [ref=f140e38]: 特征前端
+      - generic [ref=f140e39]: 40 维 log-mel
+      - generic [ref=f140e40]: 25ms 窗 · 10ms 移
+      - generic [ref=f140e41]: ▸
+      - generic [ref=f140e43]: 字符级 RNN
+      - generic [ref=f140e44]: 单向 LSTM/GRU
+      - generic [ref=f140e45]: 输出 a-z + 空格 + blank
+      - generic [ref=f140e46]: ▸
+      - generic [ref=f140e48]: 流式检测逻辑
+      - generic [ref=f140e49]: CTC 前向变量监控
+      - generic [ref=f140e50]: 超阈值立即触发
+      - generic [ref=f140e51]: 单向 RNN 是硬约束——在线场景不许用未来帧（双向出局）
+      - generic [ref=f140e52]: ③ 换词 = 改字符串
+      - generic [ref=f140e54]: 声学模型输出字符分布——同一模型检测任意词：目标词只需给定字符序列
+      - generic [ref=f140e55]: 「alexa」→ 检测逻辑盯 a-l-e-x-a——换「siri」就盯 s-i-r-i，零重训
+      - generic [ref=f140e57]: 首个
+      - generic [ref=f140e58]: 在线字符级 RNN-CTC KWS
+      - generic [ref=f140e59]: ≈ 离线精度
+      - generic [ref=f140e60]: 流式不掉点
+      - generic [ref=f140e61]: 200-500ms
+      - generic [ref=f140e62]: 词尾到触发的延迟
+      - generic [ref=f140e63]: 任意词
+      - generic [ref=f140e64]: 字符序列即注册
+      - generic [ref=f140e65]: 适中
+      - generic [ref=f140e66]: 模型大小可端侧
+      - generic [ref=f140e67]: Kyuyeon Hwang / Minjae Lee / Wonyong Sung（Seoul National University）· 2017 · arXiv 1706.02693 · WSJ/LibriSpeech + 内部数据；CTC 从离线 ASR 扩展到流式 KWS 的首次系统实现
+    - generic [ref=f140e68]: 图 1 · 机制全景：离线两宗税 → 三模块全流式架构（单向 RNN 是硬约束）→ 换词=改字符串 → 关键数字。
+  - generic [ref=f140e69]:
+    - heading "2 机制：CTC 坍缩 + 增量前向变量" [level=2] [ref=f140e70]:
+      - generic [ref=f140e71]: "2"
+      - text: 机制：CTC 坍缩 + 增量前向变量
+    - generic [ref=f140e72]:
+      - generic [ref=f140e73]:
+        - heading "CTC 坍缩" [level=3] [ref=f140e74]
+        - text: blank 为主的帧串 → 去空去重 → 字符序列——对齐被前向后向积分掉，无需帧级标注。
+      - generic [ref=f140e75]:
+        - heading "增量前向变量" [level=3] [ref=f140e76]
+        - text: α(t,s) = 第 t 帧、词第 s 字符的累积概率——每来一帧增量更新，检测分 = α(t,S)。
+      - generic [ref=f140e77]:
+        - heading "触发与重置" [level=3] [ref=f140e78]
+        - text: 超阈值立即触发 → 重置前向变量与 RNN 隐状态——已检词不影响下一次。
+      - generic [ref=f140e79]:
+        - heading "字符级的意义" [level=3] [ref=f140e80]
+        - text: 输出空间是字符——换词只是换监控的字符串，声学模型一个参数都不动。
+    - img [ref=f140e81]:
+      - generic [ref=f140e83]: 机制解剖：CTC 坍缩与增量前向变量
+      - generic [ref=f140e84]: CTC 坍缩：帧串 → 词
+      - generic [ref=f140e87]: ␣
+      - generic [ref=f140e89]: ␣
+      - generic [ref=f140e91]: a
+      - generic [ref=f140e93]: ␣
+      - generic [ref=f140e95]: l
+      - generic [ref=f140e97]: l
+      - generic [ref=f140e99]: ␣
+      - generic [ref=f140e101]: e
+      - generic [ref=f140e103]: ␣
+      - generic [ref=f140e105]: x
+      - generic [ref=f140e107]: ␣
+      - generic [ref=f140e109]: a
+      - generic [ref=f140e111]: ␣
+      - generic [ref=f140e113]: ␣
+      - generic [ref=f140e114]: 逐帧字符输出（blank 为主 · 尖峰出字符）
+      - generic [ref=f140e115]: ↓ 坍缩规则：去 blank · 合并重复
+      - generic [ref=f140e117]: a l e x a
+      - generic [ref=f140e118]: P(L|X) = Σ_路径 Π_t p_t(π_t) —— 前向后向算边际
+      - generic [ref=f140e119]: 对齐不需要标注——CTC 把所有可能对齐积分掉
+      - generic [ref=f140e120]: 字符级输出空间 → 换词零重训
+      - generic [ref=f140e121]: 增量前向变量与触发
+      - generic [ref=f140e123]: α(t, s)：第 t 帧、词的第 s 字符的
+      - generic [ref=f140e124]: 累积概率——每来一帧增量更新
+      - generic [ref=f140e125]: 检测分 = α(t, S)（最后一个字符）
+      - generic [ref=f140e126]: 超阈值 → 立即触发
+      - generic [ref=f140e127]: 触发后：
+      - generic [ref=f140e128]: · 重置 CTC 前向变量
+      - generic [ref=f140e129]: · 重置 RNN 隐状态
+      - generic [ref=f140e130]: · 防止已检词影响下一次
+      - generic [ref=f140e131]: 延迟取决于：词尾字符在 CTC 输出
+      - generic [ref=f140e132]: 中的清晰度 + 阈值松紧
+      - generic [ref=f140e133]: 左：CTC 坍缩——blank 为主的帧串经去重去空变成词；右：增量前向变量的实时检测——每帧更新、达阈值即触发、触发即重置
+    - generic [ref=f140e134]: 图 2 · 左：CTC 坍缩——「__a_l_l_e_x_a__」→「alexa」；右：增量前向变量的实时检测——每帧更新、达阈值即触发、触发即重置。
+    - generic [ref=f140e135]:
+      - generic [ref=f140e136]: RNN 每帧出 p_t(字符) α(t,s) 增量更新 分数 = α(t,S) > θ → 触发 → 重置 P(L|X) = Σ_π Π_t p_t(π_t)
+      - generic [ref=f140e137]: 人话：模型边听边「打字」，大部分时间打空格，听到音就冒出字母。检测器随时在算「目标词的字母到目前为止被按顺序打出来的概率」——概率够高就立刻喊「抓到了」，然后清空重来。想换唤醒词？把要盯的字母串改一下就行，模型完全不用重新训练。
+  - generic [ref=f140e138]:
+    - heading "3 结果（定性）：在线≈离线 + 延迟分布" [level=2] [ref=f140e139]:
+      - generic [ref=f140e140]: "3"
+      - text: 结果（定性）：在线≈离线 + 延迟分布
+    - img [ref=f140e141]:
+      - generic [ref=f140e143]: 主结果（定性）：在线≈离线 + 延迟分布
+      - generic [ref=f140e144]: 检测延迟分布（示意）
+      - generic [ref=f140e145]: 触发占比
+      - generic [ref=f140e146]: 词尾后延迟 ms →
+      - generic [ref=f140e154]: 主要落在 200-500ms
+      - generic [ref=f140e155]: 大部分实例词尾后数百毫秒内触发
+      - generic [ref=f140e156]: 读数表
+      - generic [ref=f140e158]: · 在线精度 ≈ 离线完整话语
+      - generic [ref=f140e159]: ——流式没显著掉点
+      - generic [ref=f140e160]: · 延迟：词尾后 200-500ms
+      - generic [ref=f140e161]: · 任意词：改字符序列即换
+      - generic [ref=f140e162]: · 模型大小适中可端侧
+      - generic [ref=f140e163]: 阈值权衡：
+      - generic [ref=f140e164]: · 低阈值 → 快但误唤醒多
+      - generic [ref=f140e165]: · 高阈值 → 稳但慢
+      - generic [ref=f140e166]: · 延迟受词尾字符清晰度影响
+      - generic [ref=f140e167]: 数据源：论文（2017 · WSJ/LibriSpeech + 内部数据）；延迟分布为示意走势，具体数值回对原文
+    - generic [ref=f140e168]: 图 3 · 左：检测延迟分布示意——主要落在词尾后 200-500ms；右：读数表 + 阈值权衡（低阈值快但误唤醒多）。
+  - generic [ref=f140e169]:
+    - heading "4 边界：条件独立的假设" [level=2] [ref=f140e170]:
+      - generic [ref=f140e171]: "4"
+      - text: 边界：条件独立的假设
+    - generic [ref=f140e172]:
+      - generic [ref=f140e173]:
+        - heading "帧级预测噪声" [level=3] [ref=f140e174]
+        - text: CTC 帧级输出很噪——大量 blank + 偶发字符 + 边界不精确，靠后处理才可靠。
+      - generic [ref=f140e175]:
+        - heading "部分匹配误触" [level=3] [ref=f140e176]
+        - text: 词只说一半（"hey" vs "hey siri"）也可能高分触发——需额外防误触机制。
+      - generic [ref=f140e177]:
+        - heading "通用性换精度" [level=3] [ref=f140e178]
+        - text: 字符级通用模型在特定词上可能不如专用模型——固有权衡。
+      - generic [ref=f140e179]:
+        - heading "字符≠发音" [level=3] [ref=f140e180]
+        - text: 同音异拼/发音变体——字符表示不如音素灵活。
+      - generic [ref=f140e181]:
+        - heading "单向上限" [level=3] [ref=f140e182]
+        - text: 在线不许用未来帧——单向 RNN 在某些词的模式识别上是瓶颈。
+    - img [ref=f140e183]:
+      - generic [ref=f140e185]: 边界与谱系：条件独立的假设 · 开放词汇线的先声
+      - generic [ref=f140e186]: 五条边界
+      - generic [ref=f140e188]: 帧级预测噪声
+      - generic [ref=f140e189]: CTC 帧级输出很噪——大量 blank + 偶发字符 + 边界不精确，靠后处理才可靠
+      - generic [ref=f140e191]: 部分匹配误触
+      - generic [ref=f140e192]: 词只说了一半（"hey" vs "hey siri"）也可能高分触发——需额外防误触机制
+      - generic [ref=f140e194]: 通用性换精度
+      - generic [ref=f140e195]: 字符级通用模型在特定词上可能不如专用模型——通用 vs 精度的固有权衡
+      - generic [ref=f140e197]: 字符≠发音
+      - generic [ref=f140e198]: 同音异拼/发音变体——字符表示不如音素灵活
+      - generic [ref=f140e200]: 单向上限
+      - generic [ref=f140e201]: 在线不许用未来帧——单向 RNN 在某些词的模式识别上是瓶颈
+      - generic [ref=f140e202]: 谱系坐标
+      - generic [ref=f140e204]: 离线 CTC-KWS
+      - generic [ref=f140e205]: 整段判
+      - generic [ref=f140e207]: 在线字符级 RNN-CTC
+      - generic [ref=f140e208]: 本文 SNU 2017
+      - generic [ref=f140e210]: DONUT CTC-QbE
+      - generic [ref=f140e211]: 2018 №7
+      - generic [ref=f140e213]: RNN-T / 音素级
+      - generic [ref=f140e214]: Transducer 系 2019+
+      - generic [ref=f140e215]: ▸
+      - generic [ref=f140e216]: ▸
+      - generic [ref=f140e217]: ▸
+      - generic [ref=f140e218]: 论文自列的升级路线全部成真：RNN-T（破条件独立）· 音素级输出 · 注意力——它定义的「字符级 + 前向变量触发」
+      - generic [ref=f140e219]: 骨架被后续开放词汇/自定义唤醒词系（DONUT · GE2E-KWS · MATE）继承——换词零重训是那条线的共同基因
+    - generic [ref=f140e220]: 图 4 · 边界五条 + 谱系坐标：论文自列的升级路线全部成真（RNN-T 破条件独立 · 音素级 · 注意力）；「字符级 + 前向变量触发」骨架被 DONUT、GE2E-KWS、MATE 等开放词汇系继承——换词零重训是共同基因。
+  - generic [ref=f140e221]:
+    - heading "5 判断：能带走的三句话" [level=2] [ref=f140e222]:
+      - generic [ref=f140e223]: "5"
+      - text: 判断：能带走的三句话
+    - generic [ref=f140e224]:
+      - generic [ref=f140e225]: JUDGEMENT
+      - paragraph [ref=f140e226]: ↳ 输出的「词表」决定换词成本：字符级输出让词表变成「任意字符串」——换词从「重新训练」降为「改一行配置」；输出空间的设计就是产品灵活性的设计，这是开放词汇系统的第一性选择。
+      - paragraph [ref=f140e227]: ↳ 流式检测=「增量概率 + 即时阈值」：前向变量的增量更新让「词已说出的概率」随时可算——不需要等任何窗口对齐；这个模式是所有流式序列检测（CTC/RNN-T/Transducer）的公共内核。
+      - paragraph [ref=f140e228]: ↳ 在线约束是架构的宪法：单向 RNN 不是选择而是义务——任何依赖未来信息的组件（双向、全局池化、完整话语解码）都与在线不兼容；架构审查的第一问永远是「这个组件看得到未来吗」。
+    - generic [ref=f140e229]: 系列：流式与开放词汇 · CTC 触发模式的源头
+    - generic [ref=f140e230]: 数据与结论来自论文原文（2017 · WSJ/LibriSpeech + 内部数据）；延迟分布为示意。系列内关联：DONUT CTC-QbE（2018 №7）· SDT 序列判别（2018 №16）· 高通 CTC+FST（2019 №13）· RNN-T/Transducer 系（2019+）· MATE 开放词表（2026）。
