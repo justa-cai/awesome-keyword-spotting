@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNN KWS 树莓派功耗实测（滑铁卢）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · others №4 · 真机实测</div>
+<h1 class="hero">别再只报参数量：外部功率计怼上树莓派——精度-功耗的<span class="g">帕累托前沿</span>长这样</h1>
+<div class="chips">
+<span class="chip acc">首个边缘硬件功耗实证</span><span class="chip">树莓派 3 + 外部功率计</span><span class="chip">架构维度系统扫描</span><span class="chip">深度比宽度费电</span><span class="chip">帕累托甜点 4-6 层</span>
+</div>
+<div class="meta">
+<b>Convolutional Neural Networks for Keyword Spotting: Power Consumption Analysis on Raspberry Pi</b> · Raphael Tang / Weijie Wang / Zhucheng Tu / Jimmy Lin（滑铁卢大学）· 2018 · arXiv <a href="https://arxiv.org/abs/1712.01961" style="color:var(--acc)">1712.01961</a><br>
+一句话：在树莓派 3 上用外部功率计实测多组 CNN 配置（深度/宽度/核大小/池化）的推理功耗——<b>紧凑模型功耗降 50-60% 只掉 1-2 个点</b>；同参数量下浅宽比深窄省电（访存次数决定），4-6 层 + 64-128 通道是甜点，「真机实测」从此进入 KWS 论文标配。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：文献的集体盲区</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>常开 KWS 的<b>能效与精度同等重要</b>——但文献几乎只报精度和参数量，不测真实硬件功耗。</li>
+<li>参数量 ≠ 功耗：内存访问模式 · 访存次数 · 算子实现都掺和——FLOPs/参数量只是<b>粗代理</b>。</li>
+<li>本文补空白：真机 + 外部功率计，扫深度/宽度/核大小/池化四个架构维度。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">树莓派功耗实测：别再只报参数量——精度-功耗的帕累托前沿长这样</text>
+<line x1="36.0" y1="60.0" x2="780.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 文献的集体盲区：只报精度和参数量</text>
+<rect x="36.0" y="102.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="131.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">精度 ≠ 部署指标</text>
+<text x="235.0" y="131.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">常开 KWS 的能效与精度同等重要——但文献几乎不测真实硬件功耗</text>
+<rect x="36.0" y="156.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="185.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量 ≠ 功耗</text>
+<text x="235.0" y="185.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">内存访问模式 · 访存次数 · 算子实现都影响功耗——FLOPs/参数量只是代理</text>
+<rect x="36.0" y="210.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="239.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">缺实证基准</text>
+<text x="235.0" y="239.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不同 CNN 架构在真实边缘硬件上的功耗表现——没人系统量过</text>
+<text x="36.0" y="288.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 实验设计：真机 + 外部功率计</text>
+<rect x="36.0" y="304.0" width="416.0" height="148.0" rx="10" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="244.0" y="328.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">硬件与测量</text>
+<text x="52.0" y="352.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Raspberry Pi 3 Model B</text>
+<text x="52.0" y="370.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· BCM2837 四核 A53 @1.2GHz · 1GB</text>
+<text x="52.0" y="388.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 外部功率计（Monsoon 类）实测</text>
+<text x="52.0" y="406.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· batch=1 模拟常开单流推理</text>
+<text x="52.0" y="424.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 记录功耗曲线 → 平均功耗/能量</text>
+<rect x="468.0" y="304.0" width="416.0" height="148.0" rx="10" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="676.0" y="328.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">扫过的架构维度</text>
+<text x="484.0" y="352.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 深度：2-3 层 → 10+ 层</text>
+<text x="484.0" y="370.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 宽度：32/64/128/256 通道</text>
+<text x="484.0" y="388.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 卷积核：3×3 / 5×5 / 7×7</text>
+<text x="484.0" y="406.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 池化策略与窗口</text>
+<text x="484.0" y="424.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全连接层大小 · GSC 35 词评估</text>
+<text x="36.0" y="470.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 三个核心发现</text>
+<rect x="36.0" y="488.0" width="848.0" height="44.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="516.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">深度比宽度更费电</text>
+<text x="240.0" y="516.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">同参数量下浅而宽 &lt; 深而窄——深层不仅算得多，访存次数也多，影响非线性</text>
+<rect x="36.0" y="540.0" width="848.0" height="44.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="568.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">卷积层是功耗大头</text>
+<text x="240.0" y="568.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">大卷积核显著推高计算与功耗；通道数线性拉高功耗</text>
+<rect x="36.0" y="592.0" width="848.0" height="44.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="620.0" font-size="10.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">甜点区间明确</text>
+<text x="240.0" y="620.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">4-6 层卷积 + 64-128 通道——精度-功耗的最佳平衡点</text>
+<rect x="36.0" y="660.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="686.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">首个</text>
+<text x="134.0" y="706.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">真实边缘硬件功耗实证</text>
+<text x="304.0" y="686.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1-2 W</text>
+<text x="304.0" y="706.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">小模型推理功耗区间</text>
+<text x="474.0" y="686.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5-15 ms</text>
+<text x="474.0" y="706.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">小模型推理延迟</text>
+<text x="644.0" y="686.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−50-60%</text>
+<text x="644.0" y="706.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">功耗 · 精度仅掉 1-2%</text>
+<text x="814.0" y="686.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">帕累托前沿</text>
+<text x="814.0" y="706.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">功耗预算下的最优架构</text>
+<text x="36.0" y="744.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Raphael Tang / Weijie Wang / Zhucheng Tu / Jimmy Lin（滑铁卢大学）· 2018 · arXiv 1712.01961 · GSC 35 词 · GPU 训练 / Pi 上推理；与同组浏览器 JS KWS（2018 №14）、流式查询 C-CRNN（2018 №20）构成「实测三部曲」</text>
+</svg>
+<div class="cap">图 1 · 机制全景：三重盲区 → 实验设计（树莓派 3 + 功率计 + 四维度扫描）→ 三个核心发现 → 关键数字。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：为什么深度比宽度费电</h2>
+<div class="cards">
+<div class="card acc"><h3>访存次数的账</h3>深窄网络层数多——中间激活的读写次数多；浅宽同参数量访存少，功耗更低。</div>
+<div class="card acc"><h3>卷积层是功耗大头</h3>大核（7×7）计算与访存双涨；通道数近似线性拉高功耗。</div>
+<div class="card"><h3>测量方法论</h3>外部功率计记录推理期功耗曲线 → 平均功耗与能量/推理；batch=1 模拟常开单流。</div>
+<div class="card"><h3>可复现流程</h3>GSC 35 词 GPU 训练 / Pi 上推理——一套后续研究可照抄的功耗测量协议。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：为什么深度比宽度费电</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="238.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">深窄 vs 浅宽（同参数量）</text>
+<rect x="48.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="148.0" y="120.0" font-size="8.8" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">深窄（10 层 × 32ch）</text>
+<rect x="124.0" y="134.0" width="48.0" height="12.0" rx="2" fill="#f4c7c3" stroke="#e0a9a0" stroke-width="1"/>
+<rect x="124.0" y="150.0" width="48.0" height="12.0" rx="2" fill="#f4c7c3" stroke="#e0a9a0" stroke-width="1"/>
+<rect x="124.0" y="166.0" width="48.0" height="12.0" rx="2" fill="#f4c7c3" stroke="#e0a9a0" stroke-width="1"/>
+<rect x="124.0" y="182.0" width="48.0" height="12.0" rx="2" fill="#f4c7c3" stroke="#e0a9a0" stroke-width="1"/>
+<rect x="124.0" y="198.0" width="48.0" height="12.0" rx="2" fill="#f4c7c3" stroke="#e0a9a0" stroke-width="1"/>
+<rect x="124.0" y="214.0" width="48.0" height="12.0" rx="2" fill="#f4c7c3" stroke="#e0a9a0" stroke-width="1"/>
+<rect x="124.0" y="230.0" width="48.0" height="12.0" rx="2" fill="#f4c7c3" stroke="#e0a9a0" stroke-width="1"/>
+<rect x="124.0" y="246.0" width="48.0" height="12.0" rx="2" fill="#f4c7c3" stroke="#e0a9a0" stroke-width="1"/>
+<rect x="124.0" y="262.0" width="48.0" height="12.0" rx="2" fill="#f4c7c3" stroke="#e0a9a0" stroke-width="1"/>
+<rect x="124.0" y="278.0" width="48.0" height="12.0" rx="2" fill="#f4c7c3" stroke="#e0a9a0" stroke-width="1"/>
+<text x="148.0" y="316.0" font-size="8.3" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">层数多 → 访存次数多</text>
+<text x="348.0" y="120.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">浅宽（4 层 × 128ch）</text>
+<rect x="268.0" y="150.0" width="160.0" height="26.0" rx="4" fill="#a8d4c2" stroke="#7fb69f" stroke-width="1"/>
+<rect x="268.0" y="190.0" width="160.0" height="26.0" rx="4" fill="#a8d4c2" stroke="#7fb69f" stroke-width="1"/>
+<rect x="268.0" y="230.0" width="160.0" height="26.0" rx="4" fill="#a8d4c2" stroke="#7fb69f" stroke-width="1"/>
+<rect x="268.0" y="270.0" width="160.0" height="26.0" rx="4" fill="#a8d4c2" stroke="#7fb69f" stroke-width="1"/>
+<text x="348.0" y="316.0" font-size="8.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">层数少 → 访存次数少</text>
+<text x="248.0" y="344.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">同参数量下：浅宽的功耗更低</text>
+<text x="676.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">功耗的真实构成</text>
+<rect x="500.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="516.0" y="116.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">推理功耗 ≠ 只看计算量：</text>
+<text x="516.0" y="132.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="148.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 乘加计算（FLOPs）</text>
+<text x="516.0" y="164.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 内存访问——权重读取是重要来源</text>
+<text x="516.0" y="180.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 层数越多 → 中间激活的读写越多</text>
+<text x="516.0" y="196.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 大卷积核 → 计算与访存双涨</text>
+<text x="516.0" y="212.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 通道数 → 功耗近似线性</text>
+<text x="516.0" y="228.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="244.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">推论：</text>
+<text x="516.0" y="260.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· FLOPs/参数量只是功耗的粗代理</text>
+<text x="516.0" y="276.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 报告边缘部署必须上真机实测</text>
+<text x="516.0" y="292.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 内存带宽友好设计（浅宽/depthwise）</text>
+<text x="516.0" y="308.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  常比堆深度更划算</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：同参数量的两种体型——深窄的访存次数多所以更费电；右：功耗的真实构成与「FLOPs 只是代理」的推论</text>
+</svg>
+<div class="cap">图 2 · 左：同参数量的两种体型对比（深窄 10×32 vs 浅宽 4×128）——访存次数决定胜负；右：功耗的真实构成与「FLOPs 只是代理」的推论。</div>
+<div class="formula">
+<div class="f">推理功耗 ≈ 计算能耗 + 内存访问能耗（权重读取 + 中间激活读写）        同参数量：层数 ↑ → 访存次数 ↑ → 功耗 ↑</div>
+<div class="why"><b>人话：</b>模型费不费电不只看算多少乘加，还要看「来回搬多少数据」。深而窄的网络像跑很多趟的小货车，浅而宽的像跑一趟的大卡车——货一样多，趟数少的省油。所以端侧模型别急着堆深度，先算算要搬运几次。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果（示意）：帕累托前沿与甜点</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（示意）：精度-功耗帕累托前沿</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="286.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">精度 vs 功耗（帕累托示意）</text>
+<line x1="116.0" y1="330.0" x2="556.00" y2="330.00" stroke="#8a93a5" stroke-width="0.8"/>
+<line x1="116.0" y1="120.0" x2="116.00" y2="330.00" stroke="#8a93a5" stroke-width="0.8"/>
+<text x="118.0" y="112.0" font-size="8" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率</text>
+<text x="556.0" y="348.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">功耗 →</text>
+<path d="M 206.0 310.0 L 266.0 240.0 L 326.0 200.0 L 396.0 178.0 L 476.0 168.0 L 556.0 164.0" fill="none" stroke="#0b6e52" stroke-width="2.2"/>
+<circle cx="206.0" cy="310.0" r="5" fill="#0b6e52"/>
+<circle cx="266.0" cy="240.0" r="5" fill="#0b6e52"/>
+<circle cx="326.0" cy="200.0" r="5" fill="#0b6e52"/>
+<circle cx="396.0" cy="178.0" r="5" fill="#0b6e52"/>
+<circle cx="476.0" cy="168.0" r="5" fill="#0b6e52"/>
+<circle cx="556.0" cy="164.0" r="5" fill="#0b6e52"/>
+<circle cx="326.0" cy="200.0" r="9" fill="none" stroke="#d97a2b" stroke-width="2"/>
+<text x="326.0" y="176.0" font-size="8.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">甜点：4-6 层 · 64-128 通道</text>
+<text x="546.0" y="200.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">再砸功耗</text>
+<text x="546.0" y="216.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">增益骤减</text>
+<text x="336.0" y="312.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">前沿右侧：多花的功耗买不到多少精度</text>
+<text x="740.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数表</text>
+<rect x="640.0" y="92.0" width="224.0" height="258.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="656.0" y="116.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 小模型：1-2 W · 5-15ms</text>
+<text x="656.0" y="133.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 紧凑模型：功耗 −50-60%</text>
+<text x="656.0" y="150.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  精度仅掉 1-2%</text>
+<text x="656.0" y="167.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 深度 4-6 层最划算</text>
+<text x="656.0" y="184.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 通道 64-128 是甜点</text>
+<text x="656.0" y="201.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 卷积层 = 功耗大头</text>
+<text x="656.0" y="218.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 大核（7×7）显著费电</text>
+<text x="656.0" y="235.0" font-size="8.4" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="656.0" y="252.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">方法论贡献：</text>
+<text x="656.0" y="269.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 可复现的功耗测量流程</text>
+<text x="656.0" y="286.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 「真机实测」从此进入</text>
+<text x="656.0" y="303.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  KWS 论文的标配清单</text>
+<text x="36.0" y="408.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（2018 · 树莓派 3 实测 · GSC 35 词）；曲线为帕累托示意走势，具体数值回对原文</text>
+</svg>
+<div class="cap">图 3 · 左：精度-功耗帕累托前沿——甜点在 4-6 层 · 64-128 通道，再砸功耗增益骤减；右：全部读数（1-2W · 5-15ms · −50-60% 功耗 @ 1-2% 精度损失）与方法论贡献。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：一块板子的结论</h2>
+<div class="cards">
+<div class="card bad"><h3>单平台结论</h3>仅树莓派 3 的 ARM CPU——MCU/DSP/NPU 的功耗特性差异巨大，不能直接推广。</div>
+<div class="card bad"><h3>架构覆盖不全</h3>只测了 CNN——RNN/Transformer/CRNN 在 CPU 上的功耗特性未比。</div>
+<div class="card bad"><h3>软件栈未控</h3>TFLite vs ONNX vs 自研实现在同硬件上功耗可能差很多——论文未充分讨论。</div>
+<div class="card bad"><h3>任务口径差异</h3>GSC 35 词分类 ≠ 真实唤醒词二分类（误唤醒率要求更严）。</div>
+<div class="card bad"><h3>无量化评估</h3>INT8/INT4 量化对功耗的影响（内存带宽红利）未测。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：一块板子的结论 · 实测流派的壮大</text>
+<line x1="36.0" y1="56.0" x2="580.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">五条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="118.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单平台结论</text>
+<text x="185.0" y="118.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">仅树莓派 3 的 ARM CPU——MCU/DSP/NPU 的功耗特性差异巨大，不能直接推广</text>
+<rect x="36.0" y="136.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="156.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">架构覆盖不全</text>
+<text x="185.0" y="156.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">只测了 CNN——RNN/Transformer/CRNN 在 CPU 上的功耗特性未比</text>
+<rect x="36.0" y="174.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="194.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">软件栈未控</text>
+<text x="185.0" y="194.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">TFLite vs ONNX vs 自研实现在同硬件上功耗可能差很多——论文未充分讨论</text>
+<rect x="36.0" y="212.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="232.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">任务口径差异</text>
+<text x="185.0" y="232.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC 35 词分类 ≠ 真实唤醒词二分类（误唤醒率要求更严）</text>
+<rect x="36.0" y="250.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="270.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">无量化评估</text>
+<text x="185.0" y="270.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">INT8/INT4 量化对功耗的影响（内存带宽红利）未测</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">纸面指标时代</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FLOPs/参数量</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">真机功耗实证</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 Waterloo 2018</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">真机延迟评估</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">TC-ResNet 2019 №20</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">硬件感知设计</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">NAS+量化 2020+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">滑铁卢实测三部曲：浏览器 JS 延迟（2018 №14）→ 本文树莓派功耗 → 流式查询资源账（2018 №20）；加上 TC-ResNet 的 Pixel 1 延迟</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（2019 №20），「真机实测」从异类变成标配——后来的硬件感知 NAS 与量化论文全都站在这些第一手数据的方法论上</text>
+</svg>
+<div class="cap">图 4 · 边界五条 + 谱系坐标：滑铁卢实测三部曲（浏览器 JS 延迟 → 本文树莓派功耗 → 流式查询资源账）+ TC-ResNet Pixel 1 延迟——「真机实测」从异类变成标配，硬件感知设计与量化研究都站在这些第一手数据上。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>部署指标必须在部署硬件上量：FLOPs 和参数量是论文友好但工程失真的代理——功耗、延迟、内存峰值只有真机能给出真相；做边缘 AI 评估时「没上真机」本身就是结论的边界条件。</p>
+<p>内存访问是被低估的功耗来源：同参数量下深度增加访存趟数——「浅而宽」常常比「深而窄」省电；这与 later depthwise/NAS 的结论互相印证：端侧架构的第一性原理是数据搬运最小化，不是表达力最大化。</p>
+<p>帕累托前沿把「多省算力」变成可谈判的空间：甜点之后每瓦买到的精度骤减——产品定预算时对着前沿选点，比追逐榜单 SOTA 更接近工程最优。</p>
+</div>
+<span class="pill">系列：真机实测 · 能效评估的开端</span>
+<div class="foot-note">数据与结论来自论文原文（2018 · 树莓派 3 实测 · GSC 35 词）；帕累托曲线为示意。系列内关联：浏览器 JS KWS（2018 №14，同组）· 流式查询 C-CRNN（2018 №20，同组）· TC-ResNet Pixel 1 真机延迟（2019 №20）· 神经形态 Loihi 能效基准（2018 №4）。</div>
+</section>
+</div>
+</body>
+</html>
