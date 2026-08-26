@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>低资源硬件的高效语音触发检测（Apple Siri）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · 2018 №9 · 工业实战</div>
+<h1 class="hero">Hey Siri 的省电账：HMM 状态 3→1、帧率 100→50Hz，两个旋钮拧出 <span class="g">6 倍</span>节省</h1>
+<div class="chips">
+<span class="chip acc">DNN-HMM 主检测器</span><span class="chip">状态精简 3→1</span><span class="chip">帧率减半 100→50Hz</span><span class="chip">最小持续时间约束</span><span class="chip">Apple 级联架构</span>
+</div>
+<div class="meta">
+<b>Efficient Voice Trigger Detection for Low Resource Hardware</b> · Sigtia / Haynes / Richards / Marchi / Bridle（Apple Siri 语音团队）· Interspeech 2018<br>
+一句话：「Hey Siri」主检测器跑在常开低功耗处理器上——把每音素 HMM 状态从 3 砍到 1（输出维度 ÷3）+ 帧率从 100Hz 降到 50Hz（推理 ÷2），<b>正交两刀相乘 6× 节省</b>，误警率漏检率与基线持平。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：常开主检测器的每一毫瓦都算数</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>Siri 的触发是<b>级联架构</b>：低功耗主检测器 7×24 常开粗筛，触发才唤醒更准更耗电的二级——本文优化的是第一级。</li>
+<li>传统 DNN-HMM 的两笔固定开销：<b>三状态音素</b>（输出维度 ×3）和 <b>100Hz 帧率</b>（每秒 100 次前向）。</li>
+<li>Apple Watch 的算力和电池比 iPhone 更苛刻——效率优化是硬需求而非锦上添花。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Hey Siri 的省电账：HMM 状态 3→1 + 帧率 100→50Hz，两个旋钮拧出 6 倍节省</text>
+<line x1="36.0" y1="60.0" x2="800.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① Apple 的级联世界：主检测器永远在线</text>
+<rect x="36.0" y="100.0" width="848.0" height="96.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="60.0" y="116.0" width="180.0" height="64.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="140.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">常开音频流</text>
+<text x="249.0" y="150.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="258.0" y="116.0" width="260.0" height="64.0" rx="9" fill="#eef6f1" stroke="#ffffff" stroke-width="2"/>
+<text x="388.0" y="140.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一级：低功耗主检测器</text>
+<text x="388.0" y="160.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">DNN-HMM · 专用音频处理器</text>
+<text x="527.0" y="150.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="536.0" y="116.0" width="180.0" height="64.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="626.0" y="140.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">触发</text>
+<text x="725.0" y="150.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="734.0" y="116.0" width="180.0" height="64.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="824.0" y="140.0" font-size="9.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">二级：更准更耗电</text>
+<text x="824.0" y="160.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">的检测器</text>
+<text x="460.0" y="208.0" font-size="10" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文优化的是第一级——它 7×24 在低功耗处理器上跑，每一毫瓦都算数；误警由二级兜底过滤</text>
+<text x="36.0" y="240.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 两笔传统开销，两个对症的旋钮</text>
+<rect x="36.0" y="256.0" width="400.0" height="150.0" rx="10" fill="#eef6f1" stroke="#ffffff" stroke-width="2"/>
+<text x="236.0" y="280.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">开销一：三状态音素</text>
+<text x="60.0" y="304.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每音素 3 个 HMM 状态（起始/中间/结尾）——DNN 输出层维度 ×3，Viterbi 拓扑复杂</text>
+<text x="236.0" y="336.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">旋钮一：状态 3 → 1</text>
+<text x="60.0" y="360.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词音素序列固定——细粒度状态区分并不需要</text>
+<text x="60.0" y="388.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">≈ 3× 节省</text>
+<rect x="468.0" y="256.0" width="400.0" height="150.0" rx="10" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="668.0" y="280.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">开销二：100Hz 帧率</text>
+<text x="492.0" y="304.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每秒 100 次 DNN 前向——低功耗处理器吃不消</text>
+<text x="668.0" y="336.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">旋钮二：帧率 100 → 50Hz</text>
+<text x="492.0" y="360.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">10ms 分辨率对 KWS 是过度精度；20ms 仍够捕关键音素</text>
+<text x="492.0" y="388.0" font-size="10" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">≈ 2× 节省</text>
+<text x="36.0" y="442.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 补偿机制：最小状态持续时间约束</text>
+<rect x="36.0" y="458.0" width="848.0" height="62.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="482.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">帧率减半后时间分辨率下降——短音素可能被误判跳过</text>
+<text x="52.0" y="500.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">HMM 层面强制每个音素至少持续 N 帧——用拓扑约束补回时间精度，检测准确率与基线持平</text>
+<rect x="36.0" y="552.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="578.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">6×</text>
+<text x="134.0" y="598.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">总计算节省（3×2）</text>
+<text x="304.0" y="578.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">50Hz</text>
+<text x="304.0" y="598.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">帧率（原 100Hz）</text>
+<text x="474.0" y="578.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1 状态</text>
+<text x="474.0" y="598.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每音素（原 3 状态）</text>
+<text x="644.0" y="578.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率持平</text>
+<text x="644.0" y="598.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">FA/FR 与基线一致</text>
+<text x="814.0" y="578.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">13 维</text>
+<text x="814.0" y="598.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">MFCC ± 5 帧上下文</text>
+<text x="36.0" y="636.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Siddharth Sigtia / Rob Haynes / Hywel Richards / Erik Marchi / John Bridle（Apple Siri 语音团队）· Interspeech 2018；生产系统描述——绝对数值因专有信息未公开，以相对量报告</text>
+</svg>
+<div class="cap">图 1 · 机制全景：级联架构中的位置 → 两笔开销与两个对症旋钮 → 补偿机制（最小持续时间约束）→ 结果速览。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：两个正交旋钮 + 一个补偿</h2>
+<div class="cards">
+<div class="card acc"><h3>旋钮一：状态 3 → 1</h3>所有帧统一映射到音素级标签——DNN 输出维度 ÷3、Viterbi 拓扑简化；关键词音素序列固定，细粒度状态区分并不需要。</div>
+<div class="card acc"><h3>旋钮二：帧率 100 → 50Hz</h3>每 20ms 算一帧——DNN 前向频率直接减半；10ms 分辨率对 KWS 是过度精度。</div>
+<div class="card"><h3>补偿：最小持续时间</h3>帧率减半后短音素可能被误跳——HMM 层面强制每音素至少持续 N 帧，补回时间分辨率。</div>
+<div class="card"><h3>为什么敢砍</h3>唤醒词短语固定 + 二级检测器兜底误警——一级的激进简化有安全网，这是级联架构给的设计自由度。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：3 状态到 1 状态 · 100Hz 到 50Hz 的几何</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="238.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音素的 HMM 拓扑对比</text>
+<rect x="48.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="64.0" y="116.0" font-size="9.2" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3 状态（传统）</text>
+<rect x="108.0" y="128.0" width="56.0" height="26.0" rx="13" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="136.0" y="145.0" font-size="8.8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">B</text>
+<line x1="164.0" y1="141.0" x2="198.00" y2="141.00" stroke="#8a93a5" stroke-width="1.2"/>
+<text x="181.0" y="134.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">→</text>
+<rect x="198.0" y="128.0" width="56.0" height="26.0" rx="13" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="226.0" y="145.0" font-size="8.8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">M</text>
+<line x1="254.0" y1="141.0" x2="288.00" y2="141.00" stroke="#8a93a5" stroke-width="1.2"/>
+<text x="271.0" y="134.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">→</text>
+<rect x="288.0" y="128.0" width="56.0" height="26.0" rx="13" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="316.0" y="145.0" font-size="8.8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">E</text>
+<line x1="108.0" y1="118.0" x2="108.00" y2="128.00" stroke="#8a93a5" stroke-width="1"/>
+<text x="382.0" y="158.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">× 每音素</text>
+<text x="64.0" y="192.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输出层维度 = 音素数 × 3</text>
+<text x="64.0" y="212.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Viterbi 在 3 倍状态空间里搜索</text>
+<line x1="64.0" y1="228.0" x2="432.00" y2="228.00" stroke="#e6e6df" stroke-width="1"/>
+<text x="64.0" y="252.0" font-size="9.2" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1 状态（本文）</text>
+<rect x="108.0" y="262.0" width="56.0" height="26.0" rx="13" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="136.0" y="279.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">P</text>
+<text x="188.0" y="279.0" font-size="8.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">× 每音素</text>
+<text x="64.0" y="316.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">输出维度 ÷3 · 解码拓扑简化</text>
+<text x="64.0" y="336.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么敢砍：唤醒词音素序列固定，不需要</text>
+<text x="656.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">帧率减半的示意</text>
+<rect x="480.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="496.0" y="118.0" font-size="8.8" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">100Hz：每 10ms 一帧</text>
+<rect x="500.0" y="126.0" width="16.0" height="22.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<rect x="526.0" y="126.0" width="16.0" height="22.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<rect x="552.0" y="126.0" width="16.0" height="22.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<rect x="578.0" y="126.0" width="16.0" height="22.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<rect x="604.0" y="126.0" width="16.0" height="22.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<rect x="630.0" y="126.0" width="16.0" height="22.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<rect x="656.0" y="126.0" width="16.0" height="22.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<rect x="682.0" y="126.0" width="16.0" height="22.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<rect x="708.0" y="126.0" width="16.0" height="22.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<rect x="734.0" y="126.0" width="16.0" height="22.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<rect x="760.0" y="126.0" width="16.0" height="22.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<rect x="786.0" y="126.0" width="16.0" height="22.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="496.0" y="168.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">50Hz：每 20ms 一帧</text>
+<rect x="500.0" y="176.0" width="16.0" height="22.0" rx="3" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<rect x="552.0" y="176.0" width="16.0" height="22.0" rx="3" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<rect x="604.0" y="176.0" width="16.0" height="22.0" rx="3" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<rect x="656.0" y="176.0" width="16.0" height="22.0" rx="3" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<rect x="708.0" y="176.0" width="16.0" height="22.0" rx="3" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<rect x="760.0" y="176.0" width="16.0" height="22.0" rx="3" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="656.0" y="226.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DNN 前向次数直接减半</text>
+<text x="656.0" y="250.0" font-size="8.4" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10ms 分辨率对 KWS 是过度供给——</text>
+<text x="656.0" y="268.0" font-size="8.4" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">关键音素的声学特征 20ms 仍完整可辨</text>
+<text x="656.0" y="296.0" font-size="8.6" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">配套：最小持续时间约束防短音素误跳</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：三状态（B/M/E）拓扑 vs 单状态——输出维度与解码空间同时缩 3 倍；右：帧率减半的帧栅格对比；两个旋钮正交，节省相乘</text>
+</svg>
+<div class="cap">图 2 · 左：三状态（B/M/E）HMM 拓扑 vs 单状态——输出维度和解码空间同时缩 3 倍；右：100Hz 与 50Hz 的帧栅格对比。</div>
+<div class="formula">
+<div class="f">计算量 ∝ (输出状态数) × (每秒帧数)：  (3 states × 100 Hz)  →  (1 state × 50 Hz)  =  1/6</div>
+<div class="why"><b>人话：</b>DNN 每次前向的成本主要看输出层大小，一年要跑多少次看帧率。把输出从「每音素三个状态」压成「一个状态」，再把每秒跑的次数减半——两件事互相不搭边，所以省的电直接相乘：三乘二等于六。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果：6× 的乘法账 + 准确率守恒</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：6× = 3× × 2 的乘法账 + 准确率守恒</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="266.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">相对计算量（基线 = 100）</text>
+<text x="60.0" y="126.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">基线（3 状态 · 100Hz）</text>
+<rect x="192.0" y="112.0" width="340.0" height="22.0" rx="5" fill="#c9d8e8"/>
+<text x="540.0" y="127.0" font-size="9.5" fill="#c9d8e8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">100</text>
+<text x="60.0" y="184.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">状态 3 → 1</text>
+<rect x="192.0" y="170.0" width="113.2" height="22.0" rx="5" fill="#9fc8b8"/>
+<text x="313.2" y="185.0" font-size="9.5" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">≈33  (÷3)</text>
+<text x="60.0" y="242.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">帧率 100 → 50Hz</text>
+<rect x="192.0" y="228.0" width="170.0" height="22.0" rx="5" fill="#b8d8c8"/>
+<text x="370.0" y="243.0" font-size="9.5" fill="#b8d8c8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">≈50  (÷2)</text>
+<text x="60.0" y="300.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两项组合</text>
+<rect x="192.0" y="286.0" width="56.8" height="22.0" rx="5" fill="#0b6e52"/>
+<text x="256.8" y="301.0" font-size="9.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">≈17  (÷6)</text>
+<text x="266.0" y="352.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">两个旋钮正交：输出维度的缩减与推理频率的降低互不干扰</text>
+<text x="732.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率守恒</text>
+<rect x="620.0" y="92.0" width="224.0" height="258.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="636.0" y="116.0" font-size="8.6" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 误警率 / 漏检率：</text>
+<text x="636.0" y="133.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  与基线持平（相对报告）</text>
+<text x="636.0" y="150.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="636.0" y="167.0" font-size="8.6" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 补偿设计：</text>
+<text x="636.0" y="184.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  最小状态持续时间约束</text>
+<text x="636.0" y="201.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  抵消帧率降低的时间损失</text>
+<text x="636.0" y="218.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="636.0" y="235.0" font-size="8.6" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 为什么敢这么砍：</text>
+<text x="636.0" y="252.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  唤醒词音素序列固定</text>
+<text x="636.0" y="269.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  二级检测器兜底误警</text>
+<text x="636.0" y="286.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="636.0" y="303.0" font-size="8.6" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 代价：</text>
+<text x="636.0" y="320.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  论文未公开绝对数值</text>
+<text x="636.0" y="337.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （Apple 专有信息）</text>
+<text x="36.0" y="416.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（Interspeech 2018 · Apple）；因专有政策以相对量报告——6× 节省 = 状态精简 3× × 帧率减半 2×</text>
+</svg>
+<div class="cap">图 3 · 左：相对计算量的四行账（基线 100 → 状态精简 ÷3 → 帧率 ÷2 → 组合 ÷6）；右：准确率守恒的条件——补偿设计 + 固定短语 + 二级兜底；绝对数值因 Apple 专有政策未公开。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：专有黑盒的局限</h2>
+<div class="cards">
+<div class="card bad"><h3>专有黑盒</h3>绝对准确率、数据规模、网络结构全未公开——无法独立复现，只能信相对结论。</div>
+<div class="card bad"><h3>单一短语</h3>所有优化针对「Hey Siri」——其他关键词（更长/更短）的泛化性未验证。</div>
+<div class="card bad"><h3>缺端到端对比</h3>2018 年 CRNN/注意力方法已起势——本文没有跟纯神经网络架构对比。</div>
+<div class="card bad"><h3>群体差异未析</h3>性别/年龄/口音上的优化效果差异、极端噪声鲁棒性均未讨论。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：专有黑盒的价值与局限 · 级联范式的教科书</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">专有黑盒</text>
+<text x="195.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">绝对准确率 · 数据规模 · 网络结构全未公开——无法独立复现，只能信相对结论</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单一短语</text>
+<text x="195.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">所有优化针对「Hey Siri」——其他关键词（尤其更长/更短）泛化性未验证</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">缺端到端对比</text>
+<text x="195.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">2018 年 CRNN/注意力方法已起势——本文没有跟纯神经网络架构对比</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">群体差异未析</text>
+<text x="195.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">性别/年龄/口音上的优化效果差异、极端噪声鲁棒性均未讨论</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三状态 HMM</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ASR 惯例</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">状态精简+降帧率</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 Apple 2018</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">帧跳过/自适应</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">TDNN 2018 №8</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">早退出/级联 NAS</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2020+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">两大遗产：①「KWS 不需要 ASR 的全部精度」——状态精简与降帧率都是这句话的实例，后来 LFR/低帧率流式 ASR 全线沿用；</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">② 多级级联架构（低功耗粗筛 + 高精度兜底）成为工业 KWS 的标准范式——二级检测器让一级敢激进省电</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：两大遗产——「KWS 不需要 ASR 的全部精度」（状态精简/降帧率/LFR 一脉相承）与「多级级联」工业范式（低功耗粗筛 + 高精度兜底）。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>先问「这个精度是谁定的」：三状态音素和 100Hz 帧率都是 ASR 的惯例遗产——KWS 的任务更简单（固定短语），照搬 ASR 配置就是在为用不到的精度付费；砍冗余要先审需求来源。</p>
+<p>正交的优化才能相乘：输出维度和推理频率互不干扰，所以 3× 和 2× 直接得 6×——优化组合时先找正交轴，同一轴上的两个优化会互相抵消收益。</p>
+<p>级联架构买的是「激进简化的自由度」：一级敢砍精度，是因为二级兜底误警——系统设计里「安全网」的存在改变了局部组件的最优解，单点优化要放在系统上下文里看。</p>
+</div>
+<span class="pill">系列：省算力专题 · 大厂生产系统的教科书</span>
+<div class="foot-note">数据与结论来自论文原文（Interspeech 2018 · Apple）；因专有政策以相对量报告。系列内关联：TDNN 帧跳过（2018 №8，另一条降推理频率的路）· cFSMN（01 期，低帧率记忆块）· Apple KWS+SV 多任务（2020 №15）。</div>
+</section>
+</div>
+</body>
+</html>
