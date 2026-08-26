@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DONUT：CTC 示例查询式关键词检测（Fluent.ai）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · 2018 №7 · 自定义唤醒词</div>
+<h1 class="hero">换个唤醒词不用重训：CTC 音素当「中间货币」，用户说 <span class="g">1-5 遍</span>几秒注册上线</h1>
+<div class="chips">
+<span class="chip acc">Query-by-Example</span><span class="chip">CTC 前向概率</span><span class="chip">零训练注册</span><span class="chip">音素序列可解释</span><span class="chip">嵌入式友好 · 本地全跑</span>
+</div>
+<div class="meta">
+<b>DONUT: CTC-based Query-by-Example Keyword Spotting</b> · Loren Lugosch / Samuel Myer / Vikrant Singh Tomar（Fluent.ai）· NeurIPS 2018 Workshop · arXiv <a href="https://arxiv.org/abs/1811.10736" style="color:var(--acc)">1811.10736</a><br>
+一句话：预训练一个<b>通用音素识别器</b>（一次性投资），用户录几遍唤醒词解码成音素标签集合，在线检测时聚合各假设的 <b>CTC 前向概率</b>——换词零训练、过程可解释、全部本地完成。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：固定唤醒词是产品天花板</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>用户想用自己的名字唤醒手机、用特定短语唤醒汽车——但 <b>NN-KWS 换词 = 重新采集 + 重训</b>，普通用户操作不了。</li>
+<li>DTW 模板换词容易但<b>黑盒</b>：「为什么这个样本被拒」说不清，性能卡在手工特征上。</li>
+<li>手表 / IoT 传感器<b>跑不动完整 ASR</b>——需要轻量且可解释的方案。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DONUT：说 1-5 遍就能换唤醒词——CTC 音素当「中间货币」，注册零训练</text>
+<line x1="36.0" y1="60.0" x2="780.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 固定唤醒词的天花板与两条老路</text>
+<rect x="36.0" y="102.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="131.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">神经网络 KWS：换词 = 重训</text>
+<text x="320.0" y="131.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每个新关键词要重新收集大量数据 + 重新训练——普通用户不可能操作</text>
+<rect x="36.0" y="158.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="187.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DTW 模板：换词容易但黑盒</text>
+<text x="320.0" y="187.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不用重训，但没法解释「为什么这个样本被拒」——调试全靠猜，性能卡在手工特征</text>
+<rect x="36.0" y="214.0" width="848.0" height="48.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="243.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">嵌入式预算</text>
+<text x="320.0" y="243.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">手表 / IoT 传感器跑不动完整 ASR——需要轻量方案</text>
+<text x="36.0" y="288.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② DONUT 三阶段：预训练一次，注册几秒，检测实时</text>
+<rect x="36.0" y="306.0" width="264.0" height="130.0" rx="12" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="168.0" y="330.0" font-size="11.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">预训练音素识别器</text>
+<text x="168.0" y="354.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">大规模数据 · CTC 训练</text>
+<text x="168.0" y="374.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">一次性投入 · 永久使用</text>
+<text x="168.0" y="394.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">输出每帧音素后验</text>
+<text x="312.0" y="378.0" font-size="14" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="324.0" y="306.0" width="264.0" height="130.0" rx="12" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="456.0" y="330.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">用户注册（几秒）</text>
+<text x="456.0" y="354.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">录 1-5 遍唤醒词</text>
+<text x="456.0" y="374.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">解码成音素标签序列</text>
+<text x="456.0" y="394.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">候选集 H = {h_1..h_K}</text>
+<text x="600.0" y="378.0" font-size="14" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="612.0" y="306.0" width="264.0" height="130.0" rx="12" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="744.0" y="330.0" font-size="11.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">在线检测</text>
+<text x="744.0" y="354.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每帧前向 + CTC 前向概率</text>
+<text x="744.0" y="374.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">s(t) = Σ P(h_k|x)</text>
+<text x="744.0" y="394.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">超阈值即触发</text>
+<text x="36.0" y="470.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 音频注册的巧思：样本自带说话人指纹</text>
+<rect x="36.0" y="486.0" width="848.0" height="62.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="510.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">用户用「自己的声音」说唤醒词——注册样本直接反映口音、语速、发音习惯，天然贴近部署分布；跳过 G2P 转换，避免字素→音素的转换错误</text>
+<text x="52.0" y="527.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">多样本假设互补：不同遍的音素标签覆盖发音的自然变异——单个样本解码不完美也没关系</text>
+<rect x="36.0" y="582.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="608.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1-5 遍</text>
+<text x="134.0" y="628.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">注册样本需求</text>
+<text x="304.0" y="608.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0 训练</text>
+<text x="304.0" y="628.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">换词零重训</text>
+<text x="474.0" y="608.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">几秒</text>
+<text x="474.0" y="628.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">新词上线时间</text>
+<text x="644.0" y="608.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">可解释</text>
+<text x="644.0" y="628.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">音素序列可查</text>
+<text x="814.0" y="608.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">本地全跑</text>
+<text x="814.0" y="628.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">注册+检测不上云</text>
+<text x="36.0" y="666.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Loren Lugosch / Samuel Myer / Vikrant Singh Tomar（Fluent.ai）· NeurIPS 2018 Workshop · arXiv 1811.10736；GSC + Fluent 内部数据 · 面向嵌入式自定义唤醒词</text>
+</svg>
+<div class="cap">图 1 · 机制全景：两条老路的困境 → 三阶段架构（预训练一次 / 注册几秒 / 检测实时）→ 音频注册自带说话人指纹 → 结果速览。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：CTC 积分掉对齐，多假设聚合保鲁棒</h2>
+<div class="cards">
+<div class="card acc"><h3>CTC 前向概率</h3>P(h|x_1:t) 对所有可能对齐方式积分——关键词在音频里的位置不需要知道，对齐问题被概率消除。</div>
+<div class="card acc"><h3>多假设聚合</h3>s(t) = Σ_k P(h_k|x)——不同注册样本解码出的音素序列互补，覆盖发音的自然变异。</div>
+<div class="card"><h3>音频注册（巧思）</h3>用户用自己的声音说唤醒词——样本自带口音/语速/发音习惯；跳过 G2P，避免字素→音素转换错误。</div>
+<div class="card"><h3>可解释性</h3>音素序列是可读的中间表示——检测失败时查标签哪错了，重新录更好的样本，不是面对黑盒。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：CTC 分数聚合怎么同时解决对齐与鲁棒性</text>
+<line x1="36.0" y1="56.0" x2="640.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="238.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 的尖峰输出与对齐自由</text>
+<rect x="48.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="72.0" y="106.0" width="32.0" height="84.0" rx="4" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="88.0" y="206.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">B</text>
+<rect x="112.0" y="160.0" width="32.0" height="30.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="128.0" y="206.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">-</text>
+<rect x="152.0" y="106.0" width="32.0" height="84.0" rx="4" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="168.0" y="206.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">L</text>
+<rect x="192.0" y="160.0" width="32.0" height="30.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="208.0" y="206.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">-</text>
+<rect x="232.0" y="160.0" width="32.0" height="30.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="248.0" y="206.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">-</text>
+<rect x="272.0" y="106.0" width="32.0" height="84.0" rx="4" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="288.0" y="206.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">U</text>
+<rect x="312.0" y="160.0" width="32.0" height="30.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="328.0" y="206.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">-</text>
+<rect x="352.0" y="106.0" width="32.0" height="84.0" rx="4" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="368.0" y="206.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">T</text>
+<rect x="392.0" y="160.0" width="32.0" height="30.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="408.0" y="206.0" font-size="8.5" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">-</text>
+<text x="248.0" y="228.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">blank 为主 · 音素呈尖峰——对齐方式由 CTC 自动积分</text>
+<text x="248.0" y="254.0" font-size="9" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">P(h | x_1:t)：对齐序列 = 音素序列的所有可能位置</text>
+<text x="248.0" y="278.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词在音频里的位置不需要知道——前向概率全算</text>
+<text x="248.0" y="310.0" font-size="8.8" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">隐患：尖峰之间漏掉音素 → 漏检</text>
+<text x="656.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多假设聚合</text>
+<rect x="480.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="496.0" y="112.0" width="320.0" height="30.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="510.0" y="132.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">h_1: B-L-U-T (样本1)</text>
+<rect x="496.0" y="152.0" width="320.0" height="30.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="510.0" y="172.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">h_2: B-L-OW-T (样本2)</text>
+<rect x="496.0" y="192.0" width="320.0" height="30.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="510.0" y="212.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">h_3: B-AH-L-U-T (样本3)</text>
+<text x="656.0" y="246.0" font-size="10" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">s(t) = Σ_k P(h_k | x_1:t)</text>
+<text x="656.0" y="270.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">任一假设得分高 → 聚合分就高</text>
+<text x="656.0" y="292.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">不同遍的发音变异被假设集覆盖</text>
+<text x="656.0" y="318.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">调试友好：检测失败 → 查音素标签哪错了</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：CTC 输出以 blank 为主、音素成尖峰——对齐被前向概率积分掉；右：多个注册样本解码成多个假设，聚合分数对单样本解码误差鲁棒</text>
+</svg>
+<div class="cap">图 2 · 左：CTC 的尖峰输出（blank 为主、音素成峰）与对齐自由；右：多个注册样本 → 多个音素假设 → 聚合分数对单样本解码误差鲁棒。</div>
+<div class="formula">
+<div class="f">注册：H = { h_1, …, h_K }（每遍录音解码一条音素序列）        检测：s(t) = Σ_k P(h_k | x_1:t)  >  θ → 触发</div>
+<div class="why"><b>人话：</b>注册就是把每遍录音「转写成音素」存起来；检测时算「当前音频里出现这些音素串的概率」，几个串的概率加起来超过门槛就报命中。音素串是通用的——换词只是换一组串，模型一个字都不用重训。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>方法特性：与两条老路正面对表</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">方法特性：四维优势 vs DTW 与重训两条老路</text>
+<line x1="36.0" y1="56.0" x2="580.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="48.0" y="84.0" width="110.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="103.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">维度</text>
+<rect x="158.0" y="84.0" width="210.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="263.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">重训式 NN</text>
+<rect x="368.0" y="84.0" width="190.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="463.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DTW 模板</text>
+<rect x="558.0" y="84.0" width="200.0" height="34.0" rx="0" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="658.0" y="106.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DONUT</text>
+<rect x="48.0" y="118.0" width="110.0" height="40.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="103.0" y="143.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">换新词成本</text>
+<rect x="158.0" y="118.0" width="210.0" height="40.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="263.0" y="143.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">重新采集+重训</text>
+<rect x="368.0" y="118.0" width="190.0" height="40.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="463.0" y="143.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">录模板即可</text>
+<rect x="558.0" y="118.0" width="200.0" height="40.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="658.0" y="143.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">录 1-5 遍，零训练</text>
+<rect x="48.0" y="158.0" width="110.0" height="40.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="103.0" y="183.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">可解释性</text>
+<rect x="158.0" y="158.0" width="210.0" height="40.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="263.0" y="183.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">黑盒</text>
+<rect x="368.0" y="158.0" width="190.0" height="40.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="463.0" y="183.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">黑盒（距离值）</text>
+<rect x="558.0" y="158.0" width="200.0" height="40.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="658.0" y="183.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音素序列可查</text>
+<rect x="48.0" y="198.0" width="110.0" height="40.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="103.0" y="223.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">对齐处理</text>
+<rect x="158.0" y="198.0" width="210.0" height="40.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="263.0" y="223.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">窗口/后验平滑</text>
+<rect x="368.0" y="198.0" width="190.0" height="40.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="463.0" y="223.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">DTW 规整</text>
+<rect x="558.0" y="198.0" width="200.0" height="40.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="658.0" y="223.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 前向积分</text>
+<rect x="48.0" y="238.0" width="110.0" height="40.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="103.0" y="263.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">嵌入式适配</text>
+<rect x="158.0" y="238.0" width="210.0" height="40.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="263.0" y="263.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">模型可小</text>
+<rect x="368.0" y="238.0" width="190.0" height="40.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="463.0" y="263.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">特征+距离计算</text>
+<rect x="558.0" y="238.0" width="200.0" height="40.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="658.0" y="263.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">前向推理即可</text>
+<rect x="48.0" y="278.0" width="110.0" height="40.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="103.0" y="303.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">定量对比</text>
+<rect x="158.0" y="278.0" width="210.0" height="40.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="263.0" y="303.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">—</text>
+<rect x="368.0" y="278.0" width="190.0" height="40.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="463.0" y="303.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">论文未给 ROC 对比</text>
+<rect x="558.0" y="278.0" width="200.0" height="40.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="658.0" y="303.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">缺 vs DTW 的曲线</text>
+<text x="36.0" y="356.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读表：DONUT 的护城河在「换词零成本 + 可解释」两列；最后一行是诚实的缺口——Workshop 论文没给与 DTW 的定量 ROC 对比</text>
+<text x="36.0" y="378.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">验证：GSC（通用性）+ Fluent.ai 内部数据（嵌入式场景）；多关键词 = 候选集变大，模型不变</text>
+<text x="36.0" y="412.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（arXiv 1811.10736 · NeurIPS 2018 Workshop）；定位为方法论文，定量曲线回对原文</text>
+</svg>
+<div class="cap">图 3 · 四维对比表：DONUT 的护城河在「换词零成本 + 可解释」两列；最后一行是诚实的缺口——Workshop 论文没给与 DTW 的定量 ROC 对比。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：上游质量直接传导</h2>
+<div class="cards">
+<div class="card bad"><h3>音素识别质量是地基</h3>预训练模型在特定口音上识别差 → 标签假设错 → 检测直接受害——上游错误无缓冲。</div>
+<div class="card bad"><h3>CTC 尖峰漏音素</h3>blank 为主的输出里，尖峰之间漏掉关键词音素就漏检——结构性风险。</div>
+<div class="card bad"><h3>注册样本质量敏感</h3>嘈杂环境录的注册样本会拉低检测准确率——「用户随手录」是真实部署的变量。</div>
+<div class="card bad"><h3>实验简略（Workshop）</h3>缺 vs DTW 定量 ROC · 缺噪声/远场评估 · 缺注册样本数-性能曲线。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：QbE 路线的 CTC 化 · 自定义唤醒词的前站</text>
+<line x1="36.0" y1="56.0" x2="640.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">音素识别质量是地基</text>
+<text x="230.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">预训练模型在特定口音上识别差 → 标签假设错 → 检测直接受害——上游错误无缓存</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 尖峰漏音素</text>
+<text x="230.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">blank 为主的输出里，尖峰间漏掉关键词音素就漏检——结构性风险</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">注册样本质量敏感</text>
+<text x="230.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">嘈杂环境录的注册样本会拉低检测准确率——「用户随手录」是真实部署的变量</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实验简略（Workshop）</text>
+<text x="230.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">缺 vs DTW 定量 ROC · 缺噪声/远场评估 · 缺注册样本数-性能曲线</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DTW 模板</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">QbE 1.0</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DONUT</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC-QbE 2018</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RPN / CSKS</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">QbE 度量学习 2019</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">开集词汇 KWS</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Sonov rex 2020+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">承接：把 QbE 从「特征距离匹配」升级为「CTC 概率匹配」——中间表示从连续向量变成可读音素串；传递：RPN/CSKS（2019 №13-14）走度量学习路线；</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「预训练通用模型 + 轻量注册」的范式预告了后来开放词汇/自定义唤醒词的产品化（Sonos 开放词汇量化 2020 №18 等）</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：QbE 从「特征距离匹配」升级为「CTC 概率匹配」；RPN/CSKS（2019 №13-14）走度量学习路线，「预训练 + 轻量注册」范式预告开放词汇/自定义唤醒词的产品化。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>把「换词成本」从训练时挪到注册时的关键是中间表示的通用性：音素串对所有词都成立——一次预训练的音素识别器是「永久基础设施」，新词只是一组新查询。</p>
+<p>可解释性是部署维度的功能：音素标签让失败可归因（识别错 vs 注册差 vs 阈值不当）——黑盒模型出问题只能整体重训，可解释流水线能定点修复。</p>
+<p>聚合是穷人的集成学习：多个注册假设的分数求和，等价于对「发音变异」做了一次廉价集成——没有额外模型、没有额外训练，只用注册阶段的冗余换鲁棒性。</p>
+</div>
+<span class="pill">系列：自定义唤醒词 · QbE 路线的 CTC 化</span>
+<div class="foot-note">数据与结论来自论文原文（arXiv 1811.10736 · NeurIPS 2018 Workshop）；GSC + Fluent.ai 内部数据。系列内关联：多语言 BNF 零资源 KWS（2018 №2）· CSKS 原型度量迁移（2019 №13）· RPN QbE（2019 №14）· Sonos 开放词汇量化（2020 №18）。</div>
+</section>
+</div>
+</body>
+</html>
