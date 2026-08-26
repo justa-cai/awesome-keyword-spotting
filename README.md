@@ -25,7 +25,9 @@
 ## 简介
 语音处理领域里，关键词检测（Keyword Spotting，KWS，即唤醒词检测）研究如何从连续语音流中检出预设关键词。本仓库是一个精选的语音关键词检测论文清单，覆盖 2018–2026 年经典与前沿工作，并为其中 305 篇配套了逐篇中文深读笔记（问题 → 方法 → 实验 → 贡献 → 局限，全部数字可回溯论文原表）。
 
-> 🌐 英文版见 [README.en.md](README.en.md)。在线论文库站点（305 篇双语深读笔记 + 中英全文搜索）：<https://justa-cai.github.io/awesome-keyword-spotting/>
+> 🌐 英文版见 [README.en.md](README.en.md)。在线站点：<https://justa-cai.github.io/awesome-keyword-spotting/>
+>
+> 📊 **推荐入口：[可视化精读导览](https://justa-cai.github.io/awesome-keyword-spotting/)** —— 305 篇全部配有可视化精读页（每篇「机制全景 · 机制解剖 · 主结果 · 边界与谱系」四张图），按年份/主题筛选浏览；本页为完整文字目录（含双语深读笔记与全文搜索，进站点后点「完整论文目录」即可到达）。
 
 ## 综述
 * [Deep Spoken Keyword Spotting: An Overview](https://arxiv.org/abs/2111.10592), JOHN H.L. HANSEN (Fellow, IEEE), 2021.11
