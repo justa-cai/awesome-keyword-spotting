@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>流式端到端 ASR+KWS：RNN-T 与关键词偏置（Google 2017）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · others №13 · 统一架构</div>
+<h1 class="hero">一个模型干两份活：RNN-T 同时供 ASR 和唤醒，解码时给关键词<span class="g">开小灶</span></h1>
+<div class="chips">
+<span class="chip acc">RNN-T 统一 ASR+KWS（首个）</span><span class="chip">关键词偏置（解码时）</span><span class="chip">上下文感知门控</span><span class="chip">检测率 +5-15% · WER &lt;0.5% 代价</span><span class="chip">帧级 ~10ms 流式</span>
+</div>
+<div class="meta">
+<b>Streaming End-to-End Speech Recognition and Keyword Spotting Using Sequence-to-Sequence Models</b> · Yanzhang He / Rohit Prabhavalkar / Kanishka Rao / Wei Li / Anton Bakhtin / Ian McGraw（Google）· 2017 · arXiv <a href="https://arxiv.org/abs/1706.02563" style="color:var(--acc)">1706.02563</a><br>
+一句话：RNN-T（编码器 + 预测网络 + 联合网络）一个模型同时做<b>流式通用转录</b>和<b>定向关键词检测</b>——解码时对目标词 token 加<b>上下文感知的正向偏置</b>（匹配前缀才加强）：检测率 +5-15% 绝对、WER 增加 &lt;0.5%，零重训调灵敏度。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：分立系统的三笔浪费</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>独立训练的声学/语言模型<b>没有全局优化</b>；多模型 + 复杂解码器维护成本高。</li>
+<li>KWS 和 ASR 是<b>两套系统</b>——无法共享计算与参数，设备上跑两份模型。</li>
+<li>挑战：端到端模型（RNN-T）在<b>严格实时约束</b>下同时服务两个任务。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RNN-T 统一 ASR+KWS：一个模型干两份活，解码时再给唤醒词「开小灶」</text>
+<line x1="36.0" y1="60.0" x2="800.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 分立系统的三笔浪费</text>
+<rect x="36.0" y="102.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="131.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">独立训练次优</text>
+<text x="230.0" y="131.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">声学模型/语言模型各自训——没有全局优化，整体性能打折</text>
+<rect x="36.0" y="156.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="185.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">架构复杂</text>
+<text x="230.0" y="185.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">多模型 + 复杂解码器——维护成本高</text>
+<rect x="36.0" y="210.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="239.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS/ASR 两套系统</text>
+<text x="230.0" y="239.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">无法共享计算与参数——设备上跑两份模型</text>
+<text x="36.0" y="288.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② RNN-T 三件套架构</text>
+<rect x="36.0" y="304.0" width="848.0" height="158.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="70.0" y="324.0" width="240.0" height="118.0" rx="10" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="190.0" y="346.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">编码器</text>
+<text x="190.0" y="370.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">多层单向 LSTM</text>
+<text x="190.0" y="387.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">512-1024 单元</text>
+<text x="190.0" y="404.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">音频 → 高维编码</text>
+<text x="320.0" y="384.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="340.0" y="324.0" width="240.0" height="118.0" rx="10" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="460.0" y="346.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">预测网络</text>
+<text x="460.0" y="370.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2 层 LSTM</text>
+<text x="460.0" y="387.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">256-512 单元</text>
+<text x="460.0" y="404.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">已输出文本 → 语境</text>
+<text x="590.0" y="384.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="610.0" y="324.0" width="240.0" height="118.0" rx="10" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="730.0" y="346.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">联合网络</text>
+<text x="730.0" y="370.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">编码 ⊕ 预测 → logits</text>
+<text x="730.0" y="387.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每步每 token 概率</text>
+<text x="730.0" y="404.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（词表 + blank）</text>
+<text x="460.0" y="458.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC + 预测网络：输出 token 间条件依赖——突破 CTC 的条件独立假设</text>
+<text x="36.0" y="486.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 关键词偏置：解码时的免费增益</text>
+<rect x="36.0" y="502.0" width="848.0" height="96.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="60.0" y="520.0" width="196.0" height="62.0" rx="8" fill="#eef6f1" stroke="#ffffff" stroke-width="2"/>
+<text x="158.0" y="542.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">目标词 token</text>
+<text x="158.0" y="566.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">logits 加正向偏置</text>
+<text x="263.0" y="552.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="268.0" y="520.0" width="196.0" height="62.0" rx="8" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="542.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">上下文感知</text>
+<text x="366.0" y="566.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">匹配前缀才加强</text>
+<text x="471.0" y="552.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="476.0" y="520.0" width="196.0" height="62.0" rx="8" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="574.0" y="542.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">不匹配 → 不偏</text>
+<text x="574.0" y="566.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">避免误伤 ASR</text>
+<text x="679.0" y="552.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="684.0" y="520.0" width="196.0" height="62.0" rx="8" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="782.0" y="542.0" font-size="9.3" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">强度可调</text>
+<text x="782.0" y="566.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">检测率 vs 误唤醒</text>
+<text x="460.0" y="608.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">不改模型参数——纯推理时机制，换词/调灵敏度零重训</text>
+<rect x="36.0" y="626.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="652.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5-15%</text>
+<text x="134.0" y="672.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">偏置带来的检测率绝对增益</text>
+<text x="304.0" y="652.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">&lt;0.5%</text>
+<text x="304.0" y="672.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">WER 增加——ASR 几乎无损</text>
+<text x="474.0" y="652.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~10ms</text>
+<text x="474.0" y="672.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级流式延迟</text>
+<text x="644.0" y="652.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">前缀感知</text>
+<text x="644.0" y="672.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">上下文偏置 &gt; 均匀偏置</text>
+<text x="814.0" y="652.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一个模型</text>
+<text x="814.0" y="672.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ASR + KWS 共存</text>
+<text x="36.0" y="710.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Yanzhang He / Rohit Prabhavalkar / Kanishka Rao / Wei Li / Anton Bakhtin / Ian McGraw（Google）· 2017 · arXiv 1706.02563 · 数千小时内部数据；RNN-T 流式 KWS 化的工业起点</text>
+</svg>
+<div class="cap">图 1 · 机制全景：分立三笔浪费 → RNN-T 三件套架构（CTC + 预测网络破条件独立）→ 关键词偏置四步机制 → 关键数字。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：解码网格与偏置门控</h2>
+<div class="cards">
+<div class="card acc"><h3>RNN-T vs CTC</h3>预测网络引入输出 token 间的条件依赖——「下一个字看已输出什么」，突破 CTC 的条件独立假设。</div>
+<div class="card acc"><h3>偏置机制</h3>目标词 token 的 logits 加正向偏置项——不改参数、纯推理时机制，换词/调灵敏度零重训。</div>
+<div class="card"><h3>上下文感知</h3>已输出序列匹配词前缀时才强偏置；不匹配不偏——避免在无关语境误推关键词。</div>
+<div class="card"><h3>流式三保</h3>单向编码器只看过去 · 逐帧解码 · 帧级 ~10ms 延迟——常开场景达标。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：RNN-T 的网格 · 偏置的上下文门控</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="238.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RNN-T 解码网格</text>
+<rect x="48.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<circle cx="98.0" cy="130.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="142.0" cy="130.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="186.0" cy="130.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="230.0" cy="130.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="274.0" cy="130.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="318.0" cy="130.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="362.0" cy="130.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="98.0" cy="174.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="142.0" cy="174.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="186.0" cy="174.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="230.0" cy="174.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="274.0" cy="174.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="318.0" cy="174.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="362.0" cy="174.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="98.0" cy="218.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="142.0" cy="218.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="186.0" cy="218.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="230.0" cy="218.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="274.0" cy="218.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="318.0" cy="218.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="362.0" cy="218.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="98.0" cy="262.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="142.0" cy="262.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="186.0" cy="262.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="230.0" cy="262.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="274.0" cy="262.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="318.0" cy="262.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<circle cx="362.0" cy="262.0" r="9" fill="#f4f6f9" stroke="#dde2e9"/>
+<line x1="98.0" y1="130.0" x2="142.00" y2="130.00" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="142.0" y1="130.0" x2="142.00" y2="174.00" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="142.0" y1="174.0" x2="186.00" y2="174.00" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="186.0" y1="174.0" x2="230.00" y2="174.00" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="230.0" y1="174.0" x2="230.00" y2="218.00" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="230.0" y1="218.0" x2="274.00" y2="218.00" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="274.0" y1="218.0" x2="318.00" y2="218.00" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="318.0" y1="218.0" x2="318.00" y2="262.00" stroke="#0b6e52" stroke-width="1.8"/>
+<line x1="318.0" y1="262.0" x2="362.00" y2="262.00" stroke="#0b6e52" stroke-width="1.8"/>
+<circle cx="98.0" cy="130.0" r="9" fill="#0b6e52"/>
+<circle cx="142.0" cy="130.0" r="9" fill="#0b6e52"/>
+<circle cx="142.0" cy="174.0" r="9" fill="#0b6e52"/>
+<circle cx="186.0" cy="174.0" r="9" fill="#0b6e52"/>
+<circle cx="230.0" cy="174.0" r="9" fill="#0b6e52"/>
+<circle cx="230.0" cy="218.0" r="9" fill="#0b6e52"/>
+<circle cx="274.0" cy="218.0" r="9" fill="#0b6e52"/>
+<circle cx="318.0" cy="218.0" r="9" fill="#0b6e52"/>
+<circle cx="318.0" cy="262.0" r="9" fill="#0b6e52"/>
+<circle cx="362.0" cy="262.0" r="9" fill="#0b6e52"/>
+<text x="68.0" y="300.0" font-size="8" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">t（音频帧）→</text>
+<text x="78.0" y="118.0" font-size="8" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">u（输出 token）↓</text>
+<text x="248.0" y="326.0" font-size="8.4" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">→：blank（不输出） · ↗：emit（出一个 token）</text>
+<text x="676.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">上下文感知偏置</text>
+<rect x="500.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="516.0" y="116.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">已输出 = "he"</text>
+<text x="516.0" y="132.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">目标词 = "hey google"</text>
+<text x="516.0" y="148.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="164.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ "he" 匹配前缀 →</text>
+<text x="516.0" y="180.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   下一个候选 "y" 获强偏置</text>
+<text x="516.0" y="196.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="212.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">已输出 = "th"</text>
+<text x="516.0" y="228.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 不匹配 → 不偏置</text>
+<text x="516.0" y="244.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   ASR 照常出 "the"</text>
+<text x="516.0" y="260.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="276.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">效果：检测率 +5-15% 绝对</text>
+<text x="516.0" y="292.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">误唤醒远低于均匀偏置</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：RNN-T 的 (t,u) 网格——横向 blank、斜向 emit，一条路径对应一种「何时出什么字」；右：上下文感知偏置——只有匹配前缀时才推关键词 token</text>
+</svg>
+<div class="cap">图 2 · 左：RNN-T 的 (t,u) 网格——横向 blank、斜向 emit，一条路径 = 一种「何时出什么字」；右：上下文感知偏置——「he」匹配前缀才推「y」，「th」不匹配照常出「the」。</div>
+<div class="formula">
+<div class="f">logits'(关键词 token) = logits + bias × 𝟙[已输出匹配前缀]        α(t,u)：帧×token 的累积概率        L = −log Σ α(T,U)</div>
+<div class="why"><b>人话：</b>模型本来就会听写所有的话（ASR）。检测唤醒词时给它开个小灶：每当它已经写出的字正好是唤醒词的开头，就悄悄把「下一个该写的字」的分数加一点——顺着词的拼写一路加，词写完整的概率就上去了；写的字跟唤醒词对不上时一分不加，正常听写不受影响。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果（定性）：偏置强度的甜点</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：偏置强度的甜点 + 双指标共存</text>
+<line x1="36.0" y1="56.0" x2="580.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="276.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">偏置强度：检测率 vs 误唤醒（示意）</text>
+<line x1="116.0" y1="300.0" x2="536.00" y2="300.00" stroke="#8a93a5" stroke-width="0.8"/>
+<line x1="116.0" y1="120.0" x2="116.00" y2="300.00" stroke="#8a93a5" stroke-width="0.8"/>
+<text x="118.0" y="112.0" font-size="8" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">检测率 ↑ / 误唤醒</text>
+<text x="536.0" y="318.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">偏置强度 →</text>
+<path d="M 116.0 262.0 L 216.0 232.0 L 316.0 200.0 L 416.0 178.0 L 516.0 164.0 L 596.0 158.0" fill="none" stroke="#0b6e52" stroke-width="2.2"/>
+<path d="M 116.0 292.0 L 216.0 288.0 L 316.0 280.0 L 416.0 264.0 L 516.0 234.0 L 596.0 200.0" fill="none" stroke="#c0392b" stroke-width="2" stroke-dasharray="6,4"/>
+<text x="536.0" y="150.0" font-size="8.5" fill="#0b6e52" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">检测率</text>
+<text x="536.0" y="192.0" font-size="8.5" fill="#c0392b" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">误唤醒</text>
+<line x1="356.0" y1="120.0" x2="356.0" y2="300.0" stroke="#d97a2b" stroke-width="1.2" stroke-dasharray="4,3"/>
+<text x="356.0" y="112.0" font-size="8.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">甜点</text>
+<text x="712.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">双指标共存</text>
+<rect x="600.0" y="92.0" width="264.0" height="258.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="616.0" y="116.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· KWS：检测率 ≈ 或优于</text>
+<text x="616.0" y="133.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  传统专用系统</text>
+<text x="616.0" y="150.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· ASR：WER 增加 &lt; 0.5%</text>
+<text x="616.0" y="167.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  ——通用转录几乎无损</text>
+<text x="616.0" y="184.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 延迟：帧级 ~10ms</text>
+<text x="616.0" y="201.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 词位置无关：开头/中间/</text>
+<text x="616.0" y="218.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  末尾都能检测</text>
+<text x="616.0" y="235.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="616.0" y="252.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">深编码器：ASR/KWS 双升</text>
+<text x="616.0" y="269.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">但延迟也升——权衡维度</text>
+<text x="36.0" y="392.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（2017 · Google 数千小时内部数据 · WER + 检测率/FA）；曲线为示意走势</text>
+</svg>
+<div class="cap">图 3 · 左：检测率与误唤醒随偏置强度的走势——存在甜点使检测率显著升而误唤醒可接受；右：双指标共存（KWS ≈ 专用系统 · ASR WER &lt;0.5% 代价 · 词位置无关）。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：算力的身价</h2>
+<div class="cards">
+<div class="card bad"><h3>计算成本高</h3>比 DS-CNN 这类专用 KWS 重得多——MCU 跑不动；定位是手机 AP 级算力。</div>
+<div class="card bad"><h3>偏置靠手调</h3>每个词/场景要调强度——发音独特的词少偏、近常见词的要精调。</div>
+<div class="card bad"><h3>困难声学未测</h3>远场 · 强噪声 · 强混响（音箱/车载典型场景）评估不足。</div>
+<div class="card bad"><h3>数据需求大</h3>RNN-T 要大量标注语音——低资源语言/领域难满足。</div>
+<div class="card bad"><h3>偏置不治本</h3>只调概率分布不改声学理解——声学上极像的干扰词仍难区分。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：算力的身价 · 偏置思想的流变</text>
+<line x1="36.0" y1="56.0" x2="580.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">五条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="118.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">计算成本高</text>
+<text x="170.0" y="118.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">比 DS-CNN 这类专用 KWS 重得多——MCU 级设备跑不动；定位是手机 AP 级算力</text>
+<rect x="36.0" y="136.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="156.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">偏置靠手调</text>
+<text x="170.0" y="156.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每个词/场景要调强度——发音独特的词少偏、近常见词的要精调</text>
+<rect x="36.0" y="174.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="194.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">困难声学未测</text>
+<text x="170.0" y="194.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">远场 · 强噪声 · 强混响（音箱/车载典型场景）评估不足</text>
+<rect x="36.0" y="212.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="232.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">数据需求大</text>
+<text x="170.0" y="232.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">RNN-T 要大量标注语音——低资源语言/领域难满足</text>
+<rect x="36.0" y="250.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="270.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">偏置不治本</text>
+<text x="170.0" y="270.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">只调概率分布不改声学理解——声学上极像的干扰词仍难区分</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 免对齐</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">蚂蚁/SNU 2017</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RNN-T 统一 ASR+KWS</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 Google 2017</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Conformer/偏置学习</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2020+</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TDT/MFA 帧异步</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2024-2026</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">偏置思想的流变：推理时 logits 偏置（本文）→ shallow fusion → 训练内偏置学习（把偏置长进模型）；RNN-T 骨架</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">经 Conformer/TDT 一路演进至今——「一个模型同时供 ASR 与唤醒」已是 2020 年代语音助手的事实标准</text>
+</svg>
+<div class="cap">图 4 · 边界五条 + 谱系坐标：偏置思想的流变（推理时 logits 偏置 → shallow fusion → 训练内偏置学习）；RNN-T 骨架经 Conformer/TDT 演进至今——「一个模型同时供 ASR 与唤醒」已是 2020 年代的事实标准。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>统一架构的红利是「共享表示」：ASR 和 KWS 用同一套声学编码——唤醒词检测搭了通用转录的便车，一份算力两份产出；当两个任务共享底层能力时，合并模型比维护两套系统更便宜也更准。</p>
+<p>推理时偏置是零成本的任务倾斜：不改参数、不加模型，只在解码 logits 上动手——「同一个模型，不同的使用偏好」；这种机制让一个部署覆盖多场景（换唤醒词、调灵敏度）而无任何重训。</p>
+<p>上下文门控决定偏置的安全性：均匀偏置会把关键词 token 推进无关语境——前缀匹配门控让偏置只在「有戏」的路径上生效；所有解码时干预技术都要配一个「何时不干预」的条件。</p>
+</div>
+<span class="pill">系列：统一架构 · RNN-T 流式 KWS 的工业起点</span>
+<div class="foot-note">数据与结论来自论文原文（2017 · Google 数千小时内部数据）；曲线为示意。系列内关联：DNN+CTC（others №12）· 在线字符级 RNN-CTC（others №11）· 车载流式 Transformer（2021+）· TDT Token-and-Duration Transducer（2024）· MFA 帧异步解码（2025）。</div>
+</section>
+</div>
+</body>
+</html>
