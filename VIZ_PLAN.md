@@ -1,7 +1,7 @@
 # 可视化精读改写计划（VIZ_PLAN）
 
 按年份倒序把全部论文笔记重写为自包含 HTML+SVG 可视化精读页。每篇：读笔记 → python 生成 4 张 SVG → 注入统一模板 HTML → 校验 → 截图自查 → 提交推送。
-**总进度：285 / 305**
+**总进度：286 / 305**
 
 ## 2026（24 篇）
 **进度：24 / 24**
@@ -302,7 +302,7 @@
 - [x] Training Keyword Spotting Systems with Reverberant Speech
 
 ## 2018（23 篇）
-**进度：20 / 23**
+**进度：21 / 23**
 
 - [x] ASR-free CNN-DTW Keyword Spotting using Multilingual Bottleneck Features for Almost Zero-Resource Languages
 - [x] An Empirical Evaluation of Generic Convolutional and Recurrent Networks for Sequence Modeling
@@ -324,7 +324,7 @@
 - [x] Speech Commands: A Dataset for Limited-Vocabulary Speech Recognition
 - [x] Speech Recognition: Keyword Spotting through Image Recognition
 - [x] Streaming Voice Query Recognition using Causal Convolutional Recurrent Neural Networks
-- [⬜] Visually Grounded Cross-lingual Keyword Spotting in Speech
+- [x] Visually Grounded Cross-lingual Keyword Spotting in Speech
 - [⬜] Weight-Importance Sparse Training in Keyword Spotting
 - [⬜] Zero-shot Keyword Spotting for Visual Speech Recognition in-the-wild
 
