@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>资源高效的神经架构搜索 RENA（百度）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · 2018 №15 · NAS 与自动化</div>
+<h1 class="hero">别搜「最准」，搜「这个预算下最准」：把<span class="g">三重资源惩罚</span>直接写进 NAS 的奖励函数</h1>
+<div class="chips">
+<span class="chip acc">资源约束 NAS（早期代表）</span><span class="chip">网络嵌入 + 策略网络</span><span class="chip">渐进式架构修改</span><span class="chip">计算强度 FLOPs/byte</span><span class="chip">GSC 无约束 SOTA</span>
+</div>
+<div class="meta">
+<b>Resource-Efficient Neural Architect</b> · Zhou / Ebrahimi / Yu / Liu / Arik / Diamos（百度研究院硅谷 AI Lab）· arXiv <a href="https://arxiv.org/abs/1806.07912" style="color:var(--acc)">1806.07912</a>（2018.06）<br>
+一句话：RENA 用 RL 从好基线<b>渐进修改</b>架构，奖励 = 准确率 − λ·（模型大小 / FLOPs / 计算强度三重阶跃惩罚）——约束内自由追准、超预算按量罚：CIFAR-10 与 GSC KWS 双验证，<b>无约束下 GSC 达当时 SOTA，严格约束下胜过手工优化</b>。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：传统 NAS 的资源盲区</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>传统 NAS（Zoph RL / Real 进化）以<b>准确率为唯一目标</b>——搜出的架构计算量巨大，边缘设备根本跑不动。</li>
+<li>约束靠<b>事后过滤</b>：先搜完再剔除违规架构——大量算力浪费在注定违规的候选上。</li>
+<li>搜索空间默认不含 depthwise / 分组卷积——<b>资源高效的操作根本不在候选里</b>。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RENA：把资源约束写进奖励函数——NAS 不再搜「最准」，搜「这个预算下最准」</text>
+<line x1="36.0" y1="60.0" x2="820.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 传统 NAS 的资源盲区</text>
+<rect x="36.0" y="102.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="129.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率是唯一目标</text>
+<text x="240.0" y="129.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Zoph NAS / Real 进化搜索都能找到高准架构——但搜出的模型计算量巨大</text>
+<rect x="36.0" y="152.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="179.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">约束靠事后过滤</text>
+<text x="240.0" y="179.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">先搜完再手动剔除不满足约束的——大量算力浪费在注定违规的架构上</text>
+<rect x="36.0" y="202.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="229.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">搜索空间不友好</text>
+<text x="240.0" y="229.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">默认模块不含 depthwise/分组卷积——资源高效的操作根本不在候选里</text>
+<rect x="36.0" y="252.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="279.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三个指标互相拉扯</text>
+<text x="240.0" y="279.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">模型大小 · FLOPs · 计算强度（FLOPs/byte）之间是复杂权衡，手调顾此失彼</text>
+<text x="36.0" y="320.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② RENA 循环：网络嵌入 + 策略网络 + 三重惩罚</text>
+<rect x="36.0" y="336.0" width="848.0" height="150.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="60.0" y="358.0" width="170.0" height="44.0" rx="8" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="145.0" y="378.0" font-size="9.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">当前架构</text>
+<text x="145.0" y="394.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（从好基线出发）</text>
+<line x1="230.0" y1="380.0" x2="320.00" y2="380.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="320.0" y="358.0" width="190.0" height="44.0" rx="8" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="415.0" y="378.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">网络嵌入（编码）</text>
+<text x="415.0" y="394.0" font-size="7.6" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">层类型/参数量/感受野…</text>
+<line x1="510.0" y1="380.0" x2="600.00" y2="380.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="600.0" y="358.0" width="150.0" height="44.0" rx="8" fill="#fde9d8" stroke="#e0b880" stroke-width="1"/>
+<text x="675.0" y="378.0" font-size="9.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">策略网络</text>
+<text x="675.0" y="394.0" font-size="7.6" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">LSTM · REINFORCE</text>
+<line x1="675.0" y1="402.0" x2="675.00" y2="428.00" stroke="#8a93a5" stroke-width="1.2"/>
+<text x="700.0" y="420.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">提议修改（加层/删层/改参）</text>
+<rect x="60.0" y="432.0" width="690.0" height="36.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="415.0" y="455.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">评估 = Accuracy − λ₁·Pen(Size) − λ₂·Pen(FLOPs) − λ₃·Pen(Intensity)，Pen(x) = max(0, x − x_target)</text>
+<text x="36.0" y="510.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 渐进式 vs 从零搜索</text>
+<rect x="36.0" y="526.0" width="416.0" height="92.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="550.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">渐进式（本文）</text>
+<text x="52.0" y="574.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 从已知好架构出发 · 每次小步修改</text>
+<text x="52.0" y="591.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 起点合理 · 跳跃小 · 可复用基线加速评估</text>
+<rect x="468.0" y="526.0" width="416.0" height="92.0" rx="10" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="676.0" y="550.0" font-size="10.5" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">从零搜索（传统）</text>
+<text x="484.0" y="574.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 随机初始化 · 离散大跳跃</text>
+<text x="484.0" y="591.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 搜索空间有效规模大 · 收敛慢</text>
+<rect x="36.0" y="650.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="676.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3 个</text>
+<text x="134.0" y="696.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">可解释资源指标入奖励</text>
+<text x="304.0" y="676.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC SOTA</text>
+<text x="304.0" y="696.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">无约束下达当时最优</text>
+<text x="474.0" y="676.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">胜手工</text>
+<text x="474.0" y="696.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">严格约束下优于手调</text>
+<text x="644.0" y="676.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CIFAR+KWS</text>
+<text x="644.0" y="696.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">双领域验证</text>
+<text x="814.0" y="676.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">非直觉组合</text>
+<text x="814.0" y="696.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">DSConv+skip 被搜出</text>
+<text x="36.0" y="734.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Yanqi Zhou / Siavash Ebrahimi / Haonan Yu / Hairong Liu / Sercan O. Arik / Greg Diamos（百度研究院硅谷 AI Lab）· arXiv 1806.07912（2018.06）；早期 NAS × KWS 的代表作出处</text>
+</svg>
+<div class="cap">图 1 · 机制全景：NAS 资源盲区四条 → RENA 循环（网络嵌入 → 策略网络 → 三重惩罚评估）→ 渐进式 vs 从零搜索 → 结果速览。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：三个指标各管一段物理预算</h2>
+<div class="cards">
+<div class="card acc"><h3>模型大小</h3>参数字节总数——管存储与内存预算（嵌入式设备的第一道墙）。</div>
+<div class="card acc"><h3>计算复杂度 FLOPs</h3>浮点运算次数——延迟与功耗的代理指标。</div>
+<div class="card acc"><h3>计算强度 FLOPs/byte</h3>计算与访存的比例——高强度架构更适合 GPU/TPU 并行，低强度适合缓存友好的 CPU。</div>
+<div class="card"><h3>网络嵌入</h3>把架构编码成定长向量（层类型/参数量/感受野…）——让策略网络「看得懂」当前架构的全局结构再动手。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：三个资源指标各管什么 · 惩罚怎么起作用</text>
+<line x1="36.0" y1="56.0" x2="640.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="248.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三指标的物理含义</text>
+<rect x="48.0" y="92.0" width="420.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="64.0" y="110.0" width="388.0" height="64.0" rx="8" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="80.0" y="136.0" font-size="10" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">模型大小</text>
+<text x="80.0" y="156.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">存储与内存预算</text>
+<text x="438.0" y="136.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">参数字节总数</text>
+<rect x="64.0" y="186.0" width="388.0" height="64.0" rx="8" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="80.0" y="212.0" font-size="10" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">计算复杂度 FLOPs</text>
+<text x="80.0" y="232.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">延迟与功耗的代理</text>
+<text x="438.0" y="212.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">浮点运算次数</text>
+<rect x="64.0" y="262.0" width="388.0" height="64.0" rx="8" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="80.0" y="288.0" font-size="10" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">计算强度 FLOPs/byte</text>
+<text x="80.0" y="308.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">高 → 适合 GPU/TPU 并行</text>
+<text x="438.0" y="288.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">计算 vs 访存的比例</text>
+<text x="258.0" y="340.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">三个指标不同向——只优化一个会牺牲另两个</text>
+<text x="664.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">阶跃惩罚与 KWS 适配</text>
+<rect x="500.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="516.0" y="118.0" font-size="9.3" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Pen(x) = max(0, x − x_target)</text>
+<text x="516.0" y="140.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 预算内 → 零惩罚，准确率说了算</text>
+<text x="516.0" y="156.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 预算外 → 超多少罚多少，推着搜索回来</text>
+<text x="516.0" y="172.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="188.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 适配（GSC · 12 类标准评估）：</text>
+<text x="516.0" y="204.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 搜索空间换 1D 时间卷积</text>
+<text x="516.0" y="220.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· log-mel 输入 · 10 词+未知+静音</text>
+<text x="516.0" y="236.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 资源约束按嵌入式设备实际设定</text>
+<text x="516.0" y="252.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="268.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">搜索空间含：标准卷积(1/3/5/7) ·</text>
+<text x="516.0" y="284.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">depthwise · 分组卷积 · 池化 · 跳连</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：三指标的物理含义——大小管存储、FLOPs 管延迟功耗、强度管硬件匹配度；右：阶跃惩罚只在超预算时生效，搜索在预算内自由追求准确率</text>
+</svg>
+<div class="cap">图 2 · 左：三指标的物理含义；右：阶跃惩罚 Pen(x)=max(0, x−x_target) 只在超预算时生效 + KWS 适配（1D 时间卷积搜索空间 · GSC 12 类）。</div>
+<div class="formula">
+<div class="f">R = Accuracy − λ₁·Pen(Size) − λ₂·Pen(FLOPs) − λ₃·Pen(Intensity)        Pen(x) = max(0, x − x_target)</div>
+<div class="why"><b>人话：</b>给架构打分时先看准不准，再看有没有超预算——三项资源各设一条线，超了就按超出量扣分。预算内的架构随便卷准确率，预算外的会被推回可行区。这样搜索全程只在「装得下、跑得动」的架构里找最好的。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果：双领域验证</h2>
+<table class="tb">
+<tr><th>验证</th><th>约束条件</th><th>结果</th></tr>
+<tr><td>CIFAR-10</td><td>计算强度 &gt; 100 FLOPs/byte</td><td>错误率 2.95%</td></tr>
+<tr><td>CIFAR-10</td><td>参数量 &lt; 3M</td><td>错误率 3.87%</td></tr>
+<tr class="hl"><td>GSC KWS</td><td>无约束</td><td>当时 SOTA 准确率</td></tr>
+<tr class="hl"><td>GSC KWS</td><td>严格资源约束</td><td>优于手动优化架构</td></tr>
+</table>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：双领域验证 + 约束下的优越性</text>
+<line x1="36.0" y1="56.0" x2="540.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="48.0" y="84.0" width="170.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="133.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">验证</text>
+<rect x="218.0" y="84.0" width="300.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="368.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">约束条件</text>
+<rect x="518.0" y="84.0" width="360.0" height="34.0" rx="0" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="698.0" y="106.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">结果</text>
+<rect x="48.0" y="118.0" width="170.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="133.0" y="144.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CIFAR-10</text>
+<rect x="218.0" y="118.0" width="300.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="368.0" y="144.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">计算强度 > 100 FLOPs/byte</text>
+<rect x="518.0" y="118.0" width="360.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="698.0" y="144.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">错误率 2.95%</text>
+<rect x="48.0" y="160.0" width="170.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="133.0" y="186.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CIFAR-10</text>
+<rect x="218.0" y="160.0" width="300.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="368.0" y="186.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量 < 3M</text>
+<rect x="518.0" y="160.0" width="360.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="698.0" y="186.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">错误率 3.87%</text>
+<rect x="48.0" y="202.0" width="170.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="133.0" y="228.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC KWS</text>
+<rect x="218.0" y="202.0" width="300.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="368.0" y="228.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">无约束</text>
+<rect x="518.0" y="202.0" width="360.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="698.0" y="228.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">当时 SOTA 准确率</text>
+<rect x="48.0" y="244.0" width="170.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="133.0" y="270.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC KWS</text>
+<rect x="218.0" y="244.0" width="300.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="368.0" y="270.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">严格资源约束</text>
+<rect x="518.0" y="244.0" width="360.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="698.0" y="270.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">优于手动优化架构</text>
+<text x="36.0" y="302.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">搜索效率：渐进式比从零搜索收敛快；策略网络几百次迭代即可发现高质量架构</text>
+<text x="36.0" y="324.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">被搜出的架构：depthwise 可分离卷积 + 跳跃连接的非直觉组合——人力难枚举</text>
+<text x="36.0" y="388.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（arXiv 1806.07912 · 百度）；GSC 具体 KWS 准确率数值披露有限，结论为论文定性表述</text>
+</svg>
+<div class="cap">图 3 · 四行结果表 + 搜索效率与被搜出架构的性质（depthwise + 跳连的非直觉组合——人力难枚举）。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：RL-NAS 贵时代的局限</h2>
+<div class="cards">
+<div class="card bad"><h3>RL 搜索贵</h3>GPU 天级别搜索成本——渐进式已降低但仍属 DARTS 之前的「贵」时代。</div>
+<div class="card bad"><h3>搜索空间受限</h3>预定义模块——注意力/Transformer 不在候选里，天花板由空间决定。</div>
+<div class="card bad"><h3>局部最优风险</h3>渐进小步修改可能困在基线附近——完全不同的架构模式发现不了。</div>
+<div class="card bad"><h3>缺真机延迟</h3>优化的是 FLOPs 代理而非实测延迟——硬件感知延迟模型留给后继。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：RL-NAS 的成本时代 · KWS 架构自动化的起点</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RL 搜索贵</text>
+<text x="190.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">GPU 天级别的搜索成本——渐进式已降低但仍属「贵」时代（DARTS 之前）</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">搜索空间受限</text>
+<text x="190.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">预定义模块——注意力/Transformer 不在候选里，天花板由空间决定</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">局部最优风险</text>
+<text x="190.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">渐进小步修改可能困在基线附近——完全不同的架构模式发现不了</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">缺真机延迟</text>
+<text x="190.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">优化的是 FLOPs 代理而非实测延迟——硬件感知延迟模型留给后继</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">NAS RL 时代</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Zoph 2017</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">资源约束 NAS</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">RENA 本文 2018</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DARTS 可微分</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">AutoKWS 2020 №2</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">硬件感知 NAS</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2020+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">历史位置：RENA 属「RL-NAS 贵但正确」时代——资源入奖励的思想被全部后继继承；搜索效率问题由 DARTS 系（可微分）与代理模型解决；</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">FLOPs 代理与真实延迟的落差由硬件感知 NAS 收尾。KWS 侧的后续：AutoKWS DARTS（2020 №2）· SANAS（2019 №18）· TNT 的 NAS 展望（2019 №21）</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：RL-NAS 时代 → 资源约束 NAS（本文）→ DARTS 可微分（AutoKWS 2020 №2 / SANAS 2019 №18）→ 硬件感知 NAS；资源入奖励的思想被全部后继继承。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>约束要进目标函数而不是进过滤器：事后过滤把算力浪费在违规架构上，内嵌惩罚让搜索全程只在可行域内探索——「预算内自由、超预算按量罚」的阶跃设计是把约束翻译成优化语言的干净写法。</p>
+<p>计算强度是常被忽略的第三维度：大小管存储、FLOPs 管延迟，FLOPs/byte 管硬件匹配度——同一个 FLOPs 数在 GPU（吃高强度）和 MCU（吃缓存友好）上是两个架构方向，跨硬件部署要三把尺子一起量。</p>
+<p>渐进式搜索是「带着知识出发」：从已知好架构小步修改，起点合理、跳跃小、还能复用基线加速评估——搜索空间大时，初始点的质量本身就是最大的搜索加速器。</p>
+</div>
+<span class="pill">系列：NAS 与自动化 · 资源约束进奖励函数的起点</span>
+<div class="foot-note">数据与结论来自论文原文（arXiv 1806.07912 · 百度）；GSC 具体 KWS 准确率数值披露有限。系列内关联：SANAS 随机自适应（2019 №18）· AutoKWS DARTS（2020 №2）· TNT 的 NAS 展望（2019 №21）· 硬件感知 QAT（2020 №8）。</div>
+</section>
+</div>
+</body>
+</html>
