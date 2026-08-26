@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>多语言瓶颈特征的 ASR-free 零资源 KWS（CNN-DTW）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · 2018 №2 · 零资源与人道主义</div>
+<h1 class="hero">借 10 种语言的「语音常识」：1920 个孤立词样本，搭起联合国 crisis 场景的<span class="g">零资源关键词检测</span></h1>
+<div class="chips">
+<span class="chip acc">多语言瓶颈特征 BNF</span><span class="chip">DTW 伪标签弱监督</span><span class="chip">CNN 快速搜索</span><span class="chip">ROC AUC +10.9%</span><span class="chip">ASR-free</span>
+</div>
+<div class="meta">
+<b>ASR-free CNN-DTW Keyword Spotting using Multilingual Bottleneck Features for Almost Zero Resource Languages</b> · Menon / Kamper / Yilmaz / Quinn / Niesler（Stellenbosch · Radboud · NUS · 联合国全球脉搏实验室）· arXiv <a href="https://arxiv.org/abs/1807.08666" style="color:var(--acc)">1807.08666</a>（2018.07）<br>
+一句话：在 10 种语言上联合训练 DNN 取<b>瓶颈层特征</b>，用 DTW 距离当<b>伪标签</b>训 CNN 检测器——不需要 ASR、词典、语言模型，ROC AUC 比 MFCC 基线绝对提升 <b>10.9%</b>，搜索速度比 DTW 快出量级。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：天数级的危机响应，撞上学年级的 ASR 开发周期</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>联合国危机响应要<b>数天到数周</b>内在语音数据里检出「食物 / 水 / 医疗」——传统 ASR 要标注 + 词典 + 语言模型，周期数月到数年。</li>
+<li>非洲 2000+ 种语言<b>没有标注语料</b>——传统路线在目标语言上直接不可行。</li>
+<li>可用家当只有：<b>1920 个孤立关键词样本</b> + 大量未标注连续语音；DTW 能用但 MFCC 上又慢又脆。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">零资源 KWS：借 10 种语言的「语音常识」，只用 1920 个孤立词样本建起检测器</text>
+<line x1="36.0" y1="60.0" x2="800.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 联合国的人道主义约束：天数级响应 vs 年级开发周期</text>
+<rect x="36.0" y="102.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="129.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2000+ 种语言无资源</text>
+<text x="262.0" y="129.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">非洲绝大多数语言没有标注语料、没有 ASR——传统路线直接不可行</text>
+<rect x="36.0" y="152.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="179.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">危机响应只要数天到数周</text>
+<text x="262.0" y="179.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">传统 ASR 开发要数月到数年（标注+词典+语言模型）——时间窗口完全错配</text>
+<rect x="36.0" y="202.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="229.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DTW 模板匹配慢且脆</text>
+<text x="262.0" y="229.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">MFCC 上做 DTW 跨说话人/噪声鲁棒性差；O(N×M) 复杂度扫不动大规模音频档案</text>
+<rect x="36.0" y="252.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="279.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">可用家当只有一点</text>
+<text x="262.0" y="279.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">1920 个孤立关键词样本 + 大量未标注连续语音——这就是全部</text>
+<text x="36.0" y="320.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 三段式流水线：BNF 提特征 → DTW 造标签 → CNN 做搜索</text>
+<rect x="36.0" y="338.0" width="264.0" height="130.0" rx="12" fill="#eef6f1" stroke="#ffffff" stroke-width="2"/>
+<text x="168.0" y="362.0" font-size="12" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 多语言 BNF</text>
+<text x="168.0" y="386.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10 语言联合 DNN</text>
+<text x="168.0" y="406.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">瓶颈层 42 维</text>
+<text x="168.0" y="426.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">音素分类训练</text>
+<text x="312.0" y="410.0" font-size="14" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="324.0" y="338.0" width="264.0" height="130.0" rx="12" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="456.0" y="362.0" font-size="12" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② DTW 伪标签</text>
+<text x="456.0" y="386.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">少量模板 + 未标注音频</text>
+<text x="456.0" y="406.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">距离当软标签</text>
+<text x="456.0" y="426.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">粗糙但够用</text>
+<text x="600.0" y="410.0" font-size="14" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="612.0" y="338.0" width="264.0" height="130.0" rx="12" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="744.0" y="362.0" font-size="12" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ CNN 检测器</text>
+<text x="744.0" y="386.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">BNF 输入 · 回归训练</text>
+<text x="744.0" y="406.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">前向固定复杂度</text>
+<text x="744.0" y="426.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">大规模快速搜索</text>
+<text x="36.0" y="500.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 为什么多语言瓶颈特征有效</text>
+<rect x="36.0" y="516.0" width="848.0" height="62.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="540.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">不同语言共享底层声学结构（共振峰模式 · 发声方式）——10 语言混训让瓶颈层只留下「语音本身」的判别信息，抹掉单一语言的私货</text>
+<text x="52.0" y="557.0" font-size="9.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">瓶颈维度 42 是甜点：太小丢信息，太大降泛化——维度约束本身就是正则化</text>
+<rect x="36.0" y="612.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="638.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+10.9%</text>
+<text x="134.0" y="658.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ROC AUC 绝对提升</text>
+<text x="304.0" y="638.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">10 语言 &gt; 2 语言</text>
+<text x="304.0" y="658.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">源语言越多越好</text>
+<text x="474.0" y="638.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN ≫ DTW</text>
+<text x="474.0" y="658.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">搜索速度快数量级</text>
+<text x="644.0" y="638.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1920</text>
+<text x="644.0" y="658.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">孤立词样本起步</text>
+<text x="814.0" y="638.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">零 ASR</text>
+<text x="814.0" y="658.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">不需要词典/语言模型</text>
+<text x="36.0" y="696.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Menon / Kamper / Yilmaz / Quinn / Niesler（Stellenbosch · Radboud · NUS · 联合国全球脉搏实验室）· arXiv 1807.08666（2018.07）· NCHLT 语料 · 系列语境：多语言预训练特征的 KWS 先声</text>
+</svg>
+<div class="cap">图 1 · 机制全景：人道主义四重约束 → 三段式流水线（BNF 特征 → DTW 伪标签 → CNN 搜索）→ 多语言有效的原理 → 结果速览。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：瓶颈层借常识，DTW 造标签，CNN 提速度</h2>
+<div class="cards">
+<div class="card acc"><h3>多语言 BNF 提取器</h3>10 语言混合训练 DNN 做音素分类，瓶颈层压到 42 维——只留跨语言通用的语音判别信息，训练完掐掉输出层即得特征。</div>
+<div class="card acc"><h3>DTW 伪标签</h3>少量参考模板与海量未标注音频算 DTW 距离，距离当软标签——粗糙、含噪，但提供了足够的监督信号。</div>
+<div class="card"><h3>CNN 检测器</h3>输入 BNF（不是 MFCC），以 DTW 距离为目标回归训练——前向固定复杂度，扫档案速度与音频长度线性。</div>
+<div class="card"><h3>分工逻辑</h3>DTW 出监督（不依赖标注），CNN 出速度（可大规模部署）——两者互补，缺一不可。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：瓶颈层怎么「借」十种语言的语音常识</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="233.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多语言 BNF 提取器</text>
+<rect x="48.0" y="92.0" width="390.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="68.0" y="108.0" width="30.0" height="20.0" rx="4" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="83.0" y="122.0" font-size="8.2" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">EN</text>
+<rect x="104.0" y="108.0" width="30.0" height="20.0" rx="4" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="119.0" y="122.0" font-size="8.2" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ZH</text>
+<rect x="140.0" y="108.0" width="30.0" height="20.0" rx="4" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="155.0" y="122.0" font-size="8.2" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PT</text>
+<rect x="176.0" y="108.0" width="30.0" height="20.0" rx="4" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="191.0" y="122.0" font-size="8.2" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RU</text>
+<rect x="212.0" y="108.0" width="30.0" height="20.0" rx="4" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="227.0" y="122.0" font-size="8.2" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TR</text>
+<rect x="248.0" y="108.0" width="30.0" height="20.0" rx="4" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="263.0" y="122.0" font-size="8.2" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">VI</text>
+<rect x="284.0" y="108.0" width="30.0" height="20.0" rx="4" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="299.0" y="122.0" font-size="8.2" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">HW</text>
+<rect x="320.0" y="108.0" width="30.0" height="20.0" rx="4" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="335.0" y="122.0" font-size="8.2" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FR</text>
+<rect x="356.0" y="108.0" width="30.0" height="20.0" rx="4" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="371.0" y="122.0" font-size="8.2" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DE</text>
+<rect x="392.0" y="108.0" width="30.0" height="20.0" rx="4" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="407.0" y="122.0" font-size="8.2" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ES</text>
+<text x="243.0" y="146.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">10 种资源丰富语言 · 混合训练</text>
+<line x1="243.0" y1="152.0" x2="243.00" y2="164.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="143.0" y="170.0" width="200.0" height="24.0" rx="6" fill="#f4f6f9" stroke="#ffffff" stroke-width="1.5"/>
+<text x="243.0" y="186.0" font-size="8.2" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MFCC 输入</text>
+<rect x="155.0" y="204.0" width="176.0" height="24.0" rx="6" fill="#e8edf5" stroke="#ffffff" stroke-width="1.5"/>
+<text x="243.0" y="220.0" font-size="8.2" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">隐层 ×2</text>
+<rect x="167.0" y="238.0" width="152.0" height="24.0" rx="6" fill="#cfe9de" stroke="#ffffff" stroke-width="1.5"/>
+<text x="243.0" y="254.0" font-size="8.2" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">瓶颈层 42 维</text>
+<rect x="155.0" y="272.0" width="176.0" height="24.0" rx="6" fill="#e8edf5" stroke="#ffffff" stroke-width="1.5"/>
+<text x="243.0" y="288.0" font-size="8.2" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">隐层</text>
+<rect x="179.0" y="306.0" width="128.0" height="24.0" rx="6" fill="#fde9d8" stroke="#ffffff" stroke-width="1.5"/>
+<text x="243.0" y="322.0" font-size="8.2" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">各语言音素输出（分头）</text>
+<text x="243.0" y="344.0" font-size="8.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练完掐掉输出层 → 瓶颈层输出就是 BNF 特征</text>
+<text x="649.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">弱监督：DTW 造标签 → CNN 加速</text>
+<rect x="466.0" y="92.0" width="366.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="480.0" y="118.0" font-size="9.2" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DTW 伪标签（慢 · 脆 · 可用）</text>
+<text x="488.0" y="136.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 少量关键词参考模板（1920 孤立词）</text>
+<text x="488.0" y="152.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 与海量未标注音频算 DTW 距离</text>
+<text x="488.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 距离 → 软标签：越近越可能含目标词</text>
+<line x1="649.0" y1="196.0" x2="649.00" y2="212.00" stroke="#8a93a5" stroke-width="1.2"/>
+<text x="480.0" y="232.0" font-size="9.2" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN 检测器（快 · 稳 · 可部署）</text>
+<text x="488.0" y="250.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输入 = BNF 特征（不是 MFCC）</text>
+<text x="488.0" y="266.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 以 DTW 距离为目标做回归训练</text>
+<text x="488.0" y="282.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 前向固定复杂度——扫档案速度线性</text>
+<text x="488.0" y="298.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 还能学到 DTW 抓不住的高层模式</text>
+<text x="649.0" y="328.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DTW 出监督，CNN 出速度——各取所长</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：10 语言混训的 DNN，瓶颈层被压到 42 维——只保留跨语言通用的语音判别信息。右：DTW 伪标签虽噪但够用，CNN 学着复刻 DTW 的判断并跑得飞快</text>
+</svg>
+<div class="cap">图 2 · 左：10 语言混训 DNN 的结构——瓶颈层 42 维是甜点（太小丢信息，太大降泛化）；右：DTW 伪标签的生成与 CNN 的加速逻辑。</div>
+<div class="formula">
+<div class="f">D_DTW(template, audio) → soft label        CNN(BNF(audio)) ≈ D_DTW        复杂度 O(N×M) → O(N)</div>
+<div class="why"><b>人话：</b>先用笨办法（DTW 逐段对齐）给海量音频打「像不像关键词」的分，再让 CNN 学会秒算这个分。训练完 CNN 就把 DTW 的判断力继承下来，速度却快了一个量级——老师慢而准，学生快而会。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果：特征阶梯单调上升</h2>
+<table class="tb">
+<tr><th>特征</th><th>ROC AUC</th><th>绝对提升</th></tr>
+<tr><td>MFCC 基线</td><td>~0.79</td><td>—</td></tr>
+<tr><td>2 语言 BNF</td><td>~0.83</td><td>+4%</td></tr>
+<tr class="hl"><td>10 语言 BNF</td><td>~0.90</td><td>+10.9%</td></tr>
+</table>
+<div class="tldr">
+<div class="tt">结果速读</div>
+<ul>
+<li>消融单调：<b>单语言 &lt; 2 语言 &lt; 10 语言</b>——源语言越多，通用语音表示越好。</li>
+<li>泛化性：目标语言<b>不在</b> 10 种源语言中仍有显著提升——语音重叠度（共享音素比例）影响幅度。</li>
+<li>速度：CNN 前向固定复杂度 vs DTW 的 O(N×M)——档案级搜索从「扫不动」变「线性扫」。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：特征质量阶梯 + 搜索速度的量级差</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="246.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ROC AUC：特征阶梯（NCHLT）</text>
+<text x="60.0" y="131.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MFCC 基线</text>
+<rect x="172.0" y="116.0" width="216.0" height="24.0" rx="5" fill="#c9d8e8"/>
+<text x="398.0" y="133.0" font-size="10" fill="#c9d8e8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.79 </text>
+<text x="60.0" y="197.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2 语言 BNF</text>
+<rect x="172.0" y="182.0" width="312.0" height="24.0" rx="5" fill="#9fc8b8"/>
+<text x="494.0" y="199.0" font-size="10" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.83 +4%</text>
+<text x="60.0" y="263.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">10 语言 BNF</text>
+<rect x="172.0" y="248.0" width="480.0" height="24.0" rx="5" fill="#0b6e52"/>
+<text x="662.0" y="265.0" font-size="10" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.90 +10.9%</text>
+<text x="60.0" y="328.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">阶梯单调：单语 &lt; 2 语言 &lt; 10 语言——源语言</text>
+<text x="60.0" y="346.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">越多，通用语音表示越好（消融一致）</text>
+<text x="662.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN vs DTW：搜索复杂度</text>
+<rect x="500.0" y="92.0" width="324.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="514.0" y="118.0" font-size="9.2" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DTW 直接搜索</text>
+<rect x="514.0" y="128.0" width="296.0" height="30.0" rx="6" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="662.0" y="148.0" font-size="8.2" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">O(N × M)：音频长 × 模板长——档案级数据扫不动</text>
+<text x="514.0" y="184.0" font-size="9.2" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CNN 检测器搜索</text>
+<rect x="514.0" y="194.0" width="296.0" height="30.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="662.0" y="214.0" font-size="8.2" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">前向固定复杂度——时间与音频长度线性相关</text>
+<text x="514.0" y="248.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">附加收益：</text>
+<text x="522.0" y="266.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· CNN 学到 DTW 抓不住的高层声学模式</text>
+<text x="522.0" y="282.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 泛化性：目标语言不在 10 语言中也有提升</text>
+<text x="522.0" y="298.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 语音重叠度（共享音素比例）影响迁移幅度</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文实验（arXiv 1807.08666）；MFCC/2 语言/10 语言 BNF 的 AUC 约 0.79 / 0.83 / 0.90（+10.9% 绝对提升），数值为笔记记录的近似原表值</text>
+</svg>
+<div class="cap">图 3 · 左：三种特征的 ROC AUC 阶梯；右：CNN 与 DTW 的搜索复杂度对比及 CNN 的附加收益。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：在富资源语言上验证的「零资源」方法</h2>
+<div class="cards">
+<div class="card bad"><h3>评估语言的讽刺</h3>方法面向零资源，但实验在南非英语（资源丰富）上做——真正低资源非洲语言的效果待验证。</div>
+<div class="card bad"><h3>伪标签噪声传播</h3>DTW 会误判相似非目标词、漏掉说话人变异的目标词——噪声一路传进 CNN。</div>
+<div class="card bad"><h3>语音重叠度依赖</h3>目标语言与源语言差太大（如含搭嘴音的非洲语言）时迁移效果打折。</div>
+<div class="card bad"><h3>BNF 预训练成本</h3>10 语言 DNN 联合训练需要公开但量大的数据 + 一次性工程投入。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：在富资源语言上验证的「零资源」方法</text>
+<line x1="36.0" y1="56.0" x2="640.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">评估语言的讽刺</text>
+<text x="215.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">方法面向零资源，但实验在南非英语（资源丰富）上做——真正的低资源非洲语言效果待验证</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">伪标签的噪声传播</text>
+<text x="215.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">DTW 会把相似非目标词误判、会因说话人变异漏掉目标词——噪声一路传进 CNN</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">语音重叠度依赖</text>
+<text x="215.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">目标语言与源语言差太大（如含搭嘴音的非洲语言）时迁移效果打折</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">BNF 预训练成本</text>
+<text x="215.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">10 语言 DNN 联合训练需要公开但量大的数据 + 一次性工程投入</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">MFCC + DTW</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">query-by-example</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多语言 BNF</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 2018</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CAE / 无监督</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">子词发现 2018+</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">wav2vec / XLSR</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">自监督 2020+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">承接：把 query-by-example 的 DTW 路线升级为「预训练特征 + 弱监督」；传递：多语言知识迁移的思想被 wav2vec 2.0 / XLSR 等自监督多语言预训练全面验证——</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">今天做低资源 KWS 的默认起手式（SSL 特征 + 少量微调）正是这条线的延长。联合国全球脉搏项目则示范了 KWS 的社会价值维度</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：从 MFCC+DTW 的 query-by-example 到多语言 BNF，再到 CAE/无监督子词发现与 wav2vec/XLSR 自监督预训练（2020+）。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>低资源的第一杠杆是借别人的资源：多语言瓶颈特征证明「语音常识」可跨语言迁移——今天 wav2vec/XLSR 多语言预训练成为低资源 KWS 默认起手式，正是这条线的延长。</p>
+<p>弱监督的正确姿势是「慢而准的老师教快而快的学生」：DTW 出标签、CNN 出速度——当标注贵而算力便宜时，用可复现的旧方法造伪标签、让深度网络蒸馏它，是通用套路。</p>
+<p>零资源方法必须在真零资源上评估：本文在英语上验证留了口子——「面向 X 的方法在非 X 上验证」是低资源领域的常见方法论缺口，读这类论文要先看评估语言。</p>
+</div>
+<span class="pill">系列：零资源与多语言迁移 · query-by-example 升级线</span>
+<div class="foot-note">数据与结论来自论文原文（arXiv 1807.08666）；AUC 数值为笔记记录的近似原表值。系列内关联：CSKS 原型+度量迁移（2019 №13）· QbE 探索（2019 №14 RPN）· SSL 预训练特征在端侧 KWS 的应用（2021+）。</div>
+</section>
+</div>
+</body>
+</html>
