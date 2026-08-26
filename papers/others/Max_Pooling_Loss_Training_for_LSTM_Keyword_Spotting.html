@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Max-Pooling Loss 训练 LSTM KWS（Amazon 2017）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · others №9 · 训练目标设计</div>
+<h1 class="hero">别逼每帧都对：让最会认的那帧替整段说话，漏检率相对砍 <span class="g">67.6%</span></h1>
+<div class="chips">
+<span class="chip acc">max 池化话语级损失</span><span class="chip">免帧级对齐</span><span class="chip">max &gt; mean 池化</span><span class="chip">0 新参数</span><span class="chip">ROC 全操作点优</span>
+</div>
+<div class="meta">
+<b>Max-Pooling Loss Training for LSTM Keyword Spotting</b> · Ming Sun / Anirudh Raju / George Tucker / Sankaran Panchapagesan 等（Amazon Alexa）· 2017 · arXiv <a href="https://arxiv.org/abs/1706.02207" style="color:var(--acc)">1706.02207</a><br>
+一句话：帧级交叉熵逐帧优化，但评估只看「整段含不含词」——<b>max 池化把 T 帧概率聚成一个话语级分数</b>再算 BCE：只需话语标签（免帧级对齐）、0 新参数，漏检率 AUC 相对降 <b>67.6%</b>，max 显著优于 mean。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：帧级训练 vs 话语级评估的错位</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>评估只关心「这段音频含不含关键词」——<b>话语级二元判断</b>；训练却在逐帧优化分类——代理目标 ≠ 真目标。</li>
+<li>辨识信息集中在少数帧（音素边界）——<b>其余帧本来就不该扛指标</b>。</li>
+<li>帧级标注（对齐）还贵且易错——话语级标签便宜得多。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Max-Pooling Loss：别逼每帧都对——让最会认的那一帧替整段说话</text>
+<line x1="36.0" y1="60.0" x2="780.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 帧级训练 vs 话语级评估的错位</text>
+<rect x="36.0" y="102.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="129.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">评估只看整段</text>
+<text x="230.0" y="129.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 只关心「这段音频含不含关键词」——话语级二元判断</text>
+<rect x="36.0" y="152.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="179.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练却逐帧优化</text>
+<text x="230.0" y="179.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级交叉熵要求每一帧都分类对——代理目标不是真目标</text>
+<rect x="36.0" y="202.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="229.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">关键信息不均匀</text>
+<text x="230.0" y="229.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">辨识信息集中在少数帧（音素边界）——其余帧本来就不该扛指标</text>
+<rect x="36.0" y="252.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="279.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级标注还贵</text>
+<text x="230.0" y="279.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">需要帧-标签对齐——标注成本高且易错</text>
+<text x="36.0" y="320.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 解法：max 聚合 + 话语级损失</text>
+<rect x="36.0" y="336.0" width="848.0" height="138.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="70.0" y="356.0" width="240.0" height="96.0" rx="10" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="190.0" y="380.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LSTM 逐帧</text>
+<text x="190.0" y="404.0" font-size="8.7" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每帧出关键词后验</text>
+<text x="190.0" y="422.0" font-size="8.7" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">p_1 … p_T</text>
+<text x="320.0" y="406.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="340.0" y="356.0" width="240.0" height="96.0" rx="10" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="460.0" y="380.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">max 池化</text>
+<text x="460.0" y="404.0" font-size="8.7" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">p_utt = max(p_1…p_T)</text>
+<text x="460.0" y="422.0" font-size="8.7" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">选最强信号当检测分</text>
+<text x="590.0" y="406.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="610.0" y="356.0" width="240.0" height="96.0" rx="10" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="730.0" y="380.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">话语级 BCE</text>
+<text x="730.0" y="404.0" font-size="8.7" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">只用整段标签 y∈{0,1}</text>
+<text x="730.0" y="422.0" font-size="8.7" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">梯度回到最大帧</text>
+<text x="460.0" y="470.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">直觉：词在 → 至少有一帧会高置信；词不在 → 所有帧都该低——max 天然编码这个逻辑</text>
+<text x="36.0" y="496.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 正负样本的两个方向</text>
+<rect x="36.0" y="512.0" width="416.0" height="100.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="536.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">正样本（含词）</text>
+<text x="52.0" y="560.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 只需最关键帧（如词尾）高置信即可</text>
+<text x="52.0" y="578.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 不要求每一帧都高——聚焦最强判别段</text>
+<rect x="468.0" y="512.0" width="416.0" height="100.0" rx="10" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="676.0" y="536.0" font-size="10.5" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">负样本（不含词）</text>
+<text x="484.0" y="560.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· max 会放大任何一帧的高概率</text>
+<text x="484.0" y="578.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 逼所有帧都压低——天然防漏放</text>
+<rect x="36.0" y="632.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="658.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−67.6%</text>
+<text x="134.0" y="678.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">漏检率相对降低</text>
+<text x="304.0" y="658.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0 新参数</text>
+<text x="304.0" y="678.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">只加一个 max 操作</text>
+<text x="474.0" y="658.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">免帧级对齐</text>
+<text x="474.0" y="678.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">话语标签就够</text>
+<text x="644.0" y="658.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">胜 mean 池化</text>
+<text x="644.0" y="678.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">max &gt; 平均聚合</text>
+<text x="814.0" y="658.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">全操作点优</text>
+<text x="814.0" y="678.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ROC 曲线整线在上</text>
+<text x="36.0" y="716.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Ming Sun / Anirudh Raju / George Tucker / Sankaran Panchapagesan 等（Amazon Alexa）· 2017 · arXiv 1706.02207 · Amazon 内部数据 · AUC/DET 评估；「训练目标对齐评估目标」的教科书案例</text>
+</svg>
+<div class="cap">图 1 · 机制全景：四级错位 → max 聚合三步流水线 → 正负样本的两个作用方向 → 关键数字。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：帧概率曲线上的 max 与梯度</h2>
+<div class="cards">
+<div class="card acc"><h3>正样本逻辑</h3>词在 → 至少有一帧高置信；只需最关键帧（如词尾）扛旗——不要求每帧都高。</div>
+<div class="card acc"><h3>负样本逻辑</h3>词不在 → 所有帧都该低；max 会放大任何冒尖帧——天然逼全部帧压低。</div>
+<div class="card"><h3>梯度路径</h3>损失梯度只回到 max 那一帧——其余帧经 LSTM 隐状态间接更新（梯度稀疏性）。</div>
+<div class="card"><h3>max vs mean</h3>mean 被长静音/非词帧稀释——正样本信号摊薄；max 取峰值不稀释，但对异常高帧敏感。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：帧概率曲线上的 max 与梯度路径</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="248.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">正样本：最强帧扛旗</text>
+<rect x="48.0" y="92.0" width="420.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<path d="M 78.0 287.2 L 112.0 284.0 L 146.0 280.8 L 180.0 268.0 L 214.0 244.0 L 248.0 204.0 L 282.0 152.8 L 316.0 164.0 L 350.0 236.0 L 384.0 276.0 L 418.0 284.0" fill="none" stroke="#33507a" stroke-width="2"/>
+<line x1="78.0" y1="300.0" x2="418.0" y2="300.0" stroke="#8a93a5" stroke-width="0.8"/>
+<circle cx="282.0" cy="152.8" r="6" fill="#0b6e52"/>
+<line x1="282.0" y1="152.8" x2="282.0" y2="300.0" stroke="#0b6e52" stroke-width="1" stroke-dasharray="4,3"/>
+<text x="282.0" y="320.0" font-size="7.8" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">max 帧（梯度只回这）</text>
+<text x="248.0" y="340.0" font-size="8.4" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">其余帧概率低没关系——不强求</text>
+<text x="676.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">负样本与 mean 对比</text>
+<rect x="500.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<path d="M 530.0 154.0 L 566.0 146.0 L 602.0 150.8 L 638.0 157.2 L 674.0 138.0 L 710.0 154.0 L 746.0 147.6 L 782.0 155.6" fill="none" stroke="#c0392b" stroke-width="2"/>
+<line x1="530.0" y1="170.0" x2="814.0" y2="170.0" stroke="#8a93a5" stroke-width="0.8"/>
+<text x="676.0" y="190.0" font-size="8.4" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">负样本：所有帧都被压低</text>
+<line x1="516.0" y1="208.0" x2="836.00" y2="208.00" stroke="#e6e6df" stroke-width="1"/>
+<text x="516.0" y="232.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">max vs mean 池化：</text>
+<text x="524.0" y="250.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· mean 被长静音/非词帧稀释——</text>
+<text x="524.0" y="266.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  正样本的信号摊薄</text>
+<text x="524.0" y="282.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· max 只取峰值——不稀释</text>
+<text x="524.0" y="298.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 代价：对异常高帧敏感</text>
+<text x="524.0" y="314.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （噪声帧冒尖会放大成误警）</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：正样本的帧概率曲线——max 帧扛旗，梯度只回到该帧（经 LSTM 隐状态间接影响其余）；右：负样本全压低 + max/mean 的稀释对比</text>
+</svg>
+<div class="cap">图 2 · 左：正样本的帧概率曲线——max 帧扛旗、梯度只回该帧；右：负样本全压低曲线 + max/mean 的稀释对比与代价。</div>
+<div class="formula">
+<div class="f">p_utterance = max(p_1, …, p_T)        L = BCE(p_utterance, y)，y ∈ {0,1} 话语标签        梯度 → max 帧 → LSTM</div>
+<div class="why"><b>人话：</b>以前老师要求每道小题都得分，现在改成「整张卷子及格就行，拿手的那题多拿分」。模型只需要在最有把握的那几帧上大声说「是它」，其他帧不用硬撑——而没词的录音，任何一帧都不准冒头，因为冒头的那帧会直接代表整段。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果（示意）：ROC 整线在上</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（示意）：ROC 整线在上 + 三方对比</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="266.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ROC 示意（漏检率 vs 误唤醒率）</text>
+<line x1="116.0" y1="300.0" x2="476.00" y2="300.00" stroke="#8a93a5" stroke-width="0.8"/>
+<line x1="116.0" y1="120.0" x2="116.00" y2="300.00" stroke="#8a93a5" stroke-width="0.8"/>
+<text x="118.0" y="112.0" font-size="8" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">漏检率</text>
+<text x="476.0" y="318.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">误唤醒率 →</text>
+<path d="M 116.0 122.0 L 196.0 138.0 L 276.0 158.0 L 356.0 182.0 L 436.0 208.0 L 476.0 222.0" fill="none" stroke="#8a93a5" stroke-width="2"/>
+<path d="M 116.0 132.0 L 196.0 146.0 L 276.0 166.0 L 356.0 190.0 L 436.0 216.0 L 476.0 230.0" fill="none" stroke="#33507a" stroke-width="2" stroke-dasharray="5,4"/>
+<path d="M 116.0 148.0 L 196.0 172.0 L 276.0 200.0 L 356.0 228.0 L 436.0 254.0 L 476.0 266.0" fill="none" stroke="#0b6e52" stroke-width="2.4"/>
+<text x="456.0" y="136.0" font-size="8.5" fill="#8a93a5" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级 CE</text>
+<text x="456.0" y="190.0" font-size="8.5" fill="#33507a" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">mean 池化</text>
+<text x="456.0" y="262.0" font-size="8.5" fill="#0b6e52" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">max 池化</text>
+<text x="296.0" y="288.0" font-size="8.4" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">同误唤醒率下漏检更低——整线优于基线</text>
+<text x="712.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">读数表</text>
+<rect x="600.0" y="92.0" width="264.0" height="258.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="616.0" y="116.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 漏检率 AUC 相对 −67.6%</text>
+<text x="616.0" y="133.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· ROC 全操作点优于帧级 CE</text>
+<text x="616.0" y="150.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· max &gt; mean 池化</text>
+<text x="616.0" y="167.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 0 新参数 · 推理 +1 个 max</text>
+<text x="616.0" y="184.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 训练收敛与 CE 相当</text>
+<text x="616.0" y="201.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声下优势更明显</text>
+<text x="616.0" y="218.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="616.0" y="235.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">附赠洞察：</text>
+<text x="616.0" y="252.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 直接优化评估目标 &gt;</text>
+<text x="616.0" y="269.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">   优化代理指标</text>
+<text x="36.0" y="392.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（2017 · Amazon 内部数据 · AUC/DET）；曲线为示意走势；同作者组的 SVD 压缩 TDNN 见 others №3</text>
+</svg>
+<div class="cap">图 3 · 左：ROC 示意——max 池化整线优于 mean 池化与帧级 CE（同误唤醒率下漏检更低）；右：读数表 + 「直接优化评估目标 &gt; 优化代理指标」的洞察。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：max 的阿喀琉斯之踵</h2>
+<div class="cards">
+<div class="card bad"><h3>异常帧敏感性</h3>max 放大任何冒尖帧——噪声/误差导致的异常高概率变成整段误警。</div>
+<div class="card bad"><h3>单实例假设</h3>假设每段最多一次关键词——多次出现只关注最强实例。</div>
+<div class="card bad"><h3>梯度稀疏</h3>只回传到最大帧——其余帧靠 LSTM 隐状态间接更新，可能影响训练效率。</div>
+<div class="card bad"><h3>LSTM 成本</h3>循环序列化计算——极低功耗设备上不如 DS-CNN 划算。</div>
+<div class="card bad"><h3>评估面有限</h3>有限关键词与操作条件——远场/强混响/多人未系统测。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：max 的阿喀琉斯之踵 · 聚合思想的谱系</text>
+<line x1="36.0" y1="56.0" x2="580.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">五条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="118.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">异常帧敏感性</text>
+<text x="170.0" y="118.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">max 放大任何冒尖帧——噪声/误差导致的异常高概率会变成整段误警（max 的阿喀琉斯之踵）</text>
+<rect x="36.0" y="136.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="156.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单实例假设</text>
+<text x="170.0" y="156.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">假设每段最多一次关键词——多次出现只关注最强实例</text>
+<rect x="36.0" y="174.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="194.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">梯度稀疏</text>
+<text x="170.0" y="194.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">只回传到最大帧——其余帧靠 LSTM 隐状态间接更新，可能影响训练效率</text>
+<rect x="36.0" y="212.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="232.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LSTM 成本</text>
+<text x="170.0" y="232.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">循环序列化计算——极低功耗设备上不如 DS-CNN 划算</text>
+<rect x="36.0" y="250.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="270.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">评估面有限</text>
+<text x="170.0" y="270.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">有限关键词与操作条件——远场/强混响/多人未系统测</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级 CE</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">逐帧优化</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">max 池化损失</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 Amazon 2017</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力池化</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">小米 2018 №3/№17</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC/Transducer</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">端到端聚合 2019+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">聚合的进化：max（固定取峰）→ 注意力（学习加权 · 小米系）→ CTC/RNN-T（把对齐与聚合一并学进损失）——</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「帧级预测如何变成话语级判断」是 KWS 损失设计的中心问题，本文给出了第一个优雅答案</text>
+</svg>
+<div class="cap">图 4 · 边界五条 + 谱系坐标：聚合的进化——max（固定取峰）→ 注意力池化（学习加权，小米 2018 №3/№17）→ CTC/RNN-T（对齐与聚合一并学进损失）；「帧级预测如何变成话语级判断」是 KWS 损失设计的中心问题。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>训练目标要对齐评估目标：帧级 CE 是话语级检测的代理指标——代理失真时代价巨大（67.6% 的相对差距）；设计损失的第一步永远是问「部署时到底按什么判对错」。</p>
+<p>聚合算子编码任务假设：max 编码「至少一帧能认出」、mean 编码「平均都像」——选聚合就是选假设；max 的代价（异常帧敏感）正是它假设的边界，改用 top-k/注意力是在放宽这个假设。</p>
+<p>最好的改进往往不加参数：一个 max 操作、零新参数、推理近零开销——训练目标层面的创新杠杆比架构创新便宜得多；先穷尽损失设计再动架构。</p>
+</div>
+<span class="pill">系列：训练目标设计 · 话语级损失的第一个优雅答案</span>
+<div class="foot-note">数据与结论来自论文原文（2017 · Amazon 内部数据 · AUC/DET）；ROC 曲线为示意。系列内关联：SVD 压缩 TDNN（others №3，同组）· 注意力池化（2018 №3/№17）· sMBR 序列判别（2018 №16）· CTC 系端到端（2018 №7 等）。</div>
+</section>
+</div>
+</body>
+</html>

@@ -1,0 +1,186 @@
+- generic [ref=f135e2]:
+  - generic [ref=f135e3]: 论文精读 · 可视化版 · others №9 · 训练目标设计
+  - heading "别逼每帧都对：让最会认的那帧替整段说话，漏检率相对砍 67.6%" [level=1] [ref=f135e4]
+  - generic [ref=f135e5]:
+    - generic [ref=f135e6]: max 池化话语级损失
+    - generic [ref=f135e7]: 免帧级对齐
+    - generic [ref=f135e8]: max > mean 池化
+    - generic [ref=f135e9]: 0 新参数
+    - generic [ref=f135e10]: ROC 全操作点优
+  - generic [ref=f135e11]:
+    - text: Max-Pooling Loss Training for LSTM Keyword Spotting · Ming Sun / Anirudh Raju / George Tucker / Sankaran Panchapagesan 等（Amazon Alexa）· 2017 · arXiv
+    - link "1706.02207" [ref=f135e12] [cursor=pointer]:
+      - /url: https://arxiv.org/abs/1706.02207
+    - text: 一句话：帧级交叉熵逐帧优化，但评估只看「整段含不含词」——max 池化把 T 帧概率聚成一个话语级分数再算 BCE：只需话语标签（免帧级对齐）、0 新参数，漏检率 AUC 相对降 67.6%，max 显著优于 mean。
+  - generic [ref=f135e13]:
+    - heading "1 问题：帧级训练 vs 话语级评估的错位" [level=2] [ref=f135e14]:
+      - generic [ref=f135e15]: "1"
+      - text: 问题：帧级训练 vs 话语级评估的错位
+    - generic [ref=f135e16]:
+      - generic [ref=f135e17]: TL;DR
+      - list [ref=f135e18]:
+        - listitem [ref=f135e19]: ◆ 评估只关心「这段音频含不含关键词」——话语级二元判断；训练却在逐帧优化分类——代理目标 ≠ 真目标。
+        - listitem [ref=f135e20]: ◆ 辨识信息集中在少数帧（音素边界）——其余帧本来就不该扛指标。
+        - listitem [ref=f135e21]: ◆ 帧级标注（对齐）还贵且易错——话语级标签便宜得多。
+    - img [ref=f135e22]:
+      - generic [ref=f135e24]: Max-Pooling Loss：别逼每帧都对——让最会认的那一帧替整段说话
+      - generic [ref=f135e25]: ① 帧级训练 vs 话语级评估的错位
+      - generic [ref=f135e27]: 评估只看整段
+      - generic [ref=f135e28]: KWS 只关心「这段音频含不含关键词」——话语级二元判断
+      - generic [ref=f135e30]: 训练却逐帧优化
+      - generic [ref=f135e31]: 帧级交叉熵要求每一帧都分类对——代理目标不是真目标
+      - generic [ref=f135e33]: 关键信息不均匀
+      - generic [ref=f135e34]: 辨识信息集中在少数帧（音素边界）——其余帧本来就不该扛指标
+      - generic [ref=f135e36]: 帧级标注还贵
+      - generic [ref=f135e37]: 需要帧-标签对齐——标注成本高且易错
+      - generic [ref=f135e38]: ② 解法：max 聚合 + 话语级损失
+      - generic [ref=f135e41]: LSTM 逐帧
+      - generic [ref=f135e42]: 每帧出关键词后验
+      - generic [ref=f135e43]: p_1 … p_T
+      - generic [ref=f135e44]: ▸
+      - generic [ref=f135e46]: max 池化
+      - generic [ref=f135e47]: p_utt = max(p_1…p_T)
+      - generic [ref=f135e48]: 选最强信号当检测分
+      - generic [ref=f135e49]: ▸
+      - generic [ref=f135e51]: 话语级 BCE
+      - generic [ref=f135e52]: "只用整段标签 y∈{0,1}"
+      - generic [ref=f135e53]: 梯度回到最大帧
+      - generic [ref=f135e54]: 直觉：词在 → 至少有一帧会高置信；词不在 → 所有帧都该低——max 天然编码这个逻辑
+      - generic [ref=f135e55]: ③ 正负样本的两个方向
+      - generic [ref=f135e57]: 正样本（含词）
+      - generic [ref=f135e58]: · 只需最关键帧（如词尾）高置信即可
+      - generic [ref=f135e59]: · 不要求每一帧都高——聚焦最强判别段
+      - generic [ref=f135e61]: 负样本（不含词）
+      - generic [ref=f135e62]: · max 会放大任何一帧的高概率
+      - generic [ref=f135e63]: · 逼所有帧都压低——天然防漏放
+      - generic [ref=f135e65]: −67.6%
+      - generic [ref=f135e66]: 漏检率相对降低
+      - generic [ref=f135e67]: 0 新参数
+      - generic [ref=f135e68]: 只加一个 max 操作
+      - generic [ref=f135e69]: 免帧级对齐
+      - generic [ref=f135e70]: 话语标签就够
+      - generic [ref=f135e71]: 胜 mean 池化
+      - generic [ref=f135e72]: max > 平均聚合
+      - generic [ref=f135e73]: 全操作点优
+      - generic [ref=f135e74]: ROC 曲线整线在上
+      - generic [ref=f135e75]: Ming Sun / Anirudh Raju / George Tucker / Sankaran Panchapagesan 等（Amazon Alexa）· 2017 · arXiv 1706.02207 · Amazon 内部数据 · AUC/DET 评估；「训练目标对齐评估目标」的教科书案例
+    - generic [ref=f135e76]: 图 1 · 机制全景：四级错位 → max 聚合三步流水线 → 正负样本的两个作用方向 → 关键数字。
+  - generic [ref=f135e77]:
+    - heading "2 机制：帧概率曲线上的 max 与梯度" [level=2] [ref=f135e78]:
+      - generic [ref=f135e79]: "2"
+      - text: 机制：帧概率曲线上的 max 与梯度
+    - generic [ref=f135e80]:
+      - generic [ref=f135e81]:
+        - heading "正样本逻辑" [level=3] [ref=f135e82]
+        - text: 词在 → 至少有一帧高置信；只需最关键帧（如词尾）扛旗——不要求每帧都高。
+      - generic [ref=f135e83]:
+        - heading "负样本逻辑" [level=3] [ref=f135e84]
+        - text: 词不在 → 所有帧都该低；max 会放大任何冒尖帧——天然逼全部帧压低。
+      - generic [ref=f135e85]:
+        - heading "梯度路径" [level=3] [ref=f135e86]
+        - text: 损失梯度只回到 max 那一帧——其余帧经 LSTM 隐状态间接更新（梯度稀疏性）。
+      - generic [ref=f135e87]:
+        - heading "max vs mean" [level=3] [ref=f135e88]
+        - text: mean 被长静音/非词帧稀释——正样本信号摊薄；max 取峰值不稀释，但对异常高帧敏感。
+    - img [ref=f135e89]:
+      - generic [ref=f135e91]: 机制解剖：帧概率曲线上的 max 与梯度路径
+      - generic [ref=f135e92]: 正样本：最强帧扛旗
+      - generic [ref=f135e96]: max 帧（梯度只回这）
+      - generic [ref=f135e97]: 其余帧概率低没关系——不强求
+      - generic [ref=f135e98]: 负样本与 mean 对比
+      - generic [ref=f135e101]: 负样本：所有帧都被压低
+      - generic [ref=f135e102]: max vs mean 池化：
+      - generic [ref=f135e103]: · mean 被长静音/非词帧稀释——
+      - generic [ref=f135e104]: 正样本的信号摊薄
+      - generic [ref=f135e105]: · max 只取峰值——不稀释
+      - generic [ref=f135e106]: · 代价：对异常高帧敏感
+      - generic [ref=f135e107]: （噪声帧冒尖会放大成误警）
+      - generic [ref=f135e108]: 左：正样本的帧概率曲线——max 帧扛旗，梯度只回到该帧（经 LSTM 隐状态间接影响其余）；右：负样本全压低 + max/mean 的稀释对比
+    - generic [ref=f135e109]: 图 2 · 左：正样本的帧概率曲线——max 帧扛旗、梯度只回该帧；右：负样本全压低曲线 + max/mean 的稀释对比与代价。
+    - generic [ref=f135e110]:
+      - generic [ref=f135e111]: "p_utterance = max(p_1, …, p_T) L = BCE(p_utterance, y)，y ∈ {0,1} 话语标签 梯度 → max 帧 → LSTM"
+      - generic [ref=f135e112]: 人话：以前老师要求每道小题都得分，现在改成「整张卷子及格就行，拿手的那题多拿分」。模型只需要在最有把握的那几帧上大声说「是它」，其他帧不用硬撑——而没词的录音，任何一帧都不准冒头，因为冒头的那帧会直接代表整段。
+  - generic [ref=f135e113]:
+    - heading "3 结果（示意）：ROC 整线在上" [level=2] [ref=f135e114]:
+      - generic [ref=f135e115]: "3"
+      - text: 结果（示意）：ROC 整线在上
+    - img [ref=f135e116]:
+      - generic [ref=f135e118]: 主结果（示意）：ROC 整线在上 + 三方对比
+      - generic [ref=f135e119]: ROC 示意（漏检率 vs 误唤醒率）
+      - generic [ref=f135e120]: 漏检率
+      - generic [ref=f135e121]: 误唤醒率 →
+      - generic [ref=f135e125]: 帧级 CE
+      - generic [ref=f135e126]: mean 池化
+      - generic [ref=f135e127]: max 池化
+      - generic [ref=f135e128]: 同误唤醒率下漏检更低——整线优于基线
+      - generic [ref=f135e129]: 读数表
+      - generic [ref=f135e131]: · 漏检率 AUC 相对 −67.6%
+      - generic [ref=f135e132]: · ROC 全操作点优于帧级 CE
+      - generic [ref=f135e133]: · max > mean 池化
+      - generic [ref=f135e134]: · 0 新参数 · 推理 +1 个 max
+      - generic [ref=f135e135]: · 训练收敛与 CE 相当
+      - generic [ref=f135e136]: · 噪声下优势更明显
+      - generic [ref=f135e137]: 附赠洞察：
+      - generic [ref=f135e138]: · 直接优化评估目标 >
+      - generic [ref=f135e139]: 优化代理指标
+      - generic [ref=f135e140]: 数据源：论文（2017 · Amazon 内部数据 · AUC/DET）；曲线为示意走势；同作者组的 SVD 压缩 TDNN 见 others №3
+    - generic [ref=f135e141]: 图 3 · 左：ROC 示意——max 池化整线优于 mean 池化与帧级 CE（同误唤醒率下漏检更低）；右：读数表 + 「直接优化评估目标 > 优化代理指标」的洞察。
+  - generic [ref=f135e142]:
+    - heading "4 边界：max 的阿喀琉斯之踵" [level=2] [ref=f135e143]:
+      - generic [ref=f135e144]: "4"
+      - text: 边界：max 的阿喀琉斯之踵
+    - generic [ref=f135e145]:
+      - generic [ref=f135e146]:
+        - heading "异常帧敏感性" [level=3] [ref=f135e147]
+        - text: max 放大任何冒尖帧——噪声/误差导致的异常高概率变成整段误警。
+      - generic [ref=f135e148]:
+        - heading "单实例假设" [level=3] [ref=f135e149]
+        - text: 假设每段最多一次关键词——多次出现只关注最强实例。
+      - generic [ref=f135e150]:
+        - heading "梯度稀疏" [level=3] [ref=f135e151]
+        - text: 只回传到最大帧——其余帧靠 LSTM 隐状态间接更新，可能影响训练效率。
+      - generic [ref=f135e152]:
+        - heading "LSTM 成本" [level=3] [ref=f135e153]
+        - text: 循环序列化计算——极低功耗设备上不如 DS-CNN 划算。
+      - generic [ref=f135e154]:
+        - heading "评估面有限" [level=3] [ref=f135e155]
+        - text: 有限关键词与操作条件——远场/强混响/多人未系统测。
+    - img [ref=f135e156]:
+      - generic [ref=f135e158]: 边界与谱系：max 的阿喀琉斯之踵 · 聚合思想的谱系
+      - generic [ref=f135e159]: 五条边界
+      - generic [ref=f135e161]: 异常帧敏感性
+      - generic [ref=f135e162]: max 放大任何冒尖帧——噪声/误差导致的异常高概率会变成整段误警（max 的阿喀琉斯之踵）
+      - generic [ref=f135e164]: 单实例假设
+      - generic [ref=f135e165]: 假设每段最多一次关键词——多次出现只关注最强实例
+      - generic [ref=f135e167]: 梯度稀疏
+      - generic [ref=f135e168]: 只回传到最大帧——其余帧靠 LSTM 隐状态间接更新，可能影响训练效率
+      - generic [ref=f135e170]: LSTM 成本
+      - generic [ref=f135e171]: 循环序列化计算——极低功耗设备上不如 DS-CNN 划算
+      - generic [ref=f135e173]: 评估面有限
+      - generic [ref=f135e174]: 有限关键词与操作条件——远场/强混响/多人未系统测
+      - generic [ref=f135e175]: 谱系坐标
+      - generic [ref=f135e177]: 帧级 CE
+      - generic [ref=f135e178]: 逐帧优化
+      - generic [ref=f135e180]: max 池化损失
+      - generic [ref=f135e181]: 本文 Amazon 2017
+      - generic [ref=f135e183]: 注意力池化
+      - generic [ref=f135e184]: 小米 2018 №3/№17
+      - generic [ref=f135e186]: CTC/Transducer
+      - generic [ref=f135e187]: 端到端聚合 2019+
+      - generic [ref=f135e188]: ▸
+      - generic [ref=f135e189]: ▸
+      - generic [ref=f135e190]: ▸
+      - generic [ref=f135e191]: 聚合的进化：max（固定取峰）→ 注意力（学习加权 · 小米系）→ CTC/RNN-T（把对齐与聚合一并学进损失）——
+      - generic [ref=f135e192]: 「帧级预测如何变成话语级判断」是 KWS 损失设计的中心问题，本文给出了第一个优雅答案
+    - generic [ref=f135e193]: 图 4 · 边界五条 + 谱系坐标：聚合的进化——max（固定取峰）→ 注意力池化（学习加权，小米 2018 №3/№17）→ CTC/RNN-T（对齐与聚合一并学进损失）；「帧级预测如何变成话语级判断」是 KWS 损失设计的中心问题。
+  - generic [ref=f135e194]:
+    - heading "5 判断：能带走的三句话" [level=2] [ref=f135e195]:
+      - generic [ref=f135e196]: "5"
+      - text: 判断：能带走的三句话
+    - generic [ref=f135e197]:
+      - generic [ref=f135e198]: JUDGEMENT
+      - paragraph [ref=f135e199]: ↳ 训练目标要对齐评估目标：帧级 CE 是话语级检测的代理指标——代理失真时代价巨大（67.6% 的相对差距）；设计损失的第一步永远是问「部署时到底按什么判对错」。
+      - paragraph [ref=f135e200]: ↳ 聚合算子编码任务假设：max 编码「至少一帧能认出」、mean 编码「平均都像」——选聚合就是选假设；max 的代价（异常帧敏感）正是它假设的边界，改用 top-k/注意力是在放宽这个假设。
+      - paragraph [ref=f135e201]: ↳ 最好的改进往往不加参数：一个 max 操作、零新参数、推理近零开销——训练目标层面的创新杠杆比架构创新便宜得多；先穷尽损失设计再动架构。
+    - generic [ref=f135e202]: 系列：训练目标设计 · 话语级损失的第一个优雅答案
+    - generic [ref=f135e203]: 数据与结论来自论文原文（2017 · Amazon 内部数据 · AUC/DET）；ROC 曲线为示意。系列内关联：SVD 压缩 TDNN（others №3，同组）· 注意力池化（2018 №3/№17）· sMBR 序列判别（2018 №16）· CTC 系端到端（2018 №7 等）。
