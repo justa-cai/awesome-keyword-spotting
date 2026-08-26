@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>教师-学生学习构建远场语音系统（微软 Cortana）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · 2018 №6 · 工业实战</div>
+<h1 class="hero">一个框架双杀两道坎：T/S 学习同时吃下远场适应（WER <span class="g">−72.6%</span>）和模型压缩（<span class="g">27×</span> 无损）</h1>
+<div class="chips">
+<span class="chip acc">教师-学生 T/S 学习</span><span class="chip">软标签蒸馏</span><span class="chip">免转录域适应</span><span class="chip">RIR 造平行数据</span><span class="chip">Cortana 生产验证</span>
+</div>
+<div class="meta">
+<b>Developing Far-field Speaker System via Teacher-Student Learning</b> · Jinyu Li / Rui Zhao / Zhuo Chen / Changliang Liu / Xiong Xiao / Guoli Ye / Yifan Gong（微软 AI 与研究）· arXiv <a href="https://arxiv.org/abs/1804.05166" style="color:var(--acc)">1804.05166</a>（ICASSP 2018）<br>
+一句话：教师（大 · 近讲）与学生（小 · 远场）吃<b>同一段语音的不同声学版本</b>，最小化输出分布的 KL 散度——域适应不需要转录、压缩不需要硬标签：WER 相对降 <b>72.6%</b>（回放）/ <b>57.2%</b>（实时），KWS 模型压 <b>27×</b> 准确率不变。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：Cortana 上第三方音箱的两道坎</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li><b>近讲模型进远场就崩</b>：生产声学模型在海量近讲数据上训出，房间混响/噪声/距离衰减让 WER 大涨；远场标注数据贵且慢。</li>
+<li><b>大模型塞不进音箱</b>：生产 KWS 检测器百万到千万参数，第三方音箱算力远远不够。</li>
+<li><b>第三方硬件是黑盒</b>：信号处理由厂商控制——端到端联合优化做不了，只能从模型侧想办法。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">T/S 学习双杀：一个框架同时解决远场域适应（WER −72.6%）和模型压缩（27×）</text>
+<line x1="36.0" y1="60.0" x2="820.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① Cortana 上第三方音箱的两道坎</text>
+<rect x="36.0" y="102.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="131.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">近讲模型进远场就崩</text>
+<text x="230.0" y="131.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">生产声学模型在大量近讲数据上训出——房间混响/噪声/距离衰减让 WER 大幅上升，而远场标注数据贵且慢</text>
+<rect x="36.0" y="158.0" width="848.0" height="48.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="187.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">大模型塞不进音箱</text>
+<text x="230.0" y="187.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">生产 KWS 检测器数百万到千万参数——第三方音箱算力远不如云服务器</text>
+<rect x="36.0" y="214.0" width="848.0" height="48.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="243.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">第三方硬件是黑盒</text>
+<text x="230.0" y="243.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">信号处理（波束成形等）由厂商控制——无法做端到端联合优化</text>
+<text x="36.0" y="288.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② T/S 学习：用软标签传递「类间相似性」</text>
+<rect x="36.0" y="304.0" width="848.0" height="108.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="60.0" y="320.0" width="260.0" height="76.0" rx="9" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="190.0" y="340.0" font-size="9.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">教师模型（大 · 近讲训练）</text>
+<text x="190.0" y="358.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">输入近讲 x_near</text>
+<text x="190.0" y="378.0" font-size="8.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">输出 P(y|x_near) 软标签</text>
+<rect x="600.0" y="320.0" width="260.0" height="76.0" rx="9" fill="#eef6f1" stroke="#7fb69f" stroke-width="1"/>
+<text x="730.0" y="340.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">学生模型（小 · 待适应）</text>
+<text x="730.0" y="358.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">输入远场 x_far / 训练数据</text>
+<text x="730.0" y="378.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">输出 P(y|x_far)</text>
+<line x1="320.0" y1="358.0" x2="600.00" y2="358.00" stroke="#d97a2b" stroke-width="2"/>
+<text x="460.0" y="350.0" font-size="9.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">最小化 KL 散度</text>
+<text x="460.0" y="370.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">L = D_KL(P_teacher ‖ P_student)</text>
+<text x="36.0" y="446.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 同一框架，两个应用</text>
+<rect x="36.0" y="462.0" width="400.0" height="106.0" rx="10" fill="#eef6f1" stroke="#ffffff" stroke-width="2"/>
+<text x="236.0" y="486.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">应用一：远场域适应</text>
+<text x="236.0" y="510.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">教师吃近讲 · 学生吃远场</text>
+<text x="236.0" y="529.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（RIR 卷积生成平行数据）</text>
+<text x="236.0" y="554.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">WER 相对降 72.6%（回放）</text>
+<rect x="468.0" y="462.0" width="400.0" height="106.0" rx="10" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="668.0" y="486.0" font-size="11.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">应用二：KWS 模型压缩</text>
+<text x="668.0" y="510.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">教师大模型 · 学生 1/27 小模型</text>
+<text x="668.0" y="554.0" font-size="10" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率不变 · 体积 −27×</text>
+<rect x="36.0" y="606.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="632.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−72.6%</text>
+<text x="134.0" y="652.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">WER（回放测试）</text>
+<text x="304.0" y="632.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−57.2%</text>
+<text x="304.0" y="652.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">WER（实时测试）</text>
+<text x="474.0" y="632.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">27×</text>
+<text x="474.0" y="652.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 模型压缩</text>
+<text x="644.0" y="632.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0 转录</text>
+<text x="644.0" y="652.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">适应不需要标注文本</text>
+<text x="814.0" y="632.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">生产验证</text>
+<text x="814.0" y="652.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Cortana 第三方音箱</text>
+<text x="36.0" y="690.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Jinyu Li / Rui Zhao / Zhuo Chen / Changliang Liu / Xiong Xiao / Guoli Ye / Yifan Gong（微软 AI 与研究）· arXiv 1804.05166（2018.04）· ICASSP 2018；配套：sMBR 序列训练叠加增益 · 实时数据微调最佳</text>
+</svg>
+<div class="cap">图 1 · 机制全景：两道坎 → T/S 学习的双输入对齐结构 → 同一框架的两个应用（域适应 / 压缩）→ 结果速览。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：软标签比硬标签教得多</h2>
+<div class="cards">
+<div class="card acc"><h3>软标签的信息密度</h3>教师输出完整分布：「bat 0.7 / pat 0.2」——硬标签只有「bat 1.0」。类间相似性是免费的额外监督。</div>
+<div class="card acc"><h3>免转录适应</h3>训练目标是教师的输出分布而非转录文本——远场数据不用标注，只需 RIR 卷积造出平行对。</div>
+<div class="card"><h3>平行数据构造</h3>近讲语音（已有海量）× RIR 卷积 → 模拟远场版本——(x_near, x_far) 平行对零标注成本。</div>
+<div class="card"><h3>三级增益叠加</h3>T/S 适应（主体）→ sMBR 序列训练（序列级互补）→ 实时数据微调（生产最佳）。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：软标签为什么比硬标签教得多</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="238.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">硬标签 vs 软标签（例：bat vs pat）</text>
+<rect x="48.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="64.0" y="116.0" font-size="9.2" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">硬标签（one-hot）</text>
+<rect x="78.0" y="124.0" width="60.0" height="70.0" rx="4" fill="#e0a9a0"/>
+<text x="108.0" y="208.0" font-size="8" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">bat 1.0</text>
+<rect x="158.0" y="194.0" width="60.0" height="2.0" rx="2" fill="#f4d7d3"/>
+<text x="188.0" y="208.0" font-size="8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">pat 0.0</text>
+<text x="64.0" y="244.0" font-size="9.2" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">教师软标签（分布）</text>
+<rect x="78.0" y="182.0" width="60.0" height="49.0" rx="4" fill="#7fb69f"/>
+<text x="108.0" y="290.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">bat 0.7</text>
+<rect x="158.0" y="206.0" width="60.0" height="14.0" rx="3" fill="#bfe3d5"/>
+<text x="188.0" y="290.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">pat 0.2</text>
+<text x="64.0" y="322.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">软标签携带类间相似性——「bat 有点像 pat」这个知识，</text>
+<text x="64.0" y="340.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">硬标签里是 0。数据有限时软标签是更密的训练信号</text>
+<text x="656.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">适应数据从哪来 + 三级增益</text>
+<rect x="480.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="496.0" y="116.0" font-size="9.2" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">平行数据构造</text>
+<text x="504.0" y="136.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">近讲语音 x_near（已有海量）</text>
+<text x="504.0" y="154.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ RIR 卷积生成模拟远场 x_far</text>
+<text x="504.0" y="172.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 平行对 (x_near, x_far)，无需转录</text>
+<line x1="496.0" y1="198.0" x2="816.00" y2="198.00" stroke="#e6e6df" stroke-width="1"/>
+<text x="496.0" y="220.0" font-size="9.2" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三级增益叠加</text>
+<rect x="496.0" y="236.0" width="320.0" height="26.0" rx="6" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="510.0" y="254.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">T/S 适应</text>
+<text x="806.0" y="254.0" font-size="8.2" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">主体增益</text>
+<rect x="496.0" y="270.0" width="320.0" height="26.0" rx="6" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="510.0" y="288.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+ sMBR 序列训练</text>
+<text x="806.0" y="288.0" font-size="8.2" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">序列级互补</text>
+<rect x="496.0" y="304.0" width="320.0" height="26.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="510.0" y="322.0" font-size="8.8" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+ 实时数据微调</text>
+<text x="806.0" y="322.0" font-size="8.2" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">生产最佳</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：同一个样本，硬标签只说「是 bat」，教师分布还说「bat 七分像自己、两分像 pat」——类间关系是免费的额外监督；右：RIR 造平行数据 + 三级增益叠加</text>
+</svg>
+<div class="cap">图 2 · 左：同一样本的硬标签 vs 教师软标签——分布里携带的类间关系是硬标签里没有的；右：平行数据构造与三级增益的叠加顺序。</div>
+<div class="formula">
+<div class="f">L_T/S = D_KL( P_teacher(y | x_near)  ‖  P_student(y | x_far) )        压缩时：x_near 换成同一输入</div>
+<div class="why"><b>人话：</b>教师听干净版，学生听混响版，要求学生说出和教师一样的话（连「拿不准的比例」都要一样）。学生被迫在烂输入上还原教师的判断——这个「还原」过程就是适应；同一招把大教师的话让小学生背下来，就是压缩。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果：两套数字都硬</h2>
+<table class="tb">
+<tr><th>应用</th><th>指标</th><th>结果</th></tr>
+<tr class="hl"><td>声学模型域适应</td><td>WER 相对降低（回放/模拟远场）</td><td>−72.60%</td></tr>
+<tr><td>声学模型域适应</td><td>WER 相对降低（实时/真实远场）</td><td>−57.16%</td></tr>
+<tr class="hl"><td>KWS 模型压缩</td><td>参数量</td><td>−27×，准确率不变</td></tr>
+<tr><td>T/S vs 直接训小模型</td><td>同尺寸学生</td><td>T/S 压缩的更优</td></tr>
+</table>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：域适应的两套数字 + 压缩的无损验证</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="266.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">声学模型 WER 相对降低</text>
+<text x="60.0" y="131.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">回放测试（模拟远场）</text>
+<rect x="206.0" y="116.0" width="319.4" height="24.0" rx="5" fill="#0b6e52"/>
+<text x="535.4" y="133.0" font-size="10.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−72.6%</text>
+<text x="60.0" y="211.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">实时测试（真实远场）</text>
+<rect x="206.0" y="196.0" width="251.7" height="24.0" rx="5" fill="#5d9c85"/>
+<text x="467.7" y="213.0" font-size="10.5" fill="#5d9c85" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−57.2%</text>
+<text x="60.0" y="300.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">模拟数据的增益略高于真实数据——</text>
+<text x="60.0" y="318.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">模拟远场与真实远场仍存在域差距</text>
+<text x="60.0" y="348.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">T/S 压缩 &gt; 直接训练同尺寸小模型</text>
+<text x="60.0" y="366.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">——教师软知识传递是关键差异</text>
+<text x="732.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 压缩</text>
+<rect x="620.0" y="92.0" width="224.0" height="258.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="640.0" y="116.0" width="184.0" height="60.0" rx="8" fill="#c9d8e8"/>
+<text x="732.0" y="140.0" font-size="9.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">教师 KWS</text>
+<text x="732.0" y="160.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">数百万~千万参数</text>
+<text x="732.0" y="196.0" font-size="13" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">↓ 27×</text>
+<rect x="680.0" y="212.0" width="104.0" height="52.0" rx="8" fill="#0b6e52"/>
+<text x="732.0" y="234.0" font-size="9.5" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">学生 KWS</text>
+<text x="732.0" y="252.0" font-size="8.3" fill="#e6f4ee" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">体积 1/27</text>
+<text x="732.0" y="292.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率：保持不变</text>
+<text x="732.0" y="312.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">第三方音箱可实时运行</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文实验（arXiv 1804.05166 · ICASSP 2018）；WER 为相对降低；压缩学生模型的准确率与教师持平（生产验收口径）</text>
+</svg>
+<div class="cap">图 3 · 左：两套测试的 WER 相对降低（模拟 72.6% vs 真实 57.2%——域差距会漏气）；右：KWS 27× 压缩的结构示意与无损结论。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：模拟域差距与前置条件</h2>
+<div class="cards">
+<div class="card bad"><h3>模拟-真实域差距</h3>回放 72.6% vs 实时 57.2%——RIR 模拟远场与真实远场的差距始终存在，增益会漏气。</div>
+<div class="card bad"><h3>并行数据是前置</h3>T/S 适应需要近讲/远场平行对——纯远场单独录音（无平行结构）用不了。</div>
+<div class="card bad"><h3>第三方硬件黑盒</h3>波束成形质量由厂商决定——同一模型在不同音箱上表现可能差异显著。</div>
+<div class="card bad"><h3>教师上限即学生上限</h3>教师模型质量直接限制学生——论文未分析差教师带来多大折损。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：模拟域差距 · T/S 成为端侧标配</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">模拟-真实域差距</text>
+<text x="215.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">回放 72.6% vs 实时 57.2%——RIR 模拟远场与真实远场的差距始终存在，增益会漏气</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">并行数据是前置</text>
+<text x="215.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">T/S 适应需要近讲/远场平行对——没有平行结构的数据（纯远场单独录音）用不了</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">第三方硬件黑盒</text>
+<text x="215.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">波束成形质量由厂商决定——同一模型在不同音箱上表现可能差异显著</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">教师上限即学生上限</text>
+<text x="215.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">教师模型质量直接限制学生——论文未分析差教师会带来多大折损</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">近讲大模型</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">云端时代</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">T/S 双杀</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 2018</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">知识蒸馏</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 常备 2020+</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SSL 教师</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">wav2vec 2021+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">承上：T/S 把「域适应」和「压缩」统一成「让学生模仿教师的输出分布」一件事；启下：蒸馏成为端侧 KWS 的标准工具（与量化/剪枝并列），</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">后来教师本身换成了自监督预训练模型（wav2vec 等）——「软标签比硬标签教得多」这一课贯穿至今</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：T/S 把域适应和压缩统一成「模仿教师输出分布」；蒸馏成为端侧 KWS 标准工具（与量化/剪枝并列），教师后来换成自监督预训练模型。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>域适应和模型压缩是同一件事：都是「让学生在受限条件下复现教师的输出分布」——一个受限在输入（远场），一个受限在容量（小模型）。T/S 是它们的公共解。</p>
+<p>软标签是数据有限时的杠杆：硬标签一比特信息，教师分布携带类间相似性的连续信号——标注越少，蒸馏的边际收益越大；这就是后来「未标注数据 + 强教师」成为工业标配的原因。</p>
+<p>模拟数据的增益要按真实数据打折验收：72.6%（回放）到 57.2%（实时）的落差就是模拟-真实域差距的标价——报告适应结果时两套数字都要看，只报模拟集是常见的自我高估。</p>
+</div>
+<span class="pill">系列：训练策略 · 蒸馏进入端侧 KWS 的代表作</span>
+<div class="foot-note">数据与结论来自论文原文（arXiv 1804.05166 · ICASSP 2018）；WER 为相对降低。系列内关联：混响 RIR 增强（2019 №22，数据侧解法）· Mobvoi 负样本挖掘（2020 №14）· MicroNets（2020 №13，量化/算力侧）· 知识蒸馏 KWS 常备化（2020+）。</div>
+</section>
+</div>
+</body>
+</html>
