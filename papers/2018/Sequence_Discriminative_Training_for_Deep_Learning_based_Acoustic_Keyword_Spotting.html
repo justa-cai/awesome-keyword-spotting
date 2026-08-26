@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KWS 的序列判别训练（上海交大）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · 2018 №16 · 训练策略</div>
+<h1 class="hero">帧级 CE 之后还有免费午餐：把 LVCSR 的 sMBR 老药方，配两副「竞争假设」搬进 KWS</h1>
+<div class="chips">
+<span class="chip acc">序列判别训练 SDT</span><span class="chip">sMBR 准则</span><span class="chip">词无关音素格</span><span class="chip">CTC blank 假设</span><span class="chip">2 范式 × 2 模型统一</span>
+</div>
+<div class="meta">
+<b>Sequence Discriminative Training for Deep Learning based Acoustic Keyword Spotting</b> · Zhehuai Chen / Yanmin Qian / Kai Yu（上海交通大学 · 清源研究院）· arXiv <a href="https://arxiv.org/abs/1808.00639" style="color:var(--acc)">1808.00639</a>（2018.08）<br>
+一句话：KWS 是序列决策却普遍用帧级 CE——本文为 <b>HMM-DNN 配词无关音素格、CTC 配 blank 主导路径</b>当竞争假设，用 sMBR 式准则微调：固定词汇（唤醒词）与无限制（口语文档检索）两种范式、生成式与判别式两种模型<b>四象限全部拿到一致显著提升</b>。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：帧级训练的序列盲区</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>KWS 本质是<b>序列决策</b>（这段音频含不含该音素序列），帧级 CE 却把每帧当独立分类——会出「中间一两帧误判成关键词音素」的孤立错误。</li>
+<li>LVCSR 里 CE → sMBR/MMI 常拿 <b>10-20% 相对 WER 降低</b>——这套成熟技术在 KWS 领域几乎没被系统引入。</li>
+<li>直接照抄不行：LVCSR 的竞争假设是所有词序列（词格），KWS 只区分「含词/不含词」——<b>竞争假设要重建</b>。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">序列判别训练进 KWS：帧级 CE 之后的免费午餐，LVCSR 的老药方治新病</text>
+<line x1="36.0" y1="60.0" x2="780.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① KWS 的帧级陷阱</text>
+<rect x="36.0" y="102.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="129.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">逐帧独立判断</text>
+<text x="225.0" y="129.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 本质是序列决策（这段音频含不含该音素序列）——帧级 CE 把每帧当独立分类</text>
+<rect x="36.0" y="152.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="179.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">孤立误判帧</text>
+<text x="225.0" y="179.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">音频中间一两帧被误判为关键词音素——序列级训练能抑制这类不合理预测</text>
+<rect x="36.0" y="202.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="229.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">成熟技术没搬过来</text>
+<text x="225.0" y="229.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">LVCSR 里 CE → sMBR/MMI 常拿 10-20% 相对 WER 降低——KWS 领域几乎没人用</text>
+<rect x="36.0" y="252.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="279.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">搬过来不能照抄</text>
+<text x="225.0" y="279.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 的竞争假设只有「含词/不含词」两种——词格那套在关键词稀疏场景退化</text>
+<text x="36.0" y="320.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 统一框架：2 范式 × 2 模型，各配一套竞争假设</text>
+<rect x="36.0" y="336.0" width="416.0" height="178.0" rx="10" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="244.0" y="360.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">生成式：HMM-DNN</text>
+<text x="52.0" y="384.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">范式一 固定词汇（唤醒词）：</text>
+<text x="52.0" y="401.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  目标=关键词音素序列</text>
+<text x="52.0" y="418.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  竞争假设 = 词无关音素格</text>
+<text x="52.0" y="435.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （覆盖全部音素的通用 LM 解码）</text>
+<text x="52.0" y="452.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">范式二 无限制（文档检索）：</text>
+<text x="52.0" y="469.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  同样用音素格——格即竞争空间</text>
+<text x="52.0" y="486.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">准则：sMBR（直接优化状态正确率）</text>
+<rect x="468.0" y="336.0" width="416.0" height="178.0" rx="10" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="676.0" y="360.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">判别式：CTC</text>
+<text x="484.0" y="384.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">两种范式通用：</text>
+<text x="484.0" y="401.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">目标假设 = 关键词音素序列 h_kw</text>
+<text x="484.0" y="418.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="435.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">竞争假设 = blank 主导路径</text>
+<text x="484.0" y="452.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（模型把大多数帧分给空白 = 判非词）</text>
+<text x="484.0" y="469.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="484.0" y="486.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">优化 P(h_kw|x) ↑ 同时压 blank 路径</text>
+<text x="484.0" y="503.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">前向后向算分子/分母——sMBR 式准则</text>
+<text x="36.0" y="534.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 训练三步走</text>
+<rect x="36.0" y="550.0" width="848.0" height="74.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="60.0" y="566.0" width="252.0" height="44.0" rx="8" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="186.0" y="584.0" font-size="9.8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① CE 预训练</text>
+<text x="186.0" y="602.0" font-size="8.4" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级基线</text>
+<text x="321.0" y="590.0" font-size="12" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="336.0" y="566.0" width="252.0" height="44.0" rx="8" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="462.0" y="584.0" font-size="9.8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 生成竞争假设</text>
+<text x="462.0" y="602.0" font-size="8.4" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">音素格 / CTC 前向后向</text>
+<text x="597.0" y="590.0" font-size="12" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="612.0" y="566.0" width="252.0" height="44.0" rx="8" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="738.0" y="584.0" font-size="9.8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 序列准则微调</text>
+<text x="738.0" y="602.0" font-size="8.4" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">sMBR / CTC-SDT · 可多轮迭代</text>
+<rect x="36.0" y="650.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="676.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">全设置一致提升</text>
+<text x="134.0" y="696.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">固定词/无限制 · HMM/CTC</text>
+<text x="304.0" y="676.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">10-20%</text>
+<text x="304.0" y="696.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">LVCSR 中的参照量级</text>
+<text x="474.0" y="676.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两任务</text>
+<text x="474.0" y="696.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">唤醒词 + 口语文档检索</text>
+<text x="644.0" y="676.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">抑制孤立误判</text>
+<text x="644.0" y="696.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级一致性提高</text>
+<text x="814.0" y="676.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练技术迁移</text>
+<text x="814.0" y="696.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">不改架构的白赚</text>
+<text x="36.0" y="734.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Zhehuai Chen / Yanmin Qian / Kai Yu（上海交通大学 · 清源研究院）· arXiv 1808.00639（2018.08）；系列语境：sMBR 也是微软 T/S 远场（2018 №6）三级增益中的第二级</text>
+</svg>
+<div class="cap">图 1 · 机制全景：帧级陷阱四条 → 统一框架（2 范式 × 2 模型各配竞争假设）→ 三步训练流程 → 结果速览。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：竞争假设是序列训练的心脏</h2>
+<div class="cards">
+<div class="card acc"><h3>词无关音素格（HMM-DNN）</h3>用覆盖全部音素的通用 LM 解码生成音素格——多路径即竞争空间；关键词稀疏时词格会退化，音素格保住假设密度。</div>
+<div class="card acc"><h3>blank 主导路径（CTC）</h3>全 blank 路径 = 「不含关键词」的天然代理——训练推高目标序列与 blank 路径的概率比。</div>
+<div class="card"><h3>sMBR 准则</h3>直接优化状态级期望正确率（γ_ref 来自强制对齐）——比 MMI 更稳定，LVCSR 已验证。</div>
+<div class="card"><h3>通用 LM 的关键性</h3>解码生成格时 LM 不能偏向关键词——竞争假设要「真实」，全用关键词 LM 会让分母失真。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：竞争假设长什么样 · sMBR 在优化什么</text>
+<line x1="36.0" y1="56.0" x2="640.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="238.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">词无关音素格（HMM-DNN 侧）</text>
+<rect x="48.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<circle cx="128.0" cy="130.0" r="15" fill="#e8edf5" stroke="#b9c6d8"/>
+<text x="128.0" y="134.0" font-size="8.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">k</text>
+<circle cx="128.0" cy="210.0" r="15" fill="#e8edf5" stroke="#b9c6d8"/>
+<text x="128.0" y="214.0" font-size="8.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">w</text>
+<circle cx="248.0" cy="130.0" r="15" fill="#e8edf5" stroke="#b9c6d8"/>
+<text x="248.0" y="134.0" font-size="8.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ae</text>
+<circle cx="248.0" cy="210.0" r="15" fill="#e8edf5" stroke="#b9c6d8"/>
+<text x="248.0" y="214.0" font-size="8.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">iy</text>
+<circle cx="368.0" cy="170.0" r="15" fill="#e8edf5" stroke="#b9c6d8"/>
+<text x="368.0" y="174.0" font-size="8.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">t</text>
+<line x1="143.0" y1="130.0" x2="113.00" y2="210.00" stroke="#b9c6d8" stroke-width="1.1"/>
+<line x1="143.0" y1="130.0" x2="233.00" y2="130.00" stroke="#b9c6d8" stroke-width="1.1"/>
+<line x1="143.0" y1="210.0" x2="233.00" y2="130.00" stroke="#b9c6d8" stroke-width="1.1"/>
+<line x1="143.0" y1="210.0" x2="233.00" y2="210.00" stroke="#b9c6d8" stroke-width="1.1"/>
+<line x1="263.0" y1="130.0" x2="353.00" y2="170.00" stroke="#b9c6d8" stroke-width="1.1"/>
+<line x1="263.0" y1="210.0" x2="353.00" y2="170.00" stroke="#b9c6d8" stroke-width="1.1"/>
+<text x="248.0" y="246.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">多条候选音素路径 = 竞争假设空间</text>
+<text x="248.0" y="272.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">解码时用覆盖全部音素的通用 LM</text>
+<text x="248.0" y="290.0" font-size="8.6" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">——不偏向关键词，竞争才真实</text>
+<text x="248.0" y="316.0" font-size="8.4" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么不用词格：关键词只有几个，</text>
+<text x="248.0" y="332.0" font-size="8.4" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">词格假设空间稀疏——音素格保密度</text>
+<text x="656.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">sMBR 与 CTC 的 blank 假设</text>
+<rect x="480.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="496.0" y="118.0" font-size="9.3" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">F_sMBR = Σ γ_ref(s) · log P(s|x)</text>
+<text x="496.0" y="136.0" font-size="8.3" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">γ_ref 来自强制对齐——直接优化状态正确率</text>
+<line x1="496.0" y1="150.0" x2="816.00" y2="150.00" stroke="#e6e6df" stroke-width="1"/>
+<text x="496.0" y="172.0" font-size="9.2" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 侧的竞争假设：</text>
+<rect x="500.0" y="184.0" width="28.0" height="22.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="514.0" y="199.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b</text>
+<rect x="534.0" y="184.0" width="28.0" height="22.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="548.0" y="199.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b</text>
+<rect x="568.0" y="184.0" width="28.0" height="22.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="582.0" y="199.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b</text>
+<rect x="602.0" y="184.0" width="28.0" height="22.0" rx="4" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="616.0" y="199.0" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">kw</text>
+<rect x="636.0" y="184.0" width="28.0" height="22.0" rx="4" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="650.0" y="199.0" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">kw</text>
+<rect x="670.0" y="184.0" width="28.0" height="22.0" rx="4" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="684.0" y="199.0" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">kw</text>
+<rect x="704.0" y="184.0" width="28.0" height="22.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="718.0" y="199.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b</text>
+<rect x="738.0" y="184.0" width="28.0" height="22.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="752.0" y="199.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b</text>
+<rect x="772.0" y="184.0" width="28.0" height="22.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="786.0" y="199.0" font-size="7.5" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">b</text>
+<text x="496.0" y="226.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">目标路径：blank-kw-kw-kw-blank…（含词）</text>
+<text x="496.0" y="244.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">竞争路径：全 blank（不含词）</text>
+<text x="496.0" y="270.0" font-size="8.4" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练推高目标/竞争的概率比——</text>
+<text x="496.0" y="288.0" font-size="8.4" fill="#8a5a1a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">blank 即「非关键词」的天然代理</text>
+<text x="496.0" y="316.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">两准则同构：分子=目标序列，分母=全空间</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：音素格的多路径竞争空间与通用 LM 的关键性；右：sMBR 的状态级期望正确率 + CTC 用 blank 主导路径当「非词假设」——生成式与判别式共用同一套比值思想</text>
+</svg>
+<div class="cap">图 2 · 左：音素格的多路径竞争空间（k/w → ae/iy → t）与通用 LM；右：sMBR 公式 + CTC 的 blank/kw 帧条与目标/竞争路径——两准则同构（分子目标 / 分母全空间）。</div>
+<div class="formula">
+<div class="f">F_sMBR = Σ_r Σ_s γ_ref(s) · log P(s | x)        CTC-SDT:  ↑ P(h_kw | x) / P(all paths | x)</div>
+<div class="why"><b>人话：</b>帧级训练只问「这一帧像不像某个音素」；序列训练问「整段音频里，正确答案的概率要压过所有容易混淆的错误答案」。错误答案从哪来？HMM-DNN 用解码生成的音素格（各种听岔的音素串），CTC 用「全空白」当不含词的代表。分子放正确答案，分母放所有竞争者，训练就是把这个比值推大。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果：四象限全部有效</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：四象限全部有效</text>
+<line x1="36.0" y1="56.0" x2="480.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="48.0" y="92.0" width="396.0" height="104.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="246.0" y="120.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">固定词汇 · HMM-DNN</text>
+<text x="246.0" y="150.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">唤醒词 FRR ↓</text>
+<text x="246.0" y="176.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">sMBR 一致显著改进</text>
+<rect x="472.0" y="92.0" width="396.0" height="104.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="670.0" y="120.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">无限制 · HMM-DNN</text>
+<text x="670.0" y="150.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">文档检索 AP ↑</text>
+<text x="670.0" y="176.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">音素格竞争空间有效</text>
+<rect x="48.0" y="212.0" width="396.0" height="104.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="246.0" y="240.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">固定词汇 · CTC</text>
+<text x="246.0" y="270.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">唤醒词 FRR ↓</text>
+<text x="246.0" y="296.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">blank 假设 SDT 有效</text>
+<rect x="472.0" y="212.0" width="396.0" height="104.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="670.0" y="240.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">无限制 · CTC</text>
+<text x="670.0" y="270.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">文档检索 AP ↑</text>
+<text x="670.0" y="296.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">与 sMBR 幅度相当</text>
+<text x="36.0" y="356.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：2 范式 × 2 模型的四个象限全部拿到一致显著提升——</text>
+<text x="36.0" y="376.0" font-size="9.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">序列级优化是 KWS 的通用改进手段，不是特定场景的技巧</text>
+<text x="36.0" y="408.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（arXiv 1808.00639 · SJTU）；具体数值回对原文实验表（具体提升幅度因任务/操作点而异）</text>
+</svg>
+<div class="cap">图 3 · 2 范式 × 2 模型的四象限结果（唤醒词 FRR ↓ / 文档检索 AP ↑）——序列级优化是 KWS 的通用改进手段，不是特定场景的技巧。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：假设质量决定上限</h2>
+<div class="cards">
+<div class="card bad"><h3>流水线更重</h3>CE 训练 → 解码生成假设 → 序列微调——训练时间与工程复杂度都涨。</div>
+<div class="card bad"><h3>假设质量依赖</h3>CE 基线太弱 → 音素格全是错误假设 → 序列训练被带偏——地基决定上限。</div>
+<div class="card bad"><h3>blank 假设偏简单</h3>CTC 用 blank 当非词代理——竞争信息不如音素格丰富。</div>
+<div class="card bad"><h3>对比与条件缺失</h3>未与注意力端到端对比 · 未分错误类型分析 · 无噪声条件鲁棒性评估。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：假设质量的地基 · 训练技术迁移的一环</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">流水线更重</text>
+<text x="205.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">先 CE 训练 → 再解码生成假设 → 才能序列微调——训练时间与工程复杂度都涨</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">假设质量依赖</text>
+<text x="205.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">CE 基线太弱 → 音素格里全是错误假设 → 序列训练被带偏——地基决定上限</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">blank 假设偏简单</text>
+<text x="205.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 用 blank 当非词代理——竞争信息不如音素格丰富</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">对比与条件缺失</text>
+<text x="205.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">未与注意力端到端直接对比 · 未分错误类型分析 · 无噪声条件鲁棒性评估</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">LVCSR sMBR/MMI</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2011-2016</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">SDT × KWS 统一框架</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 SJTU 2018</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">sMBR 叠加 T/S</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">微软 2018 №6</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">端到端序列目标</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC/注意力内化 2020+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">方法论启示：训练技术的迁移常被架构创新抢戏，但「不改架构的白赚」在工程上更值钱——本文与微软 T/S 的 sMBR 第二级增益同属一脉；</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">端到端时代序列目标被 CTC/注意力损失内化，但「显式竞争假设」的思想仍在混淆感知训练中延续</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：LVCSR sMBR（2011-2016）→ SDT × KWS 统一框架（本文）→ sMBR 叠加 T/S（微软 2018 №6）→ 端到端时代序列目标被 CTC/注意力内化。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>训练技术的迁移是「不改架构的白赚」：同一网络换个损失就四象限全部提升——工程上比架构创新便宜得多；看到一个领域成熟的技术在相邻领域缺席，先问「是没用过，还是用不了」，前者就是机会。</p>
+<p>序列训练的心脏是竞争假设的构造：分子（目标）是现成的，难点全在分母——竞争者要「真实且足够难」，太弱学不到东西（全 blank），太偏（关键词 LM）会让比值失真；迁移任何判别训练，先设计好负样本空间。</p>
+<p>任务范式不同，方法论可以统一：固定词汇与无限制 KWS 表面是两个任务，但「目标序列 vs 竞争空间」的比值结构同构——找到不变量，一个框架就能吃下两个领域。</p>
+</div>
+<span class="pill">系列：训练策略 · LVCSR 技术迁移 KWS 的代表作</span>
+<div class="foot-note">数据与结论来自论文原文（arXiv 1808.00639 · SJTU）；具体提升幅度因任务/操作点而异，回对原文实验表。系列内关联：T/S 远场的 sMBR 第二级（2018 №6）· 高通 CTC+FST（2019 №13）· DONUT CTC-QbE（2018 №7）。</div>
+</section>
+</div>
+</body>
+</html>
