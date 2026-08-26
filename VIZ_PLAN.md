@@ -1,7 +1,7 @@
 # 可视化精读改写计划（VIZ_PLAN）
 
 按年份倒序把全部论文笔记重写为自包含 HTML+SVG 可视化精读页。每篇：读笔记 → python 生成 4 张 SVG → 注入统一模板 HTML → 校验 → 截图自查 → 提交推送。
-**总进度：274 / 305**
+**总进度：275 / 305**
 
 ## 2026（24 篇）
 **进度：24 / 24**
@@ -302,7 +302,7 @@
 - [x] Training Keyword Spotting Systems with Reverberant Speech
 
 ## 2018（23 篇）
-**进度：9 / 23**
+**进度：10 / 23**
 
 - [x] ASR-free CNN-DTW Keyword Spotting using Multilingual Bottleneck Features for Almost Zero-Resource Languages
 - [x] An Empirical Evaluation of Generic Convolutional and Recurrent Networks for Sequence Modeling
@@ -313,7 +313,7 @@
 - [x] Developing Far-field Speaker System via Teacher-Student Learning
 - [x] Efficient Keyword Spotting using Time Delay Neural Networks
 - [x] Efficient Voice Trigger Detection for Low Resource Hardware
-- [⬜] End-to-end Models with Auditory Attention in Multi-channel Keyword Spotting
+- [x] End-to-end Models with Auditory Attention in Multi-channel Keyword Spotting
 - [⬜] Feature Exploration for Almost Zero-Resource ASR-Free Keyword Spotting Using a Multilingual Bottleneck Extractor and Correspondence Autoencoders
 - [⬜] Federated Learning for Keyword Spotting
 - [⬜] Hierarchical Neural Network Architecture in Keyword Spotting

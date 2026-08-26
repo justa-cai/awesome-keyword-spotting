@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>多通道 KWS 的听觉注意力端到端模型（小米）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · 2018 №10 · 多通道融合</div>
+<h1 class="hero">用可学习的权重表替掉波束成形 + AEC：听觉注意力让 6 麦阵列在 <span class="g">−20dB</span> 还能扛</h1>
+<div class="chips">
+<span class="chip acc">听觉注意力通道融合</span><span class="chip">频谱映射多任务</span><span class="chip">迁移学习噪声适应</span><span class="chip">免 AEC 参考信号</span><span class="chip">小米 6 麦阵列</span>
+</div>
+<div class="meta">
+<b>End-to-end Models with Auditory Attention in Multi-channel Keyword Spotting</b> · Haitong Zhang / Junbo Zhang / Yujun Wang（小米 AI 实验室）· arXiv <a href="https://arxiv.org/abs/1811.00350" style="color:var(--acc)">1811.00350</a>（2018.11）<br>
+一句话：6 个麦克风通道各学一个<b>动态注意力权重</b>（α_i = softmax(f(h_i))）加权融合，GRU 编码 + 帧级概率——端到端替掉波束成形 + AEC 级联：非回声/回声 +4%/+7% 绝对，迁移+多目标映射在 <b>−20dB 困难噪声 +30%</b>，还少用一个参考通道。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：级联信号处理的四宗罪</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li><b>目标错位</b>：波束成形优化信噪比、AEC 优化回声——都不直接优化「少误警少漏检」，级联整体次优。</li>
+<li><b>DOA 估计不稳</b>：多说话人、高噪声下声源方向估不准，融合跟着崩；各模块独立优化，没人对最终指标负责。</li>
+<li><b>额外硬件</b>：AEC 要参考信号——基线 7 通道，砍掉它能省一个通道的硬件复杂度。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">听觉注意力多通道 KWS：用可学习的权重表替掉波束成形 + AEC，−20dB 还能扛</text>
+<line x1="36.0" y1="60.0" x2="800.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 级联信号处理的四宗罪</text>
+<rect x="36.0" y="102.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="129.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">目标错位</text>
+<text x="180.0" y="129.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">波束成形优化信噪比 / AEC 优化回声——都不是「少误警少漏检」，级联整体次优</text>
+<rect x="36.0" y="152.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="179.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DOA 估计不稳</text>
+<text x="180.0" y="179.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">波束成形要估声源方向——多说话人、高噪声下估不准，融合跟着崩</text>
+<rect x="36.0" y="202.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="229.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">各模块独立优化</text>
+<text x="180.0" y="229.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">信号处理与 KWS 模型分开调——没有任何一个模块为最终指标负责</text>
+<rect x="36.0" y="252.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="279.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">额外硬件复杂度</text>
+<text x="180.0" y="279.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">AEC 要参考信号通道——基线用 7 通道，本文只要 6 个麦克风</text>
+<text x="36.0" y="320.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 解法：注意力当「可学习的波束成形」</text>
+<rect x="36.0" y="336.0" width="848.0" height="130.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="60.0" y="356.0" width="44.0" height="26.0" rx="5" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="82.0" y="373.0" font-size="8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ch1</text>
+<line x1="82.0" y1="382.0" x2="82.00" y2="412.00" stroke="#9fb69f" stroke-width="1.2"/>
+<text x="82.0" y="398.0" font-size="7.8" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.08</text>
+<rect x="120.0" y="356.0" width="44.0" height="26.0" rx="5" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="142.0" y="373.0" font-size="8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ch2</text>
+<line x1="142.0" y1="382.0" x2="142.00" y2="412.00" stroke="#9fb69f" stroke-width="1.2"/>
+<text x="142.0" y="398.0" font-size="7.8" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.22</text>
+<rect x="180.0" y="356.0" width="44.0" height="26.0" rx="5" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="202.0" y="373.0" font-size="8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ch3</text>
+<line x1="202.0" y1="382.0" x2="202.00" y2="412.00" stroke="#9fb69f" stroke-width="1.2"/>
+<text x="202.0" y="398.0" font-size="7.8" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.35</text>
+<rect x="240.0" y="356.0" width="44.0" height="26.0" rx="5" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="262.0" y="373.0" font-size="8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ch4</text>
+<line x1="262.0" y1="382.0" x2="262.00" y2="412.00" stroke="#9fb69f" stroke-width="1.2"/>
+<text x="262.0" y="398.0" font-size="7.8" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.15</text>
+<rect x="300.0" y="356.0" width="44.0" height="26.0" rx="5" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="322.0" y="373.0" font-size="8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ch5</text>
+<line x1="322.0" y1="382.0" x2="322.00" y2="412.00" stroke="#9fb69f" stroke-width="1.2"/>
+<text x="322.0" y="398.0" font-size="7.8" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.12</text>
+<rect x="360.0" y="356.0" width="44.0" height="26.0" rx="5" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="382.0" y="373.0" font-size="8" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ch6</text>
+<line x1="382.0" y1="382.0" x2="382.00" y2="412.00" stroke="#9fb69f" stroke-width="1.2"/>
+<text x="382.0" y="398.0" font-size="7.8" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0.08</text>
+<text x="460.0" y="426.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">α_i = softmax(f(h_i))：每通道一个动态权重——随声学环境实时变</text>
+<rect x="420.0" y="412.0" width="80.0" height="26.0" rx="5" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="460.0" y="429.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">融合特征</text>
+<line x1="500.0" y1="425.0" x2="580.00" y2="425.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="580.0" y="412.0" width="120.0" height="26.0" rx="5" fill="#eef6f1" stroke="#7fb69f" stroke-width="1"/>
+<text x="640.0" y="429.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GRU 编码器</text>
+<line x1="700.0" y1="425.0" x2="780.00" y2="425.00" stroke="#8a93a5" stroke-width="1.2"/>
+<rect x="780.0" y="412.0" width="76.0" height="26.0" rx="5" fill="#fde9d8" stroke="#e0b880" stroke-width="1"/>
+<text x="818.0" y="429.0" font-size="8.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级概率</text>
+<text x="460.0" y="458.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">解码：后验移动平均 + 阈值触发；输入特征 40 维 log-mel + PCEN</text>
+<text x="36.0" y="508.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 两个增强件：频谱映射多任务 + 迁移学习</text>
+<rect x="36.0" y="524.0" width="416.0" height="100.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="548.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">频谱映射（辅助任务）</text>
+<text x="52.0" y="572.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 额外预测干净语音频谱（L1/L2）</text>
+<text x="52.0" y="589.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 相当于内置去噪自编码器</text>
+<text x="52.0" y="606.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 逼注意力学噪声不变特征</text>
+<rect x="468.0" y="524.0" width="416.0" height="100.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="676.0" y="548.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">迁移学习（噪声适应）</text>
+<text x="484.0" y="572.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 干净语音预训练 → 噪声数据微调</text>
+<text x="484.0" y="589.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 解决噪声数据稀缺</text>
+<text x="484.0" y="606.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Tran Multi Map：微调时多目标映射</text>
+<rect x="36.0" y="656.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="682.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+4% / +7%</text>
+<text x="134.0" y="702.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">非回声/回声绝对提升</text>
+<text x="304.0" y="682.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+30%</text>
+<text x="304.0" y="702.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">−20dB 困难噪声提升</text>
+<text x="474.0" y="682.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">40-60%</text>
+<text x="474.0" y="702.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">仅注意力的相对提升</text>
+<text x="644.0" y="682.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">6 通道</text>
+<text x="644.0" y="702.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">免 AEC 参考信号</text>
+<text x="814.0" y="682.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">端到端</text>
+<text x="814.0" y="702.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">统一目标函数联调</text>
+<text x="36.0" y="740.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Haitong Zhang / Junbo Zhang / Yujun Wang（小米 AI 实验室）· arXiv 1811.00350（2018.11）· 小米智能音箱 6 麦阵列 · FRR @ 0.5 FA/hr；小米注意力系列的第二篇（前作 2018 №3 序列到一注意力）</text>
+</svg>
+<div class="cap">图 1 · 机制全景：级联四宗罪 → 六通道注意力融合结构（含权重示例）→ 两个增强件（频谱映射 / 迁移学习）→ 结果速览。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：注意力权重在「听」什么</h2>
+<div class="cards">
+<div class="card acc"><h3>动态通道权重</h3>α_i 随声学环境实时变——噪声方向的通道被压低、靠近用户的麦克风权重升高（可视化验证）。</div>
+<div class="card acc"><h3>频谱映射辅助任务</h3>额外预测干净语音频谱——内置去噪自编码器，逼注意力学出噪声不变的特征。</div>
+<div class="card"><h3>迁移学习两步走</h3>干净语音预训练（学会基本声学模式）→ 噪声数据微调（适应目标条件）——解决噪声数据稀缺。</div>
+<div class="card"><h3>GRU + 帧级解码</h3>帧级二元交叉熵（TDNN-LSTM 对齐生成标签），后验移动平均 + 阈值触发。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：注意力权重在「听」什么</text>
+<line x1="36.0" y1="56.0" x2="520.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="238.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力权重的空间分布（可视化结论）</text>
+<rect x="48.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="102.0" y="152.0" width="132.0" height="132.0" rx="20" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<circle cx="220.0" cy="218.0" r="5.3" fill="#7fb69f" opacity="0.9"/>
+<text x="220.0" y="221.0" font-size="7.5" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">1</text>
+<circle cx="194.0" cy="173.0" r="11.8" fill="#7fb69f" opacity="0.9"/>
+<text x="194.0" y="176.0" font-size="7.5" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">2</text>
+<circle cx="142.0" cy="173.0" r="10.5" fill="#7fb69f" opacity="0.9"/>
+<text x="142.0" y="176.0" font-size="7.5" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">3</text>
+<circle cx="116.0" cy="218.0" r="6.1" fill="#7fb69f" opacity="0.9"/>
+<text x="116.0" y="221.0" font-size="7.5" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4</text>
+<circle cx="142.0" cy="263.0" r="6.6" fill="#7fb69f" opacity="0.9"/>
+<text x="142.0" y="266.0" font-size="7.5" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5</text>
+<circle cx="194.0" cy="263.0" r="9.7" fill="#7fb69f" opacity="0.9"/>
+<text x="194.0" y="266.0" font-size="7.5" fill="#ffffff" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">6</text>
+<circle cx="258.0" cy="278.0" r="7" fill="#0a6b4e"/>
+<text x="258.0" y="296.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">用户</text>
+<circle cx="58.0" cy="138.0" r="7" fill="#c0392b"/>
+<text x="58.0" y="128.0" font-size="8" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声源</text>
+<text x="168.0" y="310.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">圆越大 = 注意力权重越高</text>
+<text x="348.0" y="140.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">观察：</text>
+<text x="354.0" y="158.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声方向的通道被压低</text>
+<text x="354.0" y="174.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 靠近用户的麦克风获得</text>
+<text x="354.0" y="190.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  更高权重（回声场景）</text>
+<text x="354.0" y="206.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 权重随时变化——环境</text>
+<text x="354.0" y="222.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  变了自动重新分配</text>
+<text x="656.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">注意力做不到的事</text>
+<rect x="480.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="496.0" y="118.0" font-size="9.2" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">软注意力 = 通道特征的加权平均</text>
+<text x="496.0" y="140.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">波束成形的「信号抵消」需要相位操作——</text>
+<text x="496.0" y="158.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">把干扰源用反相波形抵消掉。加权平均</text>
+<text x="496.0" y="176.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">只能「少听」，不能「消音」。</text>
+<line x1="496.0" y1="192.0" x2="816.00" y2="192.00" stroke="#e6e6df" stroke-width="1"/>
+<text x="496.0" y="214.0" font-size="9.2" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多任务权重的钢丝：</text>
+<text x="504.0" y="232.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· α β θ δ 超参要仔细调</text>
+<text x="504.0" y="248.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 调不好：辅助任务主导训练，</text>
+<text x="504.0" y="264.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  或辅助信号被完全忽略</text>
+<text x="504.0" y="280.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 迁移+单目标映射在噪声下</text>
+<text x="504.0" y="296.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  反而不如纯注意力——辅助</text>
+<text x="504.0" y="312.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  任务不是越多越好</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：注意力权重的可视化——噪声方向的通道被自动压低，靠近用户的麦克风权重升高；右：软注意力的结构性局限（无相位抵消）与多任务权重的敏感性</text>
+</svg>
+<div class="cap">图 2 · 左：注意力权重的空间可视化——圆越大权重越高，噪声方向的通道被自动压低；右：软注意力的结构性局限（加权平均做不了相位抵消）与多任务权重的敏感性。</div>
+<div class="formula">
+<div class="f">α_i = softmax( f(h_i) )        h_fused = Σ_i α_i · h_i        L = α·L_KWS + β·L_spectral</div>
+<div class="why"><b>人话：</b>给每个麦克风打一个「现在多可信」的分，按分数把六路信号混成一路再去识别——分数随环境实时变，噪声在哪边就把那边的音量调低。第二个损失逼模型同时输出「干净版频谱」，等于内置一个去噪练习，帮注意力学会分辨干净和脏。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果：三档条件的提升阶梯</h2>
+<table class="tb">
+<tr><th>条件</th><th>提升</th><th>口径</th></tr>
+<tr><td>非回声场景</td><td>+4%</td><td>绝对（vs 信号处理基线）</td></tr>
+<tr><td>回声场景</td><td>+7%</td><td>绝对</td></tr>
+<tr><td>噪声场景（仅注意力）</td><td>+40-60%</td><td>相对</td></tr>
+<tr class="hl"><td>−20dB 困难噪声（Tran Multi Map）</td><td>+30%</td><td>绝对</td></tr>
+</table>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：三档条件的提升阶梯（FRR @ 0.5 FA/hr）</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="276.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">各条件下的绝对/相对提升</text>
+<text x="60.0" y="126.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">非回声场景</text>
+<rect x="206.0" y="112.0" width="11.2" height="22.0" rx="5" fill="#9fc8b8"/>
+<text x="225.2" y="127.0" font-size="9" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+4%（绝对）</text>
+<text x="60.0" y="188.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">回声场景</text>
+<rect x="206.0" y="174.0" width="19.6" height="22.0" rx="5" fill="#5d9c85"/>
+<text x="233.6" y="189.0" font-size="9" fill="#5d9c85" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+7%（绝对）</text>
+<text x="60.0" y="250.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声：仅注意力</text>
+<rect x="206.0" y="236.0" width="140.0" height="22.0" rx="5" fill="#cfe9de"/>
+<text x="354.0" y="251.0" font-size="9" fill="#cfe9de" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">相对 +40-60%</text>
+<text x="60.0" y="312.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−20dB：Tran Multi Map</text>
+<rect x="206.0" y="298.0" width="84.0" height="22.0" rx="5" fill="#0b6e52"/>
+<text x="298.0" y="313.0" font-size="9" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">困难噪声 +30%（绝对）</text>
+<text x="60.0" y="376.0" font-size="7.8" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（第四行与前三行量纲不同：绝对 vs 相对；条宽仅示意相对大小）</text>
+<text x="732.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">消融发现</text>
+<rect x="620.0" y="92.0" width="224.0" height="258.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="636.0" y="116.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 条件匹配时（训练=测试），</text>
+<text x="636.0" y="133.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  频谱映射只带来轻微改进</text>
+<text x="636.0" y="150.0" font-size="8.4" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="636.0" y="167.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 条件不匹配时（干净训·</text>
+<text x="636.0" y="184.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  噪声测），迁移学习是必需</text>
+<text x="636.0" y="201.0" font-size="8.4" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="636.0" y="218.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 迁移+单目标映射在噪声下</text>
+<text x="636.0" y="235.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  不如纯注意力——辅助任务</text>
+<text x="636.0" y="252.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  过度会干扰主任务</text>
+<text x="636.0" y="269.0" font-size="8.4" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="636.0" y="286.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 多目标映射只在微调阶段</text>
+<text x="636.0" y="303.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  有效（Tran Multi Map）</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文实验（arXiv 1811.00350 · 小米真实场景）；基线 = 传统信号处理（波束成形+AEC）+ 单通道 KWS；FRR @ 0.5 FA/hr</text>
+</svg>
+<div class="cap">图 3 · 左：四档条件的提升条形（注意第四行与前三维量纲不同）；右：消融发现——条件匹配时映射只轻微改进、不匹配时迁移是必需、辅助任务过度反而干扰主任务。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：软注意力的天花板</h2>
+<div class="cards">
+<div class="card bad"><h3>加权平均 ≠ 信号抵消</h3>软注意力只能「少听」不能「消音」——波束成形的相位反转抵消它做不到，强干扰下仍是短板。</div>
+<div class="card bad"><h3>多任务权重难调</h3>α β θ δ 四个超参——调偏了辅助任务主导训练或辅助信号被忽略，不是即插即用。</div>
+<div class="card bad"><h3>条件依赖强</h3>训练/测试条件不匹配时迁移+映射的组合不稳定——鲁棒迁移策略仍待研究。</div>
+<div class="card bad"><h3>缺深度对比</h3>未与神经网络自适应波束成形对比；注意力权重可解释性分析浅；麦克风数量影响未探。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：软注意力的天花板 · 小米注意力三部曲</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">加权平均 ≠ 信号抵消</text>
+<text x="225.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">软注意力只能「少听」不能「消音」——波束成形的相位反转抵消它做不到，强干扰下仍是短板</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多任务权重难调</text>
+<text x="225.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">α β θ δ 四个超参——调偏了辅助任务主导训练或辅助信号被忽略，不是即插即用</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">条件依赖强</text>
+<text x="225.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练/测试条件不匹配时迁移+映射的组合不稳定——鲁棒迁移策略仍待研究</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">缺深度对比</text>
+<text x="225.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">未与神经网络自适应波束成形对比；注意力权重可解释性分析浅；麦克风数量影响未探</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">信号处理级联</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">BF + AEC</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">听觉注意力</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 2018</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多通道 TAC</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Apple 2020+</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">神经波束成形</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">端到端前端 2021+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">小米三部曲：序列到一注意力（2018 №3）→ 本文多通道听觉注意力 → 后续听觉注意力系列；多通道融合的思路后来由 Apple 的 TAC（变换-平均-拼接）</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">等结构化方案与神经波束成形接棒——「可学习前端替信号处理」自此成为多通道 KWS 的主线</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：小米注意力三部曲（序列到一 → 本文多通道 → 听觉系列），多通道融合由 Apple TAC 与神经波束成形接棒——「可学习前端替信号处理」成为主线。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>级联系统的每个模块都在优化自己的代理指标——端到端的价值不是「某个模块更强」，而是让所有参数为最终指标一起负责；替换级联的第一步往往是找一个「可微分的简化版」放在同一位置。</p>
+<p>辅助任务是把先验塞进训练的手术：频谱映射告诉网络「干净语音长这样」——但消融同样警告，辅助信号过度会喧宾夺主；多任务收益的大小与「训练-测试条件是否匹配」强耦合，不是普适增益。</p>
+<p>注意力能学「少听」，学不了「消音」：加权平均没有相位操作，注定做不了信号抵消——读端到端前端论文时先问它替代的信号处理里哪些操作是加权平均能表达的，哪些不是。</p>
+</div>
+<span class="pill">系列：多通道融合 · 可学习前端的开端</span>
+<div class="foot-note">数据与结论来自论文原文（arXiv 1811.00350 · 小米真实场景 · FRR @ 0.5 FA/hr）；基线 = 波束成形+AEC+单通道 KWS。系列内关联：注意力端到端（2018 №3，同组前作）· 单耳增强+KWS（2019 №2）· 车载多源融合（2019 №7）· Apple TAC 多通道（2020+）。</div>
+</section>
+</div>
+</body>
+</html>
