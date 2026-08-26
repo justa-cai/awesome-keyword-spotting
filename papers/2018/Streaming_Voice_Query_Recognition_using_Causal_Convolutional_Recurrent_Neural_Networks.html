@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>流式语音查询识别 C-CRNN（滑铁卢+Comcast）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · 2018 №20 · 命令识别</div>
+<h1 class="hero">200 条语音命令，19 MB 模型，<span class="g">KWS 和完整 ASR 之间</span>的第三条路</h1>
+<div class="chips">
+<span class="chip acc">语音查询识别（KWS-ASR 中间方案）</span><span class="chip">因果卷积 + 单向 GRU</span><span class="chip">PCEN 特征</span><span class="chip">每 100ms 流式预测</span><span class="chip">8.24× 快于 ASR</span>
+</div>
+<div class="meta">
+<b>Streaming Voice Query Recognition using Causal Convolutional Recurrent Neural Networks</b> · Tang / Yang / Wei / Mao / Ture / Lin（滑铁卢大学 + Comcast Applied AI）· arXiv <a href="https://arxiv.org/abs/1812.07754" style="color:var(--acc)">1812.07754</a>（2018.12）<br>
+一句话：Comcast X1 机顶盒要响应 <b>200 条语音命令</b>（KWS 词太少、ASR 太贵）——PCEN + 因果卷积（短模式）+ 单向 GRU + 时间池化（长依赖）+ 201 类分类头：QER <b>6.0%</b>（res8 基线 29.4%），FAR 1.0%，每 100ms 恒定复杂度出预测。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：两头都堵死了</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>传统 KWS 只认几十个预设词——「open YouTube」和「quit YouTube」共享词汇但<b>语义相反</b>，二分类唤醒词架构分不开。</li>
+<li>完整 ASR 能处理任意输入——但内存/延迟/功耗对机顶盒这类边缘设备<b>过于昂贵</b>。</li>
+<li>需要「中间方案」：<b>数百条命令</b>的识别能力 + 边缘设备的实时预算。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">200 条语音命令的流式识别：KWS 和完整 ASR 之间的第三条路</text>
+<line x1="36.0" y1="60.0" x2="740.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 两头都堵死了</text>
+<rect x="36.0" y="100.0" width="416.0" height="118.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="244.0" y="124.0" font-size="11" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">传统 KWS：词太少</text>
+<text x="52.0" y="148.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 只认几十个预设唤醒词</text>
+<text x="52.0" y="166.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· "open YouTube" 和 "quit YouTube"</text>
+<text x="52.0" y="184.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  共享词汇但语义相反——分不开</text>
+<rect x="468.0" y="100.0" width="416.0" height="118.0" rx="10" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="676.0" y="124.0" font-size="11" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">完整 ASR：太贵</text>
+<text x="484.0" y="148.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 内存/延迟/功耗对边缘设备过重</text>
+<text x="484.0" y="166.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Comcast X1 机顶盒要响应数百条</text>
+<text x="484.0" y="184.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  命令但跑不动 ASR 引擎</text>
+<text x="36.0" y="246.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 解法：crnn-750m——四层组件全因果</text>
+<rect x="36.0" y="262.0" width="848.0" height="122.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="56.0" y="282.0" width="190.0" height="80.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="151.0" y="304.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PCEN 特征</text>
+<text x="151.0" y="324.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">自适应归一化</text>
+<text x="151.0" y="340.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">α δ β 可学习</text>
+<text x="253.0" y="326.0" font-size="12" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="266.0" y="282.0" width="190.0" height="80.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="361.0" y="304.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">因果卷积 ×1</text>
+<text x="361.0" y="324.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">核 3 · 750 通道</text>
+<text x="361.0" y="340.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">短期时序模式</text>
+<text x="463.0" y="326.0" font-size="12" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="476.0" y="282.0" width="190.0" height="80.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="571.0" y="304.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单向 GRU</text>
+<text x="571.0" y="324.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">750 单元 + 时间池化</text>
+<text x="571.0" y="340.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">长期上下文</text>
+<text x="673.0" y="326.0" font-size="12" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="686.0" y="282.0" width="190.0" height="80.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="781.0" y="304.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DNN 分类</text>
+<text x="781.0" y="324.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">201 类输出</text>
+<text x="781.0" y="340.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">200 命令 + 非查询</text>
+<text x="460.0" y="376.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">因果卷积（只看过去）+ 单向 GRU（无未来）——每 100ms 出一次预测，复杂度与流长度无关</text>
+<text x="36.0" y="414.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 分工逻辑：短模式与长依赖互补</text>
+<rect x="36.0" y="430.0" width="416.0" height="92.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="454.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">因果卷积管「短」</text>
+<text x="52.0" y="478.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 音素内的频谱变化（毫秒级）</text>
+<text x="52.0" y="495.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 时间最大池化：留最有判别性的帧</text>
+<rect x="468.0" y="430.0" width="416.0" height="92.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="676.0" y="454.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GRU 管「长」</text>
+<text x="484.0" y="478.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 跨音素的时序依赖（"open" vs "quit"）</text>
+<text x="484.0" y="495.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 单向保持流式——消融删任一组件都掉</text>
+<rect x="36.0" y="552.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="578.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">201 类</text>
+<text x="134.0" y="598.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">200 命令 + 非查询</text>
+<text x="304.0" y="578.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">8.24×</text>
+<text x="304.0" y="598.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">推理速度 vs ASR</text>
+<text x="474.0" y="578.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">19 MB</text>
+<text x="474.0" y="598.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">磁盘占用</text>
+<text x="644.0" y="578.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5 KB/流</text>
+<text x="644.0" y="598.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">运行时内存</text>
+<text x="814.0" y="578.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">68 ms/s</text>
+<text x="814.0" y="598.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GTX 1080 实测</text>
+<text x="36.0" y="636.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Raphael Tang / Gefei Yang / Hong Wei / Yajie Mao / Ferhan Ture / Jimmy Lin（滑铁卢大学 + Comcast Applied AI）· arXiv 1812.07754（2018.12）· X1 平台真实查询数据</text>
+</svg>
+<div class="cap">图 1 · 机制全景：KWS/ASR 两头堵 → crnn-750m 四组件全因果流水线 → 短/长分工逻辑 → 资源数字速览。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：因果性是流式的宪法</h2>
+<div class="cards">
+<div class="card acc"><h3>因果卷积</h3>t 只连 ≤t 的输入——短期时序模式（音素内频谱变化），核 3、750 通道。</div>
+<div class="card acc"><h3>单向 GRU</h3>状态只从过去递推——长期跨音素依赖（open vs quit），无未来信息。</div>
+<div class="card"><h3>时间最大池化</h3>每 N 帧取最大——序列缩短、判别帧保留，计算量直降。</div>
+<div class="card"><h3>PCEN 特征</h3>自适应能量归一化（α δ β 可学习）——近场/远场统一处理，端到端可微。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：流式的因果性怎么保证 · 池化怎么省</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="248.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">因果性：所有连线只指过去</text>
+<rect x="48.0" y="92.0" width="420.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="88.0" y="250.0" width="32.0" height="20.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<line x1="104.0" y1="246.0" x2="303.00" y2="210.00" stroke="#9fb69f" stroke-width="1"/>
+<rect x="132.0" y="250.0" width="32.0" height="20.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<line x1="148.0" y1="246.0" x2="303.00" y2="210.00" stroke="#9fb69f" stroke-width="1"/>
+<rect x="176.0" y="250.0" width="32.0" height="20.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<line x1="192.0" y1="246.0" x2="303.00" y2="210.00" stroke="#9fb69f" stroke-width="1"/>
+<rect x="220.0" y="250.0" width="32.0" height="20.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<line x1="236.0" y1="246.0" x2="303.00" y2="210.00" stroke="#9fb69f" stroke-width="1"/>
+<rect x="264.0" y="250.0" width="32.0" height="20.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<line x1="280.0" y1="246.0" x2="303.00" y2="210.00" stroke="#9fb69f" stroke-width="1"/>
+<rect x="308.0" y="250.0" width="32.0" height="20.0" rx="3" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<line x1="324.0" y1="246.0" x2="303.00" y2="210.00" stroke="#9fb69f" stroke-width="1"/>
+<rect x="352.0" y="250.0" width="32.0" height="20.0" rx="3" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<rect x="396.0" y="250.0" width="32.0" height="20.0" rx="3" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<circle cx="303.0" cy="200.0" r="12" fill="#0b6e52"/>
+<text x="303.0" y="182.0" font-size="8.3" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">当前帧输出</text>
+<rect x="348.0" y="244.0" width="40.0" height="32.0" rx="4" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="368.0" y="288.0" font-size="8" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">未来帧</text>
+<text x="248.0" y="316.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">因果卷积：t 只连 ≤t —— 未来帧无连线</text>
+<text x="248.0" y="336.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">单向 GRU：状态只从过去递推——天然无未来</text>
+<text x="248.0" y="136.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">结果：每 100ms 预测一次，</text>
+<text x="248.0" y="154.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">计算/内存恒定，与音频流长度无关</text>
+<text x="676.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">时间最大池化 + PCEN</text>
+<rect x="500.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="516.0" y="116.0" font-size="9.2" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">时间最大池化</text>
+<rect x="530.0" y="154.0" width="14.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="550.0" y="138.0" width="14.0" height="32.0" rx="2" fill="#c9d8e8"/>
+<rect x="570.0" y="150.0" width="14.0" height="20.0" rx="2" fill="#c9d8e8"/>
+<rect x="590.0" y="158.0" width="14.0" height="12.0" rx="2" fill="#c9d8e8"/>
+<rect x="550.0" y="130.0" width="14.0" height="40.0" rx="2" fill="#0b6e52"/>
+<text x="557.0" y="186.0" font-size="7.5" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">max</text>
+<rect x="630.0" y="154.0" width="14.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="650.0" y="138.0" width="14.0" height="32.0" rx="2" fill="#c9d8e8"/>
+<rect x="670.0" y="150.0" width="14.0" height="20.0" rx="2" fill="#c9d8e8"/>
+<rect x="690.0" y="158.0" width="14.0" height="12.0" rx="2" fill="#c9d8e8"/>
+<rect x="650.0" y="130.0" width="14.0" height="40.0" rx="2" fill="#0b6e52"/>
+<text x="657.0" y="186.0" font-size="7.5" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">max</text>
+<rect x="730.0" y="154.0" width="14.0" height="16.0" rx="2" fill="#c9d8e8"/>
+<rect x="750.0" y="138.0" width="14.0" height="32.0" rx="2" fill="#c9d8e8"/>
+<rect x="770.0" y="150.0" width="14.0" height="20.0" rx="2" fill="#c9d8e8"/>
+<rect x="790.0" y="158.0" width="14.0" height="12.0" rx="2" fill="#c9d8e8"/>
+<rect x="750.0" y="130.0" width="14.0" height="40.0" rx="2" fill="#0b6e52"/>
+<text x="757.0" y="186.0" font-size="7.5" fill="#0b6e52" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">max</text>
+<text x="676.0" y="212.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">每 N 帧取最大——序列缩短 · 判别特征保留</text>
+<line x1="516.0" y1="228.0" x2="836.00" y2="228.00" stroke="#e6e6df" stroke-width="1"/>
+<text x="516.0" y="252.0" font-size="9.2" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">PCEN 特征</text>
+<text x="524.0" y="270.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">(x/(ε+S)^α)^δ + β —— S 是 EMA 低通</text>
+<text x="524.0" y="286.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 近场/远场能量差异自适应</text>
+<text x="524.0" y="302.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 可微——端到端跟网络一起训</text>
+<text x="524.0" y="318.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 比静态 log 压缩的动态范围更细</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：因果卷积的连线只指向过去（红框未来帧无连线）+ 单向 GRU 的递推保证——恒定复杂度的来源；右：时间最大池化与 PCEN 的机制</text>
+</svg>
+<div class="cap">图 2 · 左：因果性示意——所有连线只指向过去，未来帧无连线；这是「计算/内存恒定、与流长度无关」的来源。右：时间最大池化与 PCEN 机制。</div>
+<div class="formula">
+<div class="f">PCEN(t,f) = (x / (ε+S)^α)^δ + β        因果 Conv(k=3) → 时间 max-pool → 单向 GRU → FC(201)        每 100ms 输出一次</div>
+<div class="why"><b>人话：</b>整条流水线每一层都只准看过去：卷积不许连未来帧、GRU 只往前递推、特征归一化用的是历史平滑——所以不管音频流跑十分钟还是十小时，每 100 毫秒做一次预测的成本完全一样，这就是「流式」的工程含义。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果：不是「大号 KWS」，是不同的任务</h2>
+<table class="tb">
+<tr><th>指标</th><th>crnn-750m</th><th>res8 KWS 基线</th></tr>
+<tr class="hl"><td>查询错误率 QER</td><td>6.0%</td><td>29.4%</td></tr>
+<tr><td>误警率 FAR</td><td>1.0%</td><td>—</td></tr>
+</table>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：与 KWS 基线的差距 + 资源全景账</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="266.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">查询错误率 QER（越低越好）</text>
+<text x="60.0" y="131.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">res8 KWS 基线</text>
+<rect x="186.0" y="116.0" width="279.3" height="24.0" rx="5" fill="#e0a9a0"/>
+<text x="473.3" y="133.0" font-size="10.5" fill="#e0a9a0" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">29.4%</text>
+<text x="60.0" y="209.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">crnn-750m ★</text>
+<rect x="186.0" y="194.0" width="57.0" height="24.0" rx="5" fill="#0b6e52"/>
+<text x="251.0" y="211.0" font-size="10.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">6.0%</text>
+<text x="266.0" y="296.0" font-size="9" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">同一任务：传统 KWS 架构 QER 高近 5 倍</text>
+<text x="266.0" y="318.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">——200 类命令不是「大号 KWS」，是不同的任务</text>
+<text x="266.0" y="348.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">误警率 FAR：1.0%（同时守住低误警）</text>
+<text x="732.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">资源全景账</text>
+<rect x="620.0" y="92.0" width="224.0" height="258.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="636.0" y="124.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量</text>
+<text x="828.0" y="124.0" font-size="9.5" fill="#0a6b4e" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">4.66M</text>
+<text x="636.0" y="164.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">计算量</text>
+<text x="828.0" y="164.0" font-size="9.5" fill="#0a6b4e" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">378M 乘/秒</text>
+<text x="636.0" y="204.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">磁盘</text>
+<text x="828.0" y="204.0" font-size="9.5" fill="#0a6b4e" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">19 MB</text>
+<text x="636.0" y="244.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">内存</text>
+<text x="828.0" y="244.0" font-size="9.5" fill="#0a6b4e" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5 KB / 流</text>
+<text x="636.0" y="284.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">速度</text>
+<text x="828.0" y="284.0" font-size="9.5" fill="#0a6b4e" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">8.24× ASR</text>
+<text x="636.0" y="324.0" font-size="8.8" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延迟</text>
+<text x="828.0" y="324.0" font-size="9.5" fill="#0a6b4e" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">68 ms / s 音频</text>
+<text x="36.0" y="412.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（arXiv 1812.07754 · X1 平台 200 条真实查询 · GTX 1080 实测）；标签由商业 ASR 生成（弱标签）</text>
+</svg>
+<div class="cap">图 3 · 左：QER 对比（res8 高近 5 倍——200 类命令对传统 KWS 架构是错位任务）；右：资源全景账（4.66M 参数 / 19MB / 5KB 每流 / 8.24× ASR）。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：中间路线的代价</h2>
+<div class="cards">
+<div class="card bad"><h3>泛化未验</h3>仅 X1 英文查询评估——跨语言/跨领域的语音分布可能要调架构。</div>
+<div class="card bad"><h3>弱标签天花板</h3>标签来自商业 ASR 而非人工——ASR 错误直接传进训练集。</div>
+<div class="card bad"><h3>固定 200 词</h3>预定义命令集——开放词汇新命令认不了，扩容可能要更大模型。</div>
+<div class="card bad"><h3>缺噪声与压缩评估</h3>背景电视声/多说话人未测；剪枝量化进一步压缩的潜力未探。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：中间路线的定位 · 流式架构的范本</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">泛化未验</text>
+<text x="175.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">仅 X1 英文查询评估——跨语言/跨领域的语音分布可能要调架构</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">弱标签天花板</text>
+<text x="175.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">标签来自商业 ASR 而非人工——ASR 错误直接传进训练集</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">固定 200 词</text>
+<text x="175.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">预定义命令集——开放词汇新命令认不了，扩容可能要更大模型</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">缺噪声与压缩评估</text>
+<text x="175.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">背景电视声/多说话人未测；剪枝量化进一步压缩的潜力未探</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS（几十词）</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">唤醒词时代</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">语音查询识别</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 2018</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Google 流式 CRNN</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2020 №19</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">开放词汇 KWS</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2020 №18+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">定位：KWS→ASR 光谱上的第一代「中间方案」——证明数百命令在边缘设备可行；PCEN+因果卷积+单向 GRU 的流式配方</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">被 Google 流式 CRNN（2020 №19）与后续开放词汇 KWS 延续——「命令分类」与「开放检索」是中间地带的两个进化方向</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：KWS→ASR 光谱上的第一代中间方案；流式配方由 Google 流式 CRNN（2020 №19）延续，「命令分类」与「开放检索」（Sonos 2020 №18）是中间地带的两个进化方向。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>当任务规模超出架构的设计点，性能是断崖不是斜坡：res8 在 200 类命令上 QER 29.4%——不是调参能救的错位，而是「二分类唤醒词架构」对「多命令语义分类」的任务失配；识别任务的真实规模比模型大小更早决定架构选择。</p>
+<p>流式 = 因果性 + 恒定复杂度，两者都来自架构而非工程技巧：因果卷积、单向循环、历史平滑特征——每一层都尊重时间方向，「任意长音频流下内存恒定」才成立；双向结构再准也不能上流式前线。</p>
+<p>「中间方案」是产品需求驱动的架构空间：KWS 和 ASR 之间不是二选一——当产品要求「数百命令 + 机顶盒预算」时，中间方案就是这个约束的最优解；读架构论文先看它的部署约束，很多「奇怪设计」都是约束的合理映射。</p>
+</div>
+<span class="pill">系列：命令识别 · KWS→ASR 光谱的开拓</span>
+<div class="foot-note">数据与结论来自论文原文（arXiv 1812.07754 · X1 平台 200 条真实查询 · GTX 1080 实测）。系列内关联：浏览器 JS KWS（2018 №14，同组）· Google 流式 CRNN（2020 №19）· Sonos 开放词汇量化（2020 №18）· WSRNet 文档 KWS（2020 №23）。</div>
+</section>
+</div>
+</body>
+</html>
