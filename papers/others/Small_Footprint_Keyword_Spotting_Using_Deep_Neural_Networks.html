@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小足迹 DNN 关键词检测（Google，ICASSP 2014）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · others №1 · 谱系源头 · 2014</div>
+<h1 class="hero">Deep KWS 的开山之作：只换引擎不换底盘——GMM 换成 DNN，<span class="g">1MB 预算</span>内检测率高出 10-20 个点</h1>
+<div class="chips">
+<span class="chip acc">HMM-DNN 混合架构</span><span class="chip">关键词/填充 HMM 对偶</span><span class="chip">GMM 对齐两阶段训练</span><span class="chip">小足迹 1MB 约束</span><span class="chip">噪声下代差扩大</span>
+</div>
+<div class="meta">
+<b>Small-Footprint Keyword Spotting Using Deep Neural Networks</b> · Guoguo Chen / Carolina Parada / Georg Heigold（Google）· ICASSP 2014<br>
+一句话：把 HMM-GMM 系统里的 GMM 声学模型<b>原地换成 DNN</b>——HMM 继续管时间（关键词链 + 填充池的 Viterbi 竞争），DNN 管帧级评分 P(state|frame)：1MB 参数内<b>全操作点显著超 GMM</b>，噪声越大优势越大——此后数年工业 KWS 的主流范式由此定型。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：2014 年，GMM 到顶了</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>GMM 用高斯线性组合近似帧级分布——噪声/混响/多说话人下<b>区分力崩塌</b>。</li>
+<li>DNN 在大词汇 ASR 已证明碾压 GMM——但<b>小足迹 KWS 没人系统验证过</b>（1MB / ~250K 参数的红线）。</li>
+<li>核心问题：DNN 的准确率 + HMM 的时间框架 + 1MB 预算——<b>三样能不能同时要</b>。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Deep KWS 的开山之作：把 GMM 换成 DNN，一切后续论文的坐标系原点</text>
+<line x1="36.0" y1="60.0" x2="800.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 2014 年的问题：GMM 到顶了</text>
+<rect x="36.0" y="102.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="129.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GMM 建模能力弱</text>
+<text x="215.0" y="129.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">高斯混合线性组合近似帧级分布——噪声/混响/多说话人下区分力崩</text>
+<rect x="36.0" y="152.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="179.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DNN 在 ASR 已赢</text>
+<text x="215.0" y="179.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">大词汇识别里 DNN 已显著超越 GMM——但小足迹 KWS 没人系统验证过</text>
+<rect x="36.0" y="202.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="229.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">小足迹是硬约束</text>
+<text x="215.0" y="229.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">模型 1MB 以内（约 250K float 参数）——常开设备的内存红线</text>
+<rect x="36.0" y="252.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="279.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">问题：能不能兼得</text>
+<text x="215.0" y="279.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">DNN 的准确率 + HMM 的时间框架 + 1MB 预算——三样同时要</text>
+<text x="36.0" y="320.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② HMM-DNN 混合：换引擎不换底盘</text>
+<rect x="36.0" y="336.0" width="848.0" height="148.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="52.0" y="356.0" width="194.0" height="90.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="149.0" y="380.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">特征提取</text>
+<text x="149.0" y="402.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">MFCC / 滤波器组</text>
+<text x="149.0" y="418.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">± 5-11 帧上下文</text>
+<text x="254.0" y="402.0" font-size="12" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="264.0" y="356.0" width="194.0" height="90.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="361.0" y="380.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DNN 声学评分</text>
+<text x="361.0" y="402.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">多层全连接 → softmax</text>
+<text x="361.0" y="418.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">P(state | frame)</text>
+<text x="466.0" y="402.0" font-size="12" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="476.0" y="356.0" width="194.0" height="90.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="573.0" y="380.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">HMM 时间建模</text>
+<text x="573.0" y="402.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词 HMM + 填充 HMM</text>
+<text x="573.0" y="418.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">状态转移 · 时长</text>
+<text x="678.0" y="402.0" font-size="12" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="688.0" y="356.0" width="194.0" height="90.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="785.0" y="380.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Viterbi 解码</text>
+<text x="785.0" y="402.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">最优路径 → 似然比</text>
+<text x="785.0" y="418.0" font-size="8.2" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 检测决策</text>
+<text x="460.0" y="460.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">时间维度仍交给 HMM（成熟）——只把帧级声学评分这一件脏活换成 DNN（更强）</text>
+<text x="36.0" y="508.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 两阶段训练：GMM 当老师</text>
+<rect x="36.0" y="524.0" width="848.0" height="96.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="52.0" y="542.0" width="196.0" height="62.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="150.0" y="564.0" font-size="8.8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 训 HMM-GMM 系统</text>
+<text x="150.0" y="588.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">（完整 GMM 系统）</text>
+<text x="256.0" y="574.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="260.0" y="542.0" width="196.0" height="62.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="358.0" y="564.0" font-size="8.8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 强制对齐拿帧级标签</text>
+<text x="358.0" y="588.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GMM 的对齐当监督</text>
+<text x="464.0" y="574.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="468.0" y="542.0" width="196.0" height="62.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="566.0" y="564.0" font-size="8.8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 交叉熵训 DNN</text>
+<text x="566.0" y="588.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">可叠 RBM 预训练</text>
+<text x="672.0" y="574.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="676.0" y="542.0" width="196.0" height="62.0" rx="8" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="774.0" y="564.0" font-size="8.8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">④ DNN 换进 HMM</text>
+<text x="774.0" y="588.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">解码即检测</text>
+<text x="460.0" y="626.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">此后数年 HMM-DNN 系统的标准流程</text>
+<rect x="36.0" y="646.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="672.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">10-20 点</text>
+<text x="134.0" y="692.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">同误唤醒率下检测率超 GMM</text>
+<text x="304.0" y="672.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声下优势扩大</text>
+<text x="304.0" y="692.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">GMM 崩 · DNN 稳</text>
+<text x="474.0" y="672.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">≤1MB</text>
+<text x="474.0" y="692.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">常开部署预算内</text>
+<text x="644.0" y="672.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">±5-11 帧</text>
+<text x="644.0" y="692.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">上下文窗口显著有效</text>
+<text x="814.0" y="672.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">范式起点</text>
+<text x="814.0" y="692.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">后续所有 KWS 的基线</text>
+<text x="36.0" y="730.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Guoguo Chen / Carolina Parada / Georg Heigold（Google）· ICASSP 2014 · Google 内部大规模数据 · DET 曲线评估；系列谱系的起点——本库从 2026 倒序写到 2014 终于抵达源头</text>
+</svg>
+<div class="cap">图 1 · 机制全景：GMM 困境 → HMM-DNN 混合四段流水线（换引擎不换底盘）→ GMM 当老师的两阶段训练 → 结果速览。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：两条 HMM 的竞争解码</h2>
+<div class="cards">
+<div class="card acc"><h3>关键词 HMM</h3>按音素分段建模目标词——每个状态对应一段音素，自环给时长弹性。</div>
+<div class="card acc"><h3>填充 HMM</h3>建模一切非关键词语音与静音——关键词的「对比模型」，似然比的分母。</div>
+<div class="card"><h3>DNN 的单点职责</h3>输入上下文帧 → softmax 输出各 HMM 状态后验——时间建模一点都不碰。</div>
+<div class="card"><h3>Viterbi 判决</h3>两条模型间找最优路径 → 似然比超阈值报检测。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：关键词 HMM 与填充 HMM 的对偶</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="238.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两条 HMM 的竞争</text>
+<rect x="48.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="64.0" y="118.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词 HMM（按音素分段）</text>
+<circle cx="98.0" cy="146.0" r="15" fill="#cfe9de" stroke="#7fb69f"/>
+<text x="98.0" y="150.0" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">k</text>
+<line x1="113.0" y1="146.0" x2="128.00" y2="146.00" stroke="#7fb69f" stroke-width="1.2"/>
+<circle cx="120.0" cy="130.0" r="6" fill="none" stroke="#b9c6d8"/>
+<line x1="120.0" y1="136.0" x2="120.00" y2="156.00" stroke="#b9c6d8" stroke-width="0.8"/>
+<circle cx="143.0" cy="146.0" r="15" fill="#cfe9de" stroke="#7fb69f"/>
+<text x="143.0" y="150.0" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">w</text>
+<line x1="158.0" y1="146.0" x2="173.00" y2="146.00" stroke="#7fb69f" stroke-width="1.2"/>
+<circle cx="165.0" cy="130.0" r="6" fill="none" stroke="#b9c6d8"/>
+<line x1="165.0" y1="136.0" x2="165.00" y2="156.00" stroke="#b9c6d8" stroke-width="0.8"/>
+<circle cx="188.0" cy="146.0" r="15" fill="#cfe9de" stroke="#7fb69f"/>
+<text x="188.0" y="150.0" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ae</text>
+<line x1="203.0" y1="146.0" x2="218.00" y2="146.00" stroke="#7fb69f" stroke-width="1.2"/>
+<circle cx="210.0" cy="130.0" r="6" fill="none" stroke="#b9c6d8"/>
+<line x1="210.0" y1="136.0" x2="210.00" y2="156.00" stroke="#b9c6d8" stroke-width="0.8"/>
+<circle cx="233.0" cy="146.0" r="15" fill="#cfe9de" stroke="#7fb69f"/>
+<text x="233.0" y="150.0" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">r</text>
+<line x1="248.0" y1="146.0" x2="263.00" y2="146.00" stroke="#7fb69f" stroke-width="1.2"/>
+<circle cx="255.0" cy="130.0" r="6" fill="none" stroke="#b9c6d8"/>
+<line x1="255.0" y1="136.0" x2="255.00" y2="156.00" stroke="#b9c6d8" stroke-width="0.8"/>
+<circle cx="278.0" cy="146.0" r="15" fill="#cfe9de" stroke="#7fb69f"/>
+<text x="278.0" y="150.0" font-size="7.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">d</text>
+<text x="64.0" y="196.0" font-size="9" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">填充 HMM（一切非关键词）</text>
+<circle cx="108.0" cy="224.0" r="14" fill="#fde9d8" stroke="#e0b880"/>
+<text x="108.0" y="228.0" font-size="7.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">f1</text>
+<line x1="122.0" y1="224.0" x2="164.00" y2="224.00" stroke="#e0b880" stroke-width="1.2"/>
+<circle cx="178.0" cy="224.0" r="14" fill="#fde9d8" stroke="#e0b880"/>
+<text x="178.0" y="228.0" font-size="7.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">f2</text>
+<line x1="192.0" y1="224.0" x2="234.00" y2="224.00" stroke="#e0b880" stroke-width="1.2"/>
+<circle cx="248.0" cy="224.0" r="14" fill="#fde9d8" stroke="#e0b880"/>
+<text x="248.0" y="228.0" font-size="7.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">f3</text>
+<line x1="262.0" y1="224.0" x2="304.00" y2="224.00" stroke="#e0b880" stroke-width="1.2"/>
+<circle cx="318.0" cy="224.0" r="14" fill="#fde9d8" stroke="#e0b880"/>
+<text x="318.0" y="228.0" font-size="7.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">f4</text>
+<text x="248.0" y="262.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Viterbi 在两条模型间找最优路径</text>
+<text x="248.0" y="284.0" font-size="8.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">似然比 = P(音频 | 关键词 HMM) / P(音频 | 填充 HMM)</text>
+<text x="248.0" y="310.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">超阈值 → 报检测</text>
+<text x="676.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DNN 干的活与超参经验</text>
+<rect x="500.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="516.0" y="118.0" font-size="9.2" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DNN 只做一件事：</text>
+<text x="524.0" y="136.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输入上下文帧 → 输出各 HMM 状态的</text>
+<text x="524.0" y="152.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">后验概率 P(state | frame)</text>
+<text x="524.0" y="168.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="524.0" y="184.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">超参经验（论文结论）：</text>
+<text x="524.0" y="200.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 层数 3→5 持续提升但边际递减</text>
+<text x="524.0" y="216.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 隐藏单元 512-1024 是甜点</text>
+<text x="524.0" y="232.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 滤波器组能量 &gt; MFCC（信息多）</text>
+<text x="524.0" y="248.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· RBM 预训练：小数据有用 · 大数据弱</text>
+<text x="524.0" y="264.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 上下文窗口扩大显著有效——</text>
+<text x="524.0" y="280.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  但窗口之外的长时依赖管不到</text>
+<text x="524.0" y="296.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （这个缺口催生了 RNN/CNN 系）</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：关键词 HMM（音素链）与填充 HMM（非关键词池）的竞争解码——似然比判决；右：DNN 的单点职责与论文给出的全部超参经验</text>
+</svg>
+<div class="cap">图 2 · 左：关键词 HMM（音素链）与填充 HMM（非关键词池）的竞争——似然比判决；右：DNN 的单点职责与论文的全部超参经验（层数/宽度/特征/预训练/窗口）。</div>
+<div class="formula">
+<div class="f">检测分 = log P(x | 关键词 HMM) − log P(x | 填充 HMM)        其中 P(state|x) 由 DNN 逐帧给出</div>
+<div class="why"><b>人话：</b>系统里有两条「剧本」：一条专门演唤醒词，另一条什么都演。每来一帧音频，DNN 判断「这帧像哪句剧本的哪个位置」，Viterbi 把整段串起来看哪条剧本演得更像。像唤醒词剧本的程度远超像「随便什么话」的程度，就报命中。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果（定性）：噪声越大，代差越大</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：噪声越大，代差越大</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="276.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">检测率 vs 噪声（示意）</text>
+<line x1="116.0" y1="300.0" x2="516.00" y2="300.00" stroke="#8a93a5" stroke-width="0.8"/>
+<line x1="116.0" y1="120.0" x2="116.00" y2="300.00" stroke="#8a93a5" stroke-width="0.8"/>
+<text x="118.0" y="112.0" font-size="8" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">检测率</text>
+<text x="516.0" y="318.0" font-size="8" fill="#8a93a5" text-anchor="end" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声 →</text>
+<path d="M 116.0 160.0 L 196.0 190.0 L 276.0 235.0 L 356.0 275.0 L 436.0 292.0" fill="none" stroke="#c0392b" stroke-width="2"/>
+<path d="M 116.0 140.0 L 196.0 148.0 L 276.0 160.0 L 356.0 178.0 L 436.0 200.0" fill="none" stroke="#0b6e52" stroke-width="2.2"/>
+<text x="456.0" y="152.0" font-size="9" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DNN</text>
+<text x="456.0" y="252.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">GMM</text>
+<text x="316.0" y="262.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声下优势扩大</text>
+<text x="712.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条硬结论</text>
+<rect x="600.0" y="92.0" width="264.0" height="258.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="616.0" y="116.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 全操作点显著超 GMM（DET）</text>
+<text x="616.0" y="133.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 同误唤醒率：检测率 +10~20 点</text>
+<text x="616.0" y="150.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 噪声越大代差越大</text>
+<text x="616.0" y="167.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 1MB 内的模型即可常开部署</text>
+<text x="616.0" y="184.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="616.0" y="201.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">方法学遗产：</text>
+<text x="616.0" y="218.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· HMM-DNN 混合 = 数年主流</text>
+<text x="616.0" y="235.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· GMM 对齐 → DNN 两阶段流程</text>
+<text x="616.0" y="252.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 「小足迹」从此成硬约束</text>
+<text x="36.0" y="408.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（ICASSP 2014 · Google 内部数据 · DET 曲线）；曲线为示意走势，具体数值回对原文</text>
+</svg>
+<div class="cap">图 3 · 左：检测率 vs 噪声的示意曲线（GMM 急坠 · DNN 稳住——低信噪比下优势扩大）；右：四条硬结论与方法学遗产（HMM-DNN 数年主流 · 两阶段流程 · 「小足迹」成为硬约束）。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：窗口外的时间管不到</h2>
+<div class="cards">
+<div class="card bad"><h3>上下文窗口即天花板</h3>前馈 DNN 只靠拼帧看时间——关键词时间跨度超出窗口就漏，长时依赖是结构性缺口。</div>
+<div class="card bad"><h3>依赖 GMM 对齐</h3>先训完整 GMM 才能拿帧级标签——多阶段流水线的复杂度与维护成本。</div>
+<div class="card bad"><h3>超参手工调</h3>层数/宽度/窗口要试错——没有自动化架构选择（NAS 是多年后的事）。</div>
+<div class="card bad"><h3>时代局限</h3>未与端到端（CTC/RNN-T）对比——2014 年它们还没进 KWS；关键词集与语言覆盖有限。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：窗口外的时间 · 整条主线在这里发源</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">上下文窗口即天花板</text>
+<text x="210.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">前馈 DNN 只靠拼帧看时间——关键词时间跨度超出窗口就漏，长时依赖是结构性缺口</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">依赖 GMM 对齐</text>
+<text x="210.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">先训完整 GMM 才能拿到帧级标签——多阶段流水线的复杂度与维护成本</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">超参手工调</text>
+<text x="210.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">层数/宽度/窗口要试错——没有自动化架构选择（NAS 是多年后的事）</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">时代局限</text>
+<text x="210.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">未与端到端（CTC/RNN-T）对比——2014 年它们还没进 KWS；关键词集与语言覆盖有限</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标（本系列的源头）</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">HMM-GMM</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">旧时代</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">HMM-DNN Deep KWS</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 2014</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CRNN / CTC 系</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2015-2017</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">端到端与 1D 卷积</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2018-2026 全谱系</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读法：本库从 2026 倒序写回 2014——每一个「砍掉 HMM」「砍掉对齐」「砍掉窗口」的后续故事，砍的都是本文架构里的对应部件；</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「Deep KWS」这个名字本身就出自本文一脉（Sainath & Parada 2015 的后续把 DNN 换成 CNN）——它是所有后续论文引用的地基</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标（本系列的源头）：HMM-GMM → HMM-DNN Deep KWS（本文）→ CRNN/CTC 系（2015-17）→ 端到端与 1D 卷积全谱系（2018-2026）——后续每个「砍掉 HMM/对齐/窗口」的故事，砍的都是本文架构的对应部件。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>范式转换的最小可行路径是「原地换件」：不推翻 HMM 底盘、只把声学评分引擎换成 DNN——新技术的第一次落地往往不是全新架构，而是旧架构里最痛的那个零件的替换；验证成功后革命才逐步展开。</p>
+<p>标注可以从旧系统蒸馏：GMM 的强制对齐给 DNN 当老师——「用旧模型的输出当新模型的监督」是深度学习早期的通用启动器，与后来的蒸馏、伪标签一脉相承。</p>
+<p>约束定义领域：「1MB 以内」这条线把「小足迹」变成 KWS 的第一性问题——此后十年的压缩、量化、剪枝、蒸馏研究都在这条线内展开；提出正确约束的论文和提出方法的论文同样重要。</p>
+</div>
+<span class="pill">系列：谱系源头 · Deep KWS 的命名地</span>
+<div class="foot-note">数据与结论来自论文原文（ICASSP 2014 · Google 内部数据 · DET 曲线）；曲线为示意。系列内关联：CRNN 小足迹（others №5）· max pooling loss LSTM（others №9）· CTC 小足迹（others №13）· res8/DNN-CNN（others №6）——全部站在本文的地基上。</div>
+</section>
+</div>
+</body>
+</html>
