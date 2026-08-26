@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>浏览器纯 JavaScript CNN 关键词检测（滑铁卢）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · 2018 №14 · Web 端与压缩</div>
+<h1 class="hero">KWS 不上云也能跑：纯 JavaScript 的 CNN，瘦身 <span class="g">−66% 延迟</span>只掉 4 个点</h1>
+<div class="chips">
+<span class="chip acc">浏览器内推理（首个）</span><span class="chip">Web Audio API 全链路</span><span class="chip">网络瘦身 BN γ 剪枝（首入 KWS）</span><span class="chip">res8 骨架</span><span class="chip">跨设备延迟基准</span>
+</div>
+<div class="meta">
+<b>JavaScript Convolutional Neural Networks for Keyword Spotting in the Browser: An Experimental Analysis</b> · Jaejun Lee / Raphael Tang / Jimmy Lin（滑铁卢大学）· arXiv <a href="https://arxiv.org/abs/1810.12859" style="color:var(--acc)">1810.12859</a>（2018.10）<br>
+一句话：getUserMedia → 前端提 log-mel → <b>纯 JS 手写 res8 前向</b>——零插件零服务器全本地；首次把网络瘦身（BN 缩放因子 L1 + 通道剪枝）引入 KWS：<b>延迟 30ms→10ms（−66%），准确率 94%→90%</b>。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：Web 语音交互的云端枷锁</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>云端处理 = <b>网络往返 + 服务器推理</b>的延迟——交互式应用要即时响应，这条链路天生慢。</li>
+<li>语音上云有<b>隐私风险</b>；而 JS 是解释型语言、矩阵运算慢、当时无 WebGPU——浏览器跑 CNN 有真实的技术天花板。</li>
+<li>模型还要靠网络传输加载——<b>既要小又要快</b>。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">浏览器里的 KWS：纯 JavaScript 跑 CNN——瘦身 66% 延迟只掉 4 个点</text>
+<line x1="36.0" y1="60.0" x2="740.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① Web 语音交互的云端枷锁</text>
+<rect x="36.0" y="102.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="129.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">延迟不可接受</text>
+<text x="195.0" y="129.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">网络往返 + 服务器推理——交互式应用要的是即时响应，云端链路天生慢</text>
+<rect x="36.0" y="152.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="179.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">隐私风险</text>
+<text x="195.0" y="179.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">语音数据离开本地设备——用户未必愿意让家里的声音上云</text>
+<rect x="36.0" y="202.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="229.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">浏览器算力困境</text>
+<text x="195.0" y="229.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">JS 是解释型语言，矩阵运算远慢于 C/C++——当时 WebGPU 未标准化，无 GPU 加速</text>
+<rect x="36.0" y="252.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="279.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">模型大小受限</text>
+<text x="195.0" y="279.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">模型靠网络传输加载——既要小又要快初始化</text>
+<text x="36.0" y="320.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 系统全链路：麦克风到概率，全在浏览器里</text>
+<rect x="36.0" y="336.0" width="848.0" height="118.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="52.0" y="358.0" width="128.0" height="62.0" rx="8" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="116.0" y="382.0" font-size="8.8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">getUserMedia</text>
+<text x="116.0" y="404.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">取麦克风权限</text>
+<text x="186.0" y="392.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="192.0" y="358.0" width="128.0" height="62.0" rx="8" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="256.0" y="382.0" font-size="8.8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">AudioContext</text>
+<text x="256.0" y="404.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">音频处理图</text>
+<text x="326.0" y="392.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="332.0" y="358.0" width="128.0" height="62.0" rx="8" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="396.0" y="382.0" font-size="8.8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">逐帧节点</text>
+<text x="396.0" y="404.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">ScriptProcessor</text>
+<text x="466.0" y="392.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="472.0" y="358.0" width="128.0" height="62.0" rx="8" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="536.0" y="382.0" font-size="8.8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">log-mel 频谱</text>
+<text x="536.0" y="404.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">前端提特征</text>
+<text x="606.0" y="392.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="612.0" y="358.0" width="128.0" height="62.0" rx="8" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="676.0" y="382.0" font-size="8.8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">res8 CNN (JS)</text>
+<text x="676.0" y="404.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">纯 JS 前向</text>
+<text x="746.0" y="392.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="752.0" y="358.0" width="128.0" height="62.0" rx="8" fill="#eef6f1" stroke="#ffffff" stroke-width="2"/>
+<text x="816.0" y="382.0" font-size="8.8" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">词概率</text>
+<text x="816.0" y="404.0" font-size="7.8" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">softmax 输出</text>
+<text x="460.0" y="442.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">零插件 · 零原生模块 · 零服务器——Web Audio API + 手写 JS 推理，全流程本地</text>
+<text x="36.0" y="486.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 关键武器：网络瘦身（BN γ 剪枝）首入 KWS</text>
+<rect x="36.0" y="502.0" width="264.0" height="88.0" rx="10" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="168.0" y="524.0" font-size="11" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 稀疏训练</text>
+<text x="168.0" y="548.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">L = L_CE + λ·Σ|γ|</text>
+<text x="168.0" y="566.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">BN 缩放因子被 L1 压向 0</text>
+<text x="312.0" y="550.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="324.0" y="502.0" width="264.0" height="88.0" rx="10" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="456.0" y="524.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 通道剪枝</text>
+<text x="456.0" y="548.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">γ 低于阈值的通道</text>
+<text x="456.0" y="566.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">连同卷积核一起移除</text>
+<text x="600.0" y="550.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="612.0" y="502.0" width="264.0" height="88.0" rx="10" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="744.0" y="524.0" font-size="11" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 微调恢复</text>
+<text x="744.0" y="548.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">剪后微调</text>
+<text x="744.0" y="566.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">补回精度损失</text>
+<rect x="36.0" y="630.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="656.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−66%</text>
+<text x="134.0" y="676.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">推理延迟（30→10ms）</text>
+<text x="304.0" y="656.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">94%→90%</text>
+<text x="304.0" y="676.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率仅掉 4 点</text>
+<text x="474.0" y="656.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">res8</text>
+<text x="474.0" y="676.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">Sainath 2015 架构</text>
+<text x="644.0" y="656.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">~100K</text>
+<text x="644.0" y="676.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量</text>
+<text x="814.0" y="656.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">零上云</text>
+<text x="814.0" y="676.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">隐私本地推理</text>
+<text x="36.0" y="714.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Jaejun Lee / Raphael Tang / Jimmy Lin（滑铁卢大学）· arXiv 1810.12859（2018.10）· GSC v1（30 词 / 65K 条）· 12 类标准评估；首个浏览器纯 JS CNN KWS + 跨设备延迟基准</text>
+</svg>
+<div class="cap">图 1 · 机制全景：云端枷锁四条 → 浏览器全链路六步（麦克风到概率零上云）→ 网络瘦身三步 → 结果速览。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：BN γ 是免费的通道重要性标尺</h2>
+<div class="cards">
+<div class="card acc"><h3>稀疏训练</h3>对 BN 缩放因子 γ 加 L1 正则——不重要的通道 γ 被压向 0，重要性被「显式标记」出来。</div>
+<div class="card acc"><h3>通道剪枝</h3>γ 低于阈值的通道连同卷积核整体移除——结构化剪枝，直接减少卷积计算量。</div>
+<div class="card"><h3>微调恢复</h3>剪后微调补回精度——三步闭环让「删通道」变成可控操作。</div>
+<div class="card"><h3>res8 的适配性</h3>Sainath 2015 的 8 层残差小骨架（~100K 参数）——专为 KWS 设计、网络传输可接受、JS 实现不易出错。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：BN γ 为什么能量出通道重要性</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="238.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">γ 分布：稀疏训练前 vs 后</text>
+<rect x="48.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="78.0" y="160.0" width="32.0" height="30.0" rx="3" fill="#b9c6d8"/>
+<rect x="122.0" y="142.0" width="32.0" height="48.0" rx="3" fill="#b9c6d8"/>
+<rect x="166.0" y="154.0" width="32.0" height="36.0" rx="3" fill="#b9c6d8"/>
+<rect x="210.0" y="136.0" width="32.0" height="54.0" rx="3" fill="#b9c6d8"/>
+<rect x="254.0" y="148.0" width="32.0" height="42.0" rx="3" fill="#b9c6d8"/>
+<rect x="298.0" y="157.0" width="32.0" height="33.0" rx="3" fill="#b9c6d8"/>
+<rect x="342.0" y="139.0" width="32.0" height="51.0" rx="3" fill="#b9c6d8"/>
+<rect x="386.0" y="151.0" width="32.0" height="39.0" rx="3" fill="#b9c6d8"/>
+<text x="64.0" y="118.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练前：γ 都不小——没有免费的裁剪点</text>
+<line x1="64.0" y1="210.0" x2="432.00" y2="210.00" stroke="#8a93a5" stroke-width="0.8" stroke-dasharray="3,3"/>
+<rect x="78.0" y="327.0" width="32.0" height="3.0" rx="3" fill="#e0a9a0"/>
+<rect x="122.0" y="279.0" width="32.0" height="51.0" rx="3" fill="#0b6e52"/>
+<rect x="166.0" y="328.8" width="32.0" height="1.2" rx="3" fill="#e0a9a0"/>
+<rect x="210.0" y="276.0" width="32.0" height="54.0" rx="3" fill="#0b6e52"/>
+<rect x="254.0" y="325.2" width="32.0" height="4.8" rx="3" fill="#e0a9a0"/>
+<rect x="298.0" y="328.2" width="32.0" height="1.8" rx="3" fill="#e0a9a0"/>
+<rect x="342.0" y="282.0" width="32.0" height="48.0" rx="3" fill="#0b6e52"/>
+<rect x="386.0" y="285.0" width="32.0" height="45.0" rx="3" fill="#0b6e52"/>
+<text x="64.0" y="240.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">L1 正则后：弱通道 γ→0（红），强通道保留（绿）</text>
+<line x1="64.0" y1="258.0" x2="432.00" y2="258.00" stroke="#8a93a5" stroke-width="0.8" stroke-dasharray="3,3"/>
+<text x="64.0" y="262.0" font-size="7.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">剪枝阈值</text>
+<text x="248.0" y="336.0" font-size="8.6" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">γ≈0 的通道对输出几乎无贡献——删掉白赚算力</text>
+<text x="656.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">res8：浏览器友好型骨架</text>
+<rect x="480.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="496.0" y="116.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 8 层 CNN + 残差连接（shortcut）</text>
+<text x="496.0" y="132.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输入：40 维 log-mel + 时间窗</text>
+<text x="496.0" y="148.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 每层 64 核 · 3×3 卷积</text>
+<text x="496.0" y="164.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 参数 ~100K——网络传输可接受</text>
+<text x="496.0" y="180.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="496.0" y="196.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么选它：</text>
+<text x="496.0" y="212.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 专为 KWS 设计的小骨架（Sainath</text>
+<text x="496.0" y="228.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  & Parada 2015）</text>
+<text x="496.0" y="244.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 残差保梯度——小网络也稳训</text>
+<text x="496.0" y="260.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 结构简单——JS 实现不易出 bug</text>
+<text x="496.0" y="276.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="496.0" y="292.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">瘦身后：通道减少 → 卷积变便宜</text>
+<text x="496.0" y="308.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ JS 解释执行的开销也跟着缩</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：BN 缩放因子 γ 在 L1 正则下的两态分化——弱通道被压向 0 成为可剪枝的显式标记；右：res8 的浏览器适配理由</text>
+</svg>
+<div class="cap">图 2 · 左：γ 分布在 L1 正则前后的对比——弱通道被压向 0 成为可剪枝标记；右：res8 的浏览器适配理由与瘦身后的连锁收益。</div>
+<div class="formula">
+<div class="f">L_total = L_CE + λ · Σ_γ |γ|        →  剪掉 γ &lt; 阈值的通道  →  微调        30ms → 10ms（−66%）, 94% → 90%</div>
+<div class="why"><b>人话：</b>BN 层每个通道都有一个「音量旋钮」γ。训练时额外惩罚所有旋钮的绝对值，不重要的通道旋钮会被拧到接近零——对输出几乎没贡献的通道，删掉它白赚算力。删完再微调一遍把精度补回来。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果：瘦身三账 + 跨浏览器地图</h2>
+<table class="tb">
+<tr><th>模型</th><th>准确率</th><th>推理延迟</th><th>参数量</th></tr>
+<tr><td>res8（未压缩）</td><td>94%</td><td>~30ms</td><td>~100K</td></tr>
+<tr class="hl"><td>res8-slim（瘦身）</td><td>90%</td><td>~10ms</td><td>显著减少</td></tr>
+</table>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：瘦身三账 + 跨浏览器延迟地图</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="256.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">res8 vs res8-slim（GSC v1）</text>
+<text x="60.0" y="130.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率</text>
+<rect x="146.0" y="116.0" width="394.8" height="20.0" rx="4" fill="#c9d8e8"/>
+<text x="544.8" y="130.0" font-size="8.6" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">res8: 94 %</text>
+<rect x="146.0" y="146.0" width="378.0" height="20.0" rx="4" fill="#9fc8b8"/>
+<text x="528.0" y="160.0" font-size="8.6" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">slim: 90 %</text>
+<text x="60.0" y="230.0" font-size="9.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">推理延迟</text>
+<rect x="146.0" y="216.0" width="126.0" height="20.0" rx="4" fill="#c9d8e8"/>
+<text x="276.0" y="230.0" font-size="8.6" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">res8: 30 ms（越低越好）</text>
+<rect x="146.0" y="246.0" width="42.0" height="20.0" rx="4" fill="#0b6e52"/>
+<text x="192.0" y="260.0" font-size="8.6" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">slim: 10 ms（越低越好）</text>
+<text x="60.0" y="330.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读数：延迟 −66%，准确率 −4 点——结构化剪枝在</text>
+<text x="60.0" y="348.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">弱算力平台（JS 解释执行）上的杠杆尤其大</text>
+<text x="732.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">跨浏览器延迟地图</text>
+<rect x="620.0" y="92.0" width="224.0" height="258.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="634.0" y="110.0" width="196.0" height="30.0" rx="6" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="646.0" y="130.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Chrome</text>
+<text x="824.0" y="130.0" font-size="7.8" fill="#0b6e52" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">最快（V8 JIT）</text>
+<rect x="634.0" y="150.0" width="196.0" height="30.0" rx="6" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="646.0" y="170.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Firefox</text>
+<text x="824.0" y="170.0" font-size="7.8" fill="#5d9c85" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">接近 Chrome</text>
+<rect x="634.0" y="190.0" width="196.0" height="30.0" rx="6" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="646.0" y="210.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Edge</text>
+<text x="824.0" y="210.0" font-size="7.8" fill="#9fc8b8" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">略慢</text>
+<rect x="634.0" y="230.0" width="196.0" height="30.0" rx="6" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="646.0" y="250.0" font-size="9" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Safari</text>
+<text x="824.0" y="250.0" font-size="7.8" fill="#e0b880" text-anchor="end" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">部分设备波动大</text>
+<text x="732.0" y="296.0" font-size="8.6" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">移动端 ≈ 桌面 2-5× 延迟</text>
+<text x="732.0" y="314.0" font-size="8.4" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">但仍满足实时（<100ms）</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（arXiv 1810.12859 · GSC v1 · 12 类标准评估）；延迟为论文量级（~30ms → ~10ms），跨浏览器结论为定性排序</text>
+</svg>
+<div class="cap">图 3 · 左：准确率/延迟的双账对比；右：跨浏览器延迟地图（Chrome 最快 / Safari 波动 / 移动端 2-5× 但仍满足实时）。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：JS 天花板</h2>
+<div class="cards">
+<div class="card bad"><h3>无 GPU 加速</h3>WebGPU 当时未标准化——纯 JS 解释执行，复杂模型在浏览器可能跑不动实时。</div>
+<div class="card bad"><h3>架构上限</h3>res8 的 94% 不算高——CRNN/注意力更强但 JS 运行效率未验证。</div>
+<div class="card bad"><h3>缺 WASM/量化对比</h3>未试 WebAssembly（近原生速度）· 未试 INT8——两条最显然的加速路线缺席。</div>
+<div class="card bad"><h3>词汇量有限</h3>GSC v1 仅 30 词——真实复杂场景的表现未经验证。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：JS 天花板 · Web 端语音 AI 的先声</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">无 GPU 加速</text>
+<text x="200.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">论文时代 WebGPU 未标准化——纯 JS 解释执行，复杂模型在浏览器可能跑不动实时</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">架构上限</text>
+<text x="200.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">res8 的 94% 不算高——CRNN/注意力更强但 JS 运行效率未验证</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">缺 WASM/量化对比</text>
+<text x="200.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">未试 WebAssembly（近原生速度）· 未试 INT8 量化——两条最显然的加速路线缺席</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">词汇量有限</text>
+<text x="200.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">GSC v1 仅 30 词——真实复杂场景的表现未经验证</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">原生端侧 KWS</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2015-2018</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">纯 JS 浏览器 KWS</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 2018</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TF.js / ONNX.js</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">框架化 2019+</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">WebGPU 推理</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2022+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">定位：它是「Web 能不能当语音入口」的可行性证明——先回答 possible，再由 TF.js/ONNX.js 回答 easy，最后由 WebGPU 回答 fast；</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">网络瘦身（BN γ 剪枝）从此进入 KWS 压缩工具箱，与量化/蒸馏并列成为三件套之一</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：它回答「Web 能不能当语音入口」（possible），TF.js/ONNX.js 回答 easy，WebGPU 回答 fast；瘦身从此进入 KWS 压缩工具箱。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>弱算力平台上压缩的杠杆更大：同样的剪枝在 GPU 上只是省一点电，在 JS 解释执行上是延迟的三分之二——压缩技术的价值与执行环境的「贫富程度」成正比，选压缩手段前先看目标平台的算力税率。</p>
+<p>BN γ 是免费的稀疏化抓手：不改变训练流程、不加辅助损失网络、剪枝标准现成——「用已有参数当重要性代理」是结构化压缩最省工程量的套路。</p>
+<p>平台可行性研究有自己的价值序列：先证明 possible（本文），再证明 easy（TF.js），最后证明 fast（WebGPU）——三个阶段回答不同问题，不要用第三阶段的标准否定第一阶段的贡献。</p>
+</div>
+<span class="pill">系列：Web 端 KWS · 结构化剪枝进入工具箱</span>
+<div class="foot-note">数据与结论来自论文原文（arXiv 1810.12859 · GSC v1 · 12 类标准评估）；延迟为论文量级。系列内关联：T/S 蒸馏（2018 №6）· TNT 双轴压缩（2019 №21）· MicroNets（2020 №13，量化侧）· TC-ResNet（2019 №20，真机评估精神）。</div>
+</section>
+</div>
+</body>
+</html>
