@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>移动端级联 KWS 架构（Google 2017）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · others №2 · 工业范式</div>
+<h1 class="hero">便宜的在前挡，贵的在后核：级联 + 声纹双门槛，非授权误唤醒砍 <span class="g">80%+</span></h1>
+<div class="chips">
+<span class="chip acc">两阶段级联架构</span><span class="chip">一级 DSP 常驻粗筛</span><span class="chip">二级精筛 + d-vector 声纹</span><span class="chip">个性化唤醒</span><span class="chip">一级计算量仅 5-10%</span>
+</div>
+<div class="meta">
+<b>Cascade Architecture for Keyword Spotting on Mobile Devices</b> · Alexander Gruenstein / Raziel Alvarez / Chris Thornton / Mohammadali Ghodrat（Google）· 2017 · arXiv <a href="https://arxiv.org/abs/1706.02207" style="color:var(--acc)">1706.02207</a><br>
+一句话：一级轻量 DNN 在低功耗 DSP 上<b>常驻高召回粗筛</b>（允许高误警），触发才唤醒主处理器上的二级——<b>更深的声学模型 + d-vector 说话人验证</b>双门槛确认：平均功耗大降、同误唤醒率召回显著更高、非授权误唤醒 −80%+。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：单阶段的两难</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>低功耗 = 牺牲精度：单阶段小模型在远场/噪声/多人下召回不够；高精度 = 费电：常开 7×24 手机烧不起。</li>
+<li>个性化缺失：任何人都能唤醒你的手机——<b>共享设备/家庭环境的误唤醒体验差</b>。</li>
+<li>解法：把「粗筛」和「确认」拆开——各用各预算的硬件。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">级联 KWS：一级 DSP 常驻粗筛，二级精筛 + 声纹验证——工业范式的定型</text>
+<line x1="36.0" y1="60.0" x2="800.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 单阶段的两难</text>
+<rect x="36.0" y="102.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="131.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">低功耗 = 牺牲精度</text>
+<text x="230.0" y="131.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">电池预算压着模型大小——单阶段小模型在远场/噪声/多人下召回率不够</text>
+<rect x="36.0" y="156.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="185.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">高精度 = 费电</text>
+<text x="230.0" y="185.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">够准的模型算力大——常开 7×24 在手机上烧不起</text>
+<rect x="36.0" y="210.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="239.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">个性化缺失</text>
+<text x="230.0" y="239.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">任何人都能唤醒你的手机——共享设备/家庭环境的误唤醒体验差</text>
+<text x="36.0" y="288.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 级联两阶段：各司其职</text>
+<rect x="36.0" y="304.0" width="848.0" height="168.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="60.0" y="324.0" width="360.0" height="128.0" rx="10" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="240.0" y="346.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一级：轻量粗筛（常驻 DSP）</text>
+<text x="76.0" y="372.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 2-3 层全连接 / 小 CNN · 几十 KB</text>
+<text x="76.0" y="391.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 目标：高召回——尽量不漏</text>
+<text x="76.0" y="410.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 允许较高误警（二级兜底）</text>
+<text x="76.0" y="429.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· log-mel ± 10 帧上下文</text>
+<text x="440.0" y="392.0" font-size="10" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">触发才唤醒 ▸</text>
+<rect x="500.0" y="324.0" width="356.0" height="128.0" rx="10" fill="#fde9d8" stroke="#e0b880" stroke-width="1"/>
+<text x="678.0" y="346.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">二级：精筛 + 说话人验证</text>
+<text x="516.0" y="372.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 更深 CNN/LSTM 精细声学建模</text>
+<text x="516.0" y="391.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· d-vector 声纹 vs 注册模板余弦</text>
+<text x="516.0" y="410.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 双通过才确认唤醒</text>
+<text x="516.0" y="429.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 主处理器 · 触发时才启动</text>
+<text x="460.0" y="468.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">关键词置信度 + 说话人相似度的联合决策（加权评分或级联阈值）</text>
+<text x="36.0" y="496.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 系统级收益账</text>
+<rect x="36.0" y="514.0" width="848.0" height="38.0" rx="8" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="539.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">功耗</text>
+<text x="140.0" y="539.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">一级计算量仅二级的 5-10%——平均功耗大降</text>
+<rect x="36.0" y="560.0" width="848.0" height="38.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="585.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">精度</text>
+<text x="140.0" y="585.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">同误唤醒率下召回率显著高于单阶段</text>
+<rect x="36.0" y="606.0" width="848.0" height="38.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="631.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">个性化</text>
+<text x="140.0" y="631.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">非授权误唤醒降 80%+ · 授权召回不受影响</text>
+<rect x="36.0" y="652.0" width="848.0" height="38.0" rx="8" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="52.0" y="677.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">鲁棒</text>
+<text x="140.0" y="677.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">远场/嘈杂下二级精建模补一级的掉分</text>
+<rect x="36.0" y="698.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="724.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">5-10%</text>
+<text x="134.0" y="744.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">一级/二级计算量比</text>
+<text x="304.0" y="724.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−80%+</text>
+<text x="304.0" y="744.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">非授权误唤醒</text>
+<text x="474.0" y="724.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">&lt;500ms</text>
+<text x="474.0" y="744.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">端到端响应延迟</text>
+<text x="644.0" y="724.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">&lt;200ms</text>
+<text x="644.0" y="744.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">二级验证耗时</text>
+<text x="814.0" y="724.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">独立更新</text>
+<text x="814.0" y="744.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">两阶段模型解耦</text>
+<text x="36.0" y="782.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Alexander Gruenstein / Raziel Alvarez / Chris Thornton / Mohammadali Ghodrat（Google）· 2017 · arXiv 1706.02207；移动端「OK Google」时代的生产架构——与 Apple Siri 级联（2018 №9）同范式</text>
+</svg>
+<div class="cap">图 1 · 机制全景：单阶段两难 → 级联两阶段分工（一级高召回 · 二级高精度+声纹）→ 系统级收益四笔账 → 关键数字。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：漏斗的能量账 + 声纹的位置</h2>
+<div class="cards">
+<div class="card acc"><h3>时间漏斗</h3>一级每帧常驻但极便宜；绝大多数时间说「不是」，二级根本不醒——平均功耗 ≈ 一级成本 + 触发率 × 二级成本。</div>
+<div class="card acc"><h3>声纹放二级的理由</h3>声纹模型贵——常驻跑不起；只在关键词候选上验身份，非关键词片段不值得算。</div>
+<div class="card"><h3>d-vector 验证</h3>神经网络提取说话人嵌入 → 与注册模板算余弦相似度 → 超阈值即授权。</div>
+<div class="card"><h3>双门槛决策</h3>词对 AND 人对才唤醒——关键词置信度与说话人相似度的联合判决。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：漏斗的能量账 · 声纹的加入位置</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="238.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">时间线上的计算漏斗</text>
+<rect x="48.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="78.0" y="116.0" width="340.0" height="30.0" rx="6" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="248.0" y="136.0" font-size="8.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一级常驻（每帧都在算，但极便宜）</text>
+<rect x="92.0" y="162.0" width="28.0" height="34.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<rect x="140.0" y="162.0" width="28.0" height="34.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<rect x="188.0" y="162.0" width="28.0" height="34.0" rx="4" fill="#fde9d8" stroke="#e0b880" stroke-width="1"/>
+<text x="202.0" y="183.0" font-size="7.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">触发</text>
+<rect x="236.0" y="162.0" width="28.0" height="34.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<rect x="284.0" y="162.0" width="28.0" height="34.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<rect x="332.0" y="162.0" width="28.0" height="34.0" rx="4" fill="#fde9d8" stroke="#e0b880" stroke-width="1"/>
+<text x="346.0" y="183.0" font-size="7.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">触发</text>
+<rect x="380.0" y="162.0" width="28.0" height="34.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="248.0" y="216.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">绝大多数时间一级说「不是」——二级根本不醒</text>
+<text x="248.0" y="244.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">平均功耗 ≈ 一级成本 + 触发率 × 二级成本</text>
+<text x="248.0" y="272.0" font-size="8.5" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">一级只要足够便宜，触发率稍高也无所谓</text>
+<text x="248.0" y="306.0" font-size="8.6" fill="#c0392b" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">漏掉的（一级 miss）二级救不回来——</text>
+<text x="248.0" y="324.0" font-size="8.6" fill="#c0392b" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">级联的命门：一级召回率是系统召回的天花板</text>
+<text x="676.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">声纹验证放哪、怎么算</text>
+<rect x="500.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="516.0" y="116.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">为什么放二级：</text>
+<text x="516.0" y="132.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 声纹模型贵——常驻跑不起</text>
+<text x="516.0" y="148.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 只在关键词候选上验身份——</text>
+<text x="516.0" y="164.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  非关键词片段根本不值得算</text>
+<text x="516.0" y="180.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="196.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">怎么算：</text>
+<text x="516.0" y="212.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 神经网络提取 d-vector 声纹嵌入</text>
+<text x="516.0" y="228.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 与注册模板算余弦相似度</text>
+<text x="516.0" y="244.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 超阈值 = 授权用户</text>
+<text x="516.0" y="260.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="276.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">双门槛：词对 AND 人对 才唤醒</text>
+<text x="516.0" y="292.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">→ 非授权误唤醒 −80%+</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：时间漏斗——一级每帧常驻但极便宜，二级只在触发点醒来；右：声纹模块的位置选择（贵的东西放漏斗下游）与双门槛决策</text>
+</svg>
+<div class="cap">图 2 · 左：时间线上的计算漏斗（一级常驻 + 稀少触发的二级）与级联命门（一级 miss 二级救不回）；右：声纹模块的位置选择与双门槛。</div>
+<div class="formula">
+<div class="f">唤醒 = [ 一级关键词置信 &gt; θ₁ ]  AND  [ 二级声学置信 &gt; θ₂ ]  AND  [ cos(d-vector, 注册模板) &gt; θ_SV ]</div>
+<div class="why"><b>人话：</b>门口先站一个便宜的保安（一级），谁的动静都放进来复查；里面再坐一个专家（二级），既复查「说的是不是唤醒词」，还认脸（声纹）——说是这个词、并且是主人说的，两个条件都满足才真正叫醒手机。专家只在一级喊人的那几次才上班，所以再贵也不费电。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果（定性）：级联 vs 单阶段的三笔账</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：级联 vs 单阶段的三笔账</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="48.0" y="84.0" width="200.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="148.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">维度</text>
+<rect x="248.0" y="84.0" width="330.0" height="34.0" rx="0" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="413.0" y="106.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">级联（本文）</text>
+<rect x="578.0" y="84.0" width="330.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="743.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单阶段</text>
+<rect x="48.0" y="118.0" width="200.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="148.0" y="144.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">同误唤醒率召回</text>
+<rect x="248.0" y="118.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="413.0" y="144.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">显著更高</text>
+<rect x="578.0" y="118.0" width="330.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="743.0" y="144.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">基线</text>
+<rect x="48.0" y="160.0" width="200.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="148.0" y="186.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">非授权误唤醒</text>
+<rect x="248.0" y="160.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="413.0" y="186.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">−80%+（SV 加持）</text>
+<rect x="578.0" y="160.0" width="330.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="743.0" y="186.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">无个性化可言</text>
+<rect x="48.0" y="202.0" width="200.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="148.0" y="228.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">平均计算量</text>
+<rect x="248.0" y="202.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="413.0" y="228.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一级 5-10% + 稀少二级</text>
+<rect x="578.0" y="202.0" width="330.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="743.0" y="228.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">全量跑大模型</text>
+<rect x="48.0" y="244.0" width="200.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="148.0" y="270.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">远场/嘈杂</text>
+<rect x="248.0" y="244.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="413.0" y="270.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">二级精建模补位，优势扩大</text>
+<rect x="578.0" y="244.0" width="330.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="743.0" y="270.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">小模型掉分无人兜底</text>
+<rect x="48.0" y="286.0" width="200.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="148.0" y="312.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">响应延迟</text>
+<rect x="248.0" y="286.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="413.0" y="312.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif"><500ms 端到端</text>
+<rect x="578.0" y="286.0" width="330.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="743.0" y="312.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">—</text>
+<text x="36.0" y="344.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读表：级联的收益不是单点指标——是「平均功耗 · 召回 · 个性化」的同时改善</text>
+<text x="36.0" y="392.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（2017 · Google 内部数据 · DER/EER 评估）；数值为论文量级表述，具体回对原文</text>
+</svg>
+<div class="cap">图 3 · 五维对比表：同误唤醒率召回更高 · 非授权误唤醒 −80%+ · 平均计算量结构不同 · 远场/嘈杂优势扩大 · 端到端 &lt;500ms——收益是「功耗 · 召回 · 个性化」的同时改善。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：级联的命门</h2>
+<div class="cards">
+<div class="card bad"><h3>漏检无法补救</h3>一级 miss 二级救不回——级联固有缺陷，一级召回是系统天花板。</div>
+<div class="card bad"><h3>声纹注册依赖</h3>要预先注册模板——新用户/感冒变声可能验证失败，需定期更新。</div>
+<div class="card bad"><h3>多用户阈值难调</h3>多授权用户并存时，安全 vs 便利的权衡更复杂。</div>
+<div class="card bad"><h3>欺骗攻击面</h3>语音合成/重放可攻声纹模块——需另加反欺骗机制。</div>
+<div class="card bad"><h3>硬件耦合</h3>一级要按具体低功耗处理器调优——方案通用性打折。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：级联的命门与它的后代们</text>
+<line x1="36.0" y1="56.0" x2="580.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">五条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="118.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">漏检无法补救</text>
+<text x="190.0" y="118.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">一级 miss 二级救不回——级联结构的固有缺陷，极端噪声下一级召回是系统天花板</text>
+<rect x="36.0" y="136.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="156.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">声纹注册依赖</text>
+<text x="190.0" y="156.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">要预先注册模板——新用户/感冒变声可能验证失败，需定期更新</text>
+<rect x="36.0" y="174.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="194.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多用户阈值难调</text>
+<text x="190.0" y="194.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">多授权用户并存时，安全 vs 便利的阈值权衡更复杂</text>
+<rect x="36.0" y="212.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="232.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">欺骗攻击面</text>
+<text x="190.0" y="232.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">语音合成/重放可攻声纹模块——需另加反欺骗机制</text>
+<rect x="36.0" y="250.0" width="848.0" height="30.0" rx="7" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="270.0" font-size="9" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">硬件耦合</text>
+<text x="190.0" y="270.0" font-size="8.2" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">一级要按具体低功耗处理器调优——方案通用性打折</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单阶段 KWS</text>
+<text x="150.0" y="355.0" font-size="7.8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2014-2016</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">级联 + 声纹</text>
+<text x="366.0" y="355.0" font-size="7.8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 Google 2017</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Apple 级联</text>
+<text x="582.0" y="355.0" font-size="7.8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2018 №9</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Apple KWS+SV 多任务</text>
+<text x="798.0" y="355.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2020 №15 · 流式 Transformer 2021+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">范式生命力：「便宜的在前面挡、贵的在后面核」从此成为语音交互产品的默认拓扑——Apple/Sonos/小米全线沿用；后代变体把二级</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">换成流式 Transformer，把「词 AND 人」内化成多任务单模型（Apple 2020 №15）——架构在融合，漏斗思想不变</text>
+</svg>
+<div class="cap">图 4 · 边界五条 + 谱系坐标：「便宜的在前面挡、贵的在后面核」成为语音产品默认拓扑——Apple 级联（2018 №9）、Apple KWS+SV 多任务单模型（2020 №15）、流式 Transformer 二级（2021+）都是它的后代。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>级联的本质是把「计算预算」按事件的先验概率分配：绝大多数帧不是唤醒词——那就让最便宜的计算看全部帧，最贵的计算只看极少数候选；平均成本由触发率而非模型大小决定，这是架构层面的省电，比压缩模型高一个维度。</p>
+<p>漏斗每一级的召回率是下一级的输入上限：一级漏掉的一切都永久丢失——设计级联时宁可一级松（高召回高误警）让下游收紧，不可反过来；「便宜的层要保召回，昂贵的层管精度」是分工的铁律。</p>
+<p>个性化是级联的天然挂件：声纹验证需要贵的模型，而级联恰好提供了「只在候选上花贵计算」的机制——新功能要找架构里已经存在的「稀少事件路径」挂载，成本几乎为零。</p>
+</div>
+<span class="pill">系列：工业范式 · 级联拓扑的定型之作</span>
+<div class="foot-note">数据与结论来自论文原文（2017 · Google 内部数据 · DER/EER 评估）。系列内关联：Deep KWS 开山（others №1）· Apple 级联省电（2018 №9）· Apple KWS+SV 多任务融合（2020 №15）· 流式 Transformer 二级化（2021+）。</div>
+</section>
+</div>
+</body>
+</html>
