@@ -1,7 +1,7 @@
 # 可视化精读改写计划（VIZ_PLAN）
 
 按年份倒序把全部论文笔记重写为自包含 HTML+SVG 可视化精读页。每篇：读笔记 → python 生成 4 张 SVG → 注入统一模板 HTML → 校验 → 截图自查 → 提交推送。
-**总进度：303 / 305**
+**总进度：305 / 305**
 
 ## 2026（24 篇）
 **进度：24 / 24**
@@ -120,7 +120,7 @@
 - [x] Wake Word and Speech Recognition Application on Edge Device: A Case of Improving the Electric Wheelchair（边缘设备上的唤醒词与语音识别应用：改进电动轮椅的案例研究）
 
 ## 2023（41 篇）
-**进度：40 / 41**
+**进度：41 / 41**
 
 - [x] A 3.8μW 10 关键词抗噪关键词检出处理器：对称压缩三值权重神经网络
 - [x] 少神经元神经形态关键词检测的时间编码器对比：TDE 与双突触 E-I 元件
@@ -162,7 +162,7 @@
 - [x] 理解时序弱监督训练：以关键词检测为案例的深度研究（Understanding temporally weakly supervised training: A case study for keyword spotting）
 - [x] Unified Keyword Spotting and Audio Tagging on Mobile Devices with Transformers：移动端统一关键词检测与音频打标的 Transformer（UiT）
 - [x] VE-KWS：视觉模态增强的端到端关键词检测
-- [⬜] VIC-KD：方差-不变性-协方差知识蒸馏，让关键词检测更能抵御对抗攻击
+- [x] VIC-KD：方差-不变性-协方差知识蒸馏，让关键词检测更能抵御对抗攻击
 
 ## 2022（42 篇）
 **进度：42 / 42**
@@ -199,54 +199,54 @@
 - [x] Production Federated Keyword Spotting via Distillation, Filtering, and Joint Federated-Centralized Training
 - [x] Progressive Continual Learning for Spoken Keyword Spotting
 - [x] QbyE-MLPMixer：基于 MLPMixer 的示例查询式开放词表关键词检测
-- [⬜] Rainbow Keywords: Efficient Incremental Learning for Online Spoken Keyword Spotting
-- [⬜] Small Footprint Multi-channel ConvMixer for Keyword Spotting with Centroid Based Awareness
-- [⬜] Split Federated Learning on Micro-controllers: A Keyword Spotting Showcase（微控制器上的分割联邦学习：一个关键词识别案例）
-- [⬜] Sub 8-Bit Quantization of Streaming Keyword Spotting Models for Embedded Chipsets：流式唤醒词检测模型的亚 8 比特量化
-- [⬜] Target Aware Network Architecture Search and Compression for Efficient Knowledge Transfer (TASCNet)
-- [⬜] Understanding Audio Features via Trainable Basis Functions
-- [⬜] UniKW-AT: 统一关键词检测与音频打标
-- [⬜] VSVC：基于声纹选择与语音转换的关键词检测后门攻击
-- [⬜] WakeUpNet：基于移动版 Transformer 的端到端流式语音唤醒框架
-- [⬜] Wake Word Detection Based on Res2Net（基于 Res2Net 的唤醒词检测模型）
+- [x] Rainbow Keywords: Efficient Incremental Learning for Online Spoken Keyword Spotting
+- [x] Small Footprint Multi-channel ConvMixer for Keyword Spotting with Centroid Based Awareness
+- [x] Split Federated Learning on Micro-controllers: A Keyword Spotting Showcase（微控制器上的分割联邦学习：一个关键词识别案例）
+- [x] Sub 8-Bit Quantization of Streaming Keyword Spotting Models for Embedded Chipsets：流式唤醒词检测模型的亚 8 比特量化
+- [x] Target Aware Network Architecture Search and Compression for Efficient Knowledge Transfer (TASCNet)
+- [x] Understanding Audio Features via Trainable Basis Functions
+- [x] UniKW-AT: 统一关键词检测与音频打标
+- [x] VSVC：基于声纹选择与语音转换的关键词检测后门攻击
+- [x] WakeUpNet：基于移动版 Transformer 的端到端流式语音唤醒框架
+- [x] Wake Word Detection Based on Res2Net（基于 Res2Net 的唤醒词检测模型）
 
 ## 2021（28 篇）
 **进度：28 / 28**
 
-- [⬜] AUC Optimization for Robust Small-footprint Keyword Spotting with Limited Training Data
-- [⬜] A Separable Temporal Convolution Neural Network with Attention for Small-Footprint Keyword Spotting
-- [⬜] A Streaming End-to-End Framework For Spoken Language Understanding
-- [⬜] An Integrated Framework for Two-pass Personalized Voice Trigger
-- [⬜] Audiomer: A Convolutional Transformer for Keyword Spotting
-- [⬜] BBS-KWS: The Mandarin Keyword Spotting System Won the Video Keyword Wakeup Challenge
-- [⬜] Behavior of Keyword Spotting Networks Under Noisy Conditions
-- [⬜] Broadcasted Residual Learning for Efficient Keyword Spotting
-- [⬜] Efficient Keyword Spotting through Long-range Interactions with Temporal Lambda Networks
-- [⬜] Encoder-Decoder Neural Architecture Optimization for Keyword Spotting
-- [⬜] End-to-end Keyword Spotting using Neural Architecture Search and Quantization
-- [⬜] End-to-end Keyword Spotting using Xception-1d
-- [⬜] Few-Shot Keyword Spotting in Any Language
-- [⬜] Implicit Acoustic Echo Cancellation for Keyword Spotting and Device-Directed Speech Detection
-- [⬜] Keyword Transformer: A Self-Attention Model for Keyword Spotting
-- [⬜] Learning Efficient Representations for Keyword Spotting with Triplet Loss
-- [⬜] Lightweight Dynamic Filter for Keyword Spotting
-- [⬜] Multi-task Learning with Cross Attention for Keyword Spotting
-- [⬜] Multi-task Voice Activated Framework using Self-supervised Learning
-- [⬜] Noisy Student-Teacher Training for Robust Keyword Spotting
-- [⬜] Streaming Transformer for Hardware Efficient Voice Trigger Detection and False Trigger Mitigation
-- [⬜] Teaching Keyword Spotters to Spot New Keywords with Limited Examples
-- [⬜] Text Anchor Based Metric Learning for Small-footprint Keyword Spotting
-- [⬜] The 2020 Personalized Voice Trigger Challenge: Open Database, Evaluation Metrics and the Baseline Systems
-- [⬜] The DKU System Description for The Interspeech 2021 Auto-KWS Challenge
-- [⬜] Wav2KWS: Transfer Learning from Speech Representations for Keyword Spotting
-- [⬜] WaveSense: Efficient Temporal Convolutions with Spiking Neural Networks for Keyword Spotting
-- [⬜] Zero-Shot Federated Learning with New Classes for Audio Classification
+- [x] AUC Optimization for Robust Small-footprint Keyword Spotting with Limited Training Data
+- [x] A Separable Temporal Convolution Neural Network with Attention for Small-Footprint Keyword Spotting
+- [x] A Streaming End-to-End Framework For Spoken Language Understanding
+- [x] An Integrated Framework for Two-pass Personalized Voice Trigger
+- [x] Audiomer: A Convolutional Transformer for Keyword Spotting
+- [x] BBS-KWS: The Mandarin Keyword Spotting System Won the Video Keyword Wakeup Challenge
+- [x] Behavior of Keyword Spotting Networks Under Noisy Conditions
+- [x] Broadcasted Residual Learning for Efficient Keyword Spotting
+- [x] Efficient Keyword Spotting through Long-range Interactions with Temporal Lambda Networks
+- [x] Encoder-Decoder Neural Architecture Optimization for Keyword Spotting
+- [x] End-to-end Keyword Spotting using Neural Architecture Search and Quantization
+- [x] End-to-end Keyword Spotting using Xception-1d
+- [x] Few-Shot Keyword Spotting in Any Language
+- [x] Implicit Acoustic Echo Cancellation for Keyword Spotting and Device-Directed Speech Detection
+- [x] Keyword Transformer: A Self-Attention Model for Keyword Spotting
+- [x] Learning Efficient Representations for Keyword Spotting with Triplet Loss
+- [x] Lightweight Dynamic Filter for Keyword Spotting
+- [x] Multi-task Learning with Cross Attention for Keyword Spotting
+- [x] Multi-task Voice Activated Framework using Self-supervised Learning
+- [x] Noisy Student-Teacher Training for Robust Keyword Spotting
+- [x] Streaming Transformer for Hardware Efficient Voice Trigger Detection and False Trigger Mitigation
+- [x] Teaching Keyword Spotters to Spot New Keywords with Limited Examples
+- [x] Text Anchor Based Metric Learning for Small-footprint Keyword Spotting
+- [x] The 2020 Personalized Voice Trigger Challenge: Open Database, Evaluation Metrics and the Baseline Systems
+- [x] The DKU System Description for The Interspeech 2021 Auto-KWS Challenge
+- [x] Wav2KWS: Transfer Learning from Speech Representations for Keyword Spotting
+- [x] WaveSense: Efficient Temporal Convolutions with Spiking Neural Networks for Keyword Spotting
+- [x] Zero-Shot Federated Learning with New Classes for Audio Classification
 
 ## 2020（29 篇）
 **进度：29 / 29**
 
 - [x] A Depthwise Separable Convolutional Neural Network for Keyword Spotting on an Embedded System
-- [⬜] AutoKWS: Keyword Spotting with Differentiable Architecture Search
+- [x] AutoKWS: Keyword Spotting with Differentiable Architecture Search
 - [x] Depthwise Separable Convolutional ResNet with Squeeze-and-Excitation Blocks for Small-footprint Keyword Spotting
 - [x] Domain Aware Training for Far-field Small-footprint Keyword Spotting
 - [x] End-to-End Multi-Look Keyword Spotting

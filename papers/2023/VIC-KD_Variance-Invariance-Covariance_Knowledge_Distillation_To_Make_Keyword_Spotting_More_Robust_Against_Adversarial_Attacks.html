@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VIC-KD：方差-不变性-协方差知识蒸馏（INRS 2023）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · 2023 №41 · 鲁棒压缩</div>
+<h1 class="hero">千倍压缩还要抗打：鲁棒性从输出层<span class="g">下沉到表征几何</span>，8/8 配置全胜 TRADES 基线</h1>
+<div class="chips">
+<span class="chip acc">VICReg 几何正则 × TRADES</span><span class="chip">跨模型跨视图不变性锚</span><span class="chip">~1174× 参数压缩</span><span class="chip">AutoAttack 鲁棒 86.3%</span><span class="chip">投影头训完即丢 · 零推理开销</span>
+</div>
+<div class="meta">
+<b>VIC-KD: Variance-Invariance-Covariance Knowledge Distillation To Make Keyword Spotting More Robust Against Adversarial Attacks</b> · Heitor R. Guimarães / Arthur Pimentel / Anderson Avila / Tiago H. Falk（INRS-EMT）· 2023 · arXiv <a href="https://arxiv.org/abs/2309.12914" style="color:var(--acc)">2309.12914</a><br>
+一句话：94.4M 的 S3RL 教师压到 &lt;96K 学生还要抗 AutoAttack——把「学生<b>对抗视图</b>的表征拉到教师<b>自然输入</b>表征的位置」（VICReg 三项几何正则）与 TRADES 凸组合：<b>8/8 配置超 TRADES 基线 +4.1~6.0 点</b>，干净-鲁棒差距 9.84 全场最小，推理零开销。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：压缩与鲁棒的双重需求没人同锅解</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>S3RL 教师 94.4M/6160 MMACs——学生必须 <b>&lt;96K/3 MMACs</b>（参数 ~1174-1394× · 算力 ~2115-3851× 压缩）。</li>
+<li>空中传输攻击已能远程误分类；普通 <b>KD 只迁精度不迁鲁棒</b>（鲁棒精度 4.49-9.29 ≈ 随机猜，换鲁棒教师也救不了）。</li>
+<li>ARD/RSLAD 把鲁棒蒸馏做到 74-81——但 8 配置里大多仍<b>输给直接 TRADES 训的小模型</b>：花大成本蒸馏不如直接对抗训练。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">VIC-KD：千倍压缩还要抗打——把鲁棒性从输出层下沉到表征几何</text>
+<line x1="36.0" y1="60.0" x2="800.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 端侧 KWS 的双重需求</text>
+<rect x="36.0" y="102.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="131.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">千倍压缩</text>
+<text x="175.0" y="131.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">S3RL 教师 94.4M/6160 MMACs → 学生必须 <96K/3 MMACs——参数压 ~1174-1394× · 算力 ~2115-3851×</text>
+<rect x="36.0" y="156.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="185.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">对抗攻击在逼近</text>
+<text x="175.0" y="185.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">空中传输攻击已能远程误分类（UTIO）；S3RL-KWS 白盒攻击下脆弱</text>
+<rect x="36.0" y="210.0" width="848.0" height="46.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="239.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">旧配方顾此失彼</text>
+<text x="175.0" y="239.0" font-size="8.8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">普通 KD 只迁精度不迁鲁棒 · 对抗训练只管鲁棒不管压缩——没人同锅解决</text>
+<text x="36.0" y="288.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 前作的三级缺口（Table 2 的证据链）</text>
+<rect x="36.0" y="306.0" width="848.0" height="44.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="334.0" font-size="10" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">普通 KD</text>
+<text x="175.0" y="334.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">干净 96.91 最高 · 鲁棒 4.49-9.29 —— 换鲁棒教师也救不了（学生仍 4.49-7.19）</text>
+<rect x="36.0" y="358.0" width="848.0" height="44.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="386.0" font-size="10" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ARD (AAAI20)</text>
+<text x="175.0" y="386.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">鲁棒拉到 74-80 —— 8 配置中 7 个仍输给直接 TRADES 训的学生</text>
+<rect x="36.0" y="410.0" width="848.0" height="44.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="438.0" font-size="10" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RSLAD (ICCV21)</text>
+<text x="175.0" y="438.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">略优 ARD —— 小学生（TC-ResNet）上仍输基线 1.2-3.0</text>
+<rect x="36.0" y="462.0" width="848.0" height="44.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="490.0" font-size="10" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">共同缺口</text>
+<text x="175.0" y="490.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">都只在输出层做约束 —— 不管表征几何——地图修了国界没修地形</text>
+<text x="36.0" y="522.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ VIC-KD 的解法：几何先验当鲁棒性信号</text>
+<rect x="36.0" y="538.0" width="848.0" height="96.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="52.0" y="554.0" width="262.0" height="64.0" rx="8" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="183.0" y="574.0" font-size="8.6" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">教师支路：自然视图 t(x)</text>
+<text x="183.0" y="598.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">冻结 S3RL → 全层加权和 → Z（干净锚点）</text>
+<text x="322.0" y="588.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="340.0" y="554.0" width="262.0" height="64.0" rx="8" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="471.0" y="574.0" font-size="8.6" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">学生支路：另一视图 t′(x)+对抗 δ</text>
+<text x="471.0" y="598.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">编码 → 分类头 Y′ + 投影头 Z′</text>
+<text x="610.0" y="588.0" font-size="11" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="628.0" y="554.0" width="262.0" height="64.0" rx="8" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="759.0" y="574.0" font-size="8.6" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">损失 = TRADES + α·VICReg</text>
+<text x="759.0" y="598.0" font-size="7.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">测试只留学生——投影头全丢，零推理开销</text>
+<text x="460.0" y="644.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">抗扰动性写进训练信号本身：学生被攻击的表征 → 拉向教师干净输入的表征位置</text>
+<rect x="36.0" y="662.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="688.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">8/8</text>
+<text x="134.0" y="708.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">配置全胜 TRADES 基线</text>
+<text x="304.0" y="688.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">+4.1~6.0</text>
+<text x="304.0" y="708.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">基线上方百分点</text>
+<text x="474.0" y="688.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">差距 9.84</text>
+<text x="474.0" y="708.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">干净-鲁棒差距全场最小</text>
+<text x="644.0" y="688.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">鲁棒 86.3%</text>
+<text x="644.0" y="708.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">最佳（WavLM/XVector）</text>
+<text x="814.0" y="688.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">0 推理开销</text>
+<text x="814.0" y="708.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">投影头训完即丢</text>
+<text x="36.0" y="746.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Heitor R. Guimarães / Arthur Pimentel / Anderson Avila / Tiago H. Falk（INRS-EMT 加拿大国家科学研究院）· 2023 · arXiv 2309.12914 · GSC v0.02 · AutoAttack（APGD+APGD-T+FAB, ℓ∞ ε=1.5e-3）</text>
+</svg>
+<div class="cap">图 1 · 机制全景：双重需求 → 前作三级缺口（KD/ARD/RSLAD 的证据链）→ VIC-KD 双支路配方 → 关键数字。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：VICReg 三项各堵一个塌法</h2>
+<div class="cards">
+<div class="card acc"><h3>Inv 不变项（核心锚）</h3>MSE(Z, Z′)——学生（对抗视图+扰动）的表征拉向教师（自然视图）的位置：鲁棒性写进训练信号，不依赖教师自身鲁棒。</div>
+<div class="card acc"><h3>Var 方差项</h3>每维标准差 ≥ 阈值——反塌缩：只有不变性时 Z′→常数即零损失，模型废掉。</div>
+<div class="card acc"><h3>Cov 协方差项</h3>非对角元压零（去相关）——67.7K 容量的补贴：每维装不同信息，不浪费稀缺维度。</div>
+<div class="card"><h3>投影头解耦</h3>几何正则只约束投影空间，分类特征不受打扰——测试丢投影头，零推理开销。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：VICReg 三项各堵一个塌法</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="248.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">L = Var + Inv + Cov（等权）</text>
+<rect x="48.0" y="92.0" width="420.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="64.0" y="112.0" width="388.0" height="68.0" rx="8" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="78.0" y="136.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Var 方差项</text>
+<text x="78.0" y="154.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">每维标准差 ≥ 阈值</text>
+<text x="78.0" y="172.0" font-size="8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">反塌缩：只有不变性时 Z′→常数即零损失</text>
+<rect x="64.0" y="190.0" width="388.0" height="68.0" rx="8" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="78.0" y="214.0" font-size="10" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Inv 不变项</text>
+<text x="78.0" y="232.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">MSE(Z, Z′)</text>
+<text x="78.0" y="250.0" font-size="8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">核心锚：学生(对抗视图) → 教师(自然视图) 同位</text>
+<rect x="64.0" y="268.0" width="388.0" height="68.0" rx="8" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="78.0" y="292.0" font-size="10" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Cov 协方差项</text>
+<text x="78.0" y="310.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">非对角元 → 0（去相关）</text>
+<text x="78.0" y="328.0" font-size="8" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">小模型补贴：每维装不同信息，不浪费 67.7K 容量</text>
+<text x="676.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两个巧设计</text>
+<rect x="500.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="516.0" y="116.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">投影头解耦：</text>
+<text x="516.0" y="132.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 几何正则只约束投影空间</text>
+<text x="516.0" y="148.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 分类特征空间不受打扰</text>
+<text x="516.0" y="164.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 测试丢投影头——零开销</text>
+<text x="516.0" y="180.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="196.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">t ≠ t′ 的必要性：</text>
+<text x="516.0" y="212.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 两支路同输入 → 不变性平凡满足</text>
+<text x="516.0" y="228.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 不同视图强迫跨视图稳定特征</text>
+<text x="516.0" y="244.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="260.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">教师不用鲁棒（内置消融）：</text>
+<text x="516.0" y="276.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 标准教师 86.12 / 鲁棒教师 85.33</text>
+<text x="516.0" y="292.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 需要的是「干净几何锚」</text>
+<text x="516.0" y="308.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  而非教师的鲁棒行为</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：VICReg 三项的分工——Var 反塌缩、Inv 跨模型跨视图锚定、Cov 去相关补贴小容量；右：投影头解耦与「标准教师就够」的工程结论</text>
+</svg>
+<div class="cap">图 2 · 左：三项损失分工；右：两个巧设计（t≠t′ 防平凡解 · 教师不用鲁棒——标准教师 86.12 反而高于鲁棒教师 85.33，需要的是干净几何锚）。</div>
+<div class="formula">
+<div class="f">L = TRADES + α·[ Var(Z′) + Inv(Z, Z′) + Cov(Z′) ]        Z ← 教师(t(x)) 自然 · Z′ ← 学生投影(t′(x)+δ) 对抗        测试只留学生</div>
+<div class="why"><b>人话：</b>老师（大模型）听干净的示范，学生（小模型）戴着耳塞（对抗扰动）听另一个版本，还被要求「你写下的笔记要和老师的一致」——练到最后，不管别人怎么干扰，学生的笔记都稳稳落在老师的位置上。另外两条纪律：笔记每页都要有变化（防偷懒写死）、各页内容不重复（小本子不浪费纸）。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果：8/8 全胜 + 折中最优</h2>
+<table class="tb">
+<tr><th>方法（Wav2Vec2.0/XVector · 标准教师）</th><th>鲁棒精度</th><th>vs TRADES 基线 80.33</th></tr>
+<tr><td>普通 KD</td><td>9.29</td><td>形同不设防</td></tr>
+<tr><td>ARD</td><td>79.74</td><td>−0.6</td></tr>
+<tr><td>RSLAD</td><td>80.79</td><td>+0.5</td></tr>
+<tr class="hl"><td>VIC-KD</td><td>86.12</td><td>+5.8（干净 95.92 · 差距仅 9.84）</td></tr>
+</table>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果：鲁棒精度（AutoAttack, 12 类）</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="276.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Wav2Vec2.0 / XVector · 标准教师（Table 2）</text>
+<text x="60.0" y="126.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KD</text>
+<rect x="186.0" y="112.0" width="40.9" height="22.0" rx="5" fill="#e0a9a0"/>
+<text x="234.9" y="127.0" font-size="9.5" fill="#e0a9a0" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">9.29</text>
+<text x="60.0" y="182.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ARD</text>
+<rect x="186.0" y="168.0" width="350.9" height="22.0" rx="5" fill="#c9d8e8"/>
+<text x="544.9" y="183.0" font-size="9.5" fill="#c9d8e8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">79.74</text>
+<text x="60.0" y="238.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RSLAD</text>
+<rect x="186.0" y="224.0" width="355.5" height="22.0" rx="5" fill="#9fc8b8"/>
+<text x="549.5" y="239.0" font-size="9.5" fill="#9fc8b8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">80.79</text>
+<text x="60.0" y="294.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">TRADES 基线</text>
+<rect x="186.0" y="280.0" width="353.5" height="22.0" rx="5" fill="#b8d8c8"/>
+<text x="547.5" y="295.0" font-size="9.5" fill="#b8d8c8" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">80.33</text>
+<text x="60.0" y="350.0" font-size="9.3" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">VIC-KD ★</text>
+<rect x="186.0" y="336.0" width="378.9" height="22.0" rx="5" fill="#0b6e52"/>
+<text x="572.9" y="351.0" font-size="9.5" fill="#0b6e52" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">86.12</text>
+<text x="60.0" y="404.0" font-size="9.3" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">干净精度同时 95.92——干净-鲁棒差距 9.84，唯一压进个位数量级</text>
+<text x="752.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">35 类扩展</text>
+<rect x="660.0" y="92.0" width="204.0" height="258.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="676.0" y="116.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">（WavLM/XVector）</text>
+<text x="676.0" y="132.0" font-size="8.4" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="676.0" y="148.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">VIC-KD 94.11/80.6</text>
+<text x="676.0" y="164.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">RSLAD 93.78/78.25</text>
+<text x="676.0" y="180.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">ARD   94.22/68.67</text>
+<text x="676.0" y="196.0" font-size="8.4" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="676.0" y="212.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 鲁棒超基线 +2.33</text>
+<text x="676.0" y="228.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 差距 13.51 全场最小</text>
+<text x="676.0" y="244.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· ARD 类多掉最狠</text>
+<text x="676.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （-9.6 vs 基线）——</text>
+<text x="676.0" y="276.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  纯 logits 约束在难</text>
+<text x="676.0" y="292.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  边界最先失效</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文 Table 2（12 类）/ Fig. 3（35 类）· GSC v0.02 · AutoAttack ε=1.5e-3；注意：摘要的 12%/8% 提升与正文可复算 8.0%/6.6% 不一致——以 Table 2 为准</text>
+</svg>
+<div class="cap">图 3 · 左：五方法鲁棒精度对比；右：35 类扩展（VIC-KD 超基线 +2.33 · 差距 13.51 全场最小 · ARD 类多掉最狠——纯 logits 约束在难边界最先失效）。注：摘要 12%/8% 与正文可复算 8.0%/6.6% 不一致，以 Table 2 为准。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界与消融：多视图的真相</h2>
+<div class="cards">
+<div class="card bad"><h3>训练贵 4×</h3>多视图前向 + 10 步 PGD + 教师前向——训练时间是 RSLAD 四倍（推理不变）。</div>
+<div class="card bad"><h3>ε 训测一致才验过</h3>训练与评测都用 1.5e-3——不一致时的迁移未报告。</div>
+<div class="card bad"><h3>超参未披露</h3>α 与 VICReg 阈值系数正文未报——复现要自己扫。</div>
+<div class="card bad"><h3>摘要数字打架</h3>摘要 12%/8% vs 正文可复算 8.0%/6.6%——引用以 Table 2 为准。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与消融：多视图的真相 · 鲁棒蒸馏的新坐标</text>
+<line x1="36.0" y1="56.0" x2="620.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">训练贵 4×</text>
+<text x="215.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">多视图前向 + 10 步 PGD + 教师前向——训练时间是 RSLAD 四倍（推理不变）</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">ε 训测一致才验过</text>
+<text x="215.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">训练与评测都用 1.5e-3——不一致时的迁移未报告</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">超参未披露</text>
+<text x="215.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">α 与 VICReg 阈值系数正文未报——复现要自己扫</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">摘要数字打架</text>
+<text x="215.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">摘要 12%/8% vs 正文可复算 8.0%/6.6%——引用以 Table 2 为准</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多视图消融的关键反转（Fig. 2 · WavLM/TC-ResNet · 基线 79.25）</text>
+<rect x="36.0" y="316.0" width="848.0" height="66.0" rx="10" fill="#f4f8f6" stroke="#d5e8df" stroke-width="1"/>
+<text x="52.0" y="340.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">ARD 74.13→80.03 · RSLAD 77.17→81.93：加多视图才过基线——它们宣称的优势实际靠「多视图」外挂，而这不是它们的方法贡献</text>
+<text x="52.0" y="364.0" font-size="9" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">VIC-KD 80.75→83.3：唯一不加多视图也胜基线的方法——几何先验已覆盖部分不变性；叠加仍 +2.55，边际小于 ARD/RSLAD（作用重叠的证据）</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系：SSL 几何工具（VICReg）→ 鲁棒蒸馏（本文）；后续：几何正则 + 多视图成为鲁棒压缩的标配组合</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 多视图消融的关键反转（Fig. 2）：ARD 74.13→80.03、RSLAD 77.17→81.93——<b>加多视图才过基线</b>，它们宣称的优势实际靠外挂；VIC-KD 唯一不加也胜（80.75→83.3），几何先验已覆盖部分不变性。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>对抗脆弱性的病根在表征几何不在输出分布：微小扰动逐层放大成大位移——只在 logits 层拉齐是修国界不修地形；VICReg 三项直接塑造学生嵌入空间的形状，这是它赢过 ARD/RSLAD 的机制解释。</p>
+<p>蒸馏传的是「锚」不是「行为」：鲁棒教师的鲁棒性传不过软标签（KD 实验），但教师处理干净输入的表征位置可以当锚——蒸馏配方要明确「我从教师拿什么」，拿对了一件事，拿错了白花算力。</p>
+<p>消融要能拆掉别人方法的隐藏外挂：本文证明 ARD/RSLAD 的优势靠多视图撑着——对照组必须与实验组共享所有数据条件（同增广、同攻击预算），否则优势归属就是张冠李戴。</p>
+</div>
+<span class="pill">系列：鲁棒压缩 · SSL 几何工具的迁移范本</span>
+<div class="foot-note">数据与结论来自论文原文（arXiv 2309.12914 · GSC v0.02 · AutoAttack ℓ∞ ε=1.5e-3 · Table 1/2 + Fig. 2/3）。系列内关联：T/S 远场蒸馏（2018 №6）· MicroNets（2020 №13）· S3RL 预训练系（2021+）· 对抗检测（2019 №1）· TC-ResNet（2019 №20，本文学生骨架）。</div>
+</section>
+</div>
+</body>
+</html>
