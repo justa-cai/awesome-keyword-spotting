@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>层次神经网络 KWS 架构（蔚来 NIO）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · 2018 №13 · 车载实战</div>
+<h1 class="hero">低层懂音素、高层懂关键词：瓶颈特征当「知识快递」，<span class="g">略小的模型</span>打赢 DNN/CNN 基线</h1>
+<div class="chips">
+<span class="chip acc">层次神经网络 HNN</span><span class="chip">瓶颈特征知识传递</span><span class="chip">分层数据策略</span><span class="chip">FST 三音素解码</span><span class="chip">蔚来 hi nomi 车载实测</span>
+</div>
+<div class="meta">
+<b>Hierarchical Neural Network Architecture in Keyword Spotting</b> · Yixiao Qu / Sihao Xue / Zhenyi Ying / Hang Zhou / Jue Sun（蔚来汽车 NIO）· arXiv <a href="https://arxiv.org/abs/1811.02320" style="color:var(--acc)">1811.02320</a>（2018.11）<br>
+一句话：KWS 拆成<b>三层分工</b>——低层 DNN 在多场景大数据学音素、高层 DNN 拿瓶颈特征+原始特征专注关键词判别、FST 加音素序列约束收尾——各层独立训练不联调，<b>略小于基线的参数量</b>换更高准确率与跨噪声稳健性。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：车载 KWS 的四重压力</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>噪声又多又变：发动机 · 风噪 · 路面 · 车载音响——高速/市区/怠速的噪声特征差异巨大。</li>
+<li>算力要给驾驶功能让路：KWS 不能挤占实时性；误警烦人、漏检伤安全——<b>双向指标都苛刻</b>。</li>
+<li>传统 DNN/CNN 小模型跨噪声环境不够准——单纯堆深度（对称加深）不是出路。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">HNN：低层懂音素、高层懂关键词——瓶颈特征当「知识快递」，FST 收尾</text>
+<line x1="36.0" y1="60.0" x2="760.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 车载 KWS 的四重压力</text>
+<rect x="36.0" y="102.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="129.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">噪声又多又变</text>
+<text x="210.0" y="129.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">发动机 · 风噪 · 路面 · 车载音响——高速/市区/怠速的噪声特征差异巨大</text>
+<rect x="36.0" y="152.0" width="848.0" height="42.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="179.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">算力要给主业让路</text>
+<text x="210.0" y="179.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">车载 CPU/内存有限——KWS 不能挤占驾驶功能的实时性</text>
+<rect x="36.0" y="202.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="229.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">误警漏检都疼</text>
+<text x="210.0" y="229.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">误警烦人影响体验，漏检伤安全性——双向指标都苛刻</text>
+<rect x="36.0" y="252.0" width="848.0" height="42.0" rx="8" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="52.0" y="279.0" font-size="10.5" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">小模型不够准</text>
+<text x="210.0" y="279.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">传统 DNN/CNN 在小尺寸下难达精度，尤其跨噪声环境</text>
+<text x="36.0" y="320.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② HNN 三层分工：各管一段，瓶颈特征串场</text>
+<rect x="36.0" y="336.0" width="848.0" height="178.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="60.0" y="356.0" width="250.0" height="130.0" rx="10" fill="#e8edf5" stroke="#b9c6d8" stroke-width="1"/>
+<text x="185.0" y="378.0" font-size="10.5" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">低层：音素 DNN</text>
+<text x="76.0" y="402.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 帧级音素分类</text>
+<text x="76.0" y="420.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 隐藏层设窄层 → 瓶颈特征</text>
+<text x="76.0" y="438.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 大规模多场景数据训练</text>
+<line x1="310.0" y1="420.0" x2="380.00" y2="420.00" stroke="#d97a2b" stroke-width="2"/>
+<text x="345.0" y="412.0" font-size="8.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">瓶颈特征</text>
+<rect x="380.0" y="356.0" width="250.0" height="130.0" rx="10" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="505.0" y="378.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">高层：关键词 DNN</text>
+<text x="396.0" y="402.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输入 = 原始特征 ⊕ 瓶颈特征</text>
+<text x="396.0" y="420.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 专注目标词 + 困难负样本</text>
+<text x="396.0" y="438.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 输出三音素状态后验</text>
+<line x1="630.0" y1="420.0" x2="700.00" y2="420.00" stroke="#8a93a5" stroke-width="1.5"/>
+<rect x="700.0" y="356.0" width="160.0" height="130.0" rx="10" fill="#fde9d8" stroke="#e0b880" stroke-width="1"/>
+<text x="780.0" y="378.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FST 解码</text>
+<text x="712.0" y="402.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 三音素序列约束</text>
+<text x="712.0" y="420.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· Viterbi 找最优路径</text>
+<text x="712.0" y="438.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 并行路径支持多词</text>
+<text x="460.0" y="506.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三层各训各的——没有联合训练，没有参数共享，只有瓶颈特征这一条「知识快递」通道</text>
+<text x="36.0" y="546.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 两个设计巧思</text>
+<rect x="36.0" y="562.0" width="416.0" height="92.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="586.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">瓶颈特征 = 轻量蒸馏</text>
+<text x="52.0" y="610.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 低层在大数据学的声学知识，通过几十维</text>
+<text x="52.0" y="627.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  激活值传给高层——不需参数共享/联调</text>
+<rect x="468.0" y="562.0" width="416.0" height="92.0" rx="10" fill="#fffaf4" stroke="#eadfc8" stroke-width="1"/>
+<text x="676.0" y="586.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">分层数据策略 ≈ 课程学习</text>
+<text x="484.0" y="610.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 低层吃多场景通用数据（学鲁棒）</text>
+<text x="484.0" y="627.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 高层吃目标词+困难负样本（学判别）</text>
+<rect x="36.0" y="682.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="708.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">优于基线</text>
+<text x="134.0" y="728.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">DNN/CNN 双超</text>
+<text x="304.0" y="708.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">略小于基线</text>
+<text x="304.0" y="728.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数量与计算量</text>
+<text x="474.0" y="708.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">hi nomi</text>
+<text x="474.0" y="728.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">蔚来车载实测</text>
+<text x="644.0" y="708.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">多噪声稳健</text>
+<text x="644.0" y="728.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">发动机/风噪/音乐</text>
+<text x="814.0" y="708.0" font-size="11.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">免联调</text>
+<text x="814.0" y="728.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">各层独立训练</text>
+<text x="36.0" y="766.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Yixiao Qu / Sihao Xue / Zhenyi Ying / Hang Zhou / Jue Sun（蔚来汽车 NIO）· arXiv 1811.02320（2018.11）· 车载平板实测；定量数值因商业保密披露有限</text>
+</svg>
+<div class="cap">图 1 · 机制全景：车载四重压力 → HNN 三层分工结构（瓶颈特征串场）→ 两个设计巧思（轻量蒸馏 / 分层数据）→ 结果速览。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：一条不改结构的知识通道</h2>
+<div class="cards">
+<div class="card acc"><h3>瓶颈特征 = 轻量蒸馏</h3>低层在多场景大数据学的声学知识，浓缩成几十维激活值传给高层——不需要参数共享、不需要联合训练。</div>
+<div class="card acc"><h3>分层数据策略</h3>低层吃多场景通用数据（学鲁棒）、高层吃目标词+困难负样本（学判别）——类似课程学习的分工。</div>
+<div class="card"><h3>FST 结构化约束</h3>三音素序列强制正确顺序、状态自环给时长弹性、并行路径支持多唤醒词——帧级分类没有这层「语法」。</div>
+<div class="card"><h3>三音素聚类</h3>缩小状态空间、提高泛化——与 FST 配套的工程惯例。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：瓶颈特征怎么传知识 · FST 约束什么</text>
+<line x1="36.0" y1="56.0" x2="580.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="238.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">知识快递：从大数据到目标词</text>
+<rect x="48.0" y="92.0" width="400.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="64.0" y="118.0" font-size="9.2" fill="#33507a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">低层 DNN（多场景数据）</text>
+<text x="64.0" y="140.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">输入层 → 隐层 ×2 → 【窄层 42 维】→ 隐层 → 音素输出</text>
+<rect x="144.0" y="156.0" width="208.0" height="26.0" rx="6" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="248.0" y="173.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">瓶颈层（几十维）</text>
+<line x1="248.0" y1="182.0" x2="248.00" y2="210.00" stroke="#d97a2b" stroke-width="2"/>
+<text x="266.0" y="200.0" font-size="8.4" fill="#8a5a1a" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">激活值 = 瓶颈特征</text>
+<text x="64.0" y="236.0" font-size="9.2" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">高层 DNN（目标词数据）</text>
+<rect x="94.0" y="248.0" width="308.0" height="30.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="248.0" y="267.0" font-size="8.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">输入 = 原始特征 ⊕ 瓶颈特征</text>
+<text x="64.0" y="306.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">蒸馏逻辑：大数据的「懂语音」通过窄层注入，</text>
+<text x="64.0" y="324.0" font-size="8.6" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">高层只需专注「分辨这个词」——分工即解耦</text>
+<text x="656.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">FST：给解码加「顺序语法」</text>
+<rect x="480.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<circle cx="510.0" cy="140.0" r="14" fill="#fde9d8" stroke="#e0b880"/>
+<text x="510.0" y="144.0" font-size="8.2" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">h</text>
+<line x1="524.0" y1="140.0" x2="538.00" y2="140.00" stroke="#8a5a1a" stroke-width="1.2"/>
+<circle cx="531.0" cy="122.0" r="8" fill="none" stroke="#b9c6d8"/>
+<line x1="531.0" y1="130.0" x2="531.00" y2="148.00" stroke="#b9c6d8" stroke-width="0.8"/>
+<circle cx="552.0" cy="140.0" r="14" fill="#fde9d8" stroke="#e0b880"/>
+<text x="552.0" y="144.0" font-size="8.2" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">aɪ</text>
+<line x1="566.0" y1="140.0" x2="580.00" y2="140.00" stroke="#8a5a1a" stroke-width="1.2"/>
+<circle cx="573.0" cy="122.0" r="8" fill="none" stroke="#b9c6d8"/>
+<line x1="573.0" y1="130.0" x2="573.00" y2="148.00" stroke="#b9c6d8" stroke-width="0.8"/>
+<circle cx="594.0" cy="140.0" r="14" fill="#fde9d8" stroke="#e0b880"/>
+<text x="594.0" y="144.0" font-size="8.2" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">n</text>
+<line x1="608.0" y1="140.0" x2="622.00" y2="140.00" stroke="#8a5a1a" stroke-width="1.2"/>
+<circle cx="615.0" cy="122.0" r="8" fill="none" stroke="#b9c6d8"/>
+<line x1="615.0" y1="130.0" x2="615.00" y2="148.00" stroke="#b9c6d8" stroke-width="0.8"/>
+<circle cx="636.0" cy="140.0" r="14" fill="#fde9d8" stroke="#e0b880"/>
+<text x="636.0" y="144.0" font-size="8.2" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">oʊ</text>
+<line x1="650.0" y1="140.0" x2="664.00" y2="140.00" stroke="#8a5a1a" stroke-width="1.2"/>
+<circle cx="657.0" cy="122.0" r="8" fill="none" stroke="#b9c6d8"/>
+<line x1="657.0" y1="130.0" x2="657.00" y2="148.00" stroke="#b9c6d8" stroke-width="0.8"/>
+<circle cx="678.0" cy="140.0" r="14" fill="#fde9d8" stroke="#e0b880"/>
+<text x="678.0" y="144.0" font-size="8.2" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">m</text>
+<line x1="692.0" y1="140.0" x2="706.00" y2="140.00" stroke="#8a5a1a" stroke-width="1.2"/>
+<circle cx="699.0" cy="122.0" r="8" fill="none" stroke="#b9c6d8"/>
+<line x1="699.0" y1="130.0" x2="699.00" y2="148.00" stroke="#b9c6d8" stroke-width="0.8"/>
+<circle cx="720.0" cy="140.0" r="14" fill="#fde9d8" stroke="#e0b880"/>
+<text x="720.0" y="144.0" font-size="8.2" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">i</text>
+<text x="656.0" y="176.0" font-size="8.3" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">音素状态图（自环 = 时长弹性）</text>
+<text x="496.0" y="208.0" font-size="9.2" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">约束了什么：</text>
+<text x="504.0" y="226.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 关键词必须按正确音素顺序出现</text>
+<text x="504.0" y="243.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 允许发音时长弹性（状态自环）</text>
+<text x="504.0" y="260.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 三音素聚类缩状态空间 · 提泛化</text>
+<text x="504.0" y="277.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 并行路径天然支持多唤醒词</text>
+<text x="504.0" y="294.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="504.0" y="311.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">vs 帧级分类：无序约束的独立判断</text>
+<text x="504.0" y="328.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">容易被局部相似音骗过</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：瓶颈层的窄维度强迫低层浓缩声学知识，激活值作为第二输入喂给高层——一条不改参数结构的知识通道；右：FST 的音素序列图与时长弹性</text>
+</svg>
+<div class="cap">图 2 · 左：知识快递的完整路径——窄层强迫浓缩，激活值作为第二输入喂高层；右：FST 的音素状态图（自环=时长弹性）与它约束了什么。</div>
+<div class="formula">
+<div class="f">高层输入 = [ 原始声学特征 ⊕ 低层瓶颈特征 ]        → 三音素状态后验 → FST/Viterbi 最优路径</div>
+<div class="why"><b>人话：</b>低层模型像一位「什么语音都见过」的老工程师，把自己对每一帧的判断浓缩成一份几十维的小抄；高层模型一边听原始音频一边看小抄，专注分辨「是不是唤醒词」；最后 FST 像 grammar 检查，确保音素按正确顺序连成词。三层各训各的，换词只重训高层。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果（定性）与工业论文的读法</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）与工业论文的读法</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="48.0" y="84.0" width="150.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="123.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">维度</text>
+<rect x="198.0" y="84.0" width="320.0" height="34.0" rx="0" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="358.0" y="106.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">HNN</text>
+<rect x="518.0" y="84.0" width="320.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="678.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">DNN/CNN 基线</text>
+<rect x="48.0" y="118.0" width="150.0" height="40.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="123.0" y="143.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率</text>
+<rect x="198.0" y="118.0" width="320.0" height="40.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="358.0" y="143.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">更优（各噪声条件）</text>
+<rect x="518.0" y="118.0" width="320.0" height="40.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="678.0" y="143.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">基线水平</text>
+<rect x="48.0" y="158.0" width="150.0" height="40.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="123.0" y="183.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">模型尺寸</text>
+<rect x="198.0" y="158.0" width="320.0" height="40.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="358.0" y="183.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">略小于基线</text>
+<rect x="518.0" y="158.0" width="320.0" height="40.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="678.0" y="183.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">基准</text>
+<rect x="48.0" y="198.0" width="150.0" height="40.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="123.0" y="223.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">跨噪声稳健性</text>
+<rect x="198.0" y="198.0" width="320.0" height="40.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="358.0" y="223.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">发动机/风噪/音乐均稳</text>
+<rect x="518.0" y="198.0" width="320.0" height="40.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="678.0" y="223.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">环境变化下退化</text>
+<rect x="48.0" y="238.0" width="150.0" height="40.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="123.0" y="263.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">架构复杂度</text>
+<rect x="198.0" y="238.0" width="320.0" height="40.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="358.0" y="263.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">三层分工 · 免联调</text>
+<rect x="518.0" y="238.0" width="320.0" height="40.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="678.0" y="263.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">单网络堆深度</text>
+<rect x="48.0" y="278.0" width="150.0" height="40.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="123.0" y="303.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">定量披露</text>
+<rect x="198.0" y="278.0" width="320.0" height="40.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="358.0" y="303.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">有限（商业保密）</text>
+<rect x="518.0" y="278.0" width="320.0" height="40.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="678.0" y="303.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">—</text>
+<text x="36.0" y="336.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">读法：工业论文的定量细节常被保密——可信的是「架构思想 + 生产验证」这一层，</text>
+<text x="36.0" y="354.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数字层面的独立验证要靠公开复现或后续论文的引用对比补齐</text>
+<text x="36.0" y="392.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（arXiv 1811.02320 · NIO）；具体准确率数值因商业保密未披露，结论为论文定性表述</text>
+</svg>
+<div class="cap">图 3 · 五维对比表：准确率更优、尺寸略小、跨噪声稳健、架构免联调；定量数值因商业保密披露有限——工业论文的可信层是「架构思想 + 生产验证」，数字层要靠公开复现补齐。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：披露与对比的缺口</h2>
+<div class="cards">
+<div class="card bad"><h3>定量披露有限</h3>准确率数值、数据规模、消融实验都简略——独立验证困难，引用时只能引结论层。</div>
+<div class="card bad"><h3>单词单场景</h3>仅「hi nomi」——多唤醒词/多语言扩展未讨论。</div>
+<div class="card bad"><h3>对比不充分</h3>未与 RNN/注意力/端到端 CTC 系统对比——「优于 DNN/CNN」的参照系偏旧。</div>
+<div class="card bad"><h3>瓶颈层设计未探</h3>第几层设窄层、维度选多少——论文未给策略，落地要自己扫参。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：轻量蒸馏的家族 · 车载 KWS 的位置</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">定量披露有限</text>
+<text x="215.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">准确率数值 · 数据规模 · 消融实验都简略——独立验证困难，引用时只能引结论层</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">单词单场景</text>
+<text x="215.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">仅「hi nomi」+ 未覆盖多唤醒词/多语言扩展讨论</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">对比不充分</text>
+<text x="215.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">未与 RNN/注意力/端到端 CTC 架构系统对比——「优于 DNN/CNN」的参照系偏旧</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">瓶颈层设计未探</text>
+<text x="215.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">第几层设窄层 · 维度选多少——论文未给策略，落地要自己扫参</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">T/S 蒸馏</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">微软 2018 №6</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">瓶颈特征 HNN</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 NIO 2018</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">高通 CTC+FST</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2019 №13</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">流式 Transformer</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">车载 2021+</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">知识传递的三个等级：T/S 蒸馏（软标签）→ 瓶颈特征（中间表示，本文——最轻量）→ 联合训练（最重）；FST 解码线由高通</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC+FST（2019 №13）延续，端到端化后由流式 Transformer 接棒。车载 KWS 专线另见多源融合（2019 №7 车载篇）</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：知识传递的三个等级（T/S 软标签 → 瓶颈特征中间表示 → 联合训练），FST 解码线由高通 CTC+FST（2019 №13）延续，车载流式 Transformer（2021+）接棒。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>「分工」常常优于「堆深」：对称加深一个大网络是把所有任务压给同一组参数——HNN 证明把「懂语音」和「懂这个词」拆开、中间用窄层传知识，小模型反而更准；资源受限时先问任务能不能分层，再问网络能不能加深。</p>
+<p>瓶颈特征是知识传递的最低成本形态：不需要软标签的额外前向、不需要联合训练的工程复杂度——一条几十维的拼接输入就把大数据的先验带进小任务；「能拼接的特征」是最容易落地的蒸馏。</p>
+<p>帧级分类少了「语法」这层先验：局部相似音骗过独立帧判断很容易，FST 的序列约束是廉价的结构化先验——端到端潮流里它并未消失，只是被 CTC/注意力内化进了训练目标。</p>
+</div>
+<span class="pill">系列：车载 KWS · 轻量知识传递</span>
+<div class="foot-note">数据与结论来自论文原文（arXiv 1811.02320 · NIO）；定量数值因商业保密未披露，结论为论文定性表述。系列内关联：T/S 蒸馏（2018 №6）· 车载多源融合（2019 №7）· 高通 CTC+FST（2019 №13）· 车载流式 Transformer（2021+）。</div>
+</section>
+</div>
+</body>
+</html>
