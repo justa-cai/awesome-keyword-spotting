@@ -329,9 +329,9 @@
 - [x] Zero-shot Keyword Spotting for Visual Speech Recognition in-the-wild
 
 ## others（16 篇）
-**进度：15 / 16**
+**进度：16 / 16**
 
-- [⬜] An End-to-End Architecture for Keyword Spotting and Voice Activity Detection
+- [x] An End-to-End Architecture for Keyword Spotting and Voice Activity Detection
 - [x] Cascade Architecture for Keyword Spotting on Mobile Devices
 - [x] Compressed Time-Delay Neural Network for Small-Footprint Keyword Spotting
 - [x] Convolutional Neural Networks for Keyword Spotting: Power Consumption Analysis on Raspberry Pi

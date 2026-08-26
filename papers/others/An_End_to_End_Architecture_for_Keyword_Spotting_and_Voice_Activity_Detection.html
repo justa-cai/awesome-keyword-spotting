@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>统一 KWS 与 VAD 的端到端架构（Mindori）· 论文精读</title>
+<style>
+:root{--paper:#f6f6f2;--ink:#1c2430;--ink2:#47536a;--ink3:#8a93a5;--acc:#0e8a66;--dk:#0a6b4e;--lt:#e6f4ee;--warn:#c0392b;--orange:#d97a2b;--blue:#33507a;--line:#e6e6df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75;font-size:16px}
+.wrap{max-width:980px;margin:0 auto;padding:52px 28px 80px}
+.kicker{font-size:12.5px;letter-spacing:.18em;color:var(--acc);font-weight:700;margin-bottom:18px}
+h1.hero{font-size:40px;line-height:1.28;font-weight:800;letter-spacing:.01em;margin-bottom:18px}
+h1.hero .g{color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+.chip{font-size:12.5px;padding:5px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink2)}
+.chip.acc{background:var(--lt);border-color:#bfe3d5;color:var(--dk)}
+.meta{background:#fff;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:16px 22px;font-size:14px;color:var(--ink2);margin-bottom:44px}
+.meta b{color:var(--ink)}
+section{margin-bottom:52px}
+.no{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-right:12px;flex:none}
+h2{display:flex;align-items:center;font-size:24px;font-weight:800;margin-bottom:20px}
+.tldr{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin-bottom:26px}
+.tldr .tt{font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.14em;margin-bottom:12px}
+.tldr li{list-style:none;position:relative;padding-left:24px;margin-bottom:10px;font-size:15px;color:var(--ink2)}
+.tldr li:last-child{margin-bottom:0}
+.tldr li::before{content:"◆";position:absolute;left:2px;top:0;color:var(--acc);font-size:11px;line-height:2.4}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:22px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;font-size:14px;color:var(--ink2)}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:8px}
+.card.acc{background:var(--lt);border-color:#bfe3d5}
+.card.acc h3{color:var(--dk)}
+.card.bad{background:#fdf3f1;border-color:#f0d9d4}
+.card.bad h3{color:var(--warn)}
+.fig{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.cap{font-size:12.5px;color:var(--ink3);margin-top:12px;padding-left:12px;border-left:3px solid var(--line)}
+.formula{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin:20px 0}
+.formula .f{font-family:"SFMono-Regular",Consolas,monospace;font-size:14.5px;color:var(--blue);background:#f4f6f9;border-radius:8px;padding:10px 16px;margin-bottom:10px;overflow-x:auto}
+.formula .why{font-size:13.5px;color:var(--ink2)}
+.formula .why b{color:var(--acc)}
+table.tb{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:13.5px;margin:20px 0;border:1px solid var(--line)}
+table.tb th{background:#eef0ea;padding:10px 14px;text-align:left;font-weight:700;color:var(--ink)}
+table.tb td{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink2)}
+table.tb tr.hl td{background:var(--lt);color:var(--dk);font-weight:600}
+.judge{background:#fdf9f2;border:1px solid #eadfc8;border-radius:14px;padding:20px 24px;margin:24px 0}
+.judge .jt{font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.14em;margin-bottom:12px}
+.judge p{font-size:14.5px;color:var(--ink2);margin-bottom:10px;padding-left:18px;position:relative}
+.judge p::before{content:"↳";position:absolute;left:0;color:var(--orange)}
+.pill{display:inline-block;font-size:12.5px;color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 16px;margin-bottom:26px}
+.foot-note{font-size:12.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">论文精读 · 可视化版 · others №16 · 多任务统一</div>
+<h1 class="hero">有没有人说话、说的是不是唤醒词：一个模型两个答案——VAD 是 blank 标签<span class="g">白送的</span></h1>
+<div class="chips">
+<span class="chip acc">KWS-VAD 统一架构（首个）</span><span class="chip">RNN 骨干共享表示</span><span class="chip">CTC 字符级输出</span><span class="chip">免帧级标注</span><span class="chip">换词零重训</span>
+</div>
+<div class="meta">
+<b>An End-to-End Architecture for Keyword Spotting and Voice Activity Detection</b> · Chris Lengerich / Awni Hannun（Mindori）· 2016 · arXiv <a href="https://arxiv.org/abs/1611.09405" style="color:var(--acc)">1611.09405</a><br>
+一句话：KWS 与 VAD 各一套系统浪费共享能力——<b>RNN 骨干 + CTC 字符输出</b>一次前向同时回答两问：字符流含目标串 = 唤醒词命中、出现非空字符 = 有人说话（blank 白送的 VAD 信号）；双任务竞争力性能、参数与计算小于两系统之和。
+</div>
+
+<section>
+<h2><span class="no">1</span>问题：两个任务，两套系统的浪费</h2>
+<div class="tldr">
+<div class="tt">TL;DR</div>
+<ul>
+<li>KWS 与 VAD <b>独立设计独立训</b>——系统复杂度翻倍，学不到任务间的共享知识。</li>
+<li>「有没有语音」和「是不是这个词」<b>都要懂声学</b>——底层表示相同，分立即次优。</li>
+<li>本文宣言：一个端到端模型、一次前向、两个答案。</li>
+</ul>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 880">
+<rect x="0.0" y="0.0" width="920.0" height="880.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="44.0" font-size="15" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一个模型管「有没有人说话」和「说的是不是唤醒词」——blank 标签白送的 VAD</text>
+<line x1="36.0" y1="60.0" x2="820.00" y2="60.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">① 两个任务，两套系统的浪费</text>
+<rect x="36.0" y="102.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="131.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">独立设计独立训</text>
+<text x="240.0" y="131.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 与 VAD 各一套架构与流程——系统复杂度翻倍</text>
+<rect x="36.0" y="156.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="185.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">共享表示没人用</text>
+<text x="240.0" y="185.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「有没有语音」和「是不是这个词」都要懂声学——底层能力相同</text>
+<rect x="36.0" y="210.0" width="848.0" height="46.0" rx="8" fill="#fdf0ee" stroke="#f0d9d4" stroke-width="1"/>
+<text x="52.0" y="239.0" font-size="10.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">次优而非最优</text>
+<text x="240.0" y="239.0" font-size="9" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">分立系统学不到任务间的共享知识</text>
+<text x="36.0" y="288.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">② 统一架构：RNN 骨干 + CTC + 字符输出</text>
+<rect x="36.0" y="304.0" width="848.0" height="158.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="70.0" y="324.0" width="240.0" height="118.0" rx="10" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="190.0" y="346.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">log-mel 输入</text>
+<text x="190.0" y="370.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">40 维 · 25ms/10ms</text>
+<text x="320.0" y="384.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="340.0" y="324.0" width="240.0" height="118.0" rx="10" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="460.0" y="346.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">RNN 骨干</text>
+<text x="460.0" y="370.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2-3 层 LSTM/GRU</text>
+<text x="460.0" y="387.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">128-256 单元 · 共享表示</text>
+<text x="590.0" y="384.0" font-size="13" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<rect x="610.0" y="324.0" width="240.0" height="118.0" rx="10" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="730.0" y="346.0" font-size="11" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 字符输出</text>
+<text x="730.0" y="370.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">a-z + 空格 + blank</text>
+<text x="730.0" y="387.0" font-size="8.6" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">免帧级标注</text>
+<text x="460.0" y="458.0" font-size="9.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">同一个骨干 · 一次前向 · 两个任务共用特征——解释不同而已</text>
+<text x="36.0" y="486.0" font-size="14.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">③ 两个判断都从字符流读出</text>
+<rect x="36.0" y="502.0" width="416.0" height="130.0" rx="10" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="244.0" y="526.0" font-size="10.5" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 判断</text>
+<text x="52.0" y="550.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· CTC 解码输出字符序列</text>
+<text x="52.0" y="568.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 含目标词的字符串 → 触发</text>
+<text x="52.0" y="586.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 换词 = 换目标串（零重训）</text>
+<rect x="468.0" y="502.0" width="416.0" height="130.0" rx="10" fill="#fde9d8" stroke="#eadfc8" stroke-width="1"/>
+<text x="676.0" y="526.0" font-size="10.5" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">VAD 判断</text>
+<text x="484.0" y="550.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 连续多帧最大概率都是 blank</text>
+<text x="484.0" y="568.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  → 判无语音</text>
+<text x="484.0" y="586.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 出现任何非空字符 → 有语音</text>
+<text x="484.0" y="604.0" font-size="8.7" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  （blank 白送的 VAD 信号）</text>
+<rect x="36.0" y="652.0" width="848.0" height="64.0" rx="10" fill="#f9faf7" stroke="#e6e6df" stroke-width="1"/>
+<text x="134.0" y="678.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">首个</text>
+<text x="134.0" y="698.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS-VAD 统一端到端</text>
+<text x="304.0" y="678.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">双任务竞争性</text>
+<text x="304.0" y="698.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 与 VAD 都不掉队</text>
+<text x="474.0" y="678.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">免帧级标注</text>
+<text x="474.0" y="698.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">话语文本即可</text>
+<text x="644.0" y="678.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">&lt; 两系统之和</text>
+<text x="644.0" y="698.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数与计算</text>
+<text x="814.0" y="678.0" font-size="11" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">任意词</text>
+<text x="814.0" y="698.0" font-size="8.2" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">字符级输出空间</text>
+<text x="36.0" y="736.0" font-size="9.5" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">Chris Lengerich / Awni Hannun（Mindori）· 2016 · arXiv 1611.09405 · 公开数据集；「多任务共享表示」在 KWS 域的早期宣言</text>
+</svg>
+<div class="cap">图 1 · 机制全景：分立浪费 → 统一架构（RNN 骨干 + CTC 字符输出）→ 两个判断的不同读法 → 关键数字。</div>
+</section>
+
+<section>
+<h2><span class="no">2</span>机制：一条字符流读出两种判断</h2>
+<div class="cards">
+<div class="card acc"><h3>KWS 读法</h3>CTC 解码出字符序列——含目标词的字符串即触发；换词只是换目标串，零重训。</div>
+<div class="card acc"><h3>VAD 读法</h3>连续多帧最大概率都是 blank → 无语音；任何非空字符出现 → 有人说话。</div>
+<div class="card"><h3>CTC 双重红利</h3>免对齐（话语级文本即可训）+ blank 即 VAD（一个标签服务两个任务）。</div>
+<div class="card"><h3>难度阶梯共享</h3>有声（易）→ 是词（难）共用表示——简单任务天然是复杂任务的辅助监督。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470">
+<rect x="0.0" y="0.0" width="880.0" height="470.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">机制解剖：一条字符流读出两种判断</text>
+<line x1="36.0" y1="56.0" x2="600.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="248.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">帧级字符流（示意）</text>
+<rect x="48.0" y="92.0" width="420.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<rect x="72.0" y="116.0" width="28.0" height="30.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="86.0" y="136.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">␣</text>
+<rect x="106.0" y="116.0" width="28.0" height="30.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="120.0" y="136.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">␣</text>
+<rect x="140.0" y="116.0" width="28.0" height="30.0" rx="4" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="154.0" y="136.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">h</text>
+<rect x="174.0" y="116.0" width="28.0" height="30.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="188.0" y="136.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">␣</text>
+<rect x="208.0" y="116.0" width="28.0" height="30.0" rx="4" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="222.0" y="136.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">e</text>
+<rect x="242.0" y="116.0" width="28.0" height="30.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="256.0" y="136.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">␣</text>
+<rect x="276.0" y="116.0" width="28.0" height="30.0" rx="4" fill="#cfe9de" stroke="#7fb69f" stroke-width="1"/>
+<text x="290.0" y="136.0" font-size="9" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">y</text>
+<rect x="310.0" y="116.0" width="28.0" height="30.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="324.0" y="136.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">␣</text>
+<rect x="344.0" y="116.0" width="28.0" height="30.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="358.0" y="136.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">␣</text>
+<rect x="378.0" y="116.0" width="28.0" height="30.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="392.0" y="136.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">␣</text>
+<rect x="412.0" y="116.0" width="28.0" height="30.0" rx="4" fill="#f4f6f9" stroke="#dde2e9" stroke-width="1"/>
+<text x="426.0" y="136.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">␣</text>
+<text x="248.0" y="170.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS：串里有 "hey" → 触发</text>
+<rect x="108.0" y="180.0" width="240.0" height="26.0" rx="6" fill="#eef6f1" stroke="#cfe9de" stroke-width="1"/>
+<text x="228.0" y="198.0" font-size="8.6" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">解码 → h e y → 命中</text>
+<text x="248.0" y="240.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">VAD：非空字符出现 → 有人说话</text>
+<text x="248.0" y="262.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">连续全 blank → 静音/无人</text>
+<text x="248.0" y="300.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">一次前向，两个答案——无重复计算</text>
+<text x="676.0" y="80.0" font-size="10.5" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 的双重红利</text>
+<rect x="500.0" y="92.0" width="352.0" height="250.0" rx="10" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="516.0" y="116.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">红利一：免对齐</text>
+<text x="516.0" y="132.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 话语级文本即可训练</text>
+<text x="516.0" y="148.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 帧级标注彻底不要</text>
+<text x="516.0" y="164.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="180.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">红利二：blank 即 VAD</text>
+<text x="516.0" y="196.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· blank 的本职是吸收静音/重复</text>
+<text x="516.0" y="212.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 「整段都 blank」= 没人说话</text>
+<text x="516.0" y="228.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 一个标签同时服务两个任务</text>
+<text x="516.0" y="244.0" font-size="8.5" fill="#0a6b4e" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif"></text>
+<text x="516.0" y="260.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">深层观察：</text>
+<text x="516.0" y="276.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">· 任务的「难度阶梯」——</text>
+<text x="516.0" y="292.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  有声(易) → 是词(难) 共用表示，</text>
+<text x="516.0" y="308.0" font-size="8.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">  简单任务当复杂任务的预训练</text>
+<text x="36.0" y="448.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">左：一条字符流同时回答 KWS（含不含目标串）与 VAD（有没有非空字符）；右：CTC 的双重红利——免对齐 + blank 白送 VAD 信号</text>
+</svg>
+<div class="cap">图 2 · 左：一条字符流同时回答 KWS（含不含目标串）与 VAD（有没有非空字符）；右：CTC 的双重红利与「任务难度阶梯」观察。</div>
+<div class="formula">
+<div class="f">KWS：decode(CTC 流) ⊃ 目标字符串？        VAD：连续 T 帧 argmax = blank？        一次前向 → 共享 RNN 特征 → 两个判断</div>
+<div class="why"><b>人话：</b>模型边听边打字（大部分时候打空格 blank）。想判断「有没有人说话」——看它是不是一直在打空格就行，这信息本来就在输出里，一分钱不用多花；想判断「说了唤醒词没」——看打出来的字里有没有连成目标词。一次听写，两个结论。</div>
+</div>
+</section>
+
+<section>
+<h2><span class="no">3</span>结果（定性）：统一 vs 分立的账本</h2>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">主结果（定性）：统一 vs 分立的账本</text>
+<line x1="36.0" y1="56.0" x2="560.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<rect x="48.0" y="84.0" width="220.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="158.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">维度</text>
+<rect x="268.0" y="84.0" width="330.0" height="34.0" rx="0" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="433.0" y="106.0" font-size="10" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">统一模型（本文）</text>
+<rect x="598.0" y="84.0" width="330.0" height="34.0" rx="0" fill="#eef0ea" stroke="#ffffff" stroke-width="2"/>
+<text x="763.0" y="106.0" font-size="10" fill="#1c2430" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">两套独立系统</text>
+<rect x="48.0" y="118.0" width="220.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="158.0" y="144.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS 精度</text>
+<rect x="268.0" y="118.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="433.0" y="144.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">有竞争力</text>
+<rect x="598.0" y="118.0" width="330.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="763.0" y="144.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">专用模型可更深</text>
+<rect x="48.0" y="160.0" width="220.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="158.0" y="186.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">VAD 精度</text>
+<rect x="268.0" y="160.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="433.0" y="186.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">与专用 VAD 相当</text>
+<rect x="598.0" y="160.0" width="330.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="763.0" y="186.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">—</text>
+<rect x="48.0" y="202.0" width="220.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="158.0" y="228.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">参数/计算</text>
+<rect x="268.0" y="202.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="433.0" y="228.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">< 两系统之和</text>
+<rect x="598.0" y="202.0" width="330.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="763.0" y="228.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">两份模型</text>
+<rect x="48.0" y="244.0" width="220.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="158.0" y="270.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">标注需求</text>
+<rect x="268.0" y="244.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="433.0" y="270.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">话语文本（免帧级）</text>
+<rect x="598.0" y="244.0" width="330.0" height="42.0" rx="0" fill="#ffffff" stroke="#e6e6df" stroke-width="1"/>
+<text x="763.0" y="270.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">各自标注</text>
+<rect x="48.0" y="286.0" width="220.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="158.0" y="312.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">换词成本</text>
+<rect x="268.0" y="286.0" width="330.0" height="42.0" rx="0" fill="#eef6f1" stroke="#e6e6df" stroke-width="1"/>
+<text x="433.0" y="312.0" font-size="8.8" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">改字符串零重训</text>
+<rect x="598.0" y="286.0" width="330.0" height="42.0" rx="0" fill="#fbfaf6" stroke="#e6e6df" stroke-width="1"/>
+<text x="763.0" y="312.0" font-size="8.8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">重训 KWS</text>
+<text x="36.0" y="344.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">细节发现：噪声下 KWS 降幅小于 VAD——词级判别对声学特征的利用更充分</text>
+<text x="36.0" y="392.0" font-size="10" fill="#8a93a5" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">数据源：论文（2016 · 公开数据集 · KWS/VAD 准确率 + 延迟）；结论为论文定性表述</text>
+</svg>
+<div class="cap">图 3 · 五维对比表 + 细节发现（噪声下 KWS 降幅小于 VAD——词级判别对声学特征利用更充分）。</div>
+</section>
+
+<section>
+<h2><span class="no">4</span>边界：统一的天花板</h2>
+<div class="cards">
+<div class="card bad"><h3>精度上限</h3>统一模型兼顾通用性——KWS 精度可能不及针对单词深度优化的专用模型。</div>
+<div class="card bad"><h3>条件独立假设</h3>CTC 假设帧间输出独立——协同发音的精细建模受限。</div>
+<div class="card bad"><h3>评估面有限</h3>有限词集与声学条件——远场/强噪/多人未系统测。</div>
+<div class="card bad"><h3>算力未析</h3>无边缘设备延迟/功耗分析——RNN 统一模型可能比轻量专用 KWS 重。</div>
+</div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440">
+<rect x="0.0" y="0.0" width="880.0" height="440.0" rx="14" fill="#ffffff"/>
+<text x="36.0" y="40.0" font-size="15.5" fill="#1c2430" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">边界与谱系：统一的天花板 · 多任务 KWS 的谱系源头</text>
+<line x1="36.0" y1="56.0" x2="580.00" y2="56.00" stroke="#0e8a66" stroke-width="3"/>
+<text x="36.0" y="84.0" font-size="11.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">四条边界</text>
+<rect x="36.0" y="98.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="122.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">精度上限</text>
+<text x="175.0" y="122.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">统一模型兼顾通用性——KWS 精度可能不及针对单词深度优化的专用模型</text>
+<rect x="36.0" y="144.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="168.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">条件独立假设</text>
+<text x="175.0" y="168.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">CTC 假设帧间输出独立——协同发音的精细建模受限</text>
+<rect x="36.0" y="190.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="214.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">评估面有限</text>
+<text x="175.0" y="214.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">有限词集与声学条件——远场/强噪/多人未系统测</text>
+<rect x="36.0" y="236.0" width="848.0" height="38.0" rx="8" fill="#fdf6f4" stroke="#f0d9d4" stroke-width="1"/>
+<text x="50.0" y="260.0" font-size="9.5" fill="#c0392b" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">算力未析</text>
+<text x="175.0" y="260.0" font-size="8.4" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">无边缘设备延迟/功耗分析——RNN 统一模型可能比轻量专用 KWS 重</text>
+<text x="36.0" y="300.0" font-size="11.5" fill="#0a6b4e" text-anchor="start" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">谱系坐标</text>
+<rect x="54.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#e8edf5" stroke="#ffffff" stroke-width="2"/>
+<text x="150.0" y="339.0" font-size="9.3" fill="#33507a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KWS/VAD 分立</text>
+<text x="150.0" y="355.0" font-size="8" fill="#33507a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">各自为政</text>
+<rect x="270.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#cfe9de" stroke="#ffffff" stroke-width="2"/>
+<text x="366.0" y="339.0" font-size="9.3" fill="#0a6b4e" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">统一 CTC 多任务</text>
+<text x="366.0" y="355.0" font-size="8" fill="#0a6b4e" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">本文 Mindori 2016</text>
+<rect x="486.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#fde9d8" stroke="#ffffff" stroke-width="2"/>
+<text x="582.0" y="339.0" font-size="9.3" fill="#8a5a1a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">KAIST 软-VAD+GQA</text>
+<text x="582.0" y="355.0" font-size="8" fill="#8a5a1a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2019 №15</text>
+<rect x="702.0" y="320.0" width="192.0" height="46.0" rx="9" fill="#f4f6f9" stroke="#ffffff" stroke-width="2"/>
+<text x="798.0" y="339.0" font-size="9.3" fill="#47536a" text-anchor="middle" font-weight="700" font-family="Noto Sans SC, PingFang SC, sans-serif">Apple KWS+SV 多任务</text>
+<text x="798.0" y="355.0" font-size="8" fill="#47536a" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">2020 №15</text>
+<line x1="258.0" y1="343.0" x2="342.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="300.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="474.0" y1="343.0" x2="558.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="516.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<line x1="690.0" y1="343.0" x2="774.00" y2="343.00" stroke="#8a93a5" stroke-width="1.4"/>
+<text x="732.0" y="336.0" font-size="9" fill="#8a93a5" text-anchor="middle" font-family="Noto Sans SC, PingFang SC, sans-serif">▸</text>
+<text x="36.0" y="396.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">多任务 KWS 的谱系源头：VAD 共享（本文）→ 软 VAD 联合训练（KAIST）→ 说话人验证联合（Apple）→ SSL 多任务（2021）——</text>
+<text x="36.0" y="414.0" font-size="9.5" fill="#47536a" text-anchor="start" font-family="Noto Sans SC, PingFang SC, sans-serif">「唤醒词检测从来不是孤立任务」这个产品认知，从本文开始进入学术叙事</text>
+</svg>
+<div class="cap">图 4 · 边界四条 + 谱系坐标：多任务 KWS 的谱系源头——VAD 共享（本文）→ KAIST 软 VAD 联合（2019 №15）→ Apple KWS+SV（2020 №15）→ SSL 多任务（2021）；「唤醒词检测从来不是孤立任务」的产品认知由此进入学术叙事。</div>
+</section>
+
+<section>
+<h2><span class="no">5</span>判断：能带走的三句话</h2>
+<div class="judge">
+<div class="jt">JUDGEMENT</div>
+<p>输出空间的正确设计能让额外任务免费搭车：字符级输出本为 KWS 而设——「有没有非空字符」却天然就是 VAD 的答案；多任务的第一步不是加损失，而是检查现有输出里是否已经编码了别的任务。</p>
+<p>任务难度阶梯是多任务的天然结构：「有声」比「是词」容易——共享表示让简单任务当复杂任务的辅助监督；后来 VAD 辅助 KWS、说话人辅助唤醒的论文都在用这个阶梯。</p>
+<p>统一的成本是对齐多个评估口径：KWS 要低误唤醒、VAD 要低误判——统一训练的权重要同时伺候两套指标；「统一模型」的价值 = 共享收益 − 折衷损失，两条线都要量出来。</p>
+</div>
+<span class="pill">系列：多任务统一 · KWS+VAD 的源头宣言</span>
+<div class="foot-note">数据与结论来自论文原文（2016 · 公开数据集）；结论为定性表述。系列内关联：KAIST 软-VAD+GQA（2019 №15）· Apple KWS+SV 多任务（2020 №15）· SSL 多任务框架（2021 №23）· DNN+CTC（others №12）· 在线字符级 RNN-CTC（others №11）。</div>
+</section>
+</div>
+</body>
+</html>
